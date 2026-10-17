@@ -2193,8 +2193,12 @@ function closePops() { document.querySelectorAll('.pop, .menu').forEach((x) => (
 // opts: { keepPops } leaves an open card (Settings) open; { width, alignLeft } for a select's list.
 // Items may be { on: true } (ticked: the current choice). ↑/↓ move, Esc closes and goes back to `anchor`.
 function menu(anchor, items, opts = {}) {
+  // Its button again while it is open: just close it (a toggle).
+  const open = [...document.querySelectorAll('.menu')].find((x) => x.anchor === anchor);
   if (opts.keepPops) document.querySelectorAll('.menu').forEach((x) => x.remove()); else closePops();
+  if (open) return;
   const m = h('div', 'menu');
+  m.anchor = anchor;
   m.setAttribute('role', 'menu');
   for (const it of items) {
     if (!it) { m.append(h('hr')); continue; }
@@ -2227,7 +2231,11 @@ function menu(anchor, items, opts = {}) {
   m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, opts.alignLeft ? r.left : r.right - w)) + 'px';
   const below = r.bottom + 6, h0 = m.offsetHeight;
   m.style.top = (below + h0 > window.innerHeight - 8 ? Math.max(8, r.top - h0 - 6) : below) + 'px';
-  const close = (e) => { if (!m.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', close, true); } };
+  // A press outside closes it; on its own button the click that follows does (above), or it would reopen at once.
+  const close = (e) => {
+    if (!m.isConnected) return document.removeEventListener('mousedown', close, true);
+    if (!m.contains(e.target) && !anchor.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', close, true); }
+  };
   setTimeout(() => document.addEventListener('mousedown', close, true), 0);
   (m.querySelector('.mi.on') || m.querySelector('button')).focus({ preventScroll: true });
 }
@@ -2470,8 +2478,11 @@ function applyTheme(v) {
 lightMq.addEventListener('change', () => applyTheme(themePref));
 
 // ---- Settings (the gear at the left of the header): language, card size, accent colour, and opening Tabazing when Chrome starts.
-async function openSettings(anchor) {
+// The gear again while the card is open closes it; `redraw` keeps it open (a new language).
+async function openSettings(anchor, redraw = false) {
+  const open = document.querySelector('.pop.settings');
   closePops();
+  if (open && !redraw) return;
   const prefs = await getPrefs().catch(() => ({ lang: 'auto', startup: false, cardSize: 'default', accent: ACCENTS[0], allWindows: false, theme: 'dark' }));
   const pop = h('div', 'pop settings');
   pop.setAttribute('role', 'dialog');
@@ -2486,7 +2497,7 @@ async function openSettings(anchor) {
     setLang(lang.value);
     localizePage();
     render();
-    openSettings(anchor); // redraw this card in the new language
+    openSettings(anchor, true); // redraw this card in the new language
   });
   const start = h('input');
   start.type = 'checkbox';
@@ -2570,7 +2581,11 @@ async function openSettings(anchor) {
   fancySelect(lang, { inPop: true });
   fancySelect(size, { inPop: true });
   fancySelect(theme, { inPop: true });
-  const close = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !e.target.closest('.menu')) { pop.remove(); document.removeEventListener('mousedown', close, true); } };
+  // A press outside closes it; on the gear the click that follows does (above), or it would reopen at once.
+  const close = (e) => {
+    if (!pop.isConnected) return document.removeEventListener('mousedown', close, true);
+    if (!pop.contains(e.target) && !anchor.contains(e.target) && !e.target.closest('.menu')) { pop.remove(); document.removeEventListener('mousedown', close, true); }
+  };
   setTimeout(() => document.addEventListener('mousedown', close, true), 0);
 }
 
