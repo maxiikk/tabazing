@@ -298,15 +298,16 @@ function closedFor(q) {
 // anywhere (3), as letters in order within a word that starts the same ("gh" in "GitHub", 2), or with a
 // typo (1): one letter wrong, missing, extra or swapped, two in words of 8+ letters; not in words with
 // digits ("v2", "42"), which are meant as typed. The words' scores add up: 0 = no match. While
-// searching, the best matches come first.
-const fieldIndex = new Map(); // text -> { text, words, initials } (titles and addresses repeat on every keystroke)
+// searching, the best matches come first. Scores are remembered (per field, and typo checks per pair of
+// words), so each keystroke only works out what the newest letters change.
+const fieldIndex = new Map(); // text -> { text, words, initials, scores } (titles and addresses repeat on every keystroke)
 function fieldOf(text) {
   let x = fieldIndex.get(text);
   if (!x) {
     const lower = text.toLowerCase();
     const words = lower.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
-    x = { text: lower, words, initials: words.map((w) => w[0]).join('') };
-    if (fieldIndex.size > 4000) fieldIndex.clear();
+    x = { text: lower, words, initials: words.map((w) => w[0]).join(''), scores: new Map() };
+    if (fieldIndex.size > 50000) fieldIndex.clear(); // big enough for all of history and the bookmarks
     fieldIndex.set(text, x);
   }
   return x;
@@ -330,17 +331,37 @@ function typoDistance(a, b, max) {
   }
   return prev[b.length];
 }
+// Is `word` (a word of a title or address) within a typo of the typed word `w`: the whole word, or its start
+// (a word still being typed)? The same words turn up in thousands of titles, so each pair is worked out once.
+const typoMemo = new Map(); // typed word -> Map(word -> boolean)
+function typoNear(w, word) {
+  let m = typoMemo.get(w);
+  if (!m) { if (typoMemo.size > 40) typoMemo.clear(); typoMemo.set(w, (m = new Map())); }
+  let ok = m.get(word);
+  if (ok === undefined) {
+    const max = w.length >= 8 ? 2 : 1;
+    ok = [word, word.slice(0, w.length), word.slice(0, w.length + 1)].some((y) => y.length >= w.length - max && typoDistance(w, y, max) <= max);
+    m.set(word, ok);
+  }
+  return ok;
+}
 const inOrder = (w, word) => { let i = 0; for (const ch of word) if (ch === w[i] && ++i === w.length) return true; return false; };
+// One typed word against one field, remembered on the field: on the next keystroke only the word being typed is new.
 function wordScore(w, f) {
+  let s = f.scores.get(w);
+  if (s === undefined) {
+    s = scoreWord(w, f);
+    if (f.scores.size > 16) f.scores.clear();
+    f.scores.set(w, s);
+  }
+  return s;
+}
+function scoreWord(w, f) {
   if (f.words.some((x) => x.startsWith(w))) return 5;
   if (w.length >= 2 && f.initials.includes(w)) return 4;
   if (f.text.includes(w)) return 3;
   if (w.length >= 2 && f.words.some((x) => x[0] === w[0] && inOrder(w, x))) return 2;
-  if (w.length >= 4 && !/\d/.test(w)) {
-    const max = w.length >= 8 ? 2 : 1;
-    // the whole word, or its start (a word still being typed)
-    if (f.words.some((x) => [x, x.slice(0, w.length), x.slice(0, w.length + 1)].some((y) => y.length >= w.length - max && typoDistance(w, y, max) <= max))) return 1;
-  }
+  if (w.length >= 4 && !/\d/.test(w) && f.words.some((x) => typoNear(w, x))) return 1;
   return 0;
 }
 function searchScore(q, ...fields) {
@@ -1388,12 +1409,13 @@ async function openFromBox(text) {
 // it comes from. With nothing found: a Google search (and "Open ..." first when the text looks like an
 // address). ↑/↓ move, Enter opens, the mouse too.
 const DD_MAX = 14;
-// Where a result comes from: its icon at the end of the title row, and which one wins a tie (lowest first).
+// Where a result comes from: its icon at the end of the title row, and which one comes first when two
+// match equally well (lowest first): open tabs, then recently closed, archived, bookmarks, history.
 const DD_SOURCES = {
   tab: { rank: 0, icon: 'tab', label: 'srcTab' },
-  archived: { rank: 1, icon: 'archive', label: 'archivedLabel' },
-  mark: { rank: 2, icon: 'bookmark', label: 'srcMark' },
-  closed: { rank: 3, icon: 'history', label: 'recentlyClosed' },
+  closed: { rank: 1, icon: 'history', label: 'recentlyClosed' },
+  archived: { rank: 2, icon: 'archive', label: 'archivedLabel' },
+  mark: { rank: 3, icon: 'bookmark', label: 'srcMark' },
   visit: { rank: 4, icon: 'visited', label: 'ddHistory' },
 };
 async function loadMarks() {
@@ -1438,14 +1460,51 @@ function searchHistory(q) {
   }, 120);
 }
 // Every history entry (the last 90 days, and Chrome's own search for the text), once per page, newest first.
+// Built again only when one of the two lists changes.
+let histMemo = { h: undefined, hq: undefined, items: [] };
 function historyItems() {
+  const hq = state.histQ.q === state.query.trim() ? state.histQ : null;
+  if (histMemo.h === state.history && histMemo.hq === hq) return histMemo.items;
   const byUrl = new Map();
-  for (const x of [...(state.history || []), ...(state.histQ.q === state.query.trim() ? state.histQ.items : [])]) {
-    const k = normalizeUrl(x.url);
+  for (const x of [...(state.history || []), ...(hq ? hq.items : [])]) {
+    const k = urlKey(x.url);
     if (k && !byUrl.has(k)) byUrl.set(k, x);
   }
-  return [...byUrl.values()].sort((a, b) => b.t - a.t);
+  histMemo = { h: state.history, hq, items: [...byUrl.values()].sort((a, b) => b.t - a.t) };
+  return histMemo.items;
 }
+// normalizeUrl, remembered (it parses the URL): the same thousands of addresses come up on every keystroke.
+const urlKeys = new Map();
+function urlKey(url) {
+  let k = urlKeys.get(url);
+  if (k === undefined) {
+    k = normalizeUrl(url) || url;
+    if (urlKeys.size > 50000) urlKeys.clear();
+    urlKeys.set(url, k);
+  }
+  return k;
+}
+// Bookmarks and history can be thousands of pages. While the text only grows (another letter or word), the
+// pages that matched before are the ones worth scoring; once typing pauses, all of them are scored again
+// (a typo match can show up only then). [{ it, s }] in the list's own order.
+const bigHits = {}; // source -> { items, q, hits }
+let fullTimer = null;
+function scoreBig(name, items, q, score) {
+  const c = bigHits[name];
+  if (c && c.items === items && c.q === q) return c.hits;
+  const narrow = !!c && c.items === items && !!c.q && q.startsWith(c.q);
+  const hits = [];
+  for (const it of narrow ? c.hits.map((x) => x.it) : items) { const sc = score(it); if (sc > 0) hits.push({ it, s: sc }); }
+  bigHits[name] = { items, q, hits };
+  if (narrow) { clearTimeout(fullTimer); fullTimer = setTimeout(fullPass, 160); }
+  return hits;
+}
+function fullPass() {
+  if (state.done) return;
+  for (const c of Object.values(bigHits)) c.q = ''; // the next scoring reads every page
+  renderDropdown();
+}
+const NONE = [];
 
 // All the sources in one list, scored the same way (searchScore: more and better word matches, more points).
 // A page found in several places is listed once, as the most useful of them (an open tab before its
@@ -1463,15 +1522,14 @@ function ddRows() {
     if (x.rank < cur.rank) best.set(key, { ...x, s: Math.max(s, cur.s) });
     else cur.s = Math.max(s, cur.s);
   };
-  const keyOf = (url) => normalizeUrl(url) || url;
-  for (const e of state.found) add(keyOf(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
-  for (const a of state.archived || []) add(keyOf(a.url), searchScore(q, a.title, a.url), { kind: 'archived', a });
-  for (const b of state.marks || []) add(keyOf(b.url), searchScore(q, b.title, b.url, b.path), { kind: 'mark', b });
+  for (const e of state.found) add(urlKey(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
   for (const c of state.foundClosed) {
     const s = Math.max(0, ...c.fields.map(([title, url]) => searchScore(q, title, url, noteOf(url))));
-    add(c.kind === 'window' ? 'w:' + c.id : keyOf(c.url), s, { kind: 'closed', c });
+    add(c.kind === 'window' ? 'w:' + c.id : urlKey(c.url), s, { kind: 'closed', c });
   }
-  for (const x of historyItems()) add(keyOf(x.url), searchScore(q, x.title, x.url), { kind: 'visit', x });
+  for (const a of state.archived || NONE) { const s = searchScore(q, a.title, a.url); if (s > 0) add(urlKey(a.url), s, { kind: 'archived', a }); }
+  for (const { it: b, s } of scoreBig('marks', state.marks || NONE, q, (b) => searchScore(q, b.title, b.url, b.path))) add(urlKey(b.url), s, { kind: 'mark', b });
+  for (const { it: x, s } of scoreBig('history', historyItems(), q, (x) => searchScore(q, x.title, x.url))) add(urlKey(x.url), s, { kind: 'visit', x });
   const rows = [...best.values()].sort((a, b) => b.s - a.s || a.rank - b.rank || a.order - b.order).slice(0, DD_MAX);
   if (!rows.length) {
     const url = asUrl(state.query.trim());
@@ -1484,11 +1542,50 @@ function ddRows() {
   if (!chrome.history) rows.push({ note: t('ddNoHistory') });
   return rows;
 }
+// What a keystroke in the search box changes: the cards don't follow the search, so only the dropdown, the
+// count and the actions bar.
+let searchFrame = 0;
+function flushSearch() {
+  cancelAnimationFrame(searchFrame);
+  searchFrame = 0;
+  if (state.done) return;
+  deriveSearch();
+  renderDropdown();
+  renderCount();
+  renderActs();
+}
 const ddShown = () => !state.dd.hidden && state.dd.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
 function ddMove(d) {
   const n = state.dd.items.length;
   state.dd.hi = (((state.dd.hi + d) % n) + n) % n;
-  renderDropdown();
+  ddHighlight();
+}
+// Move the highlight without building the list again.
+function ddHighlight(scroll = true) {
+  const dd = document.querySelector('.dd');
+  if (!dd) return;
+  dd.querySelectorAll('.ddr').forEach((x, k) => { x.classList.toggle('on', k === state.dd.hi); x.setAttribute('aria-selected', String(k === state.dd.hi)); });
+  el.search.setAttribute('aria-activedescendant', 'dd-' + state.dd.hi);
+  const on = dd.querySelector('.ddr.on');
+  if (on && scroll) on.scrollIntoView({ block: 'nearest' });
+}
+// A row's picture (its preview, else its favicon), made once per page and reused as the list is redrawn
+// on every keystroke, so screenshots aren't decoded again and again.
+const ddPics = new Map();
+function ddPic(key, url, preview, cls = 'ddpic') {
+  const k = cls + '|' + key + '|' + (preview && preview.img ? preview.t || preview.img.length : '');
+  let pic = ddPics.get(k);
+  if (!pic) {
+    if (cls === 'ddicon') { pic = h('img', 'ddicon'); pic.src = favicon(url); pic.alt = ''; }
+    else {
+      pic = h('span', 'ddpic');
+      if (preview && preview.img) { const img = h('img'); img.decoding = 'async'; img.src = preview.img; img.alt = ''; pic.append(img); }
+      else { const img = h('img', 'ddfav'); img.src = favicon(url); img.alt = ''; pic.append(img); }
+    }
+    if (ddPics.size > 400) ddPics.clear();
+    ddPics.set(k, pic);
+  }
+  return pic;
 }
 function renderDropdown() {
   let dd = document.querySelector('.dd');
@@ -1527,9 +1624,7 @@ function renderDropdown() {
     row.setAttribute('aria-selected', String(i === state.dd.hi));
     if (r.kind === 'tab') {
       const tab = r.entry.tab;
-      const pic = h('span', 'ddpic');
-      if (r.entry.preview && r.entry.preview.img) { const img = h('img'); img.decoding = 'async'; img.src = r.entry.preview.img; img.alt = ''; pic.append(img); }
-      else { const img = h('img', 'ddfav'); img.src = favicon(urlOf(tab)); img.alt = ''; pic.append(img); }
+      const pic = ddPic('t' + tab.id, urlOf(tab), r.entry.preview);
       const txt = h('span', 'ddtxt');
       const note = noteOf(urlOf(tab));
       const noteHit = fieldHit(ql, note);
@@ -1539,33 +1634,24 @@ function renderDropdown() {
       if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
       row.append(pic, txt);
     } else if (r.kind === 'mark') {
-      const icon = h('img', 'ddicon');
-      icon.src = favicon(r.b.url);
-      icon.alt = '';
+      const icon = ddPic(r.b.url, r.b.url, null, 'ddicon');
       const txt = h('span', 'ddtxt');
       txt.append(titleRow(r.b.title || siteOf(r.b.url), 'mark'), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
     } else if (r.kind === 'archived') {
-      const pic = h('span', 'ddpic');
-      const p = state.archivePreviews[normalizeUrl(r.a.url)];
-      if (p && p.img) { const img = h('img'); img.decoding = 'async'; img.src = p.img; img.alt = ''; pic.append(img); }
-      else { const img = h('img', 'ddfav'); img.src = favicon(r.a.url); img.alt = ''; pic.append(img); }
+      const pic = ddPic('a' + r.a.id, r.a.url, state.archivePreviews[urlKey(r.a.url)]);
       const txt = h('span', 'ddtxt');
       const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
       txt.append(titleRow(r.a.title || siteOf(r.a.url), 'archived'), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'closed') {
-      const pic = h('span', 'ddpic');
-      if (r.c.preview && r.c.preview.img) { const img = h('img'); img.decoding = 'async'; img.src = r.c.preview.img; img.alt = ''; pic.append(img); }
-      else { const img = h('img', 'ddfav'); img.src = favicon(r.c.url); img.alt = ''; pic.append(img); }
+      const pic = ddPic('c' + r.c.id, r.c.url, r.c.preview);
       const txt = h('span', 'ddtxt');
       const ago = r.c.ts ? timeAgo(r.c.ts / 1000) : '';
       txt.append(titleRow(r.c.title || siteOf(r.c.url), 'closed'), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'visit') {
-      const icon = h('img', 'ddicon');
-      icon.src = favicon(r.x.url);
-      icon.alt = '';
+      const icon = ddPic(r.x.url, r.x.url, null, 'ddicon');
       const txt = h('span', 'ddtxt');
       const when = r.x.t ? t('visitedAgo', timeAgo(r.x.t / 1000)) : '';
       txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
@@ -1579,7 +1665,7 @@ function renderDropdown() {
       const icon = h('span', 'ddicon ddg', 'G');
       row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', q)));
     }
-    row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; dd.querySelectorAll('.ddr').forEach((x, k) => { x.classList.toggle('on', k === i); x.setAttribute('aria-selected', String(k === i)); }); } });
+    row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; ddHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
     return row;
   }));
@@ -2659,6 +2745,7 @@ function onKeyDown(e) {
   if (own && (e.key === 'Escape' || (target.closest('.menu') && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)))) return;
   const typing = document.activeElement === el.search && el.search.value !== '';
   const k = e.key;
+  if (searchFrame && (k === 'Enter' || k === 'Tab' || k.startsWith('Arrow'))) flushSearch(); // act on what was just typed
   const altOnly = e.altKey && !e.ctrlKey && !e.metaKey;
   // Our Alt shortcuts must work even if the text system thinks it's composing.
   if (e.isComposing && !(altOnly && ['KeyQ', 'KeyW', 'KeyE', 'KeyS', 'KeyP'].includes(e.code))) return;
@@ -2826,10 +2913,7 @@ function listen() {
     if (state.query.trim() && state.marks === null) loadMarks(); // first search: read the bookmarks (once)
     if (state.query.trim() && state.history === null) loadHistory(); // ...and recent history
     searchHistory(state.query.trim()); // Chrome's history search for older pages (a moment after typing stops)
-    deriveSearch(); // the cards don't follow the search, so only the dropdown, the count and the actions bar change
-    renderDropdown();
-    renderCount();
-    renderActs();
+    if (!searchFrame) searchFrame = requestAnimationFrame(flushSearch); // once per frame, however fast the typing
   });
   // A click anywhere but the search box or its dropdown closes the dropdown (typing brings it back).
   document.addEventListener('mousedown', (e) => {
