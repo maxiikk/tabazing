@@ -140,23 +140,25 @@ html.intro body {
 @keyframes grow { from { transform: scale(.96); } to { transform: none; } }
 @keyframes rise { from { transform: translateY(6px) scale(.96); } to { transform: none; } }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-/* the selected card lands already lifted (see below), so it doesn't jump once the intro is over */
-.intro .card[aria-selected="true"] { animation-name: riseSel, fadein; }
-@keyframes riseSel { from { transform: translateY(6px) scale(.96); } to { transform: translateY(-4px) scale(1.03); } }
 @media (prefers-reduced-motion: reduce) { html.intro body, .intro .card { animation: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .card:hover { background: var(--fill); }
 .card[aria-selected="true"] { background: rgba(255,255,255,.1); }
 /* The selected card (hovering a card selects it) lifts: it rises a little, grows 3%, and gets a thin accent
    edge with an accent glow under it. The other cards step back (dimmed), so the eye goes straight to it.
-   A shadow, not an outline: the grid gaps never clip it. The lift springs a touch (the curve overshoots). */
-.card { transition: transform .16s cubic-bezier(.2, .9, .3, 1.2), box-shadow .16s ease, opacity .16s ease; }
+   A shadow, not an outline: the grid gaps never clip it. The lift springs a touch (the curve overshoots).
+   Both stay off the properties the opening animation uses (transform, opacity): the lift is `translate` and
+   `scale`, which add to a transform, and the dimming is filter: opacity(), which multiplies with opacity.
+   So the cards don't flicker as the intro ends, and a selection that moves during it doesn't restart it. */
+.card {
+  transition: translate .16s cubic-bezier(.2, .9, .3, 1.2), scale .16s cubic-bezier(.2, .9, .3, 1.2), box-shadow .16s ease, filter .16s ease;
+}
 .card[aria-selected="true"] {
-  z-index: 2; transform: translateY(-4px) scale(1.03);
+  z-index: 2; translate: 0 -4px; scale: 1.03;
   box-shadow: 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45);
 }
-.grid .card:not([aria-selected="true"]):not(.dragging) { opacity: .8; }
-@media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { transform: none; } .card { transition: none; } }
+.grid .card:not([aria-selected="true"]):not(.dragging) { filter: opacity(.8); }
+@media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { translate: none; scale: none; } .card { transition: none; } }
 
 .head { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 2px 6px; }
 .fav { width: 18px; height: 18px; flex: none; border-radius: 3px; }
