@@ -537,7 +537,7 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 #archive-btn svg { color: var(--accent); }
 .arch {
   position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column;
-  background: rgba(10, 12, 16, .74); box-shadow: inset 0 0 80px 40px rgba(0, 0, 0, .45); /* the switcher's own shade */
+  background: #000; /* opaque: the switcher doesn't show through */
   animation: fadein .12s ease both;
 }
 .archhead { position: relative; display: flex; align-items: baseline; gap: 14px; padding: 24px 100px 12px 44px; }
@@ -559,7 +559,7 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 .arch .grid.small { --w: 210px; }
 .arch .grid.list { --w: 320px; }
 .toast { z-index: 7; } /* "Archived 1 tab · Undo" stays readable over the archive */
-html.light .arch { background: rgba(242,244,248,.8); box-shadow: inset 0 0 80px 40px rgba(255,255,255,.35); }
+html.light .arch { background: #fff; }
 html.light .archbody { scrollbar-color: rgba(0,0,0,.25) transparent; }
 html.light #archive-btn svg { color: var(--accent-ink); }
 
