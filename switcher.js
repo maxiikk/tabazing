@@ -125,6 +125,9 @@ const ICON = {
   reload: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M13.2 8.2A5.2 5.2 0 1 1 11.6 4.4M13.2 2.4v3.2H10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dupe: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>',
   muted: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2z" fill="currentColor"/><path d="M10.5 6l4 4M14.5 6l-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  tab: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M1.8 13.5V5.2c0-.7.5-1.2 1.2-1.2h3.4l1.4 2h5.2c.7 0 1.2.5 1.2 1.2v6.3zM1.8 13.5h12.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
+  bookmark: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4 2.2h8v11.6L8 10.9l-4 2.9z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
+  visited: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 4.8V8l2.3 1.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   archive: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
@@ -1380,10 +1383,19 @@ async function openFromBox(text) {
   finish('switch');
 }
 
-// ---- the search dropdown: as you type, under the search box, in this order: the open tabs that match
-// (a small preview each), then matching bookmarks (their icon), then, with nothing found, a Google search
-// (and "Open ..." first when the text looks like an address). ↑/↓ move, Enter opens, the mouse too.
-const DD_TABS = 6, DD_ARCHIVED = 5, DD_MARKS = 6, DD_CLOSED = 5, DD_HISTORY = 6;
+// ---- the search dropdown: as you type, under the search box, one list of everything that matches (open
+// tabs, archived tabs, bookmarks, recently closed, history), best match first, each with an icon saying where
+// it comes from. With nothing found: a Google search (and "Open ..." first when the text looks like an
+// address). ↑/↓ move, Enter opens, the mouse too.
+const DD_MAX = 14;
+// Where a result comes from: its icon at the end of the title row, and which one wins a tie (lowest first).
+const DD_SOURCES = {
+  tab: { rank: 0, icon: 'tab', label: 'srcTab' },
+  archived: { rank: 1, icon: 'archive', label: 'archivedLabel' },
+  mark: { rank: 2, icon: 'bookmark', label: 'srcMark' },
+  closed: { rank: 3, icon: 'history', label: 'recentlyClosed' },
+  visit: { rank: 4, icon: 'visited', label: 'ddHistory' },
+};
 async function loadMarks() {
   state.marks = [];
   if (!chrome.bookmarks) return;
@@ -1425,73 +1437,51 @@ function searchHistory(q) {
     } catch {}
   }, 120);
 }
-function historyRows(q, shown) {
+// Every history entry (the last 90 days, and Chrome's own search for the text), once per page, newest first.
+function historyItems() {
   const byUrl = new Map();
   for (const x of [...(state.history || []), ...(state.histQ.q === state.query.trim() ? state.histQ.items : [])]) {
     const k = normalizeUrl(x.url);
-    if (!k || shown.has(k) || byUrl.has(k)) continue;
-    byUrl.set(k, x);
+    if (k && !byUrl.has(k)) byUrl.set(k, x);
   }
-  return [...byUrl.values()]
-    .map((x) => ({ x, s: searchScore(q, x.title, x.url) }))
-    .filter((r) => r.s > 0)
-    .sort((a, b) => b.s - a.s || b.x.t - a.x.t)
-    .slice(0, DD_HISTORY)
-    .map((r) => r.x);
+  return [...byUrl.values()].sort((a, b) => b.t - a.t);
 }
 
+// All the sources in one list, scored the same way (searchScore: more and better word matches, more points).
+// A page found in several places is listed once, as the most useful of them (an open tab before its
+// bookmark, ...), with the best score any of them got. Ties: that order, then each source's own order.
 function ddRows() {
   const q = state.query.trim().toLowerCase();
   if (!q) return [];
-  const rows = [];
-  const tabs = state.found.slice(0, DD_TABS);
-  if (tabs.length) {
-    rows.push({ head: t('ddTabs') });
-    tabs.forEach((e) => rows.push({ kind: 'tab', entry: e }));
-    if (state.found.length > DD_TABS) rows.push({ note: tn('ddMoreFound', state.found.length - DD_TABS) });
+  const best = new Map();
+  let order = 0;
+  const add = (key, s, row) => {
+    if (s <= 0) return;
+    const x = { ...row, s, rank: DD_SOURCES[row.kind].rank, order: order++ };
+    const cur = best.get(key);
+    if (!cur) return best.set(key, x);
+    if (x.rank < cur.rank) best.set(key, { ...x, s: Math.max(s, cur.s) });
+    else cur.s = Math.max(s, cur.s);
+  };
+  const keyOf = (url) => normalizeUrl(url) || url;
+  for (const e of state.found) add(keyOf(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
+  for (const a of state.archived || []) add(keyOf(a.url), searchScore(q, a.title, a.url), { kind: 'archived', a });
+  for (const b of state.marks || []) add(keyOf(b.url), searchScore(q, b.title, b.url, b.path), { kind: 'mark', b });
+  for (const c of state.foundClosed) {
+    const s = Math.max(0, ...c.fields.map(([title, url]) => searchScore(q, title, url, noteOf(url))));
+    add(c.kind === 'window' ? 'w:' + c.id : keyOf(c.url), s, { kind: 'closed', c });
   }
-  const archived = (state.archived || [])
-    .map((a) => ({ a, s: searchScore(q, a.title, a.url) }))
-    .filter((x) => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, DD_ARCHIVED);
-  if (archived.length) {
-    rows.push({ head: t('ddArchived') });
-    archived.forEach(({ a }) => rows.push({ kind: 'archived', a }));
-  }
-  const marks = (state.marks || [])
-    .map((b) => ({ b, s: searchScore(q, b.title, b.url, b.path) }))
-    .filter((x) => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, DD_MARKS);
-  if (marks.length) {
-    rows.push({ head: t('ddMarks') });
-    marks.forEach(({ b }) => rows.push({ kind: 'mark', b }));
-  }
-  // No access to bookmarks: Chrome only turns on a new permission when the extension itself is reloaded
-  // (an unpacked one picks up changed pages without that), so say so instead of skipping them silently.
-  if (!chrome.bookmarks) rows.push({ note: t('ddNoMarks') });
-  const closed = state.foundClosed.slice(0, DD_CLOSED);
-  if (closed.length) {
-    rows.push({ head: t('recentlyClosed') });
-    closed.forEach((c) => rows.push({ kind: 'closed', c }));
-  }
-  // History last: pages not already listed above (or open in a tab).
-  const shown = new Set([
-    ...state.tabs.map((x) => normalizeUrl(urlOf(x))), ...marks.map(({ b }) => normalizeUrl(b.url)), ...closed.map((c) => normalizeUrl(c.url)),
-    ...archived.map(({ a }) => normalizeUrl(a.url)),
-  ]);
-  const visited = historyRows(q, shown);
-  if (visited.length) {
-    rows.push({ head: t('ddHistory') });
-    visited.forEach((x) => rows.push({ kind: 'visit', x }));
-  }
-  if (!chrome.history) rows.push({ note: t('ddNoHistory') });
-  if (!tabs.length && !archived.length && !marks.length && !closed.length && !visited.length) {
+  for (const x of historyItems()) add(keyOf(x.url), searchScore(q, x.title, x.url), { kind: 'visit', x });
+  const rows = [...best.values()].sort((a, b) => b.s - a.s || a.rank - b.rank || a.order - b.order).slice(0, DD_MAX);
+  if (!rows.length) {
     const url = asUrl(state.query.trim());
     if (url) rows.push({ kind: 'url', url });
     rows.push({ kind: 'google' });
   }
+  // No access to bookmarks or history: Chrome only turns on a new permission when the extension itself is
+  // reloaded (an unpacked one picks up changed pages without that), so say so instead of skipping them silently.
+  if (!chrome.bookmarks) rows.push({ note: t('ddNoMarks') });
+  if (!chrome.history) rows.push({ note: t('ddNoHistory') });
   return rows;
 }
 const ddShown = () => !state.dd.hidden && state.dd.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
@@ -1515,8 +1505,20 @@ function renderDropdown() {
   }
   const q = state.query.trim();
   let n = -1;
+  const ql = q.toLowerCase();
+  // The title, then any tags, then (at the far right) the icon of where it comes from.
+  const titleRow = (title, kind, ...tags) => {
+    const line = h('span', 'ddtrow');
+    line.append(hlSpan('ddtitle', title, ql), ...tags.filter(Boolean));
+    const src = DD_SOURCES[kind];
+    const icon = h('span', 'ddsrc');
+    icon.innerHTML = ICON[src.icon];
+    icon.title = t(src.label);
+    icon.setAttribute('aria-label', t(src.label));
+    line.append(icon);
+    return line;
+  };
   dd.replaceChildren(...rows.map((r) => {
-    if (r.head) return h('div', 'ddh', r.head);
     if (r.note) return h('div', 'ddnote', r.note);
     const i = ++n;
     const row = h('div', 'ddr' + (i === state.dd.hi ? ' on' : ''));
@@ -1530,20 +1532,19 @@ function renderDropdown() {
       else { const img = h('img', 'ddfav'); img.src = favicon(urlOf(tab)); img.alt = ''; pic.append(img); }
       const txt = h('span', 'ddtxt');
       const note = noteOf(urlOf(tab));
-      const noteHit = fieldHit(q.toLowerCase(), note);
-      txt.append(hlSpan('ddtitle', tab.title || siteOf(urlOf(tab)) || t('untitled'), q.toLowerCase()), hlSpan('ddsub', siteOf(urlOf(tab)), q.toLowerCase()));
-      if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, q.toLowerCase())); // why it came up: its note
+      const noteHit = fieldHit(ql, note);
+      const w = tab.windowId !== CTX.srcWin && state.windows.find((x) => x.id === tab.windowId);
+      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle')), w && h('span', 'ddtag', w.label)),
+        hlSpan('ddsub', siteOf(urlOf(tab)), ql));
+      if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
       row.append(pic, txt);
-      if (note && !noteHit) row.append(h('span', 'ddtag', t('noteTitle')));
-      if (tab.windowId !== CTX.srcWin) { const w = state.windows.find((x) => x.id === tab.windowId); if (w) row.append(h('span', 'ddtag', w.label)); }
     } else if (r.kind === 'mark') {
       const icon = h('img', 'ddicon');
       icon.src = favicon(r.b.url);
       icon.alt = '';
       const txt = h('span', 'ddtxt');
-      txt.append(hlSpan('ddtitle', r.b.title || siteOf(r.b.url), q.toLowerCase()), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), q.toLowerCase()));
+      txt.append(titleRow(r.b.title || siteOf(r.b.url), 'mark'), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
-      if (state.tabs.some((x) => normalizeUrl(urlOf(x)) === normalizeUrl(r.b.url))) row.append(h('span', 'ddtag', t('ddOpenTab')));
     } else if (r.kind === 'archived') {
       const pic = h('span', 'ddpic');
       const p = state.archivePreviews[normalizeUrl(r.a.url)];
@@ -1551,7 +1552,7 @@ function renderDropdown() {
       else { const img = h('img', 'ddfav'); img.src = favicon(r.a.url); img.alt = ''; pic.append(img); }
       const txt = h('span', 'ddtxt');
       const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
-      txt.append(hlSpan('ddtitle', r.a.title || siteOf(r.a.url), q.toLowerCase()), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), q.toLowerCase()));
+      txt.append(titleRow(r.a.title || siteOf(r.a.url), 'archived'), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'closed') {
       const pic = h('span', 'ddpic');
@@ -1559,7 +1560,7 @@ function renderDropdown() {
       else { const img = h('img', 'ddfav'); img.src = favicon(r.c.url); img.alt = ''; pic.append(img); }
       const txt = h('span', 'ddtxt');
       const ago = r.c.ts ? timeAgo(r.c.ts / 1000) : '';
-      txt.append(hlSpan('ddtitle', r.c.title || siteOf(r.c.url), q.toLowerCase()), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), q.toLowerCase()));
+      txt.append(titleRow(r.c.title || siteOf(r.c.url), 'closed'), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'visit') {
       const icon = h('img', 'ddicon');
@@ -1567,7 +1568,7 @@ function renderDropdown() {
       icon.alt = '';
       const txt = h('span', 'ddtxt');
       const when = r.x.t ? t('visitedAgo', timeAgo(r.x.t / 1000)) : '';
-      txt.append(hlSpan('ddtitle', r.x.title || siteOf(r.x.url), q.toLowerCase()), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), q.toLowerCase()));
+      txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
     } else if (r.kind === 'url') {
       const icon = h('img', 'ddicon');

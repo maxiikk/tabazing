@@ -1468,5 +1468,11 @@
    },
    "archiveRemoved": {
       "message": "Убрано из архива"
+   },
+   "srcTab": {
+      "message": "Открытая вкладка"
+   },
+   "srcMark": {
+      "message": "Закладка"
    }
 }

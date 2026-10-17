@@ -1270,5 +1270,11 @@
    },
    "archiveRemoved": {
       "message": "Quitada del archivo"
+   },
+   "srcTab": {
+      "message": "Pestaña abierta"
+   },
+   "srcMark": {
+      "message": "Marcador"
    }
 }

@@ -581,8 +581,6 @@ html.light #archive-btn svg { color: var(--accent-ink); }
   border-radius: 12px; background: #1d2027; border: 1px solid rgba(255,255,255,.2); box-shadow: 0 18px 44px rgba(0,0,0,.6);
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; animation: fadein .1s ease both;
 }
-.ddh { margin: 8px 8px 4px; font-size: 11px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-3); }
-.ddh:first-child { margin-top: 2px; }
 .ddnote { margin: 2px 10px 6px; font-size: 11.5px; color: var(--fg-3); }
 .ddr { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; cursor: pointer; min-width: 0; }
 .ddr.on { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
@@ -597,6 +595,12 @@ html.light #archive-btn svg { color: var(--accent-ink); }
 .ddtxt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ddtxt.ddone { flex-direction: row; font-size: 13.5px; }
 .ddtitle { font-size: 13.5px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the title row: the title at the start, tags after it, where the result comes from at the far right */
+.ddtrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.ddtrow .ddtitle { flex: 1 1 auto; min-width: 0; }
+.ddsrc { flex: none; display: inline-flex; margin-left: auto; color: var(--fg-3); }
+.ddr.on .ddsrc { color: var(--accent); }
+html.light .ddr.on .ddsrc { color: var(--accent-ink); }
 .ddsub { font-size: 11.5px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ddtag { flex: none; font-size: 10.5px; line-height: 16px; padding: 0 6px; border-radius: 8px; background: var(--fill-2); color: var(--fg-2); }
 

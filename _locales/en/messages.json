@@ -1270,5 +1270,11 @@
    },
    "archiveRemoved": {
       "message": "Removed from the archive"
+   },
+   "srcTab": {
+      "message": "Open tab"
+   },
+   "srcMark": {
+      "message": "Bookmark"
    }
 }
