@@ -23,6 +23,7 @@ import { reviewPrompt, dayOf } from './lib/review.js';
 import { t, tn, timeAgo, localizePage, loadLang, setLang, uiLang } from './lib/i18n.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
 import { applyAccent, ACCENTS } from './lib/accent.js';
+import { archiveFolder, getArchived, addArchived, removeArchived } from './lib/archive.js';
 
 let CTX = null; // set once the launch token has been verified (see boot)
 
@@ -97,6 +98,9 @@ const state = {
   toSleep: new Set(),   // tab ids to unload when the switcher closes
   dupesView: false,     // showing only the duplicate copies, before closing them
   matches: [],          // derived: the open tabs the filters let through
+  archived: null,       // the "Tabs Archive" bookmarks folder: [{ id, url, title, t }] newest first (lib/archive.js)
+  archivePreviews: {},  // normalized URL -> preview, for archived pages
+  archSel: 0,           // the selected card in the archive overlay
 };
 
 // ---------------------------------------------------------------- icons
@@ -121,6 +125,7 @@ const ICON = {
   reload: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M13.2 8.2A5.2 5.2 0 1 1 11.6 4.4M13.2 2.4v3.2H10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   dupe: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>',
   muted: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2z" fill="currentColor"/><path d="M10.5 6l4 4M14.5 6l-4 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  archive: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
 // ---------------------------------------------------------------- helpers
@@ -204,6 +209,7 @@ async function load() {
     .filter((w) => w.count > 0);
 }
 async function loadExtras() {
+  await loadArchived(); // first: archived pages are left out of "Recently closed"
   await loadClosed();
   await loadStarPreviews();
   state.snoozePreviews = await getPreviews(state.snoozed.map((x) => x.url)).catch(() => ({}));
@@ -230,10 +236,11 @@ async function loadClosed() {
 
   const items = [];
   const covered = new Set(); // pages inside a closed window that Chrome still lists as one "Window" card
+  const archived = new Set((state.archived || []).map((x) => normalizeUrl(x.url))); // closed by archiving: listed in the archive
   for (const s of sessions) {
     if (s.tab) {
       const url = urlOf(s.tab);
-      if (!isWorthReopening(url)) continue;
+      if (!isWorthReopening(url) || archived.has(normalizeUrl(url))) continue;
       items.push({ id: 's' + s.tab.sessionId, kind: 'tab', url, title: s.tab.title || '', ts: stamp(s), count: 1, session: s, fields: [[s.tab.title, url]] });
     } else if (s.window && s.window.tabs && s.window.tabs.length) {
       const tabs = s.window.tabs;
@@ -246,6 +253,7 @@ async function loadClosed() {
   }
   const open = new Set(state.tabs.map((t) => normalizeUrl(urlOf(t))));
   state.snoozed.forEach((x) => open.add(normalizeUrl(x.url))); // snoozed: listed under "Snoozed", not here
+  archived.forEach((k) => open.add(k)); // archived: in the archive, not here
   for (const e of log) {
     const key = normalizeUrl(e.url);
     // Already open again, or part of a closed window shown as one card: skip.
@@ -873,7 +881,7 @@ function select(i, { scroll = true } = {}) {
   const n = state.entries.length;
   if (!n) { state.sel = 0; return; }
   state.sel = ((i % n) + n) % n;
-  const cards = document.querySelectorAll('.card');
+  const cards = document.querySelectorAll('#scroller .card'); // (not the archive overlay's)
   cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.sel)));
   const cur = cards[state.sel];
   if (!cur) return;
@@ -916,22 +924,26 @@ function selectKey(key) {
 }
 
 function moveSpatial(dx, dy) {
-  const cards = [...document.querySelectorAll('.card')];
-  const cur = cards[state.sel];
-  if (!cur) return;
+  const cards = [...document.querySelectorAll('#scroller .card')];
+  if (!cards[state.sel]) return;
   if (dx) return select(state.sel + dx);
-  const c = cur.getBoundingClientRect();
+  const best = cardToward(cards, state.sel, dy);
+  if (best >= 0) select(best);
+}
+// The card above (dy < 0) or below (dy > 0) cards[from]: the nearest row that way, the closest across. -1 if none.
+function cardToward(cards, from, dy) {
+  const c = cards[from].getBoundingClientRect();
   const cx = c.left + c.width / 2;
   let best = -1, bestScore = Infinity;
   cards.forEach((card, k) => {
-    if (k === state.sel) return;
+    if (k === from) return;
     const r = card.getBoundingClientRect();
     const gap = dy > 0 ? r.top - c.bottom : c.top - r.bottom;
     if (gap < -4) return; // not in that direction
     const score = gap * 4 + Math.abs(r.left + r.width / 2 - cx);
     if (score < bestScore) { bestScore = score; best = k; }
   });
-  if (best >= 0) select(best);
+  return best;
 }
 
 function toggleSection(key) {
@@ -1169,6 +1181,7 @@ const ACTIONS = [
   { id: 'win', more: true, label: () => t('actNewWindow'), run: moveToWindow },
   { id: 'sleep', more: true, label: () => t('actSleep'), run: sleepTabs },
   { id: 'snooze', more: true, label: () => t('actSnooze'), run: (tabs, btn) => snoozeMenu(tabs, btn) },
+  { id: 'archive', more: true, label: () => t('actArchive'), run: archiveTabs },
   { id: 'pin', more: true, label: (tabs) => t(tabs.length && tabs.every((x) => x.pinned) ? 'actUnpin' : 'actPin'), run: pinTabs },
   { id: 'mute', more: true, label: (tabs) => t(tabs.length && tabs.every((x) => x.mutedInfo && x.mutedInfo.muted) ? 'actUnmute' : 'actMute'), run: muteTabs },
 ];
@@ -1281,13 +1294,17 @@ function pushUndo(group) {
 async function undoClose() {
   const group = state.undo.pop();
   if (!group || state.done) return toast(t('undoNothing'));
+  await reopenAt(group);
+  toast(tn('reopenedN', group.length));
+  await loadClosed();
+  await reload();
+}
+// Reopen tabs (undoRecord) in the background, where they were.
+async function reopenAt(group) {
   for (const x of [...group].sort((a, b) => a.index - b.index)) {
     try { await chrome.tabs.create({ url: x.url, windowId: x.windowId, index: x.index, pinned: x.pinned, active: false }); }
     catch { await chrome.tabs.create({ url: x.url, windowId: CTX.srcWin, active: false }).catch(() => {}); } // its window is gone
   }
-  toast(tn('reopenedN', group.length));
-  await loadClosed();
-  await reload();
 }
 
 // Run `fn` now, or once the opening animation is over (a redraw during it would restart it on every card).
@@ -1366,13 +1383,15 @@ async function openFromBox(text) {
 // ---- the search dropdown: as you type, under the search box, in this order: the open tabs that match
 // (a small preview each), then matching bookmarks (their icon), then, with nothing found, a Google search
 // (and "Open ..." first when the text looks like an address). ↑/↓ move, Enter opens, the mouse too.
-const DD_TABS = 6, DD_MARKS = 6, DD_CLOSED = 5, DD_HISTORY = 6;
+const DD_TABS = 6, DD_ARCHIVED = 5, DD_MARKS = 6, DD_CLOSED = 5, DD_HISTORY = 6;
 async function loadMarks() {
   state.marks = [];
   if (!chrome.bookmarks) return;
   try {
     const out = [];
+    const arch = await archiveFolder().catch(() => null); // archived tabs have their own section
     const walk = (n, path) => {
+      if (arch && n.id === arch.id) return;
       if (n.url) { if (/^(https?|file|ftp):/i.test(n.url)) out.push({ title: n.title || '', url: n.url, path: path.join(' › ') }); return; }
       for (const c of n.children || []) walk(c, n.title ? [...path, n.title] : path);
     };
@@ -1431,6 +1450,15 @@ function ddRows() {
     tabs.forEach((e) => rows.push({ kind: 'tab', entry: e }));
     if (state.found.length > DD_TABS) rows.push({ note: tn('ddMoreFound', state.found.length - DD_TABS) });
   }
+  const archived = (state.archived || [])
+    .map((a) => ({ a, s: searchScore(q, a.title, a.url) }))
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, DD_ARCHIVED);
+  if (archived.length) {
+    rows.push({ head: t('ddArchived') });
+    archived.forEach(({ a }) => rows.push({ kind: 'archived', a }));
+  }
   const marks = (state.marks || [])
     .map((b) => ({ b, s: searchScore(q, b.title, b.url, b.path) }))
     .filter((x) => x.s > 0)
@@ -1451,6 +1479,7 @@ function ddRows() {
   // History last: pages not already listed above (or open in a tab).
   const shown = new Set([
     ...state.tabs.map((x) => normalizeUrl(urlOf(x))), ...marks.map(({ b }) => normalizeUrl(b.url)), ...closed.map((c) => normalizeUrl(c.url)),
+    ...archived.map(({ a }) => normalizeUrl(a.url)),
   ]);
   const visited = historyRows(q, shown);
   if (visited.length) {
@@ -1458,7 +1487,7 @@ function ddRows() {
     visited.forEach((x) => rows.push({ kind: 'visit', x }));
   }
   if (!chrome.history) rows.push({ note: t('ddNoHistory') });
-  if (!tabs.length && !marks.length && !closed.length && !visited.length) {
+  if (!tabs.length && !archived.length && !marks.length && !closed.length && !visited.length) {
     const url = asUrl(state.query.trim());
     if (url) rows.push({ kind: 'url', url });
     rows.push({ kind: 'google' });
@@ -1515,6 +1544,15 @@ function renderDropdown() {
       txt.append(hlSpan('ddtitle', r.b.title || siteOf(r.b.url), q.toLowerCase()), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), q.toLowerCase()));
       row.append(icon, txt);
       if (state.tabs.some((x) => normalizeUrl(urlOf(x)) === normalizeUrl(r.b.url))) row.append(h('span', 'ddtag', t('ddOpenTab')));
+    } else if (r.kind === 'archived') {
+      const pic = h('span', 'ddpic');
+      const p = state.archivePreviews[normalizeUrl(r.a.url)];
+      if (p && p.img) { const img = h('img'); img.decoding = 'async'; img.src = p.img; img.alt = ''; pic.append(img); }
+      else { const img = h('img', 'ddfav'); img.src = favicon(r.a.url); img.alt = ''; pic.append(img); }
+      const txt = h('span', 'ddtxt');
+      const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
+      txt.append(hlSpan('ddtitle', r.a.title || siteOf(r.a.url), q.toLowerCase()), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), q.toLowerCase()));
+      row.append(pic, txt);
     } else if (r.kind === 'closed') {
       const pic = h('span', 'ddpic');
       if (r.c.preview && r.c.preview.img) { const img = h('img'); img.decoding = 'async'; img.src = r.c.preview.img; img.alt = ''; pic.append(img); }
@@ -1558,6 +1596,7 @@ function renderDropdown() {
 async function ddActivate(r) {
   if (!r || state.done) return;
   if (r.kind === 'closed') return restoreClosed(r.c);
+  if (r.kind === 'archived') return openArchived(r.a);
   if (r.kind === 'tab') {
     const i = state.entries.findIndex((e) => e.key === r.entry.key); // its card, when the cards show it
     if (i >= 0) return choose(i);
@@ -1811,6 +1850,144 @@ async function duplicateTab(tab) {
   toast(t('duplicatedOne', tab.title || siteOf(urlOf(tab))));
 }
 
+// ---- the archive: tabs moved into the "Tabs Archive" bookmarks folder (in "Other bookmarks", lib/archive.js).
+// Archiving bookmarks a tab there and closes it; opening it from the archive (its overlay, or the search's
+// "Archived" section) takes it out of the folder and opens it in a new tab.
+async function loadArchived() {
+  state.archived = await getArchived().catch(() => []);
+  state.archivePreviews = await getPreviews(state.archived.map((x) => x.url)).catch(() => ({}));
+}
+async function archiveTabs(tabs) {
+  const can = tabs.filter((x) => isWorthReopening(urlOf(x)));
+  if (!can.length) return toast(t('archiveCant'));
+  if (!chrome.bookmarks) return toast(t('ddNoMarks'));
+  const undo = undoRecord(can);
+  const added = await addArchived(can.map((x) => ({ url: urlOf(x), title: x.title || '' })));
+  await loadArchived(); // before the tabs close, so "Recently closed" leaves them out
+  const ids = can.map((x) => x.id);
+  const own = CTX.mode === 'overlay' && ids.includes(CTX.srcTab); // closing the tab we sit on closes us: do it last
+  await chrome.tabs.remove(ids.filter((id) => !own || id !== CTX.srcTab)).catch(() => {});
+  state.picked.clear();
+  if (own) return chrome.tabs.remove(CTX.srcTab);
+  ids.forEach((id) => forgetTab(id));
+  toast(tn('archivedN', added.length), null, { label: t('undo'), fn: () => unarchive(added, undo) });
+}
+// Undo an archive: out of the folder, and the tabs back where they were.
+async function unarchive(added, group) {
+  await removeArchived(added.map((x) => x.id));
+  await reopenAt(group);
+  toast(tn('reopenedN', group.length));
+  await reload();
+}
+// Open an archived page: out of the archive, into a new tab in the window Tabazing was opened from.
+async function openArchived(item) {
+  if (state.done) return;
+  try {
+    await removeArchived([item.id]);
+    if (CTX.mode === 'window') await chrome.windows.update(CTX.srcWin, { focused: true }).catch(() => {});
+    await chrome.tabs.create({ url: item.url, windowId: CTX.srcWin, active: true });
+    finish('switch');
+  } catch (e) {
+    console.warn('[Tabazing] could not open an archived tab:', e && e.message);
+    finish('cancel');
+  }
+}
+
+// The archive overlay (the Archive button, top right): every archived tab, over the switcher. The red ×
+// or Esc closes it; clicking a card opens that tab. Arrows move, Enter opens.
+const archiveOpen = () => !!document.querySelector('.arch');
+async function openArchive() {
+  closePops();
+  closeBig();
+  hideTip();
+  state.dd.hidden = true;
+  renderDropdown();
+  await loadArchived();
+  if (state.done) return;
+  state.archSel = 0;
+  let back = document.querySelector('.arch');
+  if (!back) {
+    back = h('div', 'arch');
+    back.setAttribute('role', 'dialog');
+    back.setAttribute('aria-modal', 'true');
+    back.setAttribute('aria-labelledby', 'arch-h');
+    back.addEventListener('click', (e) => e.stopPropagation()); // its empty space doesn't close the switcher
+    el.app.append(back);
+  }
+  const head = h('div', 'archhead');
+  const title = h('h2', 'archtitle', t('archiveTitle'));
+  title.id = 'arch-h';
+  title.append(h('span', 'n', String(state.archived.length)));
+  const x = h('button', 'archx');
+  x.type = 'button';
+  x.innerHTML = ICON.close;
+  x.title = t('archiveClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('archiveClose'));
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeArchive(); });
+  head.append(title, h('span', 'archsub', t('archiveWhere')), x);
+  const body = h('div', 'archbody');
+  if (!chrome.bookmarks) body.append(h('p', 'empty', t('ddNoMarks')));
+  else if (!state.archived.length) body.append(h('p', 'empty', t('archiveEmpty')));
+  else {
+    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize));
+    grid.setAttribute('role', 'listbox');
+    grid.setAttribute('aria-labelledby', 'arch-h');
+    grid.append(...state.archived.map((item, i) => archiveCard(item, i)));
+    body.append(grid);
+  }
+  back.replaceChildren(head, body);
+  archSelect(0);
+  x.focus({ preventScroll: true });
+}
+function archiveCard(item, i) {
+  const entry = { kind: 'archived', item, url: item.url, preview: state.archivePreviews[normalizeUrl(item.url)] || null };
+  const title = item.title || hostOf(item.url) || t('untitled');
+  const card = h('div', 'card');
+  card.id = 'arch-' + item.id;
+  card.setAttribute('role', 'option');
+  card.title = t('archiveOpenTip', title) + '\n' + item.url;
+  const head = h('div', 'head');
+  const fav = h('img', 'fav');
+  fav.src = favicon(item.url);
+  fav.alt = '';
+  head.append(fav, h('span', 'title', title));
+  const ago = timeAgo(item.t / 1000);
+  if (ago) head.append(h('span', 'tag', ago));
+  card.append(head);
+  if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
+  card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
+  card.addEventListener('mousemove', () => { if (state.archSel !== i) archSelect(i, false); });
+  return card;
+}
+function archSelect(i, scroll = true) {
+  const cards = [...document.querySelectorAll('.arch .card')];
+  if (!cards.length) return;
+  state.archSel = Math.max(0, Math.min(cards.length - 1, i));
+  cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.archSel)));
+  cards[state.archSel].closest('[role=listbox]').setAttribute('aria-activedescendant', cards[state.archSel].id);
+  if (scroll) cards[state.archSel].scrollIntoView({ block: 'nearest' });
+}
+function closeArchive() {
+  document.querySelectorAll('.arch').forEach((n) => n.remove());
+  el.search.focus({ preventScroll: true });
+}
+// While the archive is open it has the keyboard.
+function archiveKey(e) {
+  const k = e.key;
+  if (MODIFIERS.has(k)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (k === 'Escape') return closeArchive();
+  const cards = [...document.querySelectorAll('.arch .card')];
+  if (!cards.length) return;
+  if (k === 'Enter') {
+    if (!keysAllowed()) return finish('cancel');
+    return openArchived(state.archived[state.archSel]);
+  }
+  if (k === 'ArrowRight' || k === 'ArrowLeft') return archSelect(state.archSel + (k === 'ArrowRight' ? 1 : -1));
+  if (k === 'ArrowDown' || k === 'ArrowUp') { const j = cardToward(cards, state.archSel, k === 'ArrowDown' ? 1 : -1); if (j >= 0) archSelect(j); }
+}
+
 function quickActions(entry) {
   const box = h('div', 'quick');
   const mk = (icon, title, fn) => {
@@ -1827,10 +2004,11 @@ function quickActions(entry) {
   const mute = mk(isMuted(entry.tab) ? 'muted' : 'speaker', t(isMuted(entry.tab) ? 'unmuteThis' : 'muteThis'), () => toggleMute(entry.tab));
   const pin = mk('pin', t(entry.tab.pinned ? 'unpinThis' : 'pinThis'), () => togglePin(entry.tab));
   const snooze = mk('clock', t('snoozeThis'), async () => snoozeMenu([entry.tab], snooze));
+  const archive = mk('archive', t('archiveThis'), () => archiveTabs([entry.tab]));
   if (entry.tab.pinned) pin.classList.add('on'); // on: like a note button with a note
   if (isMuted(entry.tab)) mute.classList.add('on');
   if (!entry.tab.active && !entry.tab.discarded) box.append(mk('moon', t(state.toSleep.has(entry.tab.id) ? 'sleepUndo' : 'sleepThis'), () => sleepTabs([entry.tab])));
-  box.append(mute, pin, snooze, noteButton(entry)); // the note last: always in the same place, sleep or not
+  box.append(mute, pin, snooze, archive, noteButton(entry)); // the note last: always in the same place, sleep or not
   return box;
 }
 
@@ -2430,6 +2608,7 @@ function onKeyDown(e) {
     return;
   }
   if (state.modal) return dialogKey(e);
+  if (archiveOpen()) return archiveKey(e);
   // Typing in any field other than the search box (Settings, the Sort list), or pressing a button
   // in a card or a menu: the key belongs to that field or button, not to the switcher.
   const target = e.target instanceof Element ? e.target : null;
@@ -2529,7 +2708,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -2643,6 +2822,7 @@ function listen() {
   el.sort.addEventListener('change', () => { setSort(el.sort.value); el.search.focus(); });
   const on = (node, fn) => node.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(e); });
   on($('settings-btn'), (e) => openSettings(e.currentTarget));
+  on($('archive-btn'), () => openArchive().catch((err) => toast(t('actFailed'), err)));
   on(el.dupesBtn, closeDupes);
   on(el.mergeBtn, () => mergeWindows(state.otherWindows, 'act:merge'));
   on(el.selAll, selectAll);
@@ -2681,7 +2861,7 @@ function listen() {
       return;
     }
     // In the overlay, a wheel over anything that can't scroll would scroll the web page underneath.
-    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd')) e.preventDefault();
+    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody')) e.preventDefault();
   }, { passive: false });
 
   // Only the background service worker may move the selection (content

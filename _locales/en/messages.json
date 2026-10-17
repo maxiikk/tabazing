@@ -1222,5 +1222,47 @@
    },
    "windowsAria": {
       "message": "Windows"
+   },
+   "archiveBtn": {
+      "message": "Archive"
+   },
+   "archiveBtnTitle": {
+      "message": "Show archived tabs"
+   },
+   "archiveThis": {
+      "message": "Archive this tab (moves it to the “Tabs Archive” bookmarks folder)"
+   },
+   "actArchive": {
+      "message": "Archive"
+   },
+   "archiveTitle": {
+      "message": "Archived tabs"
+   },
+   "archiveWhere": {
+      "message": "Bookmarks › Other bookmarks › Tabs Archive"
+   },
+   "archiveClose": {
+      "message": "Close the archive"
+   },
+   "archiveEmpty": {
+      "message": "No archived tabs yet. Archive a tab with the box button on its card."
+   },
+   "archiveOpenTip": {
+      "message": "Open and take out of the archive: $1"
+   },
+   "archivedLabel": {
+      "message": "Archived"
+   },
+   "archivedN_one": {
+      "message": "Archived $1 tab"
+   },
+   "archivedN_other": {
+      "message": "Archived $1 tabs"
+   },
+   "archiveCant": {
+      "message": "This page can’t be archived."
+   },
+   "ddArchived": {
+      "message": "Archived"
    }
 }

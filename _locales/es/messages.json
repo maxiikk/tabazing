@@ -1222,5 +1222,47 @@
    },
    "windowsAria": {
       "message": "Ventanas"
+   },
+   "archiveBtn": {
+      "message": "Archivo"
+   },
+   "archiveBtnTitle": {
+      "message": "Ver las pestañas archivadas"
+   },
+   "archiveThis": {
+      "message": "Archivar esta pestaña (la mueve a la carpeta de marcadores “Tabs Archive”)"
+   },
+   "actArchive": {
+      "message": "Archivar"
+   },
+   "archiveTitle": {
+      "message": "Pestañas archivadas"
+   },
+   "archiveWhere": {
+      "message": "Marcadores › Otros marcadores › Tabs Archive"
+   },
+   "archiveClose": {
+      "message": "Cerrar el archivo"
+   },
+   "archiveEmpty": {
+      "message": "Aún no hay pestañas archivadas. Archiva una con el botón de la caja en su tarjeta."
+   },
+   "archiveOpenTip": {
+      "message": "Abrir y sacar del archivo: $1"
+   },
+   "archivedLabel": {
+      "message": "Archivada"
+   },
+   "archivedN_one": {
+      "message": "$1 pestaña archivada"
+   },
+   "archivedN_other": {
+      "message": "$1 pestañas archivadas"
+   },
+   "archiveCant": {
+      "message": "Esta página no se puede archivar."
+   },
+   "ddArchived": {
+      "message": "Archivadas"
    }
 }

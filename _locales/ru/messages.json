@@ -1414,5 +1414,53 @@
    },
    "windowsAria": {
       "message": "Окна"
+   },
+   "archiveBtn": {
+      "message": "Архив"
+   },
+   "archiveBtnTitle": {
+      "message": "Показать архивированные вкладки"
+   },
+   "archiveThis": {
+      "message": "В архив (переносит вкладку в папку закладок «Tabs Archive»)"
+   },
+   "actArchive": {
+      "message": "В архив"
+   },
+   "archiveTitle": {
+      "message": "Архив вкладок"
+   },
+   "archiveWhere": {
+      "message": "Закладки › Другие закладки › Tabs Archive"
+   },
+   "archiveClose": {
+      "message": "Закрыть архив"
+   },
+   "archiveEmpty": {
+      "message": "В архиве пока пусто. Отправьте вкладку в архив кнопкой с коробкой на её карточке."
+   },
+   "archiveOpenTip": {
+      "message": "Открыть и убрать из архива: $1"
+   },
+   "archivedLabel": {
+      "message": "В архиве"
+   },
+   "archivedN_one": {
+      "message": "$1 вкладка в архиве"
+   },
+   "archivedN_few": {
+      "message": "$1 вкладки в архиве"
+   },
+   "archivedN_many": {
+      "message": "$1 вкладок в архиве"
+   },
+   "archivedN_other": {
+      "message": "$1 вкладки в архиве"
+   },
+   "archiveCant": {
+      "message": "Эту страницу нельзя отправить в архив."
+   },
+   "ddArchived": {
+      "message": "В архиве"
    }
 }

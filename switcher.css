@@ -533,6 +533,36 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 #snoozed-section { margin-top: 18px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.08); }
 .tag.snz { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--fg); }
 
+/* ---------- the archive (the Archive button, top right): a second layer over the switcher ---------- */
+#archive-btn svg { color: var(--accent); }
+.arch {
+  position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column;
+  background: rgba(10, 12, 16, .74); box-shadow: inset 0 0 80px 40px rgba(0, 0, 0, .45); /* the switcher's own shade */
+  animation: fadein .12s ease both;
+}
+.archhead { position: relative; display: flex; align-items: baseline; gap: 14px; padding: 24px 100px 12px 44px; }
+.archtitle { margin: 0; font-size: 20px; font-weight: 650; display: inline-flex; align-items: baseline; gap: 10px; }
+.archtitle .n { font-size: 13px; font-weight: 400; color: var(--fg-3); }
+.archsub { font-size: 12px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archx {
+  position: absolute; top: 18px; right: 44px; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px;
+  background: var(--danger); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+}
+.archx svg { width: 15px; height: 15px; }
+.archx:hover, .archx:focus-visible { background: color-mix(in srgb, var(--danger) 80%, white); outline: none; }
+.archbody {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 44px 32px;
+  scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent;
+}
+.arch .grid { --w: 280px; }
+.arch .grid.small { --w: 210px; }
+.arch .grid.list { --w: 320px; }
+.toast { z-index: 7; } /* "Archived 1 tab · Undo" stays readable over the archive */
+html.light .arch { background: rgba(242,244,248,.8); box-shadow: inset 0 0 80px 40px rgba(255,255,255,.35); }
+html.light .archbody { scrollbar-color: rgba(0,0,0,.25) transparent; }
+html.light #archive-btn svg { color: var(--accent-ink); }
+
 /* ---------- the search dropdown (tabs, bookmarks, Google) ---------- */
 .dd {
   position: fixed; z-index: 5; overflow-y: auto; overscroll-behavior: contain; padding: 6px;
