@@ -1264,5 +1264,11 @@
    },
    "ddArchived": {
       "message": "Archived"
+   },
+   "archiveRemove": {
+      "message": "Remove from the archive"
+   },
+   "archiveRemoved": {
+      "message": "Removed from the archive"
    }
 }

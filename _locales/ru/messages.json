@@ -1462,5 +1462,11 @@
    },
    "ddArchived": {
       "message": "В архиве"
+   },
+   "archiveRemove": {
+      "message": "Убрать из архива"
+   },
+   "archiveRemoved": {
+      "message": "Убрано из архива"
    }
 }

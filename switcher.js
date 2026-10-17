@@ -1894,9 +1894,10 @@ async function openArchived(item) {
 }
 
 // The archive overlay (the Archive button, top right): every archived tab, over the switcher. The red ×
-// or Esc closes it; clicking a card opens that tab. Arrows move, Enter opens.
+// or Esc closes it; clicking a card opens that tab, its × (or Del) takes it out of the archive without
+// opening it. Arrows move, Enter opens. `sel` is the card to select (redrawn after a removal).
 const archiveOpen = () => !!document.querySelector('.arch');
-async function openArchive() {
+async function openArchive(sel = 0) {
   closePops();
   closeBig();
   hideTip();
@@ -1904,7 +1905,6 @@ async function openArchive() {
   renderDropdown();
   await loadArchived();
   if (state.done) return;
-  state.archSel = 0;
   let back = document.querySelector('.arch');
   if (!back) {
     back = h('div', 'arch');
@@ -1936,7 +1936,7 @@ async function openArchive() {
     body.append(grid);
   }
   back.replaceChildren(head, body);
-  archSelect(0);
+  archSelect(sel);
   x.focus({ preventScroll: true });
 }
 function archiveCard(item, i) {
@@ -1953,11 +1953,24 @@ function archiveCard(item, i) {
   head.append(fav, h('span', 'title', title));
   const ago = timeAgo(item.t / 1000);
   if (ago) head.append(h('span', 'tag', ago));
+  const x = h('button', 'x');
+  x.type = 'button';
+  x.title = t('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
+  x.setAttribute('aria-label', t('archiveRemove'));
+  x.innerHTML = ICON.close;
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dropArchived(item, i).catch((err) => toast(t('actFailed'), err)); });
+  head.append(x);
   card.append(head);
   if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
   card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
   card.addEventListener('mousemove', () => { if (state.archSel !== i) archSelect(i, false); });
   return card;
+}
+// Take a page out of the archive without opening it (the × on its card, or Del). Undo puts it back.
+async function dropArchived(item, i) {
+  await removeArchived([item.id]);
+  await openArchive(i);
+  toast(t('archiveRemoved'), null, { label: t('undo'), fn: async () => { await addArchived([item]); if (archiveOpen()) await openArchive(i); } });
 }
 function archSelect(i, scroll = true) {
   const cards = [...document.querySelectorAll('.arch .card')];
@@ -1980,6 +1993,11 @@ function archiveKey(e) {
   if (k === 'Escape') return closeArchive();
   const cards = [...document.querySelectorAll('.arch .card')];
   if (!cards.length) return;
+  if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
+    if (e.repeat) return;
+    if (!keysAllowed()) return finish('cancel');
+    return dropArchived(state.archived[state.archSel], state.archSel).catch((err) => toast(t('actFailed'), err));
+  }
   if (k === 'Enter') {
     if (!keysAllowed()) return finish('cancel');
     return openArchived(state.archived[state.archSel]);
