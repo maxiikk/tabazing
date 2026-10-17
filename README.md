@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **3.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **3.0.1** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -350,7 +350,21 @@ npm run test:watch                       # re-run on change
 
 ### Translations
 
-All the text lives in `dictionaries/` — one JSON file per language (`en.json`, `es.json`, `ru.json`), a flat list of `"key": "text"` pairs. To change a string, edit it there, in every language. Counted phrases have one key per plural form (`tabs_one`, `tabs_other`; Russian also `_few` and `_many`).
+All the text lives in `dictionaries/` — one JSON file per language (`en.json`, `es.json`, `ru.json`), a flat list of `"key": "message"` pairs. To change a string, edit it there, in every language.
+
+Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `getTranslation(key, data)` from `lib/translations.js`:
+
+```json
+"activeTab": "Active tab: {title}",
+"tabs": "{count, plural, one {# tab} other {# tabs}}"
+```
+
+```js
+getTranslation('activeTab', { title: 'Inbox' }); // "Active tab: Inbox"
+getTranslation('tabs', { count: 5 });            // "5 tabs" — in Russian "5 вкладок" (one / few / many / other)
+```
+
+A counted phrase is one plural message that picks its form from the count (`#` is the count), using each language's own plural rules. Tabazing implements the ICU syntax it needs itself (placeholders, `plural`, `selectordinal`, `select`, `number`), so there is no library to bundle.
 
 `_locales/` is generated from the dictionaries and only holds what Chrome itself shows (the extension's name, description, shortcut names and toolbar title). After changing one of those, run:
 

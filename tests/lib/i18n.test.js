@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { LANGS, loadLang, setLang, uiLang, t, tn, timeAgo, localizePage } from '../../lib/i18n.js';
+import { LANGS, loadLang, setLang, uiLang, timeAgo, localizePage } from '../../lib/i18n.js';
+import { getTranslation } from '../../lib/translations.js';
 import EN from '../../dictionaries/en.json';
 import RU from '../../dictionaries/ru.json';
 import ES from '../../dictionaries/es.json';
@@ -24,7 +25,7 @@ describe('language choice', () => {
   it('setLang switches right away; "auto" and unknown values follow Chrome', () => {
     expect(setLang('ru')).toBe('ru');
     expect(uiLang()).toBe('ru');
-    expect(t('newTab')).toBe(RU.newTab);
+    expect(getTranslation('newTab')).toBe(RU.newTab);
     chrome._data.lang = 'es-419';
     expect(setLang('auto')).toBe('es');
     expect(setLang('de')).toBe('es');
@@ -55,62 +56,61 @@ describe('language choice', () => {
   });
 });
 
-describe('t', () => {
+describe('getTranslation, in the language setLang chose', () => {
   it('looks up the current language', () => {
-    expect(t('newTab')).toBe('New tab');
+    expect(getTranslation('newTab')).toBe('New tab');
     setLang('es');
-    expect(t('newTab')).toBe(ES.newTab);
+    expect(getTranslation('newTab')).toBe(ES.newTab);
   });
-  it('fills $1, $2 and leaves placeholders without a value', () => {
-    expect(t('countSearch', 3, 'x')).toBe('3 open · x closed');
-    expect(t('countSearch', 3)).toBe('3 open · $2 closed');
-    expect(t('newTab', 'ignored')).toBe('New tab');
+  it('fills named placeholders, and leaves one without a value', () => {
+    expect(getTranslation('countSearch', { open: 3, closed: 'x' })).toBe('3 open · x closed');
+    expect(getTranslation('countSearch', { open: 3 })).toBe('3 open · {closed} closed');
+    expect(getTranslation('newTab', { ignored: 1 })).toBe('New tab');
   });
-  it('stringifies substitutions, and does not expand $ patterns inside them', () => {
-    expect(t('countSearch', null, '$1')).toBe('null open · $1 closed');
+  it('stringifies values, and does not expand placeholders inside them', () => {
+    expect(getTranslation('countSearch', { open: null, closed: '{open}' })).toBe('null open · {open} closed');
   });
   it('shows the key itself when it is missing', () => {
-    expect(t('no_such_key')).toBe('no_such_key');
+    expect(getTranslation('no_such_key')).toBe('no_such_key');
     setLang('ru');
-    expect(t('no_such_key')).toBe('no_such_key');
+    expect(getTranslation('no_such_key')).toBe('no_such_key');
   });
   it('falls back to English when the language lacks a key', async () => {
     vi.resetModules();
     vi.doMock('../../dictionaries/ru.json', () => ({ default: { newTab: 'Новая' } }));
     const i18n = await import('../../lib/i18n.js');
+    const { getTranslation: get } = await import('../../lib/translations.js');
     i18n.setLang('ru');
-    expect(i18n.t('newTab')).toBe('Новая');
-    expect(i18n.t('justNow')).toBe(EN.justNow);
+    expect(get('newTab')).toBe('Новая');
+    expect(get('justNow')).toBe(EN.justNow);
   });
 });
 
-describe('tn', () => {
-  it('picks the English plural form and passes the number as $1', () => {
-    expect(tn('tabs', 1)).toBe('1 tab');
-    expect(tn('tabs', 0)).toBe('0 tabs');
-    expect(tn('tabs', 5)).toBe('5 tabs');
+describe('plural messages', () => {
+  it('pick the English form, # is the count', () => {
+    expect(getTranslation('tabs', { count: 1 })).toBe('1 tab');
+    expect(getTranslation('tabs', { count: 0 })).toBe('0 tabs');
+    expect(getTranslation('tabs', { count: 5 })).toBe('5 tabs');
   });
-  it('picks all four Russian forms', () => {
+  it('pick every Russian form', () => {
     setLang('ru');
-    expect(tn('tabs', 1)).toBe(RU.tabs_one.replace('$1', '1'));
-    expect(tn('tabs', 21)).toBe(RU.tabs_one.replace('$1', '21'));
-    expect(tn('tabs', 3)).toBe(RU.tabs_few.replace('$1', '3'));
-    expect(tn('tabs', 5)).toBe(RU.tabs_many.replace('$1', '5'));
-    expect(tn('tabs', 11)).toBe(RU.tabs_many.replace('$1', '11'));
-    expect(tn('tabs', 1.5)).toBe(RU.tabs_other.replace('$1', '1.5'));
+    expect([1, 21, 3, 5, 11, 1.5].map((count) => getTranslation('tabs', { count }))).toEqual([
+      '1 вкладка', '21 вкладка', '3 вкладки', '5 вкладок', '11 вкладок', '1,5 вкладки',
+    ]);
   });
-  it('passes extra substitutions as $2...', () => {
-    expect(tn('bookmarkedN', 2, 'Work')).toBe('Bookmarked 2 tabs in “Work”');
-    expect(tn('bookmarkedN', 1, 'Work')).toBe('Bookmarked 1 tab in “Work”');
+  it('take other values next to the count', () => {
+    expect(getTranslation('bookmarkedN', { count: 2, folder: 'Work' })).toBe('Bookmarked 2 tabs in “Work”');
+    expect(getTranslation('bookmarkedN', { count: 1, folder: 'Work' })).toBe('Bookmarked 1 tab in “Work”');
   });
-  it('uses _other when the exact form is missing, and the key when nothing is there', async () => {
+  it('a language lacking the message gets English; nothing at all gives the key', async () => {
     vi.resetModules();
-    vi.doMock('../../dictionaries/ru.json', () => ({ default: { onlyOther_other: '$1 x' } }));
+    vi.doMock('../../dictionaries/ru.json', () => ({ default: { onlyOther: '{count, plural, other {# x}}' } }));
     const i18n = await import('../../lib/i18n.js');
+    const { getTranslation: get } = await import('../../lib/translations.js');
     i18n.setLang('ru');
-    expect(i18n.tn('onlyOther', 1)).toBe('1 x');
-    expect(i18n.tn('tabs', 5)).toBe('5 tabs'); // not translated at all: English
-    expect(i18n.tn('nothing', 3)).toBe('nothing');
+    expect(get('onlyOther', { count: 1 })).toBe('1 x');
+    expect(get('tabs', { count: 5 })).toBe('5 tabs');
+    expect(get('nothing', { count: 3 })).toBe('nothing');
   });
 });
 

@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
-import { t } from '../../lib/i18n.js';
+import { getTranslation } from '../../lib/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },
@@ -186,8 +186,8 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     expect(e.defaultPrevented).toBe(true);
     expect(tid('menu')).not.toBe(null);
     expect(menuLabels()).toEqual([
-      t('menuSelect'), t('star'), t('copyLink'), t('capturePreview'), t('reloadThis'), t('duplicateThis'), t('sleepThis'),
-      t('muteThis'), t('pinThis'), t('snoozeThis'), t('archiveThis'), t('noteAdd'), t('closeTab'),
+      getTranslation('menuSelect'), getTranslation('star'), getTranslation('copyLink'), getTranslation('capturePreview'), getTranslation('reloadThis'), getTranslation('duplicateThis'), getTranslation('sleepThis'),
+      getTranslation('muteThis'), getTranslation('pinThis'), getTranslation('snoozeThis'), getTranslation('archiveThis'), getTranslation('noteAdd'), getTranslation('closeTab'),
     ]);
     expect(focused()).toBe(tids('menu-item')[0]);
   });
@@ -196,15 +196,15 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     const sw = await boot({ tabs: ABC, ctx: { dir: 0 } });
     sw.select(1);
     key('ContextMenu');
-    menuItem(t('menuSelect')).click();
+    menuItem(getTranslation('menuSelect')).click();
     expect(sw.state.picked.has(tabByTitle(sw, 'B').id)).toBe(true);
     expect(cardOf('B').getAttribute('aria-checked')).toBe('true');
     expect(cardOf('A').getAttribute('aria-checked')).toBe('false');
     expect(tid('menu')).toBe(null);
     expect(focused()).toBe(tid('search'));
     key('F10', { shiftKey: true });
-    expect(menuItem(t('menuUnselect'))).not.toBe(undefined);
-    menuItem(t('menuUnselect')).click();
+    expect(menuItem(getTranslation('menuUnselect'))).not.toBe(undefined);
+    menuItem(getTranslation('menuUnselect')).click();
     expect(sw.state.picked.size).toBe(0);
     expect(cardOf('B').getAttribute('aria-checked')).toBe('false');
   });
@@ -213,16 +213,16 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     const sw = await boot({ tabs: ABC, ctx: { dir: 0 } });
     sw.select(1);
     key('F10', { shiftKey: true });
-    menuItem(t('star')).click();
+    menuItem(getTranslation('star')).click();
     await waitFor(() => sw.isStarred('https://b.example/'));
     sw.selectKey('t' + tabByTitle(sw, 'B').id);
     key('F10', { shiftKey: true });
-    expect(menuItem(t('unstar'))).not.toBe(undefined);
-    menuItem(t('pinThis')).click();
+    expect(menuItem(getTranslation('unstar'))).not.toBe(undefined);
+    menuItem(getTranslation('pinThis')).click();
     await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === tabByTitle(sw, 'B').id && p.pinned === true));
     sw.selectKey('t' + tabByTitle(sw, 'B').id);
     key('F10', { shiftKey: true });
-    menuItem(t('closeTab')).click();
+    menuItem(getTranslation('closeTab')).click();
     await waitFor(() => chrome.tabs.remove.mock.calls.length > 0);
   });
 
@@ -242,12 +242,12 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     const sw = await boot({ tabs: ABC, ctx: { dir: 0 } });
     sw.select(1);
     key('F10', { shiftKey: true });
-    menuItem(t('snoozeThis')).click();
+    menuItem(getTranslation('snoozeThis')).click();
     expect(tids('menu-item').length).toBe(sw.snoozeChoices().length);
     key('Escape');
     expect(focused()).toBe(tid('search'));
     key('F10', { shiftKey: true });
-    menuItem(t('noteAdd')).click();
+    menuItem(getTranslation('noteAdd')).click();
     expect(tid('note-popover')).not.toBe(null);
     tid('note-close').click();
     expect(focused()).toBe(tid('search'));
@@ -259,7 +259,7 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     sw.refresh();
     sw.select(sw.state.entries.findIndex((e) => e.kind === 'closed'));
     key('F10', { shiftKey: true });
-    expect(menuLabels()).toEqual([t('star')]);
+    expect(menuLabels()).toEqual([getTranslation('star')]);
   });
 });
 
@@ -289,7 +289,7 @@ describe('the search box is a combobox', () => {
     type(sw, 'b');
     const icon = tid('dd-source-tab');
     expect(icon.getAttribute('role')).toBe('img');
-    expect(icon.getAttribute('aria-label')).toBe(t('srcTab'));
+    expect(icon.getAttribute('aria-label')).toBe(getTranslation('srcTab'));
     type(sw, 'zzzqqq');
     expect(tid('dd-google-icon').getAttribute('aria-hidden')).toBe('true');
   });

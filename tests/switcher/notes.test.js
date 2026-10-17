@@ -3,7 +3,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, entryByTitle, toastText, closedMsg } from './quiet-boot.js';
-import { t } from '../../lib/i18n.js';
+import { getTranslation } from '../../lib/translations.js';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
 const notes = async () => (await chrome.storage.local.get('notes')).notes || {};
@@ -19,10 +19,10 @@ describe('note button', () => {
     expect(b.classList.contains('on')).toBe(true);
     expect(b.dataset.note).toBe('call Bob');
     expect(b.title).toBe('');
-    expect(b.getAttribute('aria-label')).toBe(t('noteEdit') + ': call Bob');
+    expect(b.getAttribute('aria-label')).toBe(getTranslation('noteEdit') + ': call Bob');
     sw.paintNote(b, '');
     expect(b.classList.contains('on')).toBe(false);
-    expect(b.getAttribute('aria-label')).toBe(t('noteAdd'));
+    expect(b.getAttribute('aria-label')).toBe(getTranslation('noteAdd'));
   });
 
   it('noteButton shows the stored note of its page', async () => {
@@ -38,7 +38,7 @@ describe('note button', () => {
     b.dispatchEvent(new Event('mouseenter'));
     expect(tid('note-tooltip')).toBe(null); // not at once
     await waitFor(() => tid('note-tooltip'));
-    expect(tid('note-tooltip-title').textContent).toBe(t('noteTitle'));
+    expect(tid('note-tooltip-title').textContent).toBe(getTranslation('noteTitle'));
     expect(tid('note-tooltip-text').textContent).toBe('remember');
     b.dispatchEvent(new Event('mouseleave'));
     expect(tid('note-tooltip')).not.toBe(null); // a moment to reach the tooltip itself...
@@ -61,7 +61,7 @@ describe('note card', () => {
     const b = tid('quick-note', cardOf('B'));
     b.click();
     const pop = tid('note-popover');
-    expect(tid('note-label', pop).textContent).toBe(t('noteTitle'));
+    expect(tid('note-label', pop).textContent).toBe(getTranslation('noteTitle'));
     expect(tid('note-clear', pop).hidden).toBe(true);
     await waitFor(() => document.activeElement === tid('note-input', pop));
     type(tid('note-input', pop), 'buy milk');
@@ -146,7 +146,7 @@ describe('big preview', () => {
   it('without a preview says so; a click around it or Esc closes it', async () => {
     const sw = await boot({ tabs: AB });
     sw.openBig({ ...entryByTitle(sw, 'B'), preview: null });
-    expect(tid('big-preview-none').textContent).toBe(t('noPreview'));
+    expect(tid('big-preview-none').textContent).toBe(getTranslation('noPreview'));
     tid('big-preview-none').click(); // inside the box: stays
     expect(tid('big-preview')).not.toBe(null);
     tid('big-preview').click();
@@ -213,7 +213,7 @@ describe('menu', () => {
     expect([x.getAttribute('aria-checked'), y.getAttribute('aria-checked')]).toEqual(['false', 'true']);
     expect(document.activeElement).toBe(y); // the current one has the focus
     y.click();
-    await waitFor(() => toastText() === t('actFailed'));
+    await waitFor(() => toastText() === getTranslation('actFailed'));
   });
 
   it('its button again closes it; arrows move; Esc closes back to the button', async () => {
@@ -247,14 +247,14 @@ describe('fancySelect', () => {
   it('stands in for the Sort select: shows the choice, and picking one changes the sort', async () => {
     const sw = await boot({ tabs: AB });
     const b = tid('select-sort');
-    expect(tid('select-label', b).textContent).toBe(t('sortByRecent'));
+    expect(tid('select-label', b).textContent).toBe(getTranslation('sortByRecent'));
     expect(sw.fancySelect(tid('sort'))).toBe(tid('sort')._fancy); // made once
     b.click();
     expect(tids('menu-item').map((x) => x.getAttribute('aria-checked'))).toEqual(['false', 'true', 'false']);
     tids('menu-item')[0].click(); // By order
     await waitFor(() => sw.state.sort === 'order');
     expect(tid('sort').value).toBe('order');
-    expect(tid('select-label', b).textContent).toBe(t('sortByOrder'));
+    expect(tid('select-label', b).textContent).toBe(getTranslation('sortByOrder'));
     await vi.waitFor(async () => expect((await chrome.storage.local.get('view')).view?.sort).toBe('order'));
   });
 });

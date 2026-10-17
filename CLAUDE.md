@@ -33,7 +33,9 @@ When a change set spans several levels, use the highest one that applies.
 
 ## Translations
 
-- Every user-visible string lives in `dictionaries/<lang>.json` (`en`, `es`, `ru`), a flat `{ "key": "text" }` object — the one place translations are kept. Add or change a string in every dictionary at once; `lib/i18n.js` reads them (`t('key')`, `tn('key', n)` for counted phrases: `key_one` / `key_other`, Russian also `key_few` / `key_many`).
+- Every user-visible string lives in `dictionaries/<lang>.json` (`en`, `es`, `ru`), a flat `{ "key": "message" }` object — the one place translations are kept. Add or change a string in every dictionary at once.
+- Messages are ICU MessageFormat, read with `getTranslation(key, data)` from `lib/translations.js` (never build text by concatenating strings): named placeholders `"Active tab: {title}"` → `getTranslation('activeTab', { title })`; counts as one plural message, not one key per form: `"{count, plural, one {# tab} other {# tabs}}"` → `getTranslation('tabs', { count: 5 })`. Russian plurals use `one` / `few` / `many` / `other` (leave out a form that would say the same as `other`). Also `{n, number}`, `{x, select, a {…} other {…}}`, `=0 {…}` exact matches; `'{'` for a literal brace. Every language must use the same placeholder names; the tests check that and that each call passes exactly the values its message uses.
+- `lib/i18n.js` only chooses the language (`loadLang`, `setLang`, `uiLang`) and fills static pages (`localizePage`, from `data-i18n*` attributes).
 - `_locales/` is generated, never edited by hand: Chrome reads it only for what `manifest.json` names with `__MSG_key__`. After changing one of those keys, run `npm run i18n` (`scripts/i18n.js`). `tests/lib/dictionaries.test.js` fails while they disagree, or while a key the code uses is missing.
 - A new language: add `dictionaries/<lang>.json` with every key, add the language to `LANGS` in `lib/i18n.js` and to the Settings list in `switcher.js`, then run `npm run i18n`.
 

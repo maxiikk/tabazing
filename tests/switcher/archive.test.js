@@ -3,7 +3,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
-import { t, tn } from '../../lib/i18n.js';
+import { getTranslation } from '../../lib/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },
@@ -61,7 +61,7 @@ describe('archiveTabs', () => {
     expect([live(b.id), live(c.id)]).toEqual([undefined, undefined]);
     expect(sw.state.tabs.map((x) => x.title)).toEqual(['A']);
     expect(sw.state.archived.map((x) => x.url).sort()).toEqual(['https://b.example/', 'https://c.example/']);
-    expect(toastText()).toBe(tn('archivedN', 2));
+    expect(toastText()).toBe(getTranslation('archivedN', { count: 2 }));
   });
 
   it('makes the folder only once', async () => {
@@ -77,7 +77,7 @@ describe('archiveTabs', () => {
     await sw.archiveTabs([tabByTitle(sw, 'B'), tabByTitle(sw, 'C')]);
     chrome.tabs.create.mockClear();
     toastButton().click();
-    await waitFor(() => toastText() === tn('reopenedN', 2));
+    await waitFor(() => toastText() === getTranslation('reopenedN', { count: 2 }));
     expect(archivedUrls()).toEqual([]);
     expect(chrome.tabs.create.mock.calls.map((c) => c[0])).toEqual([
       { url: 'https://b.example/', windowId: 1, index: 1, pinned: false, active: false },
@@ -97,7 +97,7 @@ describe('archiveTabs', () => {
   it("won't archive pages that can't be reopened", async () => {
     const sw = await boot({ tabs: [...ABC, { title: 'New', url: 'chrome://newtab/' }] });
     await sw.archiveTabs([tabByTitle(sw, 'New')]);
-    expect(toastText()).toBe(t('archiveCant'));
+    expect(toastText()).toBe(getTranslation('archiveCant'));
     expect(chrome.bookmarks.create).not.toHaveBeenCalled();
     expect(chrome.tabs.remove).not.toHaveBeenCalled();
   });
@@ -109,7 +109,7 @@ describe('archiveTabs', () => {
     try {
       await sw.archiveTabs([tabByTitle(sw, 'B')]);
     } finally { chrome.bookmarks = bookmarks; }
-    expect(toastText()).toBe(t('ddNoMarks'));
+    expect(toastText()).toBe(getTranslation('ddNoMarks'));
     expect(chrome.tabs.remove).not.toHaveBeenCalled();
   });
 
@@ -158,13 +158,13 @@ describe('the archive overlay', () => {
   it('lists every archived tab, newest first, with its preview or a placeholder', async () => {
     const { sw } = await bootArchived();
     const o = await openOverlay(sw);
-    expect(tid('archive-title', o).firstChild.textContent).toBe(t('archiveTitle'));
+    expect(tid('archive-title', o).firstChild.textContent).toBe(getTranslation('archiveTitle'));
     expect(tid('archive-count', o).textContent).toBe('3');
-    expect(tid('archive-location', o).textContent).toBe(t('archiveWhere'));
+    expect(tid('archive-location', o).textContent).toBe(getTranslation('archiveWhere'));
     const cards = tids('card-archived', o);
     expect(cards.map((c) => tid('card-title', c).textContent)).toEqual(['New one', 'Mid one', 'Old one']);
     expect(tid('card-preview', cards[2]).src).toBe(PV);
-    expect(tid('card-no-preview-label', cards[0]).textContent).toBe(t('archivedLabel'));
+    expect(tid('card-no-preview-label', cards[0]).textContent).toBe(getTranslation('archivedLabel'));
     expect(tid('card-archived-ago', cards[0]).textContent).not.toBe('');
     expect(cards.map((c) => c.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
     expect(document.activeElement).toBe(tid('archive-close', o));
@@ -193,7 +193,7 @@ describe('the archive overlay', () => {
   it('says when the archive is empty', async () => {
     const sw = await boot({ tabs: ABC });
     const o = await openOverlay(sw);
-    expect(tid('archive-empty', o).textContent).toBe(t('archiveEmpty'));
+    expect(tid('archive-empty', o).textContent).toBe(getTranslation('archiveEmpty'));
     expect(tid('archive-grid', o)).toBe(null);
   });
 
@@ -204,7 +204,7 @@ describe('the archive overlay', () => {
     try {
       await sw.openArchive();
     } finally { chrome.bookmarks = bookmarks; }
-    expect(tid('archive-no-bookmarks').textContent).toBe(t('ddNoMarks'));
+    expect(tid('archive-no-bookmarks').textContent).toBe(getTranslation('ddNoMarks'));
   });
 
   it('a click on its empty space does not close the switcher', async () => {
@@ -232,7 +232,7 @@ describe('the archive overlay', () => {
     expect(chrome.tabs.create).not.toHaveBeenCalled();
     expect(sw.state.done).toBe(false);
     expect(sw.state.archSel).toBe(1); // the card that took its place
-    expect(toastText()).toBe(t('archiveRemoved'));
+    expect(toastText()).toBe(getTranslation('archiveRemoved'));
     toastButton().click();
     await waitFor(() => tids('card-archived').length === 3);
     expect(archivedUrls()).toContain('https://mid.example/');

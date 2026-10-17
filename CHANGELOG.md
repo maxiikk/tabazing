@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-10-17
+
+### Changed
+
+- Translations use ICU MessageFormat: named placeholders (`{title}`) and one plural message per counted phrase, which picks the right form from the count with each language's own plural rules, instead of a separate string per form. Counts in messages are written the way your language writes numbers (1,500 in English, 1 500 in Russian).
+
 ## [3.0.0] - 2026-10-17
 
 ### Changed
@@ -119,7 +125,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...HEAD
+[3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...HEAD
+[3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...ef9a3f9
 [2.0.0]: https://github.com/maxiikk/tabazing/compare/5516898...84ab029
 [1.15.2]: https://github.com/maxiikk/tabazing/compare/590bb83...5516898
 [1.15.1]: https://github.com/maxiikk/tabazing/compare/f68d9b4...590bb83
