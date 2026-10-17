@@ -3063,9 +3063,11 @@ function getLaunch() {
   }
   derive();
   const mru = state.mruOrder;
-  // Alt+Q / Alt+W start one card before / after the current tab; anything else on the tab used before it.
+  // Alt+Q / Alt+W start one card before / after the current tab, Alt+E (dir 0) on the current tab itself;
+  // anything else (the toolbar icon, opening with Chrome) on the tab used before it.
   const first = resume && typeof resume.key === 'string' ? resume.key
     : CTX.hold ? stepKey('t' + CTX.srcTab, CTX.dir)
+    : CTX.dir === 0 ? 't' + CTX.srcTab
     : mru.length > 1 ? mru[1].key : null;
   const at = first ? state.entries.findIndex((e) => e.key === first) : -1;
   if (first && at < 0) { const e = mru.find((x) => x.key === first); if (e && e.sec) { state.peek.add(e.sec); derive(); } }
