@@ -76,7 +76,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "1.14.2",
+  "version": "1.14.3",
   "web_accessible_resources": [
     {
       "matches": [

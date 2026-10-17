@@ -92,7 +92,7 @@ kbd + kbd { margin-left: 2px; }
 }
 main {
   flex: 1 1 auto; min-width: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
-  padding: 8px 40px 24px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent;
+  padding: 14px 40px 24px; scrollbar-width: thin; /* room at the top for a lifted card's glow */ scrollbar-color: rgba(255,255,255,.25) transparent;
   scrollbar-gutter: stable; /* the cards are sized to the width: a scrollbar appearing must not push one to the next row */
 }
 .with-wins main { padding-left: 16px; }
@@ -140,14 +140,23 @@ html.intro body {
 @keyframes grow { from { transform: scale(.96); } to { transform: none; } }
 @keyframes rise { from { transform: translateY(6px) scale(.96); } to { transform: none; } }
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+/* the selected card lands already lifted (see below), so it doesn't jump once the intro is over */
+.intro .card[aria-selected="true"] { animation-name: riseSel, fadein; }
+@keyframes riseSel { from { transform: translateY(6px) scale(.96); } to { transform: translateY(-4px) scale(1.03); } }
 @media (prefers-reduced-motion: reduce) { html.intro body, .intro .card { animation: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .card:hover { background: var(--fill); }
 .card[aria-selected="true"] { background: rgba(255,255,255,.1); }
-/* Accent ring around the selected card (hovering a card selects it): it appears at 4px and grows out to 10px. Only the offset animates, so it never fades in.
-   The grid gaps leave room for it. */
-.card { outline: 4px solid transparent; outline-offset: 4px; transition: outline-offset .15s ease; }
-.card[aria-selected="true"] { outline-color: var(--accent); outline-offset: 10px; }
+/* The selected card (hovering a card selects it) lifts: it rises a little, grows 3%, and gets a thin accent
+   edge with an accent glow under it. The other cards step back (dimmed), so the eye goes straight to it.
+   A shadow, not an outline: the grid gaps never clip it. The lift springs a touch (the curve overshoots). */
+.card { transition: transform .16s cubic-bezier(.2, .9, .3, 1.2), box-shadow .16s ease, opacity .16s ease; }
+.card[aria-selected="true"] {
+  z-index: 2; transform: translateY(-4px) scale(1.03);
+  box-shadow: 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45);
+}
+.grid .card:not([aria-selected="true"]):not(.dragging) { opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { transform: none; } .card { transition: none; } }
 
 .head { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 2px 6px; }
 .fav { width: 18px; height: 18px; flex: none; border-radius: 3px; }
@@ -199,7 +208,8 @@ html.intro body {
 .pick:hover { border-color: var(--accent); }
 .pick.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .card.picked { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
-.card.picked[aria-selected="true"] { border-color: var(--accent); }
+.card.picked[aria-selected="true"] { border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45); }
 
 /* quick actions on a card's preview (hover); a tab's note button stays in view while it has a note */
 .quick { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 1; }
@@ -658,7 +668,7 @@ html.light .chip[aria-pressed="true"] .n { background: rgba(255,255,255,.2); }
 html.light .qfilters .chip[aria-pressed="true"] svg, html.light #star-filter[aria-pressed="true"] svg { color: var(--accent); }
 html.light main, html.light .dd { scrollbar-color: rgba(0,0,0,.25) transparent; }
 html.light #closed-section, html.light #snoozed-section { border-top-color: rgba(0,0,0,.09); }
-html.light .card[aria-selected="true"] { background: rgba(0,0,0,.06); }
+html.light .card[aria-selected="true"] { background: rgba(0,0,0,.06); box-shadow: 0 0 0 2px var(--accent), 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent), 0 16px 34px rgba(20,30,50,.18); }
 html.light .card.picked { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 html.light .x:hover { color: #fff; }
 
