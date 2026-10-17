@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { LANGS, loadLang, setLang, uiLang, t, tn, timeAgo, localizePage } from '../../lib/i18n.js';
-import EN from '../../lib/msgs/en.js';
-import RU from '../../lib/msgs/ru.js';
-import ES from '../../lib/msgs/es.js';
+import EN from '../../dictionaries/en.json';
+import RU from '../../dictionaries/ru.json';
+import ES from '../../dictionaries/es.json';
 
-afterEach(() => { setLang('en'); vi.useRealTimers(); vi.doUnmock('../../lib/msgs/ru.js'); vi.resetModules(); document.body.replaceChildren(); });
+afterEach(() => { setLang('en'); vi.useRealTimers(); vi.doUnmock('../../dictionaries/ru.json'); vi.resetModules(); document.body.replaceChildren(); });
 
 describe('LANGS', () => {
   it('is the frozen list of shipped languages', () => {
@@ -76,7 +76,7 @@ describe('t', () => {
   });
   it('falls back to English when the language lacks a key', async () => {
     vi.resetModules();
-    vi.doMock('../../lib/msgs/ru.js', () => ({ default: { newTab: 'Новая' } }));
+    vi.doMock('../../dictionaries/ru.json', () => ({ default: { newTab: 'Новая' } }));
     const i18n = await import('../../lib/i18n.js');
     i18n.setLang('ru');
     expect(i18n.t('newTab')).toBe('Новая');
@@ -105,7 +105,7 @@ describe('tn', () => {
   });
   it('uses _other when the exact form is missing, and the key when nothing is there', async () => {
     vi.resetModules();
-    vi.doMock('../../lib/msgs/ru.js', () => ({ default: { onlyOther_other: '$1 x' } }));
+    vi.doMock('../../dictionaries/ru.json', () => ({ default: { onlyOther_other: '$1 x' } }));
     const i18n = await import('../../lib/i18n.js');
     i18n.setLang('ru');
     expect(i18n.tn('onlyOther', 1)).toBe('1 x');

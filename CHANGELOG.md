@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-17
+
+### Changed
+
+- The switcher opens faster: before its first draw it reads only the previews of the first cards on screen (the rest follow at once), and its settings once instead of three times.
+- Faster while open: ticking, starring, muting or putting a tab to sleep redraws only that card, a preview saved meanwhile updates only its card, moving the selection touches only two cards, resizing redraws once per frame, icons are parsed once, screenshots aren't decoded again on every redraw, and web addresses are parsed once.
+- All translations live in one place, `dictionaries/<lang>.json` (English, Spanish, Russian). The text Chrome itself shows (the extension's name, description and shortcut names) is generated from them into `_locales/` with `npm run i18n`.
+
+### Removed
+
+- Support for Chrome 116–122: Tabazing now needs Chrome 123 or later (it loads its dictionaries as JSON modules).
+
 ## [2.0.0] - 2026-10-17
 
 ### Added
@@ -107,7 +119,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[2.0.0]: https://github.com/maxiikk/tabazing/compare/5516898...HEAD
+[3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...HEAD
+[2.0.0]: https://github.com/maxiikk/tabazing/compare/5516898...84ab029
 [1.15.2]: https://github.com/maxiikk/tabazing/compare/590bb83...5516898
 [1.15.1]: https://github.com/maxiikk/tabazing/compare/f68d9b4...590bb83
 [1.15.0]: https://github.com/maxiikk/tabazing/compare/4459890...f68d9b4

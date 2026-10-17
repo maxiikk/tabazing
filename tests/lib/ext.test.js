@@ -48,6 +48,22 @@ describe('normalizeUrl', () => {
     expect(normalizeUrl('chrome://settings/#x')).toBe('chrome://settings/');
     expect(normalizeUrl('file:///C:/a/b/')).toBe('file:///C:/a/b');
   });
+  it('parses each address once (remembered), but not very long ones', () => {
+    let made = 0;
+    vi.stubGlobal('URL', class extends URL { constructor(...a) { made++; super(...a); } });
+    try {
+      const u = 'https://memo.example/p/?q=1#h';
+      for (let i = 0; i < 5; i++) expect(normalizeUrl(u)).toBe('https://memo.example/p?q=1');
+      expect(made).toBe(1);
+      expect(normalizeUrl('not a url (memo)')).toBe('');
+      expect(normalizeUrl('not a url (memo)')).toBe('');
+      expect(made).toBe(2);
+      const long = 'https://memo.example/' + 'x'.repeat(3000) + '/';
+      expect(normalizeUrl(long)).toBe(long.slice(0, -1));
+      expect(normalizeUrl(long)).toBe(long.slice(0, -1));
+      expect(made).toBe(4);
+    } finally { vi.unstubAllGlobals(); }
+  });
 });
 
 describe('isCapturableUrl', () => {

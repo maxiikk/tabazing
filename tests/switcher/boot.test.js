@@ -131,7 +131,7 @@ describe('clickjacking guard', () => {
   it('overlay: clicks are ignored until Chrome has seen it visible for a moment', async () => {
     const { sw, io } = await bootOverlay({ tabs: ABC() });
     const now = vi.spyOn(performance, 'now');
-    const t0 = performance.now();
+    const t0 = Math.floor(performance.now()); // whole ms: (t0 + 300) - t0 can come out a hair under 300 otherwise
     expect(sw.pointerAllowed()).toBe(false);
     openCards()[1].click();
     expect(chrome.tabs.update).not.toHaveBeenCalled();

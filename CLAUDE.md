@@ -31,6 +31,12 @@ When a change set spans several levels, use the highest one that applies.
 - Write for people using the extension: what changed for them, one line each, not the commit log.
 - Keep the link references at the bottom up to date: `[x.y.z]` compares the previous release's commit with this one's. A release can't name its own commit, so its link compares with `HEAD` until the next release replaces `HEAD` with that commit's short hash.
 
+## Translations
+
+- Every user-visible string lives in `dictionaries/<lang>.json` (`en`, `es`, `ru`), a flat `{ "key": "text" }` object — the one place translations are kept. Add or change a string in every dictionary at once; `lib/i18n.js` reads them (`t('key')`, `tn('key', n)` for counted phrases: `key_one` / `key_other`, Russian also `key_few` / `key_many`).
+- `_locales/` is generated, never edited by hand: Chrome reads it only for what `manifest.json` names with `__MSG_key__`. After changing one of those keys, run `npm run i18n` (`scripts/i18n.js`). `tests/lib/dictionaries.test.js` fails while they disagree, or while a key the code uses is missing.
+- A new language: add `dictionaries/<lang>.json` with every key, add the language to `LANGS` in `lib/i18n.js` and to the Settings list in `switcher.js`, then run `npm run i18n`.
+
 ## Tests
 
 Vitest + jsdom (`npm install` once, then `npm test` for everything, `npx vitest run <path>` for part of it).

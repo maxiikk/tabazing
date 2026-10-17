@@ -4,7 +4,7 @@ import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, toastText, closedMsg } from './quiet-boot.js';
 import { t, tn } from '../../lib/i18n.js';
 import { REVIEW_URL } from '../../lib/constants.js';
-import RU from '../../lib/msgs/ru.js';
+import RU from '../../dictionaries/ru.json';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
 const local = async (k) => (await chrome.storage.local.get(k))[k];

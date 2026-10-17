@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **2.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **3.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -20,7 +20,7 @@ Current version: **2.0.0** (from `manifest.json`). Available in English, Spanish
 
 ## Installation
 
-Tabazing needs **Chrome 116 or later**.
+Tabazing needs **Chrome 123 or later**.
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
@@ -73,7 +73,7 @@ Each open tab is a card that shows the page title, its favicon and a screenshot 
 - **Pinned tabs always come first**, followed by the rest in the order you chose under [Sort](#sort-and-filters).
 - The **first nine cards are numbered**. Press **Alt+number** (⌥+number on a Mac) to switch to that tab.
 - Small tags on a card show:
-  - how long ago you last looked at the tab ("3 days ago", for tabs not viewed for a day or more; needs Chrome 121+)
+  - how long ago you last looked at the tab ("3 days ago", for tabs not viewed for a day or more)
   - which window it is in (when you view tabs from several windows)
   - a pin for pinned tabs
   - a speaker for tabs playing sound (click it to mute or unmute)
@@ -347,6 +347,18 @@ npm run test:watch                       # re-run on change
 - `switcher.js` and `background.js` end with an `export { … }` list so tests can reach their functions. Add new top-level functions to it.
 - **Tests find elements only by `data-testid`**, never by role, id, class or tag. Every element the extension creates carries one: in HTML as an attribute, in `switcher.js` through `h(tag, cls, text, testid)` (and `button(testid, label, cls, fn)` in dialogs), elsewhere via `el.dataset.testid`. Repeated elements share one test id per kind (`card-tab`, `card-closed`, `dd-row-mark`).
 - The folder is `tests/`, not `__tests__`: Chrome refuses to load an unpacked extension that has a root entry starting with `_` (other than `_locales`).
+
+### Translations
+
+All the text lives in `dictionaries/` — one JSON file per language (`en.json`, `es.json`, `ru.json`), a flat list of `"key": "text"` pairs. To change a string, edit it there, in every language. Counted phrases have one key per plural form (`tabs_one`, `tabs_other`; Russian also `_few` and `_many`).
+
+`_locales/` is generated from the dictionaries and only holds what Chrome itself shows (the extension's name, description, shortcut names and toolbar title). After changing one of those, run:
+
+```sh
+npm run i18n
+```
+
+The tests fail if `_locales/` and the dictionaries disagree, if a language is missing a key, or if the code uses a key no dictionary has.
 
 ### Release workflow
 

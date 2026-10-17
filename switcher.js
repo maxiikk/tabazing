@@ -4,7 +4,8 @@
 //
 // Data flow: load() reads tabs/windows/sessions + stored previews once ->
 // derive() builds the visible, selectable `entries` from state + filters ->
-// render() draws them. Every user action updates state and calls refresh().
+// render() draws them. Every user action updates state and calls refresh(), or redraw() when the same
+// cards stay in the same order (a tick, a star...): then only the cards it changed are built again.
 //
 // Security: in overlay mode this page is embedded in an untrusted web page.
 // The page can't read our DOM or storage, but it CAN see and restyle the
@@ -20,10 +21,10 @@
 import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './lib/constants.js';
 import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getView, updateView, setResume, takeResume, getPrefs, updatePrefs } from './lib/store.js';
 import { reviewPrompt, dayOf } from './lib/review.js';
-import { t, tn, timeAgo, localizePage, loadLang, setLang, uiLang } from './lib/i18n.js';
+import { t, tn, timeAgo, localizePage, setLang, uiLang } from './lib/i18n.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
 import { applyAccent, ACCENTS } from './lib/accent.js';
-import { archiveFolder, getArchived, addArchived, removeArchived } from './lib/archive.js';
+import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './lib/archive.js';
 
 let CTX = null; // set once the launch token has been verified (see boot)
 
@@ -102,6 +103,8 @@ const state = {
   archived: null,       // the "Tabs Archive" bookmarks folder: [{ id, url, title, t }] newest first (lib/archive.js)
   archivePreviews: {},  // normalized URL -> preview, for archived pages
   archSel: 0,           // the selected card in the archive overlay
+  urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
+  pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
 };
 
 // ---------------------------------------------------------------- icons
@@ -145,14 +148,25 @@ function h(tag, cls, text, testid) {
   if (testid) n.dataset.testid = testid; // what the tests select elements by (tests/: never by class, id or role)
   return n;
 }
+// An icon (ICON markup) as nodes: parsed once per icon, then cloned. A redraw draws thousands of them, and
+// parsing the SVG text for each one (innerHTML) was most of a card's cost.
+const svgTpl = new Map();
+function svgOf(markup) {
+  let tpl = svgTpl.get(markup);
+  if (!tpl) { tpl = document.createElement('template'); tpl.innerHTML = markup; svgTpl.set(markup, tpl); }
+  return tpl.content.cloneNode(true);
+}
 
 // ------------------------------------------------------------------- data
 // What the cards need, all read at once (each read is a round trip to Chrome's storage). "Recently
 // closed" and starred pages that aren't open come after the first draw: loadExtras().
-async function load() {
-  const prefsRead = getPrefs().catch(() => ({ cardSize: 'default', allWindows: false }));
+// `prefs`: already read (at boot), so the tabs are asked for at once. `previews: false` leaves the previews
+// out (state.pvPending): at boot only the first cards' are read before the first draw (loadPreviews).
+const PREFS_FALLBACK = { lang: 'auto', cardSize: 'default', allWindows: false };
+async function load(prefs = null, { previews = true } = {}) {
+  const prefsRead = prefs ? Promise.resolve(prefs) : getPrefs().catch(() => PREFS_FALLBACK);
   const tabsRead = prefsRead.then((p) => chrome.tabs.query(p.allWindows ? { windowType: 'normal' } : { windowId: CTX.srcWin }));
-  const [allTabs, mru, slept, prefs, nocap, stars, view, notes, byUrl, wins, snoozed] = await Promise.all([
+  const [allTabs, mru, slept, , nocap, stars, view, notes, byUrl, wins, snoozed] = await Promise.all([
     tabsRead,
     getMru(),
     getSlept().catch(() => []),
@@ -161,10 +175,11 @@ async function load() {
     getStars().catch(() => ({})),
     getView().catch(() => null),
     getNotes().catch(() => ({})),
-    tabsRead.then((all) => getPreviews(all.map(urlOf))).catch(() => ({})), // previews are stored by URL
+    previews ? tabsRead.then((all) => getPreviews(all.map(urlOf))).catch(() => ({})) : {}, // previews are stored by URL
     chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []),
     getSnoozed().catch(() => []),
   ]);
+  prefs = await prefsRead;
   state.cardSize = prefs.cardSize;
   state.allWindows = prefs.allWindows;
   state.otherWindows = wins.filter((w) => w.id !== CTX.srcWin && !w.incognito).map((w) => w.id);
@@ -185,12 +200,18 @@ async function load() {
   tabs.sort((a, b) => r(a) - r(b) || inSrc(a) - inSrc(b) || a.windowId - b.windowId || a.index - b.index);
   state.tabs = tabs;
 
-  // Hand each tab the preview for its current URL.
+  // Hand each tab the preview for its current URL. The tabs of each address are kept, for a preview saved
+  // while the switcher is open (listen(): storage.onChanged).
   state.previews = {};
+  state.urlTabs = new Map();
   for (const t of tabs) {
-    const p = byUrl[normalizeUrl(urlOf(t))];
+    const k = normalizeUrl(urlOf(t));
+    const p = byUrl[k];
     if (p) state.previews[t.id] = p;
+    if (!state.urlTabs.has(k)) state.urlTabs.set(k, []);
+    state.urlTabs.get(k).push(t.id);
   }
+  state.pvPending = new Set(previews ? [] : tabs.map((t) => t.id));
 
   // Windows in "most recently used" order, the current one first. Numbers
   // follow the order the windows were opened in, so "Window 2" stays
@@ -213,10 +234,35 @@ async function load() {
     })
     .filter((w) => w.count > 0);
 }
+// The previews of these tabs (of those still pending), read in one go. A preview saved meanwhile (storage.onChanged) is newer: kept.
+async function loadPreviews(tabs) {
+  tabs = tabs.filter((x) => state.pvPending.has(x.id));
+  if (!tabs.length) return [];
+  const byUrl = await getPreviews(tabs.map(urlOf)).catch(() => ({}));
+  for (const x of tabs) {
+    state.pvPending.delete(x.id);
+    const p = byUrl[normalizeUrl(urlOf(x))];
+    if (p && !state.previews[x.id]) state.previews[x.id] = p;
+  }
+  return tabs.map((x) => x.id);
+}
+// What the first draw shows a preview for: the first cards, the selected one, the current tab (healthCheck
+// looks at its preview) and each window's picture in the window list. The rest follow right after.
+const FIRST_PREVIEWS = 32;
+function firstShown() {
+  const out = new Set(state.entries.slice(0, FIRST_PREVIEWS).filter((e) => e.kind === 'tab').map((e) => e.tab));
+  const cur = state.entries[state.sel];
+  if (cur && cur.kind === 'tab') out.add(cur.tab);
+  const ids = new Set([CTX.srcTab, ...state.windows.map((w) => w.activeId)]);
+  for (const x of state.tabs) if (ids.has(x.id)) out.add(x);
+  return [...out];
+}
+
 async function loadExtras() {
-  await loadArchived(); // first: archived pages are left out of "Recently closed"
-  await loadClosed();
-  await loadStarPreviews();
+  const arch = loadArchived(); // archived pages are left out of "Recently closed": loadClosed waits for it
+  await Promise.all([arch, loadClosed(arch), loadStarPreviews(), loadSnoozePreviews()]);
+}
+async function loadSnoozePreviews() {
   state.snoozePreviews = await getPreviews(state.snoozed.map((x) => x.url)).catch(() => ({}));
 }
 
@@ -231,10 +277,13 @@ async function loadStarPreviews() {
 // its history) with our own 7-day log (survives Chrome's cap and restarts).
 const hashOf = (str) => { let x = 5381; for (let i = 0; i < str.length; i++) x = ((x << 5) + x + str.charCodeAt(i)) | 0; return (x >>> 0).toString(36); };
 
-async function loadClosed() {
-  let sessions = [];
-  try { sessions = await chrome.sessions.getRecentlyClosed({ maxResults: 25 }); } catch {}
-  const log = await getClosedLog().catch(() => []);
+// `before`: a read to wait for before using state.archived (loadExtras reads the archive alongside).
+async function loadClosed(before) {
+  const [sessions, log] = await Promise.all([
+    (async () => { try { return await chrome.sessions.getRecentlyClosed({ maxResults: 25 }); } catch { return []; } })(),
+    getClosedLog().catch(() => []),
+    Promise.resolve(before).catch(() => {}),
+  ]);
   const now = Date.now();
   const stamp = (s) => (s.lastModified > 0 ? s.lastModified * 1000 : 0); // 0 = Chrome gave no time (e.g. some closed windows)
   const rank = (c) => c.ts || now;                                         // ...which we treat as "just now" for sorting
@@ -453,7 +502,7 @@ function sectionsFor(open) {
     secs.get(key).entries.push(e);
   };
   if (state.dupesView) { // one section per page that is open more than once, the copy that stays first
-    const close = new Set(duplicates().map((x) => x.id));
+    const close = dupeIds();
     for (const e of open) add('d:' + normalizeUrl(urlOf(e.tab)), { title: e.tab.title || siteOf(urlOf(e.tab)), site: urlOf(e.tab) }, e);
     const out = [...secs.values()];
     out.forEach((x) => x.entries.sort((a, b) => close.has(a.tab.id) - close.has(b.tab.id)));
@@ -479,6 +528,7 @@ function deriveSearch() {
 }
 
 function derive() {
+  dupeMemo = null;
   deriveSearch();
   const q = ''; // the cards, "Snoozed" and "Recently closed" don't follow the search: its results are in the dropdown
   if (state.scope !== 'all' && !state.windows.some((w) => w.id === state.scope)) state.scope = 'all';
@@ -562,7 +612,7 @@ function renderWindows() {
     b.setAttribute('aria-pressed', String(state.scope === w.id));
     if (w.activeTitle) b.title = t('activeTab', w.activeTitle);
     const pic = h('span', 'wpic', null, 'window-pic');
-    if (w.id === 'all') pic.innerHTML = ICON.windows;
+    if (w.id === 'all') pic.append(svgOf(ICON.windows));
     else {
       const p = w.activeId && state.previews[w.activeId];
       if (p && p.img) { const img = h('img', '', null, 'window-preview'); img.src = p.img; img.alt = ''; pic.append(img); }
@@ -578,7 +628,7 @@ function renderWindows() {
       m.type = 'button';
       m.title = t('mergeThis');
       m.setAttribute('aria-label', t('mergeThis'));
-      if (state.armed !== key) m.innerHTML = ICON.merge;
+      if (state.armed !== key) m.append(svgOf(ICON.merge));
       m.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) mergeWindows([w.id], key); });
       row.append(m);
     }
@@ -598,17 +648,31 @@ function windowTag(tab) {
   return w ? h('span', 'tag', w.label, 'card-window-tag') : null;
 }
 
+// A card's screenshot, kept from one redraw to the next (by card and capture), so its data URL isn't read and
+// decoded again each time. A full redraw keeps only the ones it used (render()), so they don't pile up.
+let shots = new Map(), shotsNext = null;
+function shotImg(entry) {
+  const p = entry.preview;
+  const k = (entry.key || entry.kind + ':' + (entry.item ? entry.item.id : entry.url)) + '|' + (p.t || 0) + '|' + p.img.length;
+  let img = shots.get(k);
+  if (!img) {
+    img = h('img', 'shot', null, 'card-preview');
+    img.decoding = 'async';
+    img.src = p.img;
+    img.alt = '';
+    if (shots.size > 1000) shots.clear();
+    shots.set(k, img);
+  }
+  if (shotsNext) shotsNext.set(k, img);
+  return img;
+}
 function thumbFor(entry, { label, sub, icon, action }) {
   const thumb = h('div', 'thumb', null, 'card-thumb');
   if (entry.preview && entry.preview.img) {
-    const img = h('img', 'shot', null, 'card-preview');
-    img.decoding = 'async';
-    img.src = entry.preview.img;
-    img.alt = '';
-    thumb.append(img);
+    thumb.append(shotImg(entry));
     if (label) {
       const pill = h('span', 'pill', null, 'card-pill');
-      pill.innerHTML = icon;
+      pill.append(svgOf(icon));
       pill.append(label);
       thumb.append(pill);
     }
@@ -619,7 +683,7 @@ function thumbFor(entry, { label, sub, icon, action }) {
     img.src = favicon(entry.url);
     img.alt = '';
     const badge = h('span', 'icon', null, 'card-tile-badge');
-    badge.innerHTML = icon;
+    badge.append(svgOf(icon));
     tile.append(img, badge);
     box.append(tile, h('div', 'label', label || t('noPreview'), 'card-no-preview-label'), h('div', 'sub', sub || '', 'card-no-preview-sub'));
     if (action) box.append(action);
@@ -636,7 +700,7 @@ function starButton(entry) {
   b.title = t(on ? 'unstar' : 'star') + (IS_MAC ? ' (⌥S)' : ' (Alt+S)');
   b.setAttribute('aria-label', t(on ? 'unstarAria' : 'starAria'));
   b.setAttribute('aria-pressed', String(on));
-  b.innerHTML = ICON.star;
+  b.append(svgOf(ICON.star));
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) star(entry); });
   return b;
 }
@@ -673,6 +737,8 @@ function renderCard(entry, index) {
   card.id = 'opt-' + entry.key;
   card.setAttribute('role', 'option');
   card.setAttribute('aria-selected', String(index === state.sel)); // the cursor (one card)
+  card._i = index; // its place in state.entries (select() and the mouse find cards by it)
+  if (index === state.sel) selCard = card;
   if (entry.kind === 'tab') card.setAttribute('aria-checked', String(picked)); // ticked for a quick action (any number)
   card.style.setProperty('--i', index); // its place in the opening cascade (switcher.css, .intro)
 
@@ -694,15 +760,15 @@ function renderCard(entry, index) {
     if (age) head.append(age);
     const tag = windowTag(tab);
     if (tag) head.append(tag);
-    if (state.dupesView) { const goes = duplicates().some((x) => x.id === tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), t(goes ? 'dupeCloses' : 'dupeStays'), goes ? 'card-dupe-closes' : 'card-dupe-stays')); }
-    if (tab.pinned) { const b = h('span', 'badge', null, 'card-pinned'); b.innerHTML = ICON.pin; b.title = t('pinned'); head.append(b); }
+    if (state.dupesView) { const goes = dupeIds().has(tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), t(goes ? 'dupeCloses' : 'dupeStays'), goes ? 'card-dupe-closes' : 'card-dupe-stays')); }
+    if (tab.pinned) { const b = h('span', 'badge', null, 'card-pinned'); b.append(svgOf(ICON.pin)); b.title = t('pinned'); head.append(b); }
     if (tab.audible || isMuted(tab)) head.append(audioBadge(tab)); // playing sound (or muted): click to mute / unmute
     head.append(starButton(entry));
     const x = h('button', 'x', null, 'card-close');
     x.type = 'button';
     x.title = t('closeTabTitle');
     x.setAttribute('aria-label', t('closeTab'));
-    x.innerHTML = ICON.close;
+    x.append(svgOf(ICON.close));
     x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeTab(entry); });
     head.append(x);
     card.title = (tab.title || '') + '\n' + entry.url + (asleep ? '\n' + t('sleepingTip') : '');
@@ -717,7 +783,7 @@ function renderCard(entry, index) {
     const sub = host;
     const thumb = thumbFor(entry, asleep || willSleep
       ? { label: t(willSleep ? 'willSleep' : 'sleeping'), sub, icon: ICON.moon }
-      : { label: entry.preview ? '' : t('noPreview'), sub, icon: ICON.camera, action: !entry.preview && canCapture(tab) ? captureButton(entry) : null });
+      : { label: entry.preview ? '' : t('noPreview'), sub, icon: ICON.camera, action: !entry.preview && canCapture(tab) && !state.pvPending.has(tab.id) ? captureButton(entry) : null });
     thumb.append(quickActions(entry));
     card.append(head, thumb);
   } else {
@@ -736,7 +802,7 @@ function renderCard(entry, index) {
       x.type = 'button';
       x.title = t('cancelSnooze');
       x.setAttribute('aria-label', t('cancelSnooze'));
-      x.innerHTML = ICON.close;
+      x.append(svgOf(ICON.close));
       x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeTab(entry); });
       head.append(x);
     }
@@ -776,8 +842,7 @@ function finishCard(card, entry) {
     if (e.button === 1 && entry.kind === 'tab') { e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) closeTab(entry); }
   });
   card.addEventListener('mousemove', () => {
-    const i = state.entries.indexOf(entry);
-    if (state.mouseReady && i !== state.sel) select(i, { scroll: false });
+    if (state.mouseReady && card._i !== state.sel) select(card._i, { scroll: false });
   });
   return card;
 }
@@ -799,7 +864,7 @@ function renderSection(sec, startIndex) {
     head.setAttribute('aria-expanded', String(!sec.collapsed));
     head.title = t(sec.collapsed ? 'sectionShow' : 'sectionCollapse');
     const chev = h('span', 'chev', null, 'section-chevron');
-    chev.innerHTML = ICON.chevron;
+    chev.append(svgOf(ICON.chevron));
     head.append(chev);
     if (sec.site) {
       const fav = h('img', 'sfav', null, 'section-favicon');
@@ -840,7 +905,7 @@ function renderTools() {
     const b = h('button', 'chip', null, 'filter-' + id);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.filter === id));
-    b.innerHTML = ICON[f.icon];
+    b.append(svgOf(ICON[f.icon]));
     b.append(h('span', 'label', t(f.label), 'filter-label'), h('span', 'n', String(n), 'filter-count'));
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) setFilter(state.filter === id ? null : id); });
     return b;
@@ -861,23 +926,38 @@ function renderTools() {
   updateSweepButton();
 }
 
-function render() {
+// `only` (redraw()): build again just the cards it picks, leaving the others as they are.
+function render(only) {
   const f = focusMark();
   hideTip();
   closeBig();
   const snoozedPart = state.entries.slice(state.openCount, state.openCount + state.snoozeCount);
   const closed = state.entries.slice(state.openCount + state.snoozeCount);
 
-  // The window list first: the cards are sized from the space it leaves.
+  // The window list first: the cards are sized from the space it leaves. Then the bars (the cards don't
+  // depend on them), then the layout is read once (card width, header height) before the cards are built:
+  // a read after building them would lay out thousands of new nodes twice.
   renderWindows();
-  state.cardW = Math.floor(cardWidth(state.matchCount));
-  el.openGrid.classList.toggle('has-groups', state.sections.some((x) => !x.plain));
-  let at = 0;
-  el.openGrid.replaceChildren(...state.sections.map((sec) => { const box = renderSection(sec, at); if (!sec.collapsed) at += sec.entries.length; return box; }));
-  el.closedGrid.className = el.snoozedGrid.className = state.cardSize === 'list' ? 'grid list' : 'grid small';
-  el.snoozedGrid.replaceChildren(...snoozedPart.map((e, i) => renderCard(e, i + state.openCount)));
+  renderCount();
+  renderTools();
+  renderActs();
+  if (!only) state.cardW = Math.floor(cardWidth(state.matchCount));
+  el.body.style.setProperty('--top', topOf() + 'px');
+  if (only) redrawCards(only);
+  else {
+    shotsNext = new Map();
+    el.openGrid.classList.toggle('has-groups', state.sections.some((x) => !x.plain));
+    let at = 0;
+    el.openGrid.replaceChildren(...state.sections.map((sec) => { const box = renderSection(sec, at); if (!sec.collapsed) at += sec.entries.length; return box; }));
+    el.closedGrid.className = el.snoozedGrid.className = state.cardSize === 'list' ? 'grid list' : 'grid small';
+    el.snoozedGrid.replaceChildren(...snoozedPart.map((e, i) => renderCard(e, i + state.openCount)));
+    el.closedGrid.replaceChildren(...closed.map((e, i) => renderCard(e, i + state.openCount + state.snoozeCount)));
+    shots = shotsNext; // the screenshots this draw used: the rest can go
+    shotsNext = null;
+    drawWait = null; // whatever was waiting for drawLater() is drawn now
+    cardList = [...document.querySelectorAll('#scroller .card')];
+  }
   el.snoozedSection.hidden = snoozedPart.length === 0;
-  el.closedGrid.replaceChildren(...closed.map((e, i) => renderCard(e, i + state.openCount + state.snoozeCount)));
   // While searching, "Recently closed" reaches back 7 days: say so, so nobody expects more.
   el.closedH.textContent = state.starOnly ? t('starredNotOpen') : state.query ? t('closedSearchH') : t('recentlyClosed');
   // Nothing found: say what Enter does with the text (open it as an address, or search the web for it).
@@ -888,15 +968,35 @@ function render() {
   el.openEmpty.hidden = state.matchCount > 0;
   el.closedSection.hidden = closed.length === 0;
 
-  const n = state.matchCount;
-  renderCount();
-  renderTools();
-  renderActs();
   renderDropdown();
-  setTop();
   select(state.sel, { scroll: true });
   refocus(f);
   requestAnimationFrame(tipTruncated);
+}
+// Build again the cards `only` picks (same entries, same places): a tick, a star, mute, a new preview.
+function redrawCards(only) {
+  state.entries.forEach((e, i) => {
+    if (!only(e)) return;
+    const old = cardAt(i);
+    if (!old) return;
+    if (e.kind === 'tab') e.preview = state.previews[e.tab.id] || null; // as derive() hands it out
+    const card = renderCard(e, i);
+    old.replaceWith(card);
+    cardList[i] = card;
+  });
+}
+// After a change of layout only (Alt let go shows the search box, the window was resized): the cards are
+// built again only when their width changes.
+function relayout() {
+  if (Math.floor(cardWidth(state.matchCount)) !== state.cardW) render();
+  else redraw(null);
+}
+// Draw again after a change that keeps the same cards in the same order (refresh() otherwise): the cards
+// `only` picks (none when null) are built again, everything around them as render() does.
+function redraw(only, { keepKey } = {}) {
+  if (keepKey) { const i = state.entries.findIndex((e) => e.key === keepKey); state.sel = i >= 0 ? i : 0; }
+  deriveSearch(); // the dropdown's rows carry previews too
+  render(only || (() => false));
 }
 
 // A redraw replaces the buttons it draws (chips, section headers, windows, the actions bar): put the focus
@@ -928,9 +1028,9 @@ function tipTruncated() {
 }
 
 // The card area starts below the header, the toolbar, the alert bar and the quick-actions bar (if shown).
+const topOf = () => el.bar.offsetHeight + el.tools.offsetHeight + (el.alert.hidden ? 0 : el.alert.offsetHeight + 4); // the actions pill floats: not counted
 function setTop() {
-  const top = el.bar.offsetHeight + el.tools.offsetHeight + (el.alert.hidden ? 0 : el.alert.offsetHeight + 4); // the actions pill floats: not counted
-  el.body.style.setProperty('--top', top + 'px');
+  el.body.style.setProperty('--top', topOf() + 'px');
 }
 
 function toTop() { el.scroller.scrollTop = 0; }
@@ -943,17 +1043,32 @@ function refresh({ keepKey } = {}) {
 }
 
 // -------------------------------------------------------------- selection
+// The cards on screen in state.entries order (render() and redrawCards() keep it), and the one marked selected
+// and the list that points at it: a hover only touches the card it leaves and the one it reaches.
+let cardList = [], selCard = null, selList = null;
+function cardAt(i) {
+  let c = cardList[i];
+  if (!c || !c.isConnected || c._i !== i) { cardList = [...document.querySelectorAll('#scroller .card')]; c = cardList[i]; } // (not the archive overlay's)
+  return c || null;
+}
 function select(i, { scroll = true } = {}) {
   const n = state.entries.length;
   if (!n) { state.sel = 0; return syncCombo(); }
   state.sel = ((i % n) + n) % n;
-  const cards = document.querySelectorAll('#scroller .card'); // (not the archive overlay's)
-  cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.sel)));
-  const cur = cards[state.sel];
+  const cur = cardAt(state.sel);
+  if (!selCard || !selCard.isConnected) { // drawn some other way: check them all, as once
+    document.querySelectorAll('#scroller .card').forEach((c) => c.setAttribute('aria-selected', String(c === cur)));
+    document.querySelectorAll('#scroller [role=listbox]').forEach((l) => l.removeAttribute('aria-activedescendant'));
+    selList = null;
+  } else if (selCard !== cur) selCard.setAttribute('aria-selected', 'false');
+  if (cur) cur.setAttribute('aria-selected', 'true');
+  selCard = cur;
   syncCombo();
   if (!cur) return;
-  document.querySelectorAll('#scroller [role=listbox]').forEach((l) => l.removeAttribute('aria-activedescendant'));
-  cur.closest('[role=listbox]').setAttribute('aria-activedescendant', cur.id);
+  const list = cur.closest('[role=listbox]');
+  if (selList && selList !== list) selList.removeAttribute('aria-activedescendant');
+  list.setAttribute('aria-activedescendant', cur.id);
+  selList = list;
   if (scroll) cur.scrollIntoView({ block: 'nearest' });
 }
 // The search box is a combobox: the focus stays in it, so screen readers follow its aria-activedescendant,
@@ -961,7 +1076,7 @@ function select(i, { scroll = true } = {}) {
 function syncCombo() {
   const row = document.querySelector('.dd') && document.getElementById('dd-' + state.dd.hi);
   el.search.setAttribute('aria-expanded', String(!!row));
-  const cur = row || document.querySelectorAll('#scroller .card')[state.sel];
+  const cur = row || cardAt(state.sel);
   if (cur) el.search.setAttribute('aria-activedescendant', cur.id);
   else el.search.removeAttribute('aria-activedescendant');
 }
@@ -1060,7 +1175,10 @@ async function star(entry) {
   // Unstarring a starred-not-open card removes it from the list: keep the selection near it.
   const i = state.entries.indexOf(entry);
   const next = !on && entry.kind === 'star' ? [state.entries[i + 1], state.entries[i - 1]].find((e) => e && e !== entry) : entry;
-  refresh({ keepKey: next && next.key });
+  // Only the Starred filter shows or hides cards by their star: else just the cards of that page change.
+  const k = normalizeUrl(entry.url);
+  if (state.starOnly) refresh({ keepKey: next && next.key });
+  else redraw((e) => normalizeUrl(e.kind === 'tab' ? urlOf(e.tab) : e.item.url) === k, { keepKey: next && next.key });
 }
 
 // Take one tab's preview now. Showing a tab in the window the overlay sits in hides the page the
@@ -1168,8 +1286,8 @@ async function choose(i) {
 function armed(key) {
   if (state.armed === key) { state.armed = null; return true; }
   state.armed = key;
-  refresh();
-  setTimeout(() => { if (state.armed === key) { state.armed = null; if (!state.done) refresh(); } }, 3500);
+  redraw(null); // only buttons outside the cards ask "sure?"
+  setTimeout(() => { if (state.armed === key) { state.armed = null; if (!state.done) redraw(null); } }, 3500);
   return false;
 }
 
@@ -1227,7 +1345,7 @@ function pickBox(entry, on) {
   b.setAttribute('aria-checked', String(on));
   b.setAttribute('aria-label', t('pickAria'));
   b.title = t('pickTitle');
-  b.innerHTML = ICON.check;
+  b.append(svgOf(ICON.check));
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) pick(entry, { range: e.shiftKey }); });
   return b;
 }
@@ -1236,15 +1354,17 @@ function pick(entry, { range = false } = {}) {
   const onScreen = state.entries.filter((e) => e.kind === 'tab').map((e) => e.tab.id);
   const a = range && state.lastPick !== null ? onScreen.indexOf(state.lastPick) : -1;
   const b = onScreen.indexOf(id);
+  const before = new Set(state.picked);
   if (a >= 0 && b >= 0) onScreen.slice(Math.min(a, b), Math.max(a, b) + 1).forEach((x) => state.picked.add(x));
   else if (state.picked.has(id)) state.picked.delete(id);
   else state.picked.add(id);
   state.lastPick = id;
-  refresh({ keepKey: entry.key });
+  redraw((e) => e.kind === 'tab' && before.has(e.tab.id) !== state.picked.has(e.tab.id), { keepKey: entry.key }); // only the cards that changed
 }
 const pickPool = () => (state.query.trim() ? state.found : state.matches); // what "Select all" ticks: the search's matches, or the cards
-function selectAll() { pickPool().forEach((e) => state.picked.add(e.tab.id)); refresh(); }
-function clearPicks() { state.picked.clear(); state.lastPick = null; refresh(); }
+// (Ticks don't change which cards show: only the ticked or unticked ones are drawn again.)
+function selectAll() { const before = new Set(state.picked); pickPool().forEach((e) => state.picked.add(e.tab.id)); redraw((e) => e.kind === 'tab' && state.picked.has(e.tab.id) && !before.has(e.tab.id)); }
+function clearPicks() { const before = new Set(state.picked); state.picked.clear(); state.lastPick = null; redraw((e) => e.kind === 'tab' && before.has(e.tab.id)); }
 
 // Quick actions act only on ticked tabs. While searching, "Select all N matching tabs" ticks the matches.
 function targets() { return state.tabs.filter((x) => state.picked.has(x.id)); }
@@ -1286,7 +1406,7 @@ function renderActs() {
   more.type = 'button';
   more.title = t('actMore');
   more.setAttribute('aria-label', t('actMore'));
-  more.innerHTML = ICON.more;
+  more.append(svgOf(ICON.more));
   more.append(h('span', '', t('actMore'), 'actions-more-label'));
   more.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1298,7 +1418,7 @@ function renderActs() {
     const sure = state.armed === key;
     const b = h('button', 'qa' + (sure ? ' armed' : '') + (a.id === 'close' ? ' danger' : ''), null, 'action-' + a.id);
     b.type = 'button';
-    b.insertAdjacentHTML('beforeend', ICON[a.icon]);
+    b.append(svgOf(ICON[a.icon]));
     b.append(h('span', '', sure ? t('sureN', n) : a.label(tabs), 'action-label'));
     if (a.title) b.title = a.title();
     b.addEventListener('click', (e) => {
@@ -1323,7 +1443,7 @@ function renderDupesBar() {
   el.actsBtns.hidden = false;
   const close = h('button', 'qa danger' + (state.armed === 'act:dupes' ? ' armed' : ''), null, 'dupes-close');
   close.type = 'button';
-  close.insertAdjacentHTML('beforeend', ICON.close);
+  close.append(svgOf(ICON.close));
   close.append(h('span', '', state.armed === 'act:dupes' ? t('sureN', d.length) : tn('dupesClose', d.length), 'dupes-close-label'));
   close.disabled = !d.length;
   close.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeDupes(); });
@@ -1403,6 +1523,18 @@ function afterIntro(fn) {
   if (!document.documentElement.classList.contains('intro')) return fn();
   clearTimeout(introWait);
   introWait = setTimeout(() => { if (!state.done) fn(); }, 340);
+}
+// Draw what arrived meanwhile once the opening animation is over: some tabs' cards (`ids`, new previews), or
+// everything (refresh). What is still waiting adds up, since a later afterIntro() replaces an earlier one.
+let drawWait = null; // null | 'all' | Set of tab ids
+function drawLater(ids) {
+  drawWait = !ids || drawWait === 'all' ? 'all' : new Set([...(drawWait || NONE), ...ids]);
+  afterIntro(() => {
+    const w = drawWait;
+    drawWait = null;
+    if (w === 'all') refresh();
+    else if (w) redraw((e) => e.kind === 'tab' && w.has(e.tab.id));
+  });
 }
 
 // Reload the tab list after Chrome has acted (pin, mute, move...), keeping the selection.
@@ -1489,13 +1621,17 @@ async function loadMarks() {
   if (!chrome.bookmarks) return;
   try {
     const out = [];
-    const arch = await archiveFolder().catch(() => null); // archived tabs have their own section
+    const tree = await chrome.bookmarks.getTree();
+    // Archived tabs have their own section: leave out the "Tabs Archive" folder in "Other bookmarks" (as lib/archive.js finds it).
+    const kids = (tree[0] && tree[0].children) || [];
+    const other = kids.find((n) => n.folderType === 'other') || kids.find((n) => n.id === '2') || kids[1] || kids[0];
+    const arch = other && (other.children || []).find((n) => !n.url && n.title === ARCHIVE_FOLDER);
     const walk = (n, path) => {
       if (arch && n.id === arch.id) return;
       if (n.url) { if (/^(https?|file|ftp):/i.test(n.url)) out.push({ title: n.title || '', url: n.url, path: path.join(' › ') }); return; }
       for (const c of n.children || []) walk(c, n.title ? [...path, n.title] : path);
     };
-    (await chrome.bookmarks.getTree()).forEach((root) => walk(root, []));
+    tree.forEach((root) => walk(root, []));
     state.marks = out;
   } catch { state.marks = []; }
   if (!state.done && state.query.trim()) renderDropdown();
@@ -1648,7 +1784,7 @@ function ddPic(key, url, preview, cls = 'ddpic') {
       if (preview && preview.img) { const img = h('img', '', null, 'dd-preview'); img.decoding = 'async'; img.src = preview.img; img.alt = ''; pic.append(img); }
       else { const img = h('img', 'ddfav', null, 'dd-pic-favicon'); img.src = favicon(url); img.alt = ''; pic.append(img); }
     }
-    if (ddPics.size > 400) ddPics.clear();
+    if (ddPics.size > 100) ddPics.clear(); // each keeps its picture decoded
     ddPics.set(k, pic);
   }
   return pic;
@@ -1675,7 +1811,7 @@ function renderDropdown() {
     line.append(hlSpan('ddtitle', title, ql), ...tags.filter(Boolean));
     const src = DD_SOURCES[kind];
     const icon = h('span', 'ddsrc', null, 'dd-source-' + kind);
-    icon.innerHTML = ICON[src.icon];
+    icon.append(svgOf(ICON[src.icon]));
     icon.title = t(src.label);
     icon.setAttribute('role', 'img');
     icon.setAttribute('aria-label', t(src.label));
@@ -1911,9 +2047,11 @@ async function sleepTabs(tabs) {
   if (!can.length) return toast(t('sleptNone'));
   const undo = can.every((x) => state.toSleep.has(x.id));
   can.forEach((x) => (undo ? state.toSleep.delete(x.id) : state.toSleep.add(x.id)));
+  const changed = new Set([...state.picked, ...can.map((x) => x.id)]);
   state.picked.clear();
   toast(undo ? t('sleepUndone') : tn('sleepLaterN', can.length));
-  refresh();
+  if (state.filter) refresh(); // (the Asleep filter may show or hide them now)
+  else redraw((e) => e.kind === 'tab' && changed.has(e.tab.id));
 }
 
 async function pinTabs(tabs) {
@@ -1937,7 +2075,10 @@ function dupeUrls() {
   return new Set([...n].filter(([, c]) => c > 1).map(([k]) => k));
 }
 // The same page open more than once: keep one (pinned first, then the most recently used), close the rest.
+// Worked out once per list of tabs (a redraw asks for every card in the duplicates view); derive() starts afresh.
+let dupeMemo = null; // { tabs, list, ids }
 function duplicates() {
+  if (dupeMemo && dupeMemo.tabs === state.tabs) return dupeMemo.list;
   const seen = new Map();
   const dupes = [];
   const order = [...state.tabs].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)); // state.tabs is most recent first
@@ -1946,8 +2087,10 @@ function duplicates() {
     if (!k || !/^https?:|^file:/.test(urlOf(x))) continue;
     if (seen.has(k)) dupes.push(x); else seen.set(k, x);
   }
+  dupeMemo = { tabs: state.tabs, list: dupes, ids: new Set(dupes.map((x) => x.id)) };
   return dupes;
 }
+const dupeIds = () => (duplicates(), dupeMemo.ids); // the ids of the copies that close
 async function closeDupes() {
   if (!state.dupesView) return dupesView(true); // first show which tabs are copies
   const d = duplicates();
@@ -1963,7 +2106,7 @@ function audioBadge(tab) {
   const muted = isMuted(tab);
   const b = h('button', 'badge audio' + (muted ? '' : ' on'), null, 'card-audio');
   b.type = 'button';
-  b.innerHTML = muted ? ICON.muted : ICON.speaker;
+  b.append(svgOf(muted ? ICON.muted : ICON.speaker));
   b.title = t(muted ? 'unmuteThis' : 'muteThis');
   b.setAttribute('aria-label', b.title);
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleMute(tab).catch((err) => toast(t('actFailed'), err)); });
@@ -1989,7 +2132,8 @@ async function toggleMute(tab) {
   const muted = !isMuted(tab);
   await chrome.tabs.update(tab.id, { muted });
   tab.mutedInfo = { ...(tab.mutedInfo || {}), muted }; // show it right away
-  refresh({ keepKey: 't' + tab.id });
+  if (state.filter) refresh({ keepKey: 't' + tab.id }); // (the Audio filter may hide it now)
+  else redraw((e) => e.kind === 'tab' && e.tab.id === tab.id, { keepKey: 't' + tab.id });
 }
 
 // Reload a tab (a sleeping one wakes up). The page Tabazing is drawn over (overlay) reloads with it gone.
@@ -2075,7 +2219,7 @@ async function openArchive(sel = 0) {
   title.append(h('span', 'n', String(state.archived.length), 'archive-count'));
   const x = h('button', 'archx', null, 'archive-close');
   x.type = 'button';
-  x.innerHTML = ICON.close;
+  x.append(svgOf(ICON.close));
   x.title = t('archiveClose') + ' (Esc)';
   x.setAttribute('aria-label', t('archiveClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeArchive(); });
@@ -2113,7 +2257,7 @@ function archiveCard(item, i) {
   x.type = 'button';
   x.title = t('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
   x.setAttribute('aria-label', t('archiveRemove'));
-  x.innerHTML = ICON.close;
+  x.append(svgOf(ICON.close));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dropArchived(item, i).catch((err) => toast(t('actFailed'), err)); });
   head.append(x);
   card.append(head);
@@ -2173,7 +2317,7 @@ function quickActions(entry) {
     b.type = 'button';
     b.title = title;
     b.setAttribute('aria-label', title);
-    b.innerHTML = ICON[icon];
+    b.append(svgOf(ICON[icon]));
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn().catch((err) => toast(t('actFailed'), err)); });
     return b;
   };
@@ -2204,7 +2348,7 @@ function cardMenu() {
     const note = card.querySelector('.qbtn.note'); // the note card opens at its button, which shows the note too
     items.push({ label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
     items.push({ label: t('copyLink'), fn: () => copyLinks([tab], 'plain') });
-    if (!entry.preview && canCapture(tab)) items.push({ label: t('capturePreview'), fn: () => captureOne(entry) });
+    if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ label: t('capturePreview'), fn: () => captureOne(entry) });
     items.push({ label: t('reloadThis'), fn: () => reloadTab(tab) }, { label: t('duplicateThis'), fn: () => duplicateTab(tab) });
     if (!tab.active && !tab.discarded) items.push({ label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), fn: () => sleepTabs([tab]) });
     items.push(
@@ -2234,7 +2378,7 @@ function paintNote(b, text) {
 function noteButton(entry) {
   const b = h('button', 'qbtn note', null, 'quick-note');
   b.type = 'button';
-  b.innerHTML = ICON.note;
+  b.append(svgOf(ICON.note));
   paintNote(b, noteOf(entry.url));
   b.addEventListener('click', (e) => { e.stopPropagation(); hideTip(); if (pointerAllowed()) notePopover(entry.url, b); });
   b.addEventListener('mouseenter', () => noteTip(b));
@@ -2310,7 +2454,7 @@ function notePopover(url, anchor) {
   x.type = 'button';
   x.title = t('noteCloseBtn');
   x.setAttribute('aria-label', t('noteCloseBtn'));
-  x.innerHTML = ICON.close;
+  x.append(svgOf(ICON.close));
   x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); });
   const tools = h('div', 'notetools', null, 'note-tools');
   tools.append(clear, x);
@@ -2357,7 +2501,7 @@ function openBig(entry) {
   head.append(fav, h('span', 'title', title, 'big-preview-title'), h('span', 'host', siteOf(url), 'big-preview-host'));
   const x = h('button', 'bigx', null, 'big-preview-close');
   x.type = 'button';
-  x.innerHTML = ICON.close;
+  x.append(svgOf(ICON.close));
   x.title = t('bigClose') + ' (Esc)';
   x.setAttribute('aria-label', t('bigClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeBig(); });
@@ -2457,7 +2601,7 @@ function menu(anchor, items, opts = {}) {
     const b = h('button', 'mi' + (it.danger ? ' danger' : '') + (it.on ? ' on' : ''), it.label, 'menu-item');
     b.type = 'button';
     b.setAttribute('role', it.on !== undefined ? 'menuitemradio' : 'menuitem');
-    if (it.on !== undefined) { b.setAttribute('aria-checked', String(!!it.on)); if (it.on) b.insertAdjacentHTML('beforeend', ICON.check); }
+    if (it.on !== undefined) { b.setAttribute('aria-checked', String(!!it.on)); if (it.on) b.append(svgOf(ICON.check)); }
     let armedOnce = false;
     b.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -2501,7 +2645,7 @@ function fancySelect(sel, { inPop = false } = {}) {
   b.setAttribute('aria-expanded', 'false');
   const label = h('span', 'fsl', null, 'select-label');
   const chev = h('span', 'fsc', null, 'select-chevron');
-  chev.innerHTML = ICON.chevron;
+  chev.append(svgOf(ICON.chevron));
   b.append(label, chev);
   const sync = () => {
     label.textContent = (sel.options[sel.selectedIndex] || {}).textContent || '';
@@ -2689,7 +2833,7 @@ async function requestHostAccess() {
 // Tabs the current view shows (window, star filter, search) that have no preview yet.
 function missingPreviews() {
   return state.sections.flatMap((x) => x.entries).map((e) => e.tab)
-    .filter((x) => !x.active && canCapture(x) && !state.previews[x.id]);
+    .filter((x) => !x.active && canCapture(x) && !state.previews[x.id] && !state.pvPending.has(x.id));
 }
 function updateSweepButton() {
   const n = missingPreviews().length;
@@ -3041,7 +3185,7 @@ function stopHolding() {
   setTimeout(() => {
     if (state.done || state.holding) return;
     document.documentElement.classList.remove('alttab');
-    render();
+    relayout();
     el.search.focus({ preventScroll: true });
   }, 60);
 }
@@ -3102,6 +3246,7 @@ function keysAllowed() {
   return ok;
 }
 
+let resizeFrame = 0;
 function listen() {
   window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('keyup', onKeyUp, true);
@@ -3160,7 +3305,10 @@ function listen() {
   window.addEventListener('blur', () => setTimeout(() => {
     if (hadFocus && !asking && !document.hasFocus()) finish('blur');
   }, 80));
-  window.addEventListener('resize', () => { if (!state.done) render(); });
+  // Dragging a window's edge sends a resize event per mouse move: one redraw per frame is enough.
+  window.addEventListener('resize', () => {
+    if (!resizeFrame) resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; if (!state.done) relayout(); });
+  });
   window.addEventListener('contextmenu', (e) => { if (menuKeyAt && performance.now() - menuKeyAt < 1000) e.preventDefault(); }); // the card's menu took that key
   el.scroller.addEventListener('scroll', hideTip, { passive: true });
   // Holding Alt after Alt+Q / Alt+W, the wheel steps through the tabs: down to the next card (like W), up to the one before (like Q); letting
@@ -3197,13 +3345,13 @@ function listen() {
   // load): show it on its cards.
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || state.done) return;
-    let hit = false;
-    if (changes[KEY.SNOOZED]) { getSnoozed().then((list) => { state.snoozed = list; afterIntro(() => refresh()); }).catch(() => {}); }
+    const hit = [];
+    if (changes[KEY.SNOOZED]) { getSnoozed().then((list) => { state.snoozed = list; drawLater(); }).catch(() => {}); }
     for (const [k, ch] of Object.entries(changes)) {
       if (!k.startsWith('pv:') || !ch.newValue || typeof ch.newValue.img !== 'string') continue;
-      for (const x of state.tabs) if (normalizeUrl(urlOf(x)) === k.slice(3)) { state.previews[x.id] = ch.newValue; hit = true; }
+      for (const id of state.urlTabs.get(k.slice(3)) || NONE) { state.previews[id] = ch.newValue; state.pvPending.delete(id); hit.push(id); }
     }
-    if (hit) afterIntro(() => refresh());
+    if (hit.length) drawLater(hit); // just those cards (and the window list's pictures)
   });
   // The page saw Alt let go before we had the focus (see injectOverlay in background.js).
   window.addEventListener('message', (e) => {
@@ -3245,7 +3393,9 @@ function getLaunch() {
   state.holding = CTX.hold; // Alt+Q / Alt+W: letting go of Alt will switch...
   document.documentElement.classList.toggle('alttab', CTX.hold); // ...and what needs typing is hidden meanwhile
   document.documentElement.classList.add(CTX.mode);
-  const [, bootPrefs, resume] = await Promise.all([loadLang(), getPrefs().catch(() => ({})), takeResume().catch(() => null)]);
+  // The settings are read once, here: the language, the colours, and (load) which tabs to ask Chrome for.
+  const [bootPrefs, resume] = await Promise.all([getPrefs().catch(() => PREFS_FALLBACK), takeResume().catch(() => null)]);
+  setLang(bootPrefs.lang);
   applyAccent(bootPrefs.accent);
   applyTheme(bootPrefs.theme);
   localizePage();
@@ -3255,7 +3405,7 @@ function getLaunch() {
   }
   listen();
   watchVisibility();
-  await load();
+  await load(bootPrefs, { previews: false });
   if (resume) { // back after capturing one tab's preview: show what was there before
     state.query = el.search.value = typeof resume.query === 'string' ? resume.query : '';
     state.scope = resume.scope === 'all' || Number.isInteger(resume.scope) ? resume.scope : 'all';
@@ -3272,10 +3422,15 @@ function getLaunch() {
   const at = first ? state.entries.findIndex((e) => e.key === first) : -1;
   if (first && at < 0) { const e = mru.find((x) => x.key === first); if (e && e.sec) { state.peek.add(e.sec); derive(); } }
   state.sel = Math.max(0, first ? state.entries.findIndex((e) => e.key === first) : 0);
+  // The previews of what the first draw shows (reading all of them, 50 KB each, kept it waiting); the rest
+  // right after it.
+  await loadPreviews(firstShown());
+  derive(); // (the cards' entries carry their previews)
   el.app.hidden = false;
   document.documentElement.classList.add('intro'); // the opening animation, on the first draw only, not on every redraw
   setTimeout(() => { if (!state.done) document.documentElement.classList.remove('intro'); }, 320); // once it has popped in
   render();
+  loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); });
   if (CTX.mode === 'overlay') {
     parent.postMessage({ tabazing: FRAME_MSG.READY, light: document.documentElement.classList.contains('light') }, '*');
     readyAt = performance.now();
@@ -3284,7 +3439,7 @@ function getLaunch() {
   el.search.focus({ preventScroll: true });
   // Then "Recently closed" and starred pages that aren't open; drawn once the opening animation is over,
   // so it doesn't restart on the cards.
-  loadExtras().then(() => afterIntro(() => refresh())).catch(() => {});
+  loadExtras().then(() => drawLater()).catch(() => {});
   if (!resume) firstRun();
   healthCheck();
   try {
@@ -3321,5 +3476,7 @@ export {
   altDown, trackAlt, onKeyDown, qPress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
   watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAct, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
-  keepFocusIn, menuKeyAt, cardMenu, dialogBack,
+  keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTpl, svgOf, PREFS_FALLBACK, loadPreviews, FIRST_PREVIEWS,
+  firstShown, loadSnoozePreviews, shots, shotImg, redrawCards, redraw, topOf, cardList, selCard, cardAt, drawWait,
+  drawLater, dupeMemo, dupeIds, resizeFrame, relayout,
 };

@@ -62,7 +62,7 @@
   },
   "incognito": "not_allowed",
   "manifest_version": 3,
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "123",
   "name": "__MSG_extName__",
   "permissions": [
     "tabs",
@@ -76,7 +76,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "web_accessible_resources": [
     {
       "matches": [

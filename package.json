@@ -2,10 +2,11 @@
   "name": "tabazing",
   "private": true,
   "type": "module",
-  "description": "Development tooling only (tests). The extension itself has no build step and no dependencies.",
+  "description": "Development tooling only: the tests, and `npm run i18n` (writes _locales/ from dictionaries/). The extension itself has no build step and no dependencies.",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "i18n": "node scripts/i18n.js"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",
