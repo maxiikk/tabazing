@@ -1,0 +1,14 @@
+{
+  "name": "tabazing",
+  "private": true,
+  "type": "module",
+  "description": "Development tooling only (tests). The extension itself has no build step and no dependencies.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.7"
+  }
+}

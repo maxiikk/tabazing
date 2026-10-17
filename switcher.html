@@ -6,92 +6,95 @@
   <link rel="stylesheet" href="switcher.css">
 </head>
 <body>
-  <div id="app" hidden>
-    <header class="bar">
-      <button id="settings-btn" class="ghost" type="button" data-i18n-title="settings" data-i18n-aria="settings"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm5.6 3.2-.1-1.6 1.3-1-1.3-2.3-1.6.5a5 5 0 0 0-1.4-.8L10.2 2H7.6l-.3 1.6a5 5 0 0 0-1.4.8l-1.6-.5L3 6.2l1.3 1-.1 1.6-1.2 1 1.3 2.3 1.6-.5c.4.3.9.6 1.4.8l.3 1.6h2.6l.3-1.6c.5-.2 1-.5 1.4-.8l1.6.5 1.3-2.3z" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linejoin="round"/></svg><span data-i18n="settings">Settings</span></button>
-      <button id="newtab" class="ghost" type="button">
+  <div id="app" hidden data-testid="app">
+    <header class="bar" data-testid="header">
+      <button id="settings-btn" class="ghost" type="button" data-i18n-title="settings" data-i18n-aria="settings" data-testid="settings-btn"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm5.6 3.2-.1-1.6 1.3-1-1.3-2.3-1.6.5a5 5 0 0 0-1.4-.8L10.2 2H7.6l-.3 1.6a5 5 0 0 0-1.4.8l-1.6-.5L3 6.2l1.3 1-.1 1.6-1.2 1 1.3 2.3 1.6-.5c.4.3.9.6 1.4.8l.3 1.6h2.6l.3-1.6c.5-.2 1-.5 1.4-.8l1.6.5 1.3-2.3z" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linejoin="round"/></svg><span data-i18n="settings" data-testid="settings-btn-label">Settings</span></button>
+      <button id="newtab" class="ghost" type="button" data-testid="newtab">
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
-        <span data-i18n="newTab">New tab</span>
+        <span data-i18n="newTab" data-testid="newtab-label">New tab</span>
       </button>
-      <label class="search">
+      <label class="search" data-testid="search-box">
         <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" aria-controls="open-grid closed-grid">
-        <span id="count" class="count" aria-live="polite"></span>
+        <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="open-grid snoozed-grid closed-grid" data-testid="search">
+        <span id="count" class="count" aria-live="polite" data-testid="count"></span>
       </label>
-      <div class="hint" aria-hidden="true">
-        <kbd>←</kbd><kbd>→</kbd> <span data-i18n="hintMove">move</span> · <kbd>Enter</kbd> <span data-i18n="hintOpen">open</span> · <kbd data-mac="⌘⌫">Del</kbd> <span data-i18n="hintClose">close tab</span> · <kbd data-mac="⌥S">Alt+S</kbd> <span data-i18n="hintStar">star</span> · <kbd>Esc</kbd> <span data-i18n="hintExit">exit</span><span id="hint-win" hidden> · <kbd data-mac="⌃←">Ctrl+←</kbd><kbd data-mac="⌃→">Ctrl+→</kbd> <span data-i18n="hintWindow">window</span></span>
+      <div class="hint" aria-hidden="true" data-testid="hint">
+        <kbd data-testid="hint-key">←</kbd><kbd data-testid="hint-key">→</kbd> <span data-i18n="hintMove" data-testid="hint-move">move</span> · <kbd data-testid="hint-key">Enter</kbd> <span data-i18n="hintOpen" data-testid="hint-open">open</span> · <kbd data-mac="⌘⌫" data-testid="hint-key">Del</kbd> <span data-i18n="hintClose" data-testid="hint-close">close tab</span> · <kbd data-mac="⌥S" data-testid="hint-key">Alt+S</kbd> <span data-i18n="hintStar" data-testid="hint-star">star</span> · <kbd data-testid="hint-key">Esc</kbd> <span data-i18n="hintExit" data-testid="hint-exit">exit</span> · <kbd data-testid="hint-key">Shift+F10</kbd> <span data-i18n="hintActions" data-testid="hint-actions">actions</span><span id="hint-win" hidden data-testid="hint-win"> · <kbd data-mac="⌃←" data-testid="hint-key">Ctrl+←</kbd><kbd data-mac="⌃→" data-testid="hint-key">Ctrl+→</kbd> <span data-i18n="hintWindow" data-testid="hint-window">window</span></span>
       </div>
-      <button id="archive-btn" class="ghost" type="button" data-i18n-title="archiveBtnTitle"><span data-i18n="archiveBtn">Archive</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button id="archive-btn" class="ghost" type="button" data-i18n-title="archiveBtnTitle" data-testid="archive-btn"><span data-i18n="archiveBtn" data-testid="archive-btn-label">Archive</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </header>
 
-    <div id="tools" class="tools">
-      <div class="view" role="toolbar" data-i18n-aria="viewAria">
-        <label class="sortbox"><span data-i18n="sortLabel">Sort</span>
-          <select id="sort" data-i18n-aria="sortAria">
-            <option value="order" data-i18n="sortByOrder">By order</option>
-            <option value="recent" data-i18n="sortByRecent">By recently opened</option>
-            <option value="name" data-i18n="sortByName">By name</option>
+    <div id="tools" class="tools" data-testid="tools">
+      <div class="view" role="toolbar" data-i18n-aria="viewAria" data-testid="view-toolbar">
+        <label class="sortbox" data-testid="sort-box"><span data-i18n="sortLabel" data-testid="sort-label">Sort</span>
+          <select id="sort" data-i18n-aria="sortAria" data-testid="sort">
+            <option value="order" data-i18n="sortByOrder" data-testid="sort-order">By order</option>
+            <option value="recent" data-i18n="sortByRecent" data-testid="sort-recent">By recently opened</option>
+            <option value="name" data-i18n="sortByName" data-testid="sort-name">By name</option>
           </select>
         </label>
-        <button id="star-filter" class="chip" type="button" aria-pressed="false" data-i18n-title="starFilterTitle">
+        <button id="star-filter" class="chip" type="button" aria-pressed="false" data-i18n-title="starFilterTitle" data-testid="star-filter">
           <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" fill="currentColor"/></svg>
-          <span class="label" data-i18n="starred">Starred</span><span id="star-n" class="n">0</span>
+          <span class="label" data-i18n="starred" data-testid="star-filter-label">Starred</span><span id="star-n" class="n" data-testid="star-n">0</span>
         </button>
-        <span id="qfilters" class="qfilters" role="group" data-i18n-aria="filtersAria"></span>
+        <span id="qfilters" class="qfilters" role="group" data-i18n-aria="filtersAria" data-testid="qfilters"></span>
       </div>
-      <div class="setup">
-        <button id="merge-btn" class="act" type="button" hidden>
+      <div class="setup" data-testid="setup-actions">
+        <button id="merge-btn" class="act" type="button" hidden data-testid="merge-btn">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4.5 6.5 8 9.5l3.5-3M8 2.5v7" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          <span id="merge-text"></span>
+          <span id="merge-text" data-testid="merge-text"></span>
         </button>
-        <button id="dupes-btn" class="act" type="button" hidden>
+        <button id="dupes-btn" class="act" type="button" hidden data-testid="dupes-btn">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="6" y="6" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
-          <span id="dupes-text"></span>
+          <span id="dupes-text" data-testid="dupes-text"></span>
         </button>
-        <button id="sweep-btn" class="act" type="button" hidden>
+        <button id="sweep-btn" class="act" type="button" hidden data-testid="sweep-btn">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 5.5h2.2l1.2-1.8h4.2l1.2 1.8h2.2v7h-11z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/><circle cx="8" cy="8.8" r="2" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
-          <span id="sweep-text"></span>
+          <span id="sweep-text" data-testid="sweep-text"></span>
         </button>
       </div>
     </div>
-    <div id="alert" class="alert" role="alert" hidden><span id="alert-text"></span><button id="alert-btn" class="btn quiet" type="button" hidden></button></div>
+    <div id="alert" class="alert" hidden data-testid="alert"><span id="alert-text" data-testid="alert-text"></span><button id="alert-btn" class="btn quiet" type="button" hidden data-testid="alert-btn"></button></div>
 
     <!-- Quick actions: shown while searching or once tabs are selected. -->
-    <div id="acts" class="acts" role="toolbar" hidden>
-      <span id="acts-n" class="acts-n"></span>
-      <button id="sel-all" class="lnk" type="button"></button>
-      <button id="sel-none" class="lnk" type="button" data-i18n="selNone" hidden>Clear</button>
-      <span class="grow"></span>
-      <span id="acts-btns" class="acts-btns"></span>
+    <div id="acts" class="acts" role="toolbar" hidden data-testid="acts">
+      <span id="acts-n" class="acts-n" data-testid="acts-n"></span>
+      <button id="sel-all" class="lnk" type="button" data-testid="sel-all"></button>
+      <button id="sel-none" class="lnk" type="button" data-i18n="selNone" hidden data-testid="sel-none">Clear</button>
+      <span class="grow" data-testid="acts-spacer"></span>
+      <span id="acts-btns" class="acts-btns" data-testid="acts-btns"></span>
     </div>
 
-    <div id="body" class="body">
+    <div id="body" class="body" data-testid="body">
       <!-- Windows, on the left, each with a small preview of the tab it is showing. Hidden with one window. -->
-      <nav id="wins" class="wins" data-i18n-aria="windowsAria" hidden></nav>
-      <main id="scroller">
-        <section aria-labelledby="open-h">
-          <h2 id="open-h" class="section-h" data-i18n="openTabs">Open tabs</h2>
-          <div id="open-grid" class="sections" role="listbox" aria-labelledby="open-h" aria-multiselectable="true"></div>
-          <p id="open-empty" class="empty" hidden></p>
+      <nav id="wins" class="wins" data-i18n-aria="windowsAria" hidden data-testid="wins"></nav>
+      <main id="scroller" data-testid="scroller">
+        <section aria-labelledby="open-h" data-testid="open-section">
+          <h2 id="open-h" class="section-h" data-i18n="openTabs" data-testid="open-h">Open tabs</h2>
+          <div id="open-grid" class="sections" role="group" aria-labelledby="open-h" data-testid="open-grid"></div>
+          <p id="open-empty" class="empty" hidden data-testid="open-empty"></p>
         </section>
-        <section id="snoozed-section" aria-labelledby="snoozed-h" hidden>
-          <h2 id="snoozed-h" class="section-h" data-i18n="snoozedH">Snoozed</h2>
-          <div id="snoozed-grid" class="grid small" role="listbox" aria-labelledby="snoozed-h"></div>
+        <section id="snoozed-section" aria-labelledby="snoozed-h" hidden data-testid="snoozed-section">
+          <h2 id="snoozed-h" class="section-h" data-i18n="snoozedH" data-testid="snoozed-h">Snoozed</h2>
+          <div id="snoozed-grid" class="grid small" role="listbox" aria-labelledby="snoozed-h" data-testid="snoozed-grid"></div>
         </section>
-        <section id="closed-section" aria-labelledby="closed-h" hidden>
-          <h2 id="closed-h" class="section-h"></h2>
-          <div id="closed-grid" class="grid small" role="listbox" aria-labelledby="closed-h"></div>
+        <section id="closed-section" aria-labelledby="closed-h" hidden data-testid="closed-section">
+          <h2 id="closed-h" class="section-h" data-testid="closed-h"></h2>
+          <div id="closed-grid" class="grid small" role="listbox" aria-labelledby="closed-h" data-testid="closed-grid"></div>
         </section>
       </main>
 
     </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
-    <div id="modal" class="modal-back" hidden>
-      <div id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title"></div>
+    <div id="toast" class="toast" hidden data-testid="toast"></div>
+    <!-- What screen readers announce: always there (a live region that appears with its text is often not read). -->
+    <div id="live-status" class="sr-only live" role="status" aria-live="polite" data-testid="live-status"></div>
+    <div id="live-alert" class="sr-only live" role="alert" data-testid="live-alert"></div>
+    <div id="modal" class="modal-back" hidden data-testid="modal">
+      <div id="dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title" data-testid="dialog"></div>
     </div>
   </div>
-  <textarea id="clip" class="clip" aria-hidden="true" tabindex="-1"></textarea>
+  <textarea id="clip" class="clip" aria-hidden="true" tabindex="-1" data-testid="clip"></textarea>
   <script type="module" src="switcher.js"></script>
 </body>
 </html>

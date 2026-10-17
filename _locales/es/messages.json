@@ -549,7 +549,7 @@
       "message": "Seleccionar esta pestaña"
    },
    "pickTitle": {
-      "message": "Seleccionar (o Ctrl+clic en la tarjeta). Mayús+clic selecciona un rango."
+      "message": "Seleccionar. Mayús+clic en una tarjeta selecciona un rango."
    },
    "pickedN_one": {
       "message": "$1 seleccionada"
@@ -1276,5 +1276,20 @@
    },
    "srcMark": {
       "message": "Marcador"
+   },
+   "overlayLabel": {
+      "message": "Selector de pestañas Tabazing"
+   },
+   "hintActions": {
+      "message": "acciones"
+   },
+   "keyActions": {
+      "message": "acciones de la tarjeta (seleccionar, fijar, posponer…)"
+   },
+   "menuSelect": {
+      "message": "Seleccionar"
+   },
+   "menuUnselect": {
+      "message": "Deseleccionar"
    }
 }

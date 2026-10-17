@@ -627,7 +627,7 @@
       "message": "Выбрать вкладку"
    },
    "pickTitle": {
-      "message": "Выбрать (или Ctrl+клик по карточке). Shift+клик выбирает диапазон."
+      "message": "Выбрать. Shift+клик по карточке выбирает диапазон."
    },
    "pickedN_few": {
       "message": "выбрано $1"
@@ -1474,5 +1474,20 @@
    },
    "srcMark": {
       "message": "Закладка"
+   },
+   "overlayLabel": {
+      "message": "Переключатель вкладок Tabazing"
+   },
+   "hintActions": {
+      "message": "действия"
+   },
+   "keyActions": {
+      "message": "действия с карточкой (выбрать, закрепить, отложить…)"
+   },
+   "menuSelect": {
+      "message": "Выбрать"
+   },
+   "menuUnselect": {
+      "message": "Снять выбор"
    }
 }

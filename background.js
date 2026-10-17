@@ -14,9 +14,9 @@
 
 import { MSG, KEY, FRAME_MSG, LIMITS, NUDGE, SWITCHER_PAGE, WINDOW_STATES, CLOSE_REASONS, SNOOZE_ALARM } from './lib/constants.js';
 import {
-  touchMru, removeFromMru, replaceInMru, seedMru, getPreview, cleanupPreviews, markBoot,
+  touchMru, removeFromMru, replaceInMru, seedMru, previewFresh, cleanupPreviews, markBoot,
   markDiscarded, moveDiscarded, ensureBoot,
-  rememberTab, rememberTabs, forgetTabMeta, logClosedTab, cleanupClosedLog,
+  rememberTab, rememberTabs, forgetTabMeta, logClosedTab, flushClosedTabs, cleanupClosedLog,
   setOverlayTab, clearOverlayTab, createLaunch, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPrefs,
   takeDueSnoozed,
@@ -110,6 +110,8 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   markDiscarded(tabId, false).catch(() => {});
   logClosedTab(tabId).catch(() => {});
 });
+// Closes are logged in batches a moment later (logClosedTab): write a waiting one before Chrome stops the worker.
+if (chrome.runtime.onSuspend) chrome.runtime.onSuspend.addListener(() => { flushClosedTabs().catch(() => {}); });
 
 chrome.tabs.onReplaced.addListener((addedId, removedId) => {
   replaceInMru(removedId, addedId);
@@ -174,6 +176,7 @@ async function onCyclingRun(tab) {
 function injectNudge(type, showMs, text, key) {
   if (window.__tabazingNudge) return;
   const host = document.createElement('div');
+  host.dataset.testid = 'nudge-host';
   host.style.cssText = 'all:initial;position:fixed;bottom:20px;right:20px;z-index:2147483646';
   const root = host.attachShadow({ mode: 'closed' });
   const css = `
@@ -185,26 +188,33 @@ function injectNudge(type, showMs, text, key) {
     .r{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
     .b{font:inherit;font-weight:700;font-size:13px;border:2px solid #1B2A4A;background:#EAF6FF;color:#1B2A4A;padding:4px 10px;cursor:pointer}
     .b.p1{background:#7DD3FC}.q{border:0;background:none;text-decoration:underline;padding:4px 2px;font-weight:400;opacity:.75}
-    .x{position:absolute;top:6px;right:8px;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#1B2A4A}`;
+    .x{position:absolute;top:4px;right:6px;min-width:24px;min-height:24px;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#1B2A4A}
+    button:focus-visible{outline:2px solid #1B2A4A;outline-offset:2px}`;
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
-  const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'status');
-  const h = document.createElement('p'); h.className = 't'; h.textContent = text.title;
-  const p = document.createElement('p'); p.className = 'p';
+  const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', text.title); box.dataset.testid = 'nudge';
+  const h = document.createElement('p'); h.className = 't'; h.textContent = text.title; h.dataset.testid = 'nudge-title';
+  const p = document.createElement('p'); p.className = 'p'; p.dataset.testid = 'nudge-body';
   const [before, after] = text.body.split(key);
-  const k = document.createElement('kbd'); k.textContent = key;
+  const k = document.createElement('kbd'); k.textContent = key; k.dataset.testid = 'nudge-key';
   p.append(before || '', k, after || '');
-  const row = document.createElement('div'); row.className = 'r';
+  const row = document.createElement('div'); row.className = 'r'; row.dataset.testid = 'nudge-buttons';
   const btn = (label, cls, act) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = label;
+    const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = label; b.dataset.testid = 'nudge-' + act;
     b.addEventListener('click', (e) => { if (!e.isTrusted) return; done(); chrome.runtime.sendMessage({ type, act }).catch(() => {}); });
     return b;
   };
   row.append(btn(text.tryIt, 'b p1', 'try'), btn(text.ok, 'b', 'ok'), btn(text.never, 'b q', 'never'));
-  const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.setAttribute('aria-label', text.close); x.textContent = '\u00d7';
+  const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.setAttribute('aria-label', text.close); x.textContent = '\u00d7'; x.dataset.testid = 'nudge-close';
   x.addEventListener('click', () => done());
   box.append(h, p, row, x); root.append(box);
-  const timer = setTimeout(() => done(), showMs);
+  // It goes away by itself, but not while the pointer or the keyboard focus is on it; Esc closes it.
+  let timer = setTimeout(() => done(), showMs);
+  const hold = () => clearTimeout(timer);
+  const release = () => { clearTimeout(timer); if (!box.matches(':hover') && !box.contains(root.activeElement)) timer = setTimeout(() => done(), showMs); };
+  box.addEventListener('mouseenter', hold); box.addEventListener('focusin', hold);
+  box.addEventListener('mouseleave', release); box.addEventListener('focusout', () => setTimeout(release, 0));
+  box.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(); } });
   function done() { clearTimeout(timer); host.remove(); delete window.__tabazingNudge; }
   window.__tabazingNudge = { host };
   (document.body || document.documentElement).append(host);
@@ -307,11 +317,20 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false) {
   //    (storage.onChanged in switcher.js). The overlay stays invisible until it is READY, but a grab
   //    that takes too long is dropped all the same, so it can never picture the overlay.
   cancelCapture(tab.windowId);
-  const [win, prev] = await Promise.all([
+  const [win, fresh] = await Promise.all([
     chrome.windows.get(tab.windowId).catch(() => ({})),
-    getPreview(tab.url).catch(() => null),
+    previewFresh(tab.url, 1500).catch(() => false),
   ]);
-  if (!prev || Date.now() - prev.t > 1500) {
+  const ctx = {
+    src: tab.id, win: tab.windowId, dir, via, hold,
+    state: WINDOW_STATES.includes(win.state) ? win.state : 'normal',
+  };
+  // The launch token and overlay note are only storage writes, nothing on screen: made during the grab.
+  // Injecting waits for it (step 4), so the screenshot never has the overlay in it.
+  const inPage = INJECTABLE.test(tab.url || '');
+  const prep = inPage ? Promise.all([createLaunch({ ...ctx, mode: 'overlay' }), setOverlayTab(tab.id)]) : null;
+  if (prep) prep.catch(() => {}); // awaited below; this only keeps an early failure from counting as unhandled
+  if (!fresh) {
     let late = false;
     const shot = await Promise.race([
       grabForOpen(tab.windowId).then((s) => (late ? null : s)).catch(() => null),
@@ -320,16 +339,11 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false) {
     if (shot) storeShot(shot.tab, shot.dataUrl).catch(() => {});
   }
 
-  const ctx = {
-    src: tab.id, win: tab.windowId, dir, via, hold,
-    state: WINDOW_STATES.includes(win.state) ? win.state : 'normal',
-  };
-
   // 4. Show it inside the page; fall back to a popup window where extensions
   //    can't inject (chrome://, New Tab, Web Store) or the overlay fails.
-  if (INJECTABLE.test(tab.url || '')) {
+  if (inPage) {
     try {
-      const [token] = await Promise.all([createLaunch({ ...ctx, mode: 'overlay' }), setOverlayTab(tab.id)]);
+      const [token] = await prep;
       armWatchdog(token, tab.id, win, ctx); // before injecting: READY can arrive very quickly
       overlayOpen = { tabId: tab.id, win, ctx };
       await injectInto(tab.id, token, hold);
@@ -351,7 +365,7 @@ function injectInto(tabId, token, hold) {
   return chrome.scripting.executeScript({
     target: { tabId },
     func: overlayHost,
-    args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'launch', token, hold, LIMITS.STANDBY_DROP_MS],
+    args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'launch', token, hold, LIMITS.STANDBY_DROP_MS, t('overlayLabel')],
     injectImmediately: true,
   });
 }
@@ -368,7 +382,7 @@ function prepareSwitcher(tab, delay = 0) {
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: overlayHost,
-      args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'standby', null, false, LIMITS.STANDBY_DROP_MS],
+      args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'standby', null, false, LIMITS.STANDBY_DROP_MS, t('overlayLabel')],
       injectImmediately: true,
     }).catch(() => {});
   }, delay));
@@ -471,7 +485,7 @@ async function openPopupWindow(win, token) {
 // A page hidden for STANDBY_DROP_MS drops its prepared frame (memory); the background prepares one again
 // when the tab is shown. The frame stays invisible and click-through until the switcher reports it has
 // drawn (READY), so a page that blocks it is never left covered by an empty frame.
-function overlayHost(src, extOrigin, FRAME, mode, token, hold, dropMs) {
+function overlayHost(src, extOrigin, FRAME, mode, token, hold, dropMs, label = 'Tabazing') {
   let host = window.__tabazingOverlay;
   if (host && (!host.launch || !host.frame.isConnected)) { host.cleanup(); host = null; } // an older host, or removed by the page
   if (mode === 'standby') { if (!host) create(); return; }
@@ -487,14 +501,16 @@ function overlayHost(src, extOrigin, FRAME, mode, token, hold, dropMs) {
       'border:0', 'margin:0', 'padding:0', 'z-index:2147483647', 'opacity:0', 'pointer-events:none',
     ];
     const shade = document.createElement('div');
+    shade.dataset.testid = 'overlay-shade';
     shade.style.cssText = [...base,
       'backdrop-filter:blur(18px) brightness(.45) saturate(1.2)',
       '-webkit-backdrop-filter:blur(18px) brightness(.45) saturate(1.2)',
     ].join(';');
     const frame = document.createElement('iframe');
+    frame.dataset.testid = 'overlay-frame';
     frame.setAttribute('allowtransparency', 'true');
     frame.setAttribute('allow', 'clipboard-write'); // "Copy links" (the page's own policy can still refuse; the switcher falls back)
-    frame.setAttribute('aria-label', 'Tabazing tab switcher');
+    frame.setAttribute('aria-label', label); // what screen readers call the switcher (in the user's language)
     frame.style.cssText = [...base, 'background:transparent', 'color-scheme:normal'].join(';');
 
     let session = null; // { token, hold, prevFocus, sent, shown, released } while open
@@ -632,6 +648,7 @@ function injectFlyout(doneType, showMs, text) {
   if (window.__tabazingFlyout) return;
   const mac = /mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
   const host = document.createElement('div');
+  host.dataset.testid = 'flyout-host';
   host.style.cssText = 'all:initial;position:fixed;top:16px;right:16px;z-index:2147483646';
   const root = host.attachShadow({ mode: 'closed' });
   const css = `
@@ -641,25 +658,34 @@ function injectFlyout(doneType, showMs, text) {
     .t{font-weight:700;font-size:15px;margin:0 22px 6px 0}.p{margin:0 0 10px}
     kbd{font:inherit;font-weight:700;background:#7DD3FC;border:2px solid #1B2A4A;border-radius:3px;padding:1px 7px}
     .s{font-size:12px;opacity:.75;margin:0}
-    button{position:absolute;top:6px;right:8px;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#1B2A4A}`;
+    button{position:absolute;top:4px;right:6px;min-width:24px;min-height:24px;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:#1B2A4A}
+    button:focus-visible{outline:2px solid #1B2A4A;outline-offset:2px}`;
   // A constructable stylesheet is not blocked by a page's Content-Security-Policy (an inline <style> can be).
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
-  const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'status');
-  const t = document.createElement('p'); t.className = 't'; t.textContent = text.title;
-  const p = document.createElement('p'); p.className = 'p';
-  const k = document.createElement('kbd'); k.textContent = mac ? 'Option+Q' : 'Alt+Q';
+  const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', text.title); box.dataset.testid = 'flyout';
+  const t = document.createElement('p'); t.className = 't'; t.textContent = text.title; t.dataset.testid = 'flyout-title';
+  const p = document.createElement('p'); p.className = 'p'; p.dataset.testid = 'flyout-body';
+  const k = document.createElement('kbd'); k.textContent = mac ? 'Option+Q' : 'Alt+Q'; k.dataset.testid = 'flyout-key';
   const [before, after] = text.body.split('$KEY$');
   p.append(before || '', k, after || '');
-  const s = document.createElement('p'); s.className = 's'; s.textContent = text.sub;
-  const x = document.createElement('button'); x.type = 'button'; x.setAttribute('aria-label', text.close); x.textContent = '\u00d7';
+  const s = document.createElement('p'); s.className = 's'; s.textContent = text.sub; s.dataset.testid = 'flyout-sub';
+  const x = document.createElement('button'); x.type = 'button'; x.setAttribute('aria-label', text.close); x.textContent = '\u00d7'; x.dataset.testid = 'flyout-close';
   box.append(t, p, s, x); root.append(box);
   const done = () => {
     clearTimeout(timer); host.remove(); delete window.__tabazingFlyout;
     chrome.runtime.sendMessage({ type: doneType }).catch(() => {});
   };
   x.addEventListener('click', done);
-  const timer = setTimeout(() => { host.remove(); delete window.__tabazingFlyout; }, showMs); // left alone: offered again on the next page
+  // Left alone, it goes (and is offered again on the next page); not while the pointer or the keyboard
+  // focus is on it. Esc dismisses it, like the ×.
+  const expire = () => { host.remove(); delete window.__tabazingFlyout; };
+  let timer = setTimeout(expire, showMs);
+  const hold = () => clearTimeout(timer);
+  const release = () => { clearTimeout(timer); if (!box.matches(':hover') && !box.contains(root.activeElement)) timer = setTimeout(expire, showMs); };
+  box.addEventListener('mouseenter', hold); box.addEventListener('focusin', hold);
+  box.addEventListener('mouseleave', release); box.addEventListener('focusout', () => setTimeout(release, 0));
+  box.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(); } });
   window.__tabazingFlyout = { host };
   (document.body || document.documentElement).append(host);
 }
@@ -785,3 +811,12 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       return;
   }
 });
+
+// For the unit tests (tests/): everything above, by name. Nothing in the extension imports this file.
+export {
+  SWITCHER_URL, EXT_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
+  settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
+  trigger, openSwitcher, injectInto, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
+  WATCH_FIRST_MS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
+  flyoutOver, offerFlyout, injectFlyout, captureOne, reopenOver, fromContentScript, fromSwitcher,
+};

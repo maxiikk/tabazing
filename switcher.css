@@ -1,7 +1,7 @@
 :root {
   --fg: #fff;
   --fg-2: rgba(255,255,255,.72);
-  --fg-3: rgba(255,255,255,.5);
+  --fg-3: rgba(255,255,255,.68); /* the faintest text: still 4.5:1 over the overlay, whatever page is under it */
   --line: rgba(255,255,255,.14);
   --fill: rgba(255,255,255,.08);
   --fill-2: rgba(255,255,255,.14);
@@ -27,6 +27,8 @@ html.overlay body {
   box-shadow: inset 0 0 80px 40px rgba(0, 0, 0, .45); /* hides the bright blur fringe at the edges */
 }
 [hidden] { display: none !important; }
+/* The keyboard focus is always visible (WCAG 2.4.7), in the accent colour. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button { font: inherit; color: inherit; }
 
 /* ---------- header ---------- */
@@ -35,7 +37,7 @@ button { font: inherit; color: inherit; }
   display: inline-flex; align-items: center; gap: 9px; flex: none;
   background: none; border: 0; font-size: 14px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
 }
-.ghost:hover, .ghost:focus-visible { background: var(--fill-2); outline: none; }
+.ghost:hover, .ghost:focus-visible { background: var(--fill-2); }
 .search {
   flex: 0 1 560px; margin: 0 auto;
   display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 40px;
@@ -71,7 +73,7 @@ kbd + kbd { margin-left: 2px; }
   font-size: 12.5px; color: var(--fg-2); background: var(--fill); border: 1px solid var(--line); white-space: nowrap;
 }
 .act svg { color: var(--accent); flex: none; }
-.act:hover, .act:focus-visible { color: var(--fg); background: var(--fill-2); border-color: rgba(255,255,255,.35); outline: none; }
+.act:hover, .act:focus-visible { color: var(--fg); background: var(--fill-2); border-color: rgba(255,255,255,.35); }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px;
   border-radius: 15px; border: 1px solid var(--line); background: transparent; cursor: pointer;
@@ -157,7 +159,7 @@ html.intro body {
   z-index: 2; translate: 0 -4px; scale: 1.03;
   box-shadow: 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45);
 }
-.grid .card:not([aria-selected="true"]):not(.dragging) { filter: opacity(.8); }
+.grid .card:not([aria-selected="true"]):not(.dragging) .thumb { filter: opacity(.8); } /* the picture only: the text keeps its contrast */
 @media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { translate: none; scale: none; } .card { transition: none; } }
 
 .head { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 2px 6px; }
@@ -200,6 +202,10 @@ html.intro body {
 .x:hover { background: var(--danger); opacity: 1 !important; }
 .x.on { opacity: .8; }
 
+/* Small controls reach out to 24x24 px for the pointer (WCAG 2.5.8) without looking bigger. */
+.pick, .grid.small .qbtn, .badge.audio, .wmerge { position: relative; }
+.pick::after, .grid.small .qbtn::after, .badge.audio::after, .wmerge::after { content: ''; position: absolute; inset: -3px; }
+
 /* tick box on a card: shows on hover, and on every card once one is ticked */
 .pick {
   flex: none; width: 18px; height: 18px; padding: 0; margin: 0; border-radius: 4px; cursor: pointer; box-sizing: border-box;
@@ -208,6 +214,8 @@ html.intro body {
 .card:hover .pick, .picking .pick, .pick.on { display: inline-flex; }
 .card:hover .pick + .fav, .picking .pick + .fav { display: none; }
 .pick:hover { border-color: var(--accent); }
+.pick:focus-visible { display: inline-flex; }
+.star:focus-visible, .x:focus-visible { opacity: 1; }
 .pick.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .card.picked { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
 .card.picked[aria-selected="true"] { border-color: var(--accent);
@@ -219,7 +227,7 @@ html.intro body {
 .card:hover .qbtn, .card[aria-selected="true"] .qbtn, .qbtn:focus-visible, .qbtn.note.on { opacity: 1; }
 .qbtn { width: 26px; height: 26px; border-radius: 6px; border: 0; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   background: rgba(10,12,16,.78); color: var(--fg); }
-.qbtn:hover, .qbtn:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+.qbtn:hover, .qbtn:focus-visible { background: var(--accent); color: var(--on-accent); }
 
 /* quick actions: a floating pill at the bottom (it never pushes the cards down) */
 .acts { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: 20px; z-index: 4; max-width: calc(100% - 60px);
@@ -231,11 +239,11 @@ html.intro body {
 .acts-n { font-weight: 650; color: var(--accent); white-space: nowrap; }
 .acts-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .lnk { background: none; border: 0; padding: 2px; color: var(--fg-2); font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
-.lnk:hover, .lnk:focus-visible { color: var(--fg); outline: none; }
+.lnk:hover, .lnk:focus-visible { color: var(--fg); }
 .qa { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 15px; cursor: pointer; white-space: nowrap;
   font-size: 12.5px; color: var(--fg); background: var(--fill); border: 1px solid var(--line); }
 .qa svg { flex: none; opacity: .85; }
-.qa:hover:not(:disabled), .qa:focus-visible { background: var(--accent); color: var(--on-accent); border-color: var(--accent); outline: none; }
+.qa:hover:not(:disabled), .qa:focus-visible { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .qa:disabled { opacity: .4; cursor: default; }
 .qa.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 650; }
 .qa.danger:hover:not(:disabled), .qa.armed, .act.armed { background: var(--danger); border-color: var(--danger); color: #fff; }
@@ -253,6 +261,8 @@ html.intro body {
 /* a short note at the bottom ("Copied 5 links") */
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6; padding: 8px 16px; border-radius: 8px;
   background: color-mix(in srgb, var(--accent) 12%, white); color: #1B2A4A; font-weight: 650; font-size: 13px; box-shadow: 3px 3px 0 #1B2A4A; animation: pop .16s ease-out both; }
+/* for screen readers only (the live regions): there, but not seen */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .clip { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; user-select: text; }
 
 .thumb {
@@ -304,7 +314,7 @@ html.intro body {
   display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; padding: 4px 8px; font-size: 13px; font-weight: 600;
   background: none; border: 0; border-radius: 6px; cursor: pointer; text-align: left; max-width: 100%;
 }
-.ghead:hover, .ghead:focus-visible { background: var(--fill); outline: none; }
+.ghead:hover, .ghead:focus-visible { background: var(--fill); }
 .ghead .n { font-weight: 400; color: var(--fg-3); font-size: 12px; }
 .ghead .gname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chev { display: inline-flex; color: var(--fg-3); transition: transform .12s; }
@@ -318,7 +328,7 @@ html.intro body {
 .menu { position: fixed; z-index: 7; width: 230px; padding: 5px; border-radius: 10px; background: #1d2027; border: 1px solid rgba(255,255,255,.2); box-shadow: 0 16px 40px rgba(0,0,0,.6); display: grid; gap: 1px; }
 .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
 .mi { text-align: left; border: 0; background: none; color: var(--fg); font-size: 12.5px; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
-.mi:hover, .mi:focus-visible { background: var(--fill-2); outline: none; }
+.mi:hover, .mi:focus-visible { background: var(--fill-2); }
 .mi.danger { color: #ffb4aa; }
 .mi.armed { background: var(--danger); color: #fff; }
 .btn.small { padding: 4px 10px; font-size: 12px; }
@@ -346,7 +356,7 @@ html.intro body {
 .row { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 .row .grow { flex: 1; }
 .btn { border: 1px solid var(--line); background: var(--fill); color: var(--fg); padding: 8px 14px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
-.btn:hover, .btn:focus-visible { background: var(--fill-2); outline: none; border-color: rgba(255,255,255,.4); }
+.btn:hover, .btn:focus-visible { background: var(--fill-2); border-color: rgba(255,255,255,.4); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 650; }
 .btn.primary:hover, .btn.primary:focus-visible { background: color-mix(in srgb, var(--accent) 75%, white); }
 .btn.quiet { background: none; border-color: transparent; color: var(--fg-3); }
@@ -386,6 +396,7 @@ html.intro body {
 .dialog.manual .btn { border-radius: 0; background: transparent; color: var(--ink); border: 3px solid var(--ink); font-weight: 700; }
 .dialog.manual .btn:hover, .dialog.manual .btn:focus-visible { background: color-mix(in srgb, var(--ink) 15%, transparent); }
 .dialog.manual .btn.primary { background: var(--ink); color: var(--accent); }
+.dialog.manual :focus-visible, .toast :focus-visible { outline-color: var(--ink, #1B2A4A); } /* the ring on an accent-coloured card */
 .dialog.manual .btn.primary:hover, .dialog.manual .btn.primary:focus-visible { background: color-mix(in srgb, var(--ink) 85%, var(--accent)); }
 .dialog.manual .btn.quiet { background: none; border-color: transparent; color: var(--ink); opacity: .75; }
 .dialog.manual[data-side="right"]::after { box-shadow: -3px 3px 0 var(--ink); }
@@ -443,17 +454,17 @@ html.intro body {
   height: 24px; padding: 0 9px; border: 0; border-radius: 5px; background: transparent; cursor: pointer;
   font-size: 12px; font-weight: 600; color: #ff7b6e;
 }
-.noteclear:hover, .noteclear:focus-visible { background: color-mix(in srgb, var(--danger) 22%, transparent); outline: none; }
+.noteclear:hover, .noteclear:focus-visible { background: color-mix(in srgb, var(--danger) 22%, transparent); }
 .noteclose {
   width: 24px; height: 24px; padding: 0; border: 0; border-radius: 5px;
   background: transparent; color: var(--fg-3); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
-.noteclose:hover, .noteclose:focus-visible { background: var(--fill-2); color: var(--fg); outline: none; }
+.noteclose:hover, .noteclose:focus-visible { background: var(--fill-2); color: var(--fg); }
 html.light .noteclear { color: #c42b1c; }
 
 /* the note tooltip: like the menus (dark card, light border), with the accent on its edge */
 .tip {
-  position: fixed; z-index: 8; min-width: 150px; max-width: 280px; padding: 8px 11px 9px; border-radius: 8px; pointer-events: none;
+  position: fixed; z-index: 8; min-width: 150px; max-width: 280px; padding: 8px 11px 9px; border-radius: 8px; /* hoverable: it stays while the pointer is on it */
   background: #1d2027; border: 1px solid rgba(255,255,255,.2); border-left: 3px solid var(--accent);
   box-shadow: 0 10px 28px rgba(0,0,0,.55); display: grid; gap: 3px; animation: tipin .12s ease-out both;
 }
@@ -479,7 +490,7 @@ html.light .noteclear { color: #c42b1c; }
 /* ---------- sound: speaker in the header of a playing tab (click to mute) ---------- */
 .badge.audio { border: 0; background: none; padding: 2px; border-radius: 5px; cursor: pointer; color: var(--fg-2); }
 .badge.audio.on { color: var(--accent); opacity: 1; }
-.badge.audio:hover, .badge.audio:focus-visible { background: var(--fill-2); color: var(--fg); opacity: 1; outline: none; }
+.badge.audio:hover, .badge.audio:focus-visible { background: var(--fill-2); color: var(--fg); opacity: 1; }
 
 /* ---------- big preview (Ctrl+click a card) ---------- */
 .bigback {
@@ -497,7 +508,7 @@ html.light .noteclear { color: #c42b1c; }
   position: absolute; top: 9px; right: 9px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 7px;
   background: transparent; color: var(--fg-2); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
 }
-.bigx:hover, .bigx:focus-visible { background: var(--danger); color: #fff; outline: none; }
+.bigx:hover, .bigx:focus-visible { background: var(--danger); color: #fff; }
 .bigshot {
   display: block; width: min(1100px, calc(100vw - 72px)); max-height: calc(100vh - 120px); object-fit: contain;
   border-radius: 8px; background: #111318;
@@ -518,7 +529,7 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
   margin-left: 12px; padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-weight: 700;
   color: #1B2A4A; text-decoration: underline; text-underline-offset: 3px;
 }
-.toast .tact:hover, .toast .tact:focus-visible { text-decoration-thickness: 2px; outline: none; }
+.toast .tact:hover, .toast .tact:focus-visible { text-decoration-thickness: 2px; }
 
 /* the pin button of a pinned tab: shows it is pinned (click to unpin) */
 
@@ -531,13 +542,13 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 /* merge windows */
 #merge-btn.armed { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 #merge-btn.armed svg { color: var(--on-accent); }
-.win { position: relative; }
+.wrow { position: relative; } /* a window's button, with its merge button over its top right corner */
 .wmerge {
-  position: absolute; top: 4px; right: 4px; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 6px;
-  display: none; align-items: center; justify-content: center; font-size: 11px; font-weight: 650;
+  position: absolute; top: 4px; right: 4px; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 6px; border: 0;
+  display: none; align-items: center; justify-content: center; font: inherit; font-size: 11px; font-weight: 650;
   background: var(--fill-2); color: var(--fg-2); cursor: pointer;
 }
-.win:hover .wmerge, .wmerge.armed { display: inline-flex; }
+.wrow:hover .wmerge, .wrow:focus-within .wmerge, .wmerge.armed { display: inline-flex; }
 .wmerge:hover { background: var(--accent); color: var(--on-accent); }
 .wmerge.armed { background: var(--accent); color: var(--on-accent); }
 
@@ -562,7 +573,7 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
   box-shadow: 0 4px 14px rgba(0,0,0,.35);
 }
 .archx svg { width: 15px; height: 15px; }
-.archx:hover, .archx:focus-visible { background: color-mix(in srgb, var(--danger) 80%, white); outline: none; }
+.archx:hover, .archx:focus-visible { background: color-mix(in srgb, var(--danger) 80%, white); }
 .archbody {
   flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px 44px 32px;
   scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent;
@@ -626,7 +637,7 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
 
 /* ticked menu items (the current choice) and the accent on hover */
 .mi { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.mi:hover, .mi:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); outline: none; }
+.mi:hover, .mi:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .mi.on { color: var(--accent); font-weight: 650; }
 .mi.on svg { flex: none; color: var(--accent); }
 .mi.danger:hover, .mi.danger:focus-visible { background: var(--fill-2); }
@@ -656,7 +667,7 @@ html.light {
   color-scheme: light;
   --fg: #16191f;
   --fg-2: rgba(22,25,31,.72);
-  --fg-3: rgba(22,25,31,.5);
+  --fg-3: rgba(22,25,31,.66);
   --line: rgba(0,0,0,.13);
   --fill: rgba(0,0,0,.045);
   --fill-2: rgba(0,0,0,.085);
@@ -717,3 +728,8 @@ html.light .acts-n, html.light .tiph, html.light .badge.audio.on, html.light .qf
 html.light .mi.on, html.light .mi.on svg, html.light .alert .btn { color: var(--accent-ink); }
 html.light .snap:hover:not(:disabled) { color: var(--on-accent); }
 html.light .qfilters .chip[aria-pressed="true"] svg, html.light #star-filter[aria-pressed="true"] svg { color: var(--accent); }
+
+/* ---------- "reduce motion" (the OS setting): nothing animates ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

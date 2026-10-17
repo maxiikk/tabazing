@@ -549,7 +549,7 @@
       "message": "Select this tab"
    },
    "pickTitle": {
-      "message": "Select (or Ctrl+click the card). Shift+click selects a range."
+      "message": "Select. Shift+click a card to select a range."
    },
    "pickedN_one": {
       "message": "$1 selected"
@@ -1276,5 +1276,20 @@
    },
    "srcMark": {
       "message": "Bookmark"
+   },
+   "overlayLabel": {
+      "message": "Tabazing tab switcher"
+   },
+   "hintActions": {
+      "message": "actions"
+   },
+   "keyActions": {
+      "message": "the card’s actions (select, pin, snooze…)"
+   },
+   "menuSelect": {
+      "message": "Select"
+   },
+   "menuUnselect": {
+      "message": "Unselect"
    }
 }

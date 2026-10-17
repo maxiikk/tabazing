@@ -42,6 +42,7 @@ const el = {
   acts: $('acts'), actsN: $('acts-n'), actsBtns: $('acts-btns'), selAll: $('sel-all'), selNone: $('sel-none'),
   body: $('body'),
   toast: $('toast'), clip: $('clip'), modal: $('modal'), dialog: $('dialog'),
+  live: $('live-status'), liveAlert: $('live-alert'), archiveBtn: $('archive-btn'),
 };
 
 // Mac keyboards: Option instead of Alt, and the "delete" key is Backspace.
@@ -137,10 +138,11 @@ const favicon = (url) => chrome.runtime.getURL('/_favicon/') + '?pageUrl=' + enc
 function hostOf(url) {
   try { const u = new URL(url); return u.host || u.protocol.replace(':', ''); } catch { return ''; }
 }
-function h(tag, cls, text) {
+function h(tag, cls, text, testid) {
   const n = document.createElement(tag);
   if (cls) n.className = cls;
   if (text !== undefined && text !== null) n.textContent = text;
+  if (testid) n.dataset.testid = testid; // what the tests select elements by (tests/: never by class, id or role)
   return n;
 }
 
@@ -239,11 +241,12 @@ async function loadClosed() {
 
   const items = [];
   const covered = new Set(); // pages inside a closed window that Chrome still lists as one "Window" card
-  const archived = new Set((state.archived || []).map((x) => normalizeUrl(x.url))); // closed by archiving: listed in the archive
+  // Closed by archiving or snoozing: listed in the archive or under "Snoozed", not here (in Chrome's list either).
+  const elsewhere = new Set([...(state.archived || []), ...state.snoozed].map((x) => normalizeUrl(x.url)));
   for (const s of sessions) {
     if (s.tab) {
       const url = urlOf(s.tab);
-      if (!isWorthReopening(url) || archived.has(normalizeUrl(url))) continue;
+      if (!isWorthReopening(url) || elsewhere.has(normalizeUrl(url))) continue;
       items.push({ id: 's' + s.tab.sessionId, kind: 'tab', url, title: s.tab.title || '', ts: stamp(s), count: 1, session: s, fields: [[s.tab.title, url]] });
     } else if (s.window && s.window.tabs && s.window.tabs.length) {
       const tabs = s.window.tabs;
@@ -255,8 +258,7 @@ async function loadClosed() {
     }
   }
   const open = new Set(state.tabs.map((t) => normalizeUrl(urlOf(t))));
-  state.snoozed.forEach((x) => open.add(normalizeUrl(x.url))); // snoozed: listed under "Snoozed", not here
-  archived.forEach((k) => open.add(k)); // archived: in the archive, not here
+  elsewhere.forEach((k) => open.add(k));
   for (const e of log) {
     const key = normalizeUrl(e.url);
     // Already open again, or part of a closed window shown as one card: skip.
@@ -413,6 +415,7 @@ function highlight(text, q) {
     const from = Math.max(s, at);
     if (from > at) out.append(text.slice(at, from));
     const mk = document.createElement('mark');
+    mk.dataset.testid = 'search-highlight';
     mk.className = 'ddm';
     mk.textContent = text.slice(from, e);
     out.append(mk);
@@ -421,7 +424,8 @@ function highlight(text, q) {
   if (at < text.length) out.append(text.slice(at));
   return out;
 }
-const hlSpan = (cls, text, q) => { const s = h('span', cls); s.append(highlight(text, q)); return s; };
+const HL_TESTIDS = { ddtitle: 'dd-title', ddsub: 'dd-sub', 'ddsub ddnote2': 'dd-note' };
+const hlSpan = (cls, text, q) => { const s = h('span', cls, null, HL_TESTIDS[cls]); s.append(highlight(text, q)); return s; };
 
 const isStarred = (url) => !!state.stars[normalizeUrl(url)];
 const siteOf = (url) => hostOf(url).replace(/^www\./, '');
@@ -552,29 +556,31 @@ function renderWindows() {
   if (!multi) return el.wins.replaceChildren();
   const rows = [{ id: 'all', label: t('allWindows'), count: state.tabs.length, activeTitle: '' }, ...state.windows];
   el.wins.replaceChildren(...rows.map((w) => {
-    const b = h('button', 'win');
+    const row = h('div', 'wrow', null, 'window-row'); // the window's button, and its merge button beside it (not inside: a button in a button is unreachable)
+    const b = h('button', 'win', null, w.id === 'all' ? 'window-all' : 'window-item');
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.scope === w.id));
     if (w.activeTitle) b.title = t('activeTab', w.activeTitle);
-    const pic = h('span', 'wpic');
+    const pic = h('span', 'wpic', null, 'window-pic');
     if (w.id === 'all') pic.innerHTML = ICON.windows;
     else {
       const p = w.activeId && state.previews[w.activeId];
-      if (p && p.img) { const img = h('img'); img.src = p.img; img.alt = ''; pic.append(img); }
-      else { const img = h('img', 'wfav'); img.src = favicon(w.activeUrl || ''); img.alt = ''; pic.append(img); }
+      if (p && p.img) { const img = h('img', '', null, 'window-preview'); img.src = p.img; img.alt = ''; pic.append(img); }
+      else { const img = h('img', 'wfav', null, 'window-favicon'); img.src = favicon(w.activeUrl || ''); img.alt = ''; pic.append(img); }
     }
-    const text = h('span', 'wtext');
-    text.append(h('span', 'wlabel', w.label), h('span', 'wsub', tn('tabs', w.count)));
+    const text = h('span', 'wtext', null, 'window-text');
+    text.append(h('span', 'wlabel', w.label, 'window-label'), h('span', 'wsub', tn('tabs', w.count), 'window-count'));
     b.append(pic, text);
+    row.append(b);
     if (w.id !== 'all' && w.id !== CTX.srcWin) { // pull this window's tabs into the current one (a second click confirms)
       const key = 'merge:' + w.id;
-      const m = h('span', 'wmerge' + (state.armed === key ? ' armed' : ''), state.armed === key ? t('mergeSure') : '');
-      m.setAttribute('role', 'button');
+      const m = h('button', 'wmerge' + (state.armed === key ? ' armed' : ''), state.armed === key ? t('mergeSure') : '', 'window-merge');
+      m.type = 'button';
       m.title = t('mergeThis');
       m.setAttribute('aria-label', t('mergeThis'));
       if (state.armed !== key) m.innerHTML = ICON.merge;
       m.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) mergeWindows([w.id], key); });
-      b.append(m);
+      row.append(m);
     }
     b.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -582,40 +588,40 @@ function renderWindows() {
       setScope(w.id);
       el.search.focus();
     });
-    return b;
+    return row;
   }));
 }
 
 function windowTag(tab) {
   if (state.scope !== 'all' || state.windows.length < 2 || tab.windowId === CTX.srcWin) return null;
   const w = state.windows.find((x) => x.id === tab.windowId);
-  return w ? h('span', 'tag', w.label) : null;
+  return w ? h('span', 'tag', w.label, 'card-window-tag') : null;
 }
 
 function thumbFor(entry, { label, sub, icon, action }) {
-  const thumb = h('div', 'thumb');
+  const thumb = h('div', 'thumb', null, 'card-thumb');
   if (entry.preview && entry.preview.img) {
-    const img = h('img', 'shot');
+    const img = h('img', 'shot', null, 'card-preview');
     img.decoding = 'async';
     img.src = entry.preview.img;
     img.alt = '';
     thumb.append(img);
     if (label) {
-      const pill = h('span', 'pill');
+      const pill = h('span', 'pill', null, 'card-pill');
       pill.innerHTML = icon;
       pill.append(label);
       thumb.append(pill);
     }
   } else {
-    const box = h('div', 'nopreview');
-    const tile = h('div', 'tile');
-    const img = h('img');
+    const box = h('div', 'nopreview', null, 'card-no-preview');
+    const tile = h('div', 'tile', null, 'card-tile');
+    const img = h('img', '', null, 'card-tile-favicon');
     img.src = favicon(entry.url);
     img.alt = '';
-    const badge = h('span', 'icon');
+    const badge = h('span', 'icon', null, 'card-tile-badge');
     badge.innerHTML = icon;
     tile.append(img, badge);
-    box.append(tile, h('div', 'label', label || t('noPreview')), h('div', 'sub', sub || ''));
+    box.append(tile, h('div', 'label', label || t('noPreview'), 'card-no-preview-label'), h('div', 'sub', sub || '', 'card-no-preview-sub'));
     if (action) box.append(action);
     thumb.append(box);
   }
@@ -625,7 +631,7 @@ function thumbFor(entry, { label, sub, icon, action }) {
 // Star / unstar the page a card shows. Stars live only in Tabazing (not Chrome's bookmarks).
 function starButton(entry) {
   const on = isStarred(entry.url);
-  const b = h('button', 'star' + (on ? ' on' : ''));
+  const b = h('button', 'star' + (on ? ' on' : ''), null, 'card-star-button');
   b.type = 'button';
   b.title = t(on ? 'unstar' : 'star') + (IS_MAC ? ' (⌥S)' : ' (Alt+S)');
   b.setAttribute('aria-label', t(on ? 'unstarAria' : 'starAria'));
@@ -639,7 +645,7 @@ function starButton(entry) {
 const canCapture = (tab) => !tab.discarded && isCapturableUrl(urlOf(tab)) && !state.nocap.has(normalizeUrl(urlOf(tab))) && state.hostOk;
 function captureButton(entry) {
   const busy = state.capturing === entry.tab.id;
-  const b = h('button', 'snap', t(busy ? 'capturing' : 'capturePreview'));
+  const b = h('button', 'snap', t(busy ? 'capturing' : 'capturePreview'), 'card-capture');
   b.type = 'button';
   b.disabled = busy;
   b.title = t('captureTitle') + (IS_MAC ? ' (⌥P)' : ' (Alt+P)');
@@ -652,7 +658,7 @@ function captureButton(entry) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 function tabAge(tab) {
   const days = tab.lastAccessed > 0 ? Math.floor((Date.now() - tab.lastAccessed) / DAY_MS) : 0;
-  return days >= 1 ? h('span', 'tag age', tn('ageDays', days)) : null;
+  return days >= 1 ? h('span', 'tag age', tn('ageDays', days), 'card-age') : null;
 }
 
 function renderCard(entry, index) {
@@ -663,14 +669,15 @@ function renderCard(entry, index) {
   const asleep = entry.kind === 'tab' && !!entry.tab.discarded && state.slept.has(entry.tab.id);
   const picked = entry.kind === 'tab' && state.picked.has(entry.tab.id);
   const willSleep = entry.kind === 'tab' && state.toSleep.has(entry.tab.id);
-  const card = h('div', 'card' + (entry.kind === 'closed' || entry.kind === 'star' ? ' closed' : '') + (asleep || willSleep ? ' asleep' : '') + (picked ? ' picked' : ''));
+  const card = h('div', 'card' + (entry.kind === 'closed' || entry.kind === 'star' ? ' closed' : '') + (asleep || willSleep ? ' asleep' : '') + (picked ? ' picked' : ''), null, 'card-' + entry.kind);
   card.id = 'opt-' + entry.key;
   card.setAttribute('role', 'option');
-  card.setAttribute('aria-selected', String(index === state.sel));
+  card.setAttribute('aria-selected', String(index === state.sel)); // the cursor (one card)
+  if (entry.kind === 'tab') card.setAttribute('aria-checked', String(picked)); // ticked for a quick action (any number)
   card.style.setProperty('--i', index); // its place in the opening cascade (switcher.css, .intro)
 
-  const head = h('div', 'head');
-  const fav = h('img', 'fav');
+  const head = h('div', 'head', null, 'card-head');
+  const fav = h('img', 'fav', null, 'card-favicon');
   fav.alt = '';
 
   if (entry.kind === 'tab') {
@@ -678,20 +685,20 @@ function renderCard(entry, index) {
     entry.url = urlOf(tab);
     fav.src = favicon(entry.url);
     const host = hostOf(entry.url);
-    if (index < 9) head.append(h('span', 'knum', String(index + 1))); // the first nine are numbered: press 1-9 to switch to them
-    head.append(pickBox(entry, picked), fav, h('span', 'title', tab.title || host || t('untitled')));
+    if (index < 9) head.append(h('span', 'knum', String(index + 1), 'card-number')); // the first nine are numbered: press 1-9 to switch to them
+    head.append(pickBox(entry, picked), fav, h('span', 'title', tab.title || host || t('untitled'), 'card-title'));
     // The site name only fits next to the title on wider cards; narrow ones
     // keep the title readable (the full URL is in the tooltip).
-    if (tab.title && host && state.cardW >= 300 && state.cardSize !== 'list') head.append(h('span', 'host', host.replace(/^www\./, '')));
+    if (tab.title && host && state.cardW >= 300 && state.cardSize !== 'list') head.append(h('span', 'host', host.replace(/^www\./, ''), 'card-host'));
     const age = tabAge(tab);
     if (age) head.append(age);
     const tag = windowTag(tab);
     if (tag) head.append(tag);
-    if (state.dupesView) { const goes = duplicates().some((x) => x.id === tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), t(goes ? 'dupeCloses' : 'dupeStays'))); }
-    if (tab.pinned) { const b = h('span', 'badge'); b.innerHTML = ICON.pin; b.title = t('pinned'); head.append(b); }
+    if (state.dupesView) { const goes = duplicates().some((x) => x.id === tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), t(goes ? 'dupeCloses' : 'dupeStays'), goes ? 'card-dupe-closes' : 'card-dupe-stays')); }
+    if (tab.pinned) { const b = h('span', 'badge', null, 'card-pinned'); b.innerHTML = ICON.pin; b.title = t('pinned'); head.append(b); }
     if (tab.audible || isMuted(tab)) head.append(audioBadge(tab)); // playing sound (or muted): click to mute / unmute
     head.append(starButton(entry));
-    const x = h('button', 'x');
+    const x = h('button', 'x', null, 'card-close');
     x.type = 'button';
     x.title = t('closeTabTitle');
     x.setAttribute('aria-label', t('closeTab'));
@@ -720,12 +727,12 @@ function renderCard(entry, index) {
     const title = c.title || hostOf(c.url);
     // Some entries (e.g. closed windows) come without a time: no time tag then.
     const ago = timeAgo(c.ts / 1000);
-    head.append(fav, h('span', 'title', title));
-    if (ago && entry.kind === 'closed') head.append(h('span', 'tag', ago));
-    if (entry.kind === 'snoozed') head.append(h('span', 'tag snz', t('wakesAt', whenLabel(c.ts))));
+    head.append(fav, h('span', 'title', title, 'card-title'));
+    if (ago && entry.kind === 'closed') head.append(h('span', 'tag', ago, 'card-closed-ago'));
+    if (entry.kind === 'snoozed') head.append(h('span', 'tag snz', t('wakesAt', whenLabel(c.ts)), 'card-wakes'));
     if (c.kind !== 'window') head.append(starButton(entry));
     if (entry.kind === 'snoozed') { // × cancels the snooze (the tab is not reopened)
-      const x = h('button', 'x');
+      const x = h('button', 'x', null, 'card-cancel-snooze');
       x.type = 'button';
       x.title = t('cancelSnooze');
       x.setAttribute('aria-label', t('cancelSnooze'));
@@ -746,6 +753,13 @@ function renderCard(entry, index) {
 
 // What every card does, whatever it shows: click to open, drag to move, hover to select.
 function finishCard(card, entry) {
+  // Its address, for screen readers (on screen it is only in the tooltip): the card's description.
+  const desc = h('span', '', siteOf(entry.url) || entry.url, 'card-description');
+  desc.id = 'desc-' + card.id;
+  desc.hidden = true;
+  card.append(desc);
+  card.setAttribute('aria-describedby', desc.id);
+  mouseOnly(card);
   card.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!pointerAllowed()) return;
@@ -769,37 +783,47 @@ function finishCard(card, entry) {
 }
 
 // A section: a header you can click to collapse it (remembered between opens), then its cards.
+// Buttons inside a card are for the mouse: an option can't hold buttons (screen readers drop them), and the
+// keyboard reaches all of them through the card's menu (Shift+F10, cardMenu) and the keys.
+function mouseOnly(card) {
+  card.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); });
+}
+
 function renderSection(sec, startIndex) {
-  const box = h('div', 'gsec' + (sec.collapsed ? ' collapsed' : ''));
+  const box = h('div', 'gsec' + (sec.collapsed ? ' collapsed' : ''), null, 'section');
   box.setAttribute('role', 'group');
   if (!sec.plain) {
     box.setAttribute('aria-label', sec.title);
-    const head = h('button', 'ghead');
+    const head = h('button', 'ghead', null, 'section-toggle');
     head.type = 'button';
     head.setAttribute('aria-expanded', String(!sec.collapsed));
     head.title = t(sec.collapsed ? 'sectionShow' : 'sectionCollapse');
-    const chev = h('span', 'chev');
+    const chev = h('span', 'chev', null, 'section-chevron');
     chev.innerHTML = ICON.chevron;
     head.append(chev);
     if (sec.site) {
-      const fav = h('img', 'sfav');
+      const fav = h('img', 'sfav', null, 'section-favicon');
       fav.src = favicon(sec.site);
       fav.alt = '';
       head.append(fav);
     }
-    head.append(h('span', 'gname', sec.title), h('span', 'n', String(sec.entries.length)));
+    const name = h('span', 'gname', sec.title, 'section-name');
+    name.id = 'sec-' + hashOf(sec.key);
+    head.append(name, h('span', 'n', String(sec.entries.length), 'section-count'));
     if (sec.collapsed) { // a peek at what's inside
-      const peek = h('span', 'peek');
-      for (const e of sec.entries.slice(0, 8)) { const i = h('img'); i.src = favicon(urlOf(e.tab)); i.alt = ''; peek.append(i); }
+      const peek = h('span', 'peek', null, 'section-peek');
+      for (const e of sec.entries.slice(0, 8)) { const i = h('img', '', null, 'section-peek-favicon'); i.src = favicon(urlOf(e.tab)); i.alt = ''; peek.append(i); }
       head.append(peek);
     }
     head.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleSection(sec.key); });
-    const hrow = h('div', 'hrow');
+    const hrow = h('div', 'hrow', null, 'section-header');
     hrow.append(head);
     box.append(hrow);
   }
   if (!sec.collapsed) {
-    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize));
+    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'section-grid');
+    grid.setAttribute('role', 'listbox'); // one list per section: its header button stays outside the list
+    grid.setAttribute('aria-labelledby', sec.plain ? 'open-h' : 'sec-' + hashOf(sec.key));
     grid.style.setProperty('--w', state.cardW + 'px');
     grid.append(...sec.entries.map((e, i) => renderCard(e, startIndex + i)));
     box.append(grid);
@@ -813,11 +837,11 @@ function renderTools() {
   el.qfilters.replaceChildren(...Object.entries(FILTERS).map(([id, f]) => {
     const n = inScope.filter(f.test).length;
     if (!n && state.filter !== id) return null;
-    const b = h('button', 'chip');
+    const b = h('button', 'chip', null, 'filter-' + id);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.filter === id));
     b.innerHTML = ICON[f.icon];
-    b.append(h('span', 'label', t(f.label)), h('span', 'n', String(n)));
+    b.append(h('span', 'label', t(f.label), 'filter-label'), h('span', 'n', String(n), 'filter-count'));
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) setFilter(state.filter === id ? null : id); });
     return b;
   }).filter(Boolean));
@@ -838,6 +862,7 @@ function renderTools() {
 }
 
 function render() {
+  const f = focusMark();
   hideTip();
   closeBig();
   const snoozedPart = state.entries.slice(state.openCount, state.openCount + state.snoozeCount);
@@ -870,7 +895,24 @@ function render() {
   renderDropdown();
   setTop();
   select(state.sel, { scroll: true });
+  refocus(f);
   requestAnimationFrame(tipTruncated);
+}
+
+// A redraw replaces the buttons it draws (chips, section headers, windows, the actions bar): put the focus
+// back on the same one, found by its testid and place, so pressing one with the keyboard doesn't drop the
+// focus (Tab would then start again from the top). If it is gone, the search box.
+function focusMark() {
+  const f = document.activeElement;
+  if (!f || f === el.search || !el.app.contains(f) || !f.dataset.testid) return null;
+  const same = [...el.app.querySelectorAll(`[data-testid="${f.dataset.testid}"]`)];
+  return { f, id: f.dataset.testid, nth: same.indexOf(f) };
+}
+function refocus(m) {
+  if (!m || m.f.isConnected) return;
+  const same = el.app.querySelectorAll(`[data-testid="${m.id}"]`);
+  const n = same[Math.min(m.nth, same.length - 1)];
+  (n && n.tabIndex >= 0 && !n.closest('[hidden]') ? n : el.search).focus({ preventScroll: true });
 }
 
 // The count in the search box: how many tabs are shown, or how many open and closed tabs the search found.
@@ -903,15 +945,25 @@ function refresh({ keepKey } = {}) {
 // -------------------------------------------------------------- selection
 function select(i, { scroll = true } = {}) {
   const n = state.entries.length;
-  if (!n) { state.sel = 0; return; }
+  if (!n) { state.sel = 0; return syncCombo(); }
   state.sel = ((i % n) + n) % n;
   const cards = document.querySelectorAll('#scroller .card'); // (not the archive overlay's)
   cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.sel)));
   const cur = cards[state.sel];
+  syncCombo();
   if (!cur) return;
-  document.querySelectorAll('[role=listbox]').forEach((l) => l.removeAttribute('aria-activedescendant'));
+  document.querySelectorAll('#scroller [role=listbox]').forEach((l) => l.removeAttribute('aria-activedescendant'));
   cur.closest('[role=listbox]').setAttribute('aria-activedescendant', cur.id);
   if (scroll) cur.scrollIntoView({ block: 'nearest' });
+}
+// The search box is a combobox: the focus stays in it, so screen readers follow its aria-activedescendant,
+// the dropdown's highlighted row while that shows, else the selected card.
+function syncCombo() {
+  const row = document.querySelector('.dd') && document.getElementById('dd-' + state.dd.hi);
+  el.search.setAttribute('aria-expanded', String(!!row));
+  const cur = row || document.querySelectorAll('#scroller .card')[state.sel];
+  if (cur) el.search.setAttribute('aria-activedescendant', cur.id);
+  else el.search.removeAttribute('aria-activedescendant');
 }
 
 // Alt+Q / Tab cycle through open tabs only; arrows can reach "Recently closed".
@@ -1169,7 +1221,7 @@ function forgetTab(id, keepKey) {
 // searching), then act on all of them at once. With nothing ticked, the bar acts on every tab the
 // search found. Everything here only calls Chrome's own tab APIs.
 function pickBox(entry, on) {
-  const b = h('button', 'pick' + (on ? ' on' : ''));
+  const b = h('button', 'pick' + (on ? ' on' : ''), null, 'card-pick');
   b.type = 'button';
   b.setAttribute('role', 'checkbox');
   b.setAttribute('aria-checked', String(on));
@@ -1230,12 +1282,12 @@ function renderActs() {
   el.selAll.textContent = state.query.trim() ? tn('selAllMatches', pool.length) : tn('selAllTabs', pool.length);
   el.selNone.hidden = n === 0;
   el.actsBtns.hidden = n === 0; // nothing to act on yet: only the "Select all" button shows
-  const more = h('button', 'qa more');
+  const more = h('button', 'qa more', null, 'actions-more');
   more.type = 'button';
   more.title = t('actMore');
   more.setAttribute('aria-label', t('actMore'));
   more.innerHTML = ICON.more;
-  more.append(h('span', '', t('actMore')));
+  more.append(h('span', '', t('actMore'), 'actions-more-label'));
   more.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!pointerAllowed() || !n) return;
@@ -1244,10 +1296,10 @@ function renderActs() {
   el.actsBtns.replaceChildren(...ACTIONS.filter((a) => !a.more).map((a) => {
     const key = 'act:' + a.id;
     const sure = state.armed === key;
-    const b = h('button', 'qa' + (sure ? ' armed' : '') + (a.id === 'close' ? ' danger' : ''));
+    const b = h('button', 'qa' + (sure ? ' armed' : '') + (a.id === 'close' ? ' danger' : ''), null, 'action-' + a.id);
     b.type = 'button';
     b.insertAdjacentHTML('beforeend', ICON[a.icon]);
-    b.append(h('span', '', sure ? t('sureN', n) : a.label(tabs)));
+    b.append(h('span', '', sure ? t('sureN', n) : a.label(tabs), 'action-label'));
     if (a.title) b.title = a.title();
     b.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1269,15 +1321,15 @@ function renderDupesBar() {
   el.selAll.hidden = true;
   el.selNone.hidden = true;
   el.actsBtns.hidden = false;
-  const close = h('button', 'qa danger' + (state.armed === 'act:dupes' ? ' armed' : ''));
+  const close = h('button', 'qa danger' + (state.armed === 'act:dupes' ? ' armed' : ''), null, 'dupes-close');
   close.type = 'button';
   close.insertAdjacentHTML('beforeend', ICON.close);
-  close.append(h('span', '', state.armed === 'act:dupes' ? t('sureN', d.length) : tn('dupesClose', d.length)));
+  close.append(h('span', '', state.armed === 'act:dupes' ? t('sureN', d.length) : tn('dupesClose', d.length), 'dupes-close-label'));
   close.disabled = !d.length;
   close.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeDupes(); });
-  const back = h('button', 'qa');
+  const back = h('button', 'qa', null, 'dupes-back');
   back.type = 'button';
-  back.append(h('span', '', t('dupesBack')));
+  back.append(h('span', '', t('dupesBack'), 'dupes-back-label'));
   back.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dupesView(false); });
   el.actsBtns.replaceChildren(close, back);
 }
@@ -1290,19 +1342,33 @@ function dupesView(on) {
 }
 
 // Small note at the bottom of the switcher ("Copied 5 links"), optionally with one button ("Undo").
+// Screen readers hear it from the live region (#live-status), which is always there: one that shows up
+// together with its text is often not read.
 let toastTimer = null;
+let toastAct = null; // the shown toast's button action (Undo), while it shows
 function toast(text, err, action) {
   if (err) console.warn('[Tabazing]', err && err.message);
   el.toast.textContent = text;
+  el.live.textContent = action ? text + '. ' + action.label : text;
+  toastAct = action ? action.fn : null;
   if (action) {
-    const b = h('button', 'tact', action.label);
+    const b = h('button', 'tact', action.label, 'toast-action');
     b.type = 'button';
-    b.addEventListener('click', (e) => { e.stopPropagation(); if (!pointerAllowed()) return; el.toast.hidden = true; action.fn(); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toastUndo(); });
     el.toast.append(b);
   }
   el.toast.hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.toast.hidden = true; }, action ? 5000 : 2600);
+  toastTimer = setTimeout(() => { el.toast.hidden = true; toastAct = null; }, action ? 5000 : 2600);
+}
+// The shown toast's button (Undo), from its click or a key. False when no toast offers one.
+function toastUndo() {
+  const fn = toastAct;
+  if (!fn || el.toast.hidden) return false;
+  el.toast.hidden = true;
+  toastAct = null;
+  fn();
+  return true;
 }
 
 // ---- undo close: Ctrl+Z (or Undo in the note that follows a close) reopens what was last closed here,
@@ -1565,7 +1631,7 @@ function ddHighlight(scroll = true) {
   const dd = document.querySelector('.dd');
   if (!dd) return;
   dd.querySelectorAll('.ddr').forEach((x, k) => { x.classList.toggle('on', k === state.dd.hi); x.setAttribute('aria-selected', String(k === state.dd.hi)); });
-  el.search.setAttribute('aria-activedescendant', 'dd-' + state.dd.hi);
+  syncCombo();
   const on = dd.querySelector('.ddr.on');
   if (on && scroll) on.scrollIntoView({ block: 'nearest' });
 }
@@ -1576,11 +1642,11 @@ function ddPic(key, url, preview, cls = 'ddpic') {
   const k = cls + '|' + key + '|' + (preview && preview.img ? preview.t || preview.img.length : '');
   let pic = ddPics.get(k);
   if (!pic) {
-    if (cls === 'ddicon') { pic = h('img', 'ddicon'); pic.src = favicon(url); pic.alt = ''; }
+    if (cls === 'ddicon') { pic = h('img', 'ddicon', null, 'dd-favicon'); pic.src = favicon(url); pic.alt = ''; }
     else {
-      pic = h('span', 'ddpic');
-      if (preview && preview.img) { const img = h('img'); img.decoding = 'async'; img.src = preview.img; img.alt = ''; pic.append(img); }
-      else { const img = h('img', 'ddfav'); img.src = favicon(url); img.alt = ''; pic.append(img); }
+      pic = h('span', 'ddpic', null, 'dd-pic');
+      if (preview && preview.img) { const img = h('img', '', null, 'dd-preview'); img.decoding = 'async'; img.src = preview.img; img.alt = ''; pic.append(img); }
+      else { const img = h('img', 'ddfav', null, 'dd-pic-favicon'); img.src = favicon(url); img.alt = ''; pic.append(img); }
     }
     if (ddPics.size > 400) ddPics.clear();
     ddPics.set(k, pic);
@@ -1592,9 +1658,9 @@ function renderDropdown() {
   const rows = state.query.trim() ? ddRows() : [];
   state.dd.items = rows.filter((r) => r.kind);
   if (state.dd.hi >= state.dd.items.length) state.dd.hi = 0;
-  if (!ddShown()) { if (dd) dd.remove(); return; }
+  if (!ddShown()) { if (dd) dd.remove(); return syncCombo(); }
   if (!dd) {
-    dd = h('div', 'dd');
+    dd = h('div', 'dd', null, 'search-dropdown');
     dd.setAttribute('role', 'listbox');
     dd.id = 'dd';
     dd.addEventListener('mousedown', (e) => e.preventDefault()); // keep the focus (and the caret) in the search box
@@ -1605,71 +1671,73 @@ function renderDropdown() {
   const ql = q.toLowerCase();
   // The title, then any tags, then (at the far right) the icon of where it comes from.
   const titleRow = (title, kind, ...tags) => {
-    const line = h('span', 'ddtrow');
+    const line = h('span', 'ddtrow', null, 'dd-title-row');
     line.append(hlSpan('ddtitle', title, ql), ...tags.filter(Boolean));
     const src = DD_SOURCES[kind];
-    const icon = h('span', 'ddsrc');
+    const icon = h('span', 'ddsrc', null, 'dd-source-' + kind);
     icon.innerHTML = ICON[src.icon];
     icon.title = t(src.label);
+    icon.setAttribute('role', 'img');
     icon.setAttribute('aria-label', t(src.label));
     line.append(icon);
     return line;
   };
   dd.replaceChildren(...rows.map((r) => {
-    if (r.note) return h('div', 'ddnote', r.note);
+    if (r.note) return h('div', 'ddnote', r.note, 'dd-notice');
     const i = ++n;
-    const row = h('div', 'ddr' + (i === state.dd.hi ? ' on' : ''));
+    const row = h('div', 'ddr' + (i === state.dd.hi ? ' on' : ''), null, 'dd-row-' + r.kind);
     row.id = 'dd-' + i;
     row.setAttribute('role', 'option');
     row.setAttribute('aria-selected', String(i === state.dd.hi));
     if (r.kind === 'tab') {
       const tab = r.entry.tab;
       const pic = ddPic('t' + tab.id, urlOf(tab), r.entry.preview);
-      const txt = h('span', 'ddtxt');
+      const txt = h('span', 'ddtxt', null, 'dd-text');
       const note = noteOf(urlOf(tab));
       const noteHit = fieldHit(ql, note);
       const w = tab.windowId !== CTX.srcWin && state.windows.find((x) => x.id === tab.windowId);
-      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle')), w && h('span', 'ddtag', w.label)),
+      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle'), 'dd-note-tag'), w && h('span', 'ddtag', w.label, 'dd-window-tag')),
         hlSpan('ddsub', siteOf(urlOf(tab)), ql));
       if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
       row.append(pic, txt);
     } else if (r.kind === 'mark') {
       const icon = ddPic(r.b.url, r.b.url, null, 'ddicon');
-      const txt = h('span', 'ddtxt');
+      const txt = h('span', 'ddtxt', null, 'dd-text');
       txt.append(titleRow(r.b.title || siteOf(r.b.url), 'mark'), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
     } else if (r.kind === 'archived') {
       const pic = ddPic('a' + r.a.id, r.a.url, state.archivePreviews[urlKey(r.a.url)]);
-      const txt = h('span', 'ddtxt');
+      const txt = h('span', 'ddtxt', null, 'dd-text');
       const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
       txt.append(titleRow(r.a.title || siteOf(r.a.url), 'archived'), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'closed') {
       const pic = ddPic('c' + r.c.id, r.c.url, r.c.preview);
-      const txt = h('span', 'ddtxt');
+      const txt = h('span', 'ddtxt', null, 'dd-text');
       const ago = r.c.ts ? timeAgo(r.c.ts / 1000) : '';
       txt.append(titleRow(r.c.title || siteOf(r.c.url), 'closed'), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), ql));
       row.append(pic, txt);
     } else if (r.kind === 'visit') {
       const icon = ddPic(r.x.url, r.x.url, null, 'ddicon');
-      const txt = h('span', 'ddtxt');
+      const txt = h('span', 'ddtxt', null, 'dd-text');
       const when = r.x.t ? t('visitedAgo', timeAgo(r.x.t / 1000)) : '';
       txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
     } else if (r.kind === 'url') {
-      const icon = h('img', 'ddicon');
+      const icon = h('img', 'ddicon', null, 'dd-favicon');
       icon.src = favicon(r.url);
       icon.alt = '';
-      row.append(icon, h('span', 'ddtxt ddone', t('ddOpen', q)));
+      row.append(icon, h('span', 'ddtxt ddone', t('ddOpen', q), 'dd-text'));
     } else {
-      const icon = h('span', 'ddicon ddg', 'G');
-      row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', q)));
+      const icon = h('span', 'ddicon ddg', 'G', 'dd-google-icon');
+      icon.setAttribute('aria-hidden', 'true');
+      row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', q), 'dd-text'));
     }
     row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; ddHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
     return row;
   }));
-  el.search.setAttribute('aria-activedescendant', 'dd-' + state.dd.hi);
+  syncCombo();
   // Under the search box, as wide as it (at least 460 px), within the window.
   const box = el.search.closest('.search').getBoundingClientRect();
   const w = Math.min(window.innerWidth - 24, Math.max(460, box.width));
@@ -1893,7 +1961,7 @@ async function closeDupes() {
 const isMuted = (tab) => !!(tab.mutedInfo && tab.mutedInfo.muted);
 function audioBadge(tab) {
   const muted = isMuted(tab);
-  const b = h('button', 'badge audio' + (muted ? '' : ' on'));
+  const b = h('button', 'badge audio' + (muted ? '' : ' on'), null, 'card-audio');
   b.type = 'button';
   b.innerHTML = muted ? ICON.muted : ICON.speaker;
   b.title = t(muted ? 'unmuteThis' : 'muteThis');
@@ -1994,53 +2062,54 @@ async function openArchive(sel = 0) {
   if (state.done) return;
   let back = document.querySelector('.arch');
   if (!back) {
-    back = h('div', 'arch');
+    back = h('div', 'arch', null, 'archive-overlay');
     back.setAttribute('role', 'dialog');
     back.setAttribute('aria-modal', 'true');
     back.setAttribute('aria-labelledby', 'arch-h');
     back.addEventListener('click', (e) => e.stopPropagation()); // its empty space doesn't close the switcher
     el.app.append(back);
   }
-  const head = h('div', 'archhead');
-  const title = h('h2', 'archtitle', t('archiveTitle'));
+  const head = h('div', 'archhead', null, 'archive-header');
+  const title = h('h2', 'archtitle', t('archiveTitle'), 'archive-title');
   title.id = 'arch-h';
-  title.append(h('span', 'n', String(state.archived.length)));
-  const x = h('button', 'archx');
+  title.append(h('span', 'n', String(state.archived.length), 'archive-count'));
+  const x = h('button', 'archx', null, 'archive-close');
   x.type = 'button';
   x.innerHTML = ICON.close;
   x.title = t('archiveClose') + ' (Esc)';
   x.setAttribute('aria-label', t('archiveClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeArchive(); });
-  head.append(title, h('span', 'archsub', t('archiveWhere')), x);
-  const body = h('div', 'archbody');
-  if (!chrome.bookmarks) body.append(h('p', 'empty', t('ddNoMarks')));
-  else if (!state.archived.length) body.append(h('p', 'empty', t('archiveEmpty')));
+  head.append(title, h('span', 'archsub', t('archiveWhere'), 'archive-location'), x);
+  const body = h('div', 'archbody', null, 'archive-body');
+  if (!chrome.bookmarks) body.append(h('p', 'empty', t('ddNoMarks'), 'archive-no-bookmarks'));
+  else if (!state.archived.length) body.append(h('p', 'empty', t('archiveEmpty'), 'archive-empty'));
   else {
-    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize));
+    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'archive-grid');
     grid.setAttribute('role', 'listbox');
     grid.setAttribute('aria-labelledby', 'arch-h');
     grid.append(...state.archived.map((item, i) => archiveCard(item, i)));
     body.append(grid);
   }
   back.replaceChildren(head, body);
+  updateInert();
   archSelect(sel);
   x.focus({ preventScroll: true });
 }
 function archiveCard(item, i) {
   const entry = { kind: 'archived', item, url: item.url, preview: state.archivePreviews[normalizeUrl(item.url)] || null };
   const title = item.title || hostOf(item.url) || t('untitled');
-  const card = h('div', 'card');
+  const card = h('div', 'card', null, 'card-archived');
   card.id = 'arch-' + item.id;
   card.setAttribute('role', 'option');
   card.title = t('archiveOpenTip', title) + '\n' + item.url;
-  const head = h('div', 'head');
-  const fav = h('img', 'fav');
+  const head = h('div', 'head', null, 'card-head');
+  const fav = h('img', 'fav', null, 'card-favicon');
   fav.src = favicon(item.url);
   fav.alt = '';
-  head.append(fav, h('span', 'title', title));
+  head.append(fav, h('span', 'title', title, 'card-title'));
   const ago = timeAgo(item.t / 1000);
-  if (ago) head.append(h('span', 'tag', ago));
-  const x = h('button', 'x');
+  if (ago) head.append(h('span', 'tag', ago, 'card-archived-ago'));
+  const x = h('button', 'x', null, 'card-unarchive');
   x.type = 'button';
   x.title = t('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
   x.setAttribute('aria-label', t('archiveRemove'));
@@ -2049,6 +2118,7 @@ function archiveCard(item, i) {
   head.append(x);
   card.append(head);
   if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
+  mouseOnly(card); // its × is Del
   card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
   card.addEventListener('mousemove', () => { if (state.archSel !== i) archSelect(i, false); });
   return card;
@@ -2069,7 +2139,8 @@ function archSelect(i, scroll = true) {
 }
 function closeArchive() {
   document.querySelectorAll('.arch').forEach((n) => n.remove());
-  el.search.focus({ preventScroll: true });
+  updateInert();
+  el.archiveBtn.focus({ preventScroll: true }); // back to what opened it
 }
 // While the archive is open it has the keyboard.
 function archiveKey(e) {
@@ -2078,6 +2149,8 @@ function archiveKey(e) {
   e.preventDefault();
   e.stopPropagation();
   if (k === 'Escape') return closeArchive();
+  // Ctrl+Z (⌘Z): the Undo of the note at the bottom ("Removed from the archive · Undo").
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
   const cards = [...document.querySelectorAll('.arch .card')];
   if (!cards.length) return;
   if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
@@ -2094,9 +2167,9 @@ function archiveKey(e) {
 }
 
 function quickActions(entry) {
-  const box = h('div', 'quick');
+  const box = h('div', 'quick', null, 'card-quick-actions');
   const mk = (icon, title, fn) => {
-    const b = h('button', 'qbtn');
+    const b = h('button', 'qbtn', null, 'quick-' + icon);
     b.type = 'button';
     b.title = title;
     b.setAttribute('aria-label', title);
@@ -2117,6 +2190,38 @@ function quickActions(entry) {
   return box;
 }
 
+// The selected card's menu, for the keyboard (Shift+F10 or the menu key; its buttons are for the mouse): the
+// same actions as its buttons, calling the same functions, plus ticking it. The focus goes back to the search box.
+let menuKeyAt = 0; // when the key that opens it was last pressed
+function cardMenu() {
+  const entry = state.entries[state.sel];
+  const card = document.querySelectorAll('#scroller .card')[state.sel];
+  if (!entry || !card) return;
+  const items = [];
+  const starItem = () => ({ label: t(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
+  if (entry.kind === 'tab') {
+    const tab = entry.tab;
+    const note = card.querySelector('.qbtn.note'); // the note card opens at its button, which shows the note too
+    items.push({ label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
+    items.push({ label: t('copyLink'), fn: () => copyLinks([tab], 'plain') });
+    if (!entry.preview && canCapture(tab)) items.push({ label: t('capturePreview'), fn: () => captureOne(entry) });
+    items.push({ label: t('reloadThis'), fn: () => reloadTab(tab) }, { label: t('duplicateThis'), fn: () => duplicateTab(tab) });
+    if (!tab.active && !tab.discarded) items.push({ label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), fn: () => sleepTabs([tab]) });
+    items.push(
+      { label: t(isMuted(tab) ? 'unmuteThis' : 'muteThis'), fn: () => toggleMute(tab) },
+      { label: t(tab.pinned ? 'unpinThis' : 'pinThis'), fn: () => togglePin(tab) },
+      { label: t('snoozeThis'), fn: () => snoozeMenu([tab], card) },
+      { label: t('archiveThis'), fn: () => archiveTabs([tab]) },
+    );
+    if (note) items.push({ label: t(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
+    items.push(null, { label: t('closeTab'), danger: true, fn: () => closeTab(entry) });
+  } else {
+    if (!(entry.item && entry.item.kind === 'window')) items.push(starItem());
+    if (entry.kind === 'snoozed') items.push({ label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
+  }
+  if (items.length) menu(card, items, { back: el.search });
+}
+
 // ---- a note on a tab (kept by its address, like stars). The button is accent-coloured while there is
 // a note and hovering it shows the note; with no note it shows no tooltip at all (not even the card's).
 const noteOf = (url) => (state.notes[normalizeUrl(url)] || {}).n || '';
@@ -2127,32 +2232,37 @@ function paintNote(b, text) {
   b.setAttribute('aria-label', text ? t('noteEdit') + ': ' + text : t('noteAdd'));
 }
 function noteButton(entry) {
-  const b = h('button', 'qbtn note');
+  const b = h('button', 'qbtn note', null, 'quick-note');
   b.type = 'button';
   b.innerHTML = ICON.note;
   paintNote(b, noteOf(entry.url));
   b.addEventListener('click', (e) => { e.stopPropagation(); hideTip(); if (pointerAllowed()) notePopover(entry.url, b); });
   b.addEventListener('mouseenter', () => noteTip(b));
   b.addEventListener('focus', () => { if (b.matches(':focus-visible')) noteTip(b); });
-  b.addEventListener('mouseleave', hideTip);
+  b.addEventListener('mouseleave', hideTipSoon); // a moment to move onto the tooltip itself (it stays while hovered)
   b.addEventListener('blur', hideTip);
   return b;
 }
 
 // The note tooltip: shows 150 ms after the pointer reaches a note button that has a note (Chrome's
-// own waits about half a second), below the button, or above it when there is no room.
+// own waits about half a second), below the button, or above it when there is no room. It stays while
+// the pointer is on it (to read or select a long note), and Esc hides it.
 const TIP_DELAY_MS = 150;
 let tipTimer = null;
+let tipHide = null;
 function noteTip(b) {
   clearTimeout(tipTimer);
+  clearTimeout(tipHide);
   const text = b.dataset.note;
   if (!text || document.querySelector('.notepop')) return;
   tipTimer = setTimeout(() => {
     if (!b.isConnected) return;
     hideTip();
-    const tip = h('div', 'tip');
+    const tip = h('div', 'tip', null, 'note-tooltip');
     tip.setAttribute('role', 'tooltip');
-    tip.append(h('span', 'tiph', t('noteTitle')), h('span', 'tipt', text));
+    tip.append(h('span', 'tiph', t('noteTitle'), 'note-tooltip-title'), h('span', 'tipt', text, 'note-tooltip-text'));
+    tip.addEventListener('mouseenter', () => clearTimeout(tipHide));
+    tip.addEventListener('mouseleave', hideTipSoon);
     el.app.append(tip);
     const r = b.getBoundingClientRect(), w = tip.offsetWidth, th = tip.offsetHeight;
     tip.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2)) + 'px';
@@ -2163,7 +2273,13 @@ function noteTip(b) {
 }
 function hideTip() {
   clearTimeout(tipTimer);
+  clearTimeout(tipHide);
   document.querySelectorAll('.tip').forEach((x) => x.remove());
+}
+function hideTipSoon() {
+  clearTimeout(tipTimer);
+  clearTimeout(tipHide);
+  tipHide = setTimeout(hideTip, TIP_DELAY_MS);
 }
 // Click the note button: a small card with a text box opens below it. Closing it (click elsewhere,
 // Esc, or the button again) saves what is written; it is also saved while typing, because picking
@@ -2172,31 +2288,33 @@ function notePopover(url, anchor) {
   const open = document.querySelector('.notepop');
   closePops();
   if (open && open.anchor === anchor) return; // the same button again: just close it
-  const pop = h('div', 'pop notepop');
+  const pop = h('div', 'pop notepop', null, 'note-popover');
   pop.anchor = anchor;
+  // × goes back to what had the focus: its note button (clicked), or the search box (the card's menu).
+  const back = document.activeElement && document.activeElement !== document.body ? document.activeElement : el.search;
   pop.setAttribute('role', 'dialog');
   pop.setAttribute('aria-label', t('noteTitle'));
-  const box = h('textarea');
+  const box = h('textarea', '', null, 'note-input');
   box.value = noteOf(url);
   box.placeholder = t('notePh');
   box.maxLength = LIMITS.NOTE_MAX;
   box.setAttribute('aria-label', t('noteTitle'));
   // Top right: "Clear" (red; removes the note, the card stays open to write a new one; shown while there is
   // text), then × (closes the card, keeping what was written).
-  const clear = h('button', 'noteclear', t('noteClearBtn'));
+  const clear = h('button', 'noteclear', t('noteClearBtn'), 'note-clear');
   clear.type = 'button';
   clear.title = t('noteClear');
   clear.hidden = !box.value;
   clear.addEventListener('click', (e) => { e.stopPropagation(); box.value = ''; clear.hidden = true; clearTimeout(timer); save(); box.focus(); });
-  const x = h('button', 'noteclose');
+  const x = h('button', 'noteclose', null, 'note-close');
   x.type = 'button';
   x.title = t('noteCloseBtn');
   x.setAttribute('aria-label', t('noteCloseBtn'));
   x.innerHTML = ICON.close;
-  x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); el.search.focus({ preventScroll: true }); });
-  const tools = h('div', 'notetools');
+  x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); });
+  const tools = h('div', 'notetools', null, 'note-tools');
   tools.append(clear, x);
-  pop.append(h('label', '', t('noteTitle')), tools, box, h('p', 'pfine', t('noteHint')));
+  pop.append(h('label', '', t('noteTitle'), 'note-label'), tools, box, h('p', 'pfine', t('noteHint'), 'note-hint'));
   const save = () => setNote(url, box.value).then((notes) => { state.notes = notes; paintNote(anchor, noteOf(url)); }).catch(() => {});
   let timer = null;
   box.addEventListener('input', () => { clear.hidden = !box.value; clearTimeout(timer); timer = setTimeout(save, 400); });
@@ -2208,6 +2326,7 @@ function notePopover(url, anchor) {
     save();
   };
   pop.addEventListener('click', (e) => e.stopPropagation());
+  pop.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target !== box) { e.preventDefault(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); } });
   el.app.append(pop);
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.max(12, Math.min(window.innerWidth - 302, r.right - 290)) + 'px';
@@ -2226,17 +2345,17 @@ function openBig(entry) {
   bigEntry = entry;
   const url = entry.url || (entry.tab ? urlOf(entry.tab) : entry.item.url);
   const title = (entry.tab ? entry.tab.title : entry.item.title) || hostOf(url) || t('untitled');
-  const back = h('div', 'bigback');
+  const back = h('div', 'bigback', null, 'big-preview');
   back.setAttribute('role', 'dialog');
   back.setAttribute('aria-modal', 'true');
   back.setAttribute('aria-label', t('bigTitle', title));
-  const box = h('div', 'bigbox');
-  const head = h('div', 'bighead');
-  const fav = h('img', 'fav');
+  const box = h('div', 'bigbox', null, 'big-preview-box');
+  const head = h('div', 'bighead', null, 'big-preview-header');
+  const fav = h('img', 'fav', null, 'big-preview-favicon');
   fav.src = favicon(url);
   fav.alt = '';
-  head.append(fav, h('span', 'title', title), h('span', 'host', siteOf(url)));
-  const x = h('button', 'bigx');
+  head.append(fav, h('span', 'title', title, 'big-preview-title'), h('span', 'host', siteOf(url), 'big-preview-host'));
+  const x = h('button', 'bigx', null, 'big-preview-close');
   x.type = 'button';
   x.innerHTML = ICON.close;
   x.title = t('bigClose') + ' (Esc)';
@@ -2245,7 +2364,7 @@ function openBig(entry) {
   let shot;
   if (entry.preview && entry.preview.img) {
     // The card's small copy at once, then the sharp copy of the same capture as soon as it is read.
-    shot = h('img', 'bigshot');
+    shot = h('img', 'bigshot', null, 'big-preview-image');
     shot.src = entry.preview.img;
     shot.alt = t('bigTitle', title);
     getSharpPreview(url).then((p) => {
@@ -2255,41 +2374,87 @@ function openBig(entry) {
       sharp.src = p.img;
     }).catch(() => {});
   } else {
-    shot = h('div', 'bignone');
-    const img = h('img');
+    shot = h('div', 'bignone', null, 'big-preview-none');
+    const img = h('img', '', null, 'big-preview-none-favicon');
     img.src = favicon(url);
     img.alt = '';
-    shot.append(img, h('span', '', t('noPreview')));
+    shot.append(img, h('span', '', t('noPreview'), 'big-preview-none-label'));
   }
   box.append(head, x, shot);
   box.addEventListener('click', (e) => e.stopPropagation());
   back.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeBig(); });
   back.append(box);
   el.app.append(back);
+  updateInert();
   x.focus({ preventScroll: true });
 }
 function closeBig() {
-  document.querySelectorAll('.bigback').forEach((n) => n.remove());
+  const open = document.querySelectorAll('.bigback');
+  open.forEach((n) => n.remove());
+  if (open.length) updateInert();
   if (bigEntry) { bigEntry = null; el.search.focus({ preventScroll: true }); }
 }
 
-// Close the open menu or card (a note card saves itself as it closes).
+// While a dialog, the archive or a big preview is open, the rest of the switcher is inert: Tab, clicks and
+// screen readers stay in it. Not the toast (its Undo works over the archive) or the live regions.
+function updateInert() {
+  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .arch');
+  for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live'));
+}
+
+// Tab moves through the controls of the top layer (a big preview, a dialog, a menu, a card like Settings,
+// the archive, else the whole switcher) and wraps around at its ends: past the last one Chrome would move
+// the focus out of the page, and losing the focus closes the switcher.
+const TABBABLE = 'button, input, select, textarea, a[href], [tabindex]';
+function tabbables(root) {
+  return [...root.querySelectorAll(TABBABLE)].filter((n) => n.tabIndex >= 0 && !n.disabled && !n.closest('[hidden], [inert]') && (!n.checkVisibility || n.checkVisibility()));
+}
+function focusLayer() {
+  return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
+    || document.querySelector('#app > .pop') || document.querySelector('#app > .arch') || el.app;
+}
+function keepFocusIn(e) {
+  const root = focusLayer();
+  const list = tabbables(root);
+  const i = list.indexOf(document.activeElement);
+  const next = !list.length ? null
+    : !root.contains(document.activeElement) ? list[0] // the focus is outside the layer: into it
+    : e.shiftKey && i === 0 ? list[list.length - 1]
+    : !e.shiftKey && i === list.length - 1 ? list[0]
+    : undefined; // in the middle: Chrome's own Tab
+  if (next !== undefined) e.preventDefault();
+  if (next) next.focus();
+}
+
+// Close the open menu or card (a note card saves itself as it closes; Settings gives the focus back to the gear).
 function closePops() { document.querySelectorAll('.pop, .menu').forEach((x) => (x.close ? x.close() : x.remove())); }
 
 // A small menu next to a button: [{ label, fn, danger, sure }]; `sure` items ask again before acting.
 // opts: { keepPops } leaves an open card (Settings) open; { width, alignLeft } for a select's list.
-// Items may be { on: true } (ticked: the current choice). ↑/↓ move, Esc closes and goes back to `anchor`.
+// Items may be { on: true } (ticked: the current choice). ↑/↓ move; Esc, or choosing an item, closes it and
+// gives the focus back to `opts.back` || `anchor` (for a card or its buttons, which take no focus: the search
+// box), unless the item moves it on. opts.onClose runs however it closes.
 function menu(anchor, items, opts = {}) {
   // Its button again while it is open: just close it (a toggle).
   const open = [...document.querySelectorAll('.menu')].find((x) => x.anchor === anchor);
-  if (opts.keepPops) document.querySelectorAll('.menu').forEach((x) => x.remove()); else closePops();
+  if (opts.keepPops) document.querySelectorAll('.menu').forEach((x) => x.close()); else closePops();
   if (open) return;
-  const m = h('div', 'menu');
+  const back = opts.back || (anchor.closest('.card') ? el.search : anchor);
+  const m = h('div', 'menu', null, 'menu');
   m.anchor = anchor;
   m.setAttribute('role', 'menu');
+  // A press outside closes it; on its own button the click that follows does (above), or it would reopen at once.
+  const outside = (e) => { if (!m.contains(e.target) && !anchor.contains(e.target)) m.close(); };
+  m.close = (refocus = false) => {
+    if (!m.isConnected) return;
+    m.remove();
+    document.removeEventListener('mousedown', outside, true);
+    if (opts.onClose) opts.onClose();
+    if (refocus && back.isConnected) back.focus({ preventScroll: true });
+  };
   for (const it of items) {
-    if (!it) { m.append(h('hr')); continue; }
-    const b = h('button', 'mi' + (it.danger ? ' danger' : '') + (it.on ? ' on' : ''), it.label);
+    if (!it) { m.append(h('hr', '', null, 'menu-separator')); continue; }
+    const b = h('button', 'mi' + (it.danger ? ' danger' : '') + (it.on ? ' on' : ''), it.label, 'menu-item');
     b.type = 'button';
     b.setAttribute('role', it.on !== undefined ? 'menuitemradio' : 'menuitem');
     if (it.on !== undefined) { b.setAttribute('aria-checked', String(!!it.on)); if (it.on) b.insertAdjacentHTML('beforeend', ICON.check); }
@@ -2298,7 +2463,7 @@ function menu(anchor, items, opts = {}) {
       e.stopPropagation();
       if (!pointerAllowed()) return;
       if (it.sure && !armedOnce) { armedOnce = true; b.textContent = it.sure; b.classList.add('armed'); return; }
-      m.remove();
+      m.close(true);
       try { await it.fn(); } catch (err) { toast(t('actFailed'), err); }
     });
     m.append(b);
@@ -2309,7 +2474,7 @@ function menu(anchor, items, opts = {}) {
     const i = bs.indexOf(document.activeElement);
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus(); }
     else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); bs[e.key === 'Home' ? 0 : bs.length - 1].focus(); }
-    else if (e.key === 'Escape') { e.preventDefault(); m.remove(); anchor.focus({ preventScroll: true }); }
+    else if (e.key === 'Escape') { e.preventDefault(); m.close(true); }
   });
   el.app.append(m);
   const r = anchor.getBoundingClientRect();
@@ -2318,12 +2483,7 @@ function menu(anchor, items, opts = {}) {
   m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, opts.alignLeft ? r.left : r.right - w)) + 'px';
   const below = r.bottom + 6, h0 = m.offsetHeight;
   m.style.top = (below + h0 > window.innerHeight - 8 ? Math.max(8, r.top - h0 - 6) : below) + 'px';
-  // A press outside closes it; on its own button the click that follows does (above), or it would reopen at once.
-  const close = (e) => {
-    if (!m.isConnected) return document.removeEventListener('mousedown', close, true);
-    if (!m.contains(e.target) && !anchor.contains(e.target)) { m.remove(); document.removeEventListener('mousedown', close, true); }
-  };
-  setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+  setTimeout(() => { if (m.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   (m.querySelector('.mi.on') || m.querySelector('button')).focus({ preventScroll: true });
 }
 
@@ -2335,21 +2495,25 @@ function fancySelect(sel, { inPop = false } = {}) {
   sel.classList.add('fs-native');
   sel.tabIndex = -1;
   sel.setAttribute('aria-hidden', 'true');
-  const b = h('button', 'fs');
+  const b = h('button', 'fs', null, 'select-' + (sel.dataset.testid || 'button'));
   b.type = 'button';
   b.setAttribute('aria-haspopup', 'menu');
-  const label = h('span', 'fsl');
-  const chev = h('span', 'fsc');
+  b.setAttribute('aria-expanded', 'false');
+  const label = h('span', 'fsl', null, 'select-label');
+  const chev = h('span', 'fsc', null, 'select-chevron');
   chev.innerHTML = ICON.chevron;
   b.append(label, chev);
   const sync = () => {
     label.textContent = (sel.options[sel.selectedIndex] || {}).textContent || '';
     b.setAttribute('aria-label', (sel.getAttribute('aria-label') || '') + ': ' + label.textContent);
   };
-  const open = () => menu(b, [...sel.options].map((o) => ({
-    label: o.textContent, on: o.value === sel.value,
-    fn: () => { if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change')); } sync(); b.focus({ preventScroll: true }); },
-  })), { keepPops: inPop, alignLeft: true, width: Math.max(b.offsetWidth, 190) });
+  const open = () => {
+    menu(b, [...sel.options].map((o) => ({
+      label: o.textContent, on: o.value === sel.value,
+      fn: () => { if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change')); } sync(); if (b.isConnected) b.focus({ preventScroll: true }); },
+    })), { keepPops: inPop, alignLeft: true, width: Math.max(b.offsetWidth, 190), onClose: () => b.setAttribute('aria-expanded', 'false') });
+    b.setAttribute('aria-expanded', String([...document.querySelectorAll('.menu')].some((x) => x.anchor === b)));
+  };
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) open(); });
   b.addEventListener('keydown', (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); } });
   sel.after(b);
@@ -2364,25 +2528,31 @@ function fancySelect(sel, { inPop = false } = {}) {
 // still held from the shortcut, so a quick Alt+Q flick is never interrupted.
 let asking = false; // a browser permission prompt is open: its focus change must not close us
 
-const K = (win, mac) => h('kbd', '', IS_MAC && mac ? mac : win);
-const para = (...parts) => { const p = h('p'); p.append(...parts); return p; };
-const list = (...items) => { const u = h('ul'); items.forEach((it) => { const li = h('li'); li.append(...[].concat(it)); u.append(li); }); return u; };
-const button = (label, cls, fn) => { const b = h('button', 'btn ' + (cls || ''), label); b.type = 'button'; b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); }); return b; };
+const K = (win, mac) => h('kbd', '', IS_MAC && mac ? mac : win, 'dialog-key');
+const para = (...parts) => { const p = h('p', '', null, 'dialog-text'); p.append(...parts); return p; };
+const list = (...items) => { const u = h('ul', '', null, 'dialog-list'); items.forEach((it) => { const li = h('li', '', null, 'dialog-list-item'); li.append(...[].concat(it)); u.append(li); }); return u; };
+const button = (testid, label, cls, fn) => { const b = h('button', 'btn ' + (cls || ''), label, testid); b.type = 'button'; b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); }); return b; };
 
+let dialogBack = null; // what had the focus before the dialog opened: it gets it back
 function showDialog(kind, nodes) {
+  if (!state.modal) dialogBack = document.activeElement;
   state.modal = kind;
   el.dialog.replaceChildren(...nodes);
   el.modal.hidden = false;
   el.modal.classList.toggle('tour', kind === 'tour');
   el.dialog.classList.toggle('manual', kind === 'tour');
+  updateInert();
   const first = el.dialog.querySelector('textarea, .primary') || el.dialog.querySelector('button');
   if (first) first.focus({ preventScroll: true });
 }
 function closeDialog() {
   state.modal = null;
   el.modal.hidden = true;
+  updateInert();
   document.querySelectorAll('.tour-hl').forEach((n) => n.classList.remove('tour-hl'));
-  el.search.focus({ preventScroll: true });
+  const back = dialogBack;
+  dialogBack = null;
+  (back && back !== document.body && back.isConnected ? back : el.search).focus({ preventScroll: true });
 }
 function whenTapMode(fn) {
   const t0 = performance.now();
@@ -2395,15 +2565,15 @@ function whenTapMode(fn) {
 }
 
 // ---- first-run tour: short cards in the accent colour, each pointing at what it explains.
-const keyRows = (...rows) => { const d = h('div', 'keys'); rows.forEach(([keys, word]) => { const k = h('span'); k.append(...keys); d.append(k, h('span', '', word)); }); return d; };
+const keyRows = (...rows) => { const d = h('div', 'keys', null, 'dialog-keys'); rows.forEach(([keys, word]) => { const k = h('span', '', null, 'dialog-keys-combo'); k.append(...keys); d.append(k, h('span', '', word, 'dialog-keys-action')); }); return d; };
 const ALT = IS_MAC ? '⌥' : 'Alt+';
 const TOUR_ALL = [
   { id: 'switch', title: () => t('tourSwitchTitle'), hl: '.card[aria-selected="true"]', body: () => [
     para(t('tourSwitchBody')),
     keyRows([[K(ALT + 'Q')], t('keyPrevTab')], [[K(ALT + 'W')], t('keyNextTab')], [[K(ALT + 'E')], t('keyStay')])] },
   { id: 'move', title: () => t('tour2Title'), hl: '.card[aria-selected="true"]', body: () => [
-    keyRows([[K('←'), K('→'), K('↑'), K('↓')], t('keyPick')], [[K('1'), K('…'), K('9')], t('keyNumber')], [[K('Enter')], t('keyOpen')], [[K('Space')], t('keyPreview')],
-      [[K('Del', '⌘⌫')], t('keyClose')], [[K('Ctrl+Z', '⌘Z')], t('keyUndo')], [[K('Esc')], t('keyLeave')])] },
+    keyRows([[K('←'), K('→'), K('↑'), K('↓')], t('keyPick')], [[K(ALT + '1'), K('…'), K(ALT + '9')], t('keyNumber')], [[K('Enter')], t('keyOpen')], [[K('Space')], t('keyPreview')],
+      [[K('Del', '⌘⌫')], t('keyClose')], [[K('Ctrl+Z', '⌘Z')], t('keyUndo')], [[K('Shift+F10')], t('keyActions')], [[K('Esc')], t('keyLeave')])] },
   { id: 'search', title: () => t('tour3Title'), hl: '.search', body: () => [para(t('tour3Body')), keyRows([[K('Ctrl+F', '⌘F')], t('keySearch')])] },
   { id: 'cards', title: () => t('tourCardsTitle'), hl: '.card[aria-selected="true"]', body: () => [para(t('tourCardsBody')), para(t('tourCardsMouse'))] },
   { id: 'many', title: () => t('tourManyTitle'), hl: '.card[aria-selected="true"] .head', body: () => [para(t('tourManyBody'))] },
@@ -2421,14 +2591,14 @@ function tourStep(i) {
   const sel = typeof step.hl === 'function' ? step.hl() : step.hl;
   const target = sel && document.querySelector(sel);
   if (target) target.classList.add('tour-hl');
-  const row = h('div', 'row');
-  row.append(h('span', 'stepof', `${tourAt + 1} / ${TOUR.length}`), h('span', 'grow'));
-  if (tourAt > 0) row.append(button(t('back'), 'quiet', () => tourStep(tourAt - 1)));
-  if (!last) row.append(button(t('skip'), 'quiet', endTour));
-  row.append(button(t(last ? 'done' : 'next'), 'primary', () => (last ? endTour() : tourStep(tourAt + 1))));
-  const title = h('h3', '', step.title());
+  const row = h('div', 'row', null, 'tour-buttons');
+  row.append(h('span', 'stepof', `${tourAt + 1} / ${TOUR.length}`, 'tour-step-of'), h('span', 'grow', null, 'tour-spacer'));
+  if (tourAt > 0) row.append(button('tour-back', t('back'), 'quiet', () => tourStep(tourAt - 1)));
+  if (!last) row.append(button('tour-skip', t('skip'), 'quiet', endTour));
+  row.append(button(last ? 'tour-done' : 'tour-next', t(last ? 'done' : 'next'), 'primary', () => (last ? endTour() : tourStep(tourAt + 1))));
+  const title = h('h3', '', step.title(), 'dialog-title');
   title.id = 'dlg-title';
-  const num = h('span', 'num', String(tourAt + 1));
+  const num = h('span', 'num', String(tourAt + 1), 'tour-step-number');
   showDialog('tour', [num, title, ...step.body(), row]);
   placeTour(target);
 }
@@ -2471,23 +2641,23 @@ const reviewDone = () => updateReview((r) => ({ ...r, done: true })).catch(() =>
 const goReview = async () => { await reviewDone(); openUrl(REVIEW_URL); };
 
 function askStep1() {
-  const title = h('h3', '', t('askTitle'));
+  const title = h('h3', '', t('askTitle'), 'dialog-title');
   title.id = 'dlg-title';
-  const faces = h('div', 'faces');
-  for (const [label, mood] of [['moodGood', 'good'], ['moodOkay', 'okay'], ['moodBad', 'bad']]) faces.append(button(t(label), '', () => askStep2(mood)));
-  const row = h('div', 'row');
-  row.append(button(t('dontAsk'), 'quiet', () => { reviewDone(); closeDialog(); }), h('span', 'grow'), button(t('notNow'), 'quiet', closeDialog));
+  const faces = h('div', 'faces', null, 'ask-moods');
+  for (const [label, mood] of [['moodGood', 'good'], ['moodOkay', 'okay'], ['moodBad', 'bad']]) faces.append(button('ask-mood-' + mood, t(label), '', () => askStep2(mood)));
+  const row = h('div', 'row', null, 'ask-buttons');
+  row.append(button('ask-dont-ask', t('dontAsk'), 'quiet', () => { reviewDone(); closeDialog(); }), h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', t('notNow'), 'quiet', closeDialog));
   showDialog('ask', [title, para(t('askBody')), faces, row]);
 }
 function askStep2(mood) {
   const good = mood === 'good';
-  const title = h('h3', '', t(good ? 'askGoodTitle' : 'askBadTitle'));
+  const title = h('h3', '', t(good ? 'askGoodTitle' : 'askBadTitle'), 'dialog-title');
   title.id = 'dlg-title';
-  const row = h('div', 'row');
-  if (good) row.append(button(t('reviewBtn'), 'primary', goReview));
-  else row.append(button(t('surveyBtn'), 'primary', async () => { await reviewDone(); openUrl(siteUrl('/survey', 'extension-prompt', '&mood=' + mood)); }), button(t('reviewBtn'), '', goReview));
-  row.append(h('span', 'grow'), button(t('notNow'), 'quiet', closeDialog));
-  showDialog('ask', [title, para(t(good ? 'askGoodBody' : 'askBadBody')), row, h('p', 'note', t('askNote'))]);
+  const row = h('div', 'row', null, 'ask-buttons');
+  if (good) row.append(button('ask-review', t('reviewBtn'), 'primary', goReview));
+  else row.append(button('ask-survey', t('surveyBtn'), 'primary', async () => { await reviewDone(); openUrl(siteUrl('/survey', 'extension-prompt', '&mood=' + mood)); }), button('ask-review', t('reviewBtn'), '', goReview));
+  row.append(h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', t('notNow'), 'quiet', closeDialog));
+  showDialog('ask', [title, para(t(good ? 'askGoodBody' : 'askBadBody')), row, h('p', 'note', t('askNote'), 'ask-note')]);
 }
 function askLater() { closeDialog(); }
 
@@ -2498,6 +2668,7 @@ function askLater() { closeDialog(); }
 // `detail` (Chrome's own wording, for whoever wants it) goes in the tooltip, never on screen.
 function showAlert(text, label, fn, detail = '') {
   el.alertText.textContent = text;
+  el.liveAlert.textContent = text; // read out from the always-present live region (#alert itself comes and goes)
   el.alert.title = detail;
   el.alertBtn.hidden = !label;
   el.alertBtn.onclick = label ? (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); } : null;
@@ -2513,7 +2684,7 @@ async function requestHostAccess() {
   window.focus();
   if (!ok || state.done) return;
   showAlert(t('hostThanks'));
-  setTimeout(() => { if (!state.done) { el.alert.hidden = true; render(); } }, 3500);
+  setTimeout(() => { if (!state.done) { el.alert.hidden = true; el.liveAlert.textContent = ''; render(); } }, 3500);
 }
 // Tabs the current view shows (window, star filter, search) that have no preview yet.
 function missingPreviews() {
@@ -2571,13 +2742,14 @@ async function openSettings(anchor, redraw = false) {
   closePops();
   if (open && !redraw) return;
   const prefs = await getPrefs().catch(() => ({ lang: 'auto', startup: false, cardSize: 'default', accent: ACCENTS[0], allWindows: false, theme: 'dark' }));
-  const pop = h('div', 'pop settings');
+  const pop = h('div', 'pop settings', null, 'settings');
   pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-modal', 'true'); // Tab stays in it (keepFocusIn) until it closes
   pop.setAttribute('aria-label', t('settings'));
-  const lang = h('select');
+  const lang = h('select', '', null, 'settings-language');
   lang.setAttribute('aria-label', t('setLang'));
   for (const [v, label] of [['auto', t('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']]) {
-    const o = h('option', '', label); o.value = v; if (v === prefs.lang) o.selected = true; lang.append(o);
+    const o = h('option', '', label, 'settings-language-' + v); o.value = v; if (v === prefs.lang) o.selected = true; lang.append(o);
   }
   lang.addEventListener('change', async () => {
     await updatePrefs({ lang: lang.value }).catch(() => {});
@@ -2586,14 +2758,14 @@ async function openSettings(anchor, redraw = false) {
     render();
     openSettings(anchor, true); // redraw this card in the new language
   });
-  const start = h('input');
+  const start = h('input', '', null, 'settings-startup');
   start.type = 'checkbox';
   start.id = 'set-startup';
   start.checked = prefs.startup;
   start.addEventListener('change', () => updatePrefs({ startup: start.checked }).catch(() => {}));
-  const startLabel = h('label', 'check', t('setStartup'));
+  const startLabel = h('label', 'check', t('setStartup'), 'settings-startup-label');
   startLabel.prepend(start);
-  const allWins = h('input');
+  const allWins = h('input', '', null, 'settings-all-windows');
   allWins.type = 'checkbox';
   allWins.id = 'set-allwin';
   allWins.checked = prefs.allWindows;
@@ -2602,10 +2774,10 @@ async function openSettings(anchor, redraw = false) {
     state.scope = 'all';
     await reload();
   });
-  const allWinsLabel = h('label', 'check', t('setAllWindows'));
+  const allWinsLabel = h('label', 'check', t('setAllWindows'), 'settings-all-windows-label');
   allWinsLabel.prepend(allWins);
   // Accent colour: a few ready-made ones, and any colour from Chrome's picker (the last circle).
-  const accents = h('div', 'accents');
+  const accents = h('div', 'accents', null, 'settings-accents');
   accents.setAttribute('role', 'radiogroup');
   accents.setAttribute('aria-label', t('setAccent'));
   const pickAccent = (c, save = true) => {
@@ -2615,7 +2787,7 @@ async function openSettings(anchor, redraw = false) {
     if (save) updatePrefs({ accent: now }).catch(() => {});
   };
   for (const c of ACCENTS) {
-    const b = h('button', 'swatch');
+    const b = h('button', 'swatch', null, 'settings-accent');
     b.type = 'button';
     b.dataset.c = c;
     b.setAttribute('role', 'radio');
@@ -2624,7 +2796,7 @@ async function openSettings(anchor, redraw = false) {
     b.addEventListener('click', (e) => { e.stopPropagation(); pickAccent(c); });
     accents.append(b);
   }
-  const custom = h('input', 'custom');
+  const custom = h('input', 'custom', null, 'settings-accent-custom');
   custom.type = 'color';
   custom.value = prefs.accent.toLowerCase();
   custom.title = t('setAccentCustom');
@@ -2635,15 +2807,15 @@ async function openSettings(anchor, redraw = false) {
   custom.addEventListener('change', () => { asking = false; pickAccent(custom.value); window.focus(); }); // ...keep it when chosen
   accents.append(custom);
   pickAccent(prefs.accent, false);
-  const size = h('select');
+  const size = h('select', '', null, 'settings-card-size');
   size.setAttribute('aria-label', t('setSize'));
   for (const [v, label] of [['default', t('setSizeDefault')], ['small', t('setSizeSmall')], ['list', t('setSizeList')]]) {
-    const o = h('option', '', label); o.value = v; if (v === prefs.cardSize) o.selected = true; size.append(o);
+    const o = h('option', '', label, 'settings-card-size-' + v); o.value = v; if (v === prefs.cardSize) o.selected = true; size.append(o);
   }
-  const theme = h('select');
+  const theme = h('select', '', null, 'settings-theme');
   theme.setAttribute('aria-label', t('setTheme'));
   for (const [v, label] of [['dark', t('setThemeDark')], ['light', t('setThemeLight')], ['system', t('setThemeSystem')]]) {
-    const o = h('option', '', label); o.value = v; if (v === prefs.theme) o.selected = true; theme.append(o);
+    const o = h('option', '', label, 'settings-theme-' + v); o.value = v; if (v === prefs.theme) o.selected = true; theme.append(o);
   }
   theme.addEventListener('change', () => {
     applyTheme(theme.value);
@@ -2655,12 +2827,21 @@ async function openSettings(anchor, redraw = false) {
     updatePrefs({ cardSize: size.value }).catch(() => {});
     refresh();
   });
-  const sc = h('button', 'lnk', t('setShortcut'));
+  const sc = h('button', 'lnk', t('setShortcut'), 'settings-shortcut');
   sc.type = 'button';
   sc.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openUrl('chrome://extensions/shortcuts'); });
-  pop.append(h('h4', '', t('settings')), h('label', '', t('setLang')), lang, h('label', '', t('setTheme')), theme, h('label', '', t('setSize')), size, h('label', '', t('setAccent')), accents, allWinsLabel, h('p', 'pfine', t('setAllWindowsNote')), startLabel, h('p', 'pfine', t('setStartupNote')), sc);
+  pop.append(h('h4', '', t('settings'), 'settings-title'), h('label', '', t('setLang'), 'settings-language-label'), lang, h('label', '', t('setTheme'), 'settings-theme-label'), theme, h('label', '', t('setSize'), 'settings-card-size-label'), size, h('label', '', t('setAccent'), 'settings-accent-label'), accents, allWinsLabel, h('p', 'pfine', t('setAllWindowsNote'), 'settings-all-windows-note'), startLabel, h('p', 'pfine', t('setStartupNote'), 'settings-startup-note'), sc);
   pop.addEventListener('click', (e) => e.stopPropagation());
-  pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pop.remove(); el.search.focus(); } });
+  pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pop.close(); } });
+  // A press outside closes it; on the gear the click that follows does (above), or it would reopen at once.
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target) && !e.target.closest('.menu')) pop.close(); };
+  // However it closes (Esc, the gear, a press outside), the focus goes back to the gear.
+  pop.close = () => {
+    if (!pop.isConnected) return;
+    pop.remove();
+    document.removeEventListener('mousedown', outside, true);
+    anchor.focus({ preventScroll: true });
+  };
   el.app.append(pop);
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.max(12, r.left) + 'px';
@@ -2668,12 +2849,9 @@ async function openSettings(anchor, redraw = false) {
   fancySelect(lang, { inPop: true });
   fancySelect(size, { inPop: true });
   fancySelect(theme, { inPop: true });
-  // A press outside closes it; on the gear the click that follows does (above), or it would reopen at once.
-  const close = (e) => {
-    if (!pop.isConnected) return document.removeEventListener('mousedown', close, true);
-    if (!pop.contains(e.target) && !anchor.contains(e.target) && !e.target.closest('.menu')) { pop.remove(); document.removeEventListener('mousedown', close, true); }
-  };
-  setTimeout(() => document.addEventListener('mousedown', close, true), 0);
+  setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
+  const first = tabbables(pop)[0];
+  if (first) first.focus({ preventScroll: true });
 }
 
 // Runs once per open, after the first render.
@@ -2715,6 +2893,10 @@ function trackAlt(e) { altDown = e.altKey && !e.ctrlKey; }
 function onKeyDown(e) {
   if (state.done) return;
   trackAlt(e);
+  // Tab moves the focus through the page's controls, within the top layer; only while Alt is still held
+  // from Alt+Q / Alt+W does it step through the cards, like Alt+Tab (below).
+  if (e.key === 'Tab' && !state.holding) return keepFocusIn(e);
+  if (e.key === 'Escape' && document.querySelector('.tip')) { e.preventDefault(); e.stopPropagation(); return hideTip(); } // the note tooltip first
   if (document.querySelector('.bigback')) { // the big preview has the keyboard: Esc closes it, Enter opens that tab
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeBig(); }
     else if (e.key === 'Enter') { e.preventDefault(); const i = state.entries.indexOf(bigEntry); closeBig(); if (i >= 0) choose(i); }
@@ -2736,13 +2918,21 @@ function onKeyDown(e) {
   if (target && target !== el.search && target.matches('input, select, textarea')) {
     if (e.key === 'Escape') {
       e.preventDefault(); e.stopPropagation();
+      const inSettings = !!target.closest('.pop.settings'); // closing it gives the gear the focus
       closePops();
-      el.search.focus({ preventScroll: true });
+      if (!inSettings) el.search.focus({ preventScroll: true });
     }
     return;
   }
-  if (own && (e.key === 'Enter' || e.key === ' ')) return;
-  if (own && (e.key === 'Escape' || (target.closest('.menu') && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)))) return;
+  // In a menu or a card (Settings, a note) every plain key stays there: Esc closes it, Enter/Space press, typing
+  // doesn't jump to the search box behind it.
+  if (own && !e.altKey && !e.ctrlKey && !e.metaKey) return;
+  // A button, link, checkbox... focused from the keyboard (Tab reaches them): Enter and Space press it, they
+  // don't open the selected card; ↑/↓ on a select button open its list. (One that only has the focus because
+  // it was clicked leaves Enter to the card, as before.)
+  const control = target && target !== el.search && target.closest('button, a[href], [role=button], [role=checkbox], [role=menuitem], [role=radio], [role=switch]');
+  if (control && control.matches(':focus-visible') && (e.key === 'Enter' || e.key === ' ')) return;
+  if (control && control.matches('.fs') && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) return;
   const typing = document.activeElement === el.search && el.search.value !== '';
   const k = e.key;
   if (searchFrame && (k === 'Enter' || k === 'Tab' || k.startsWith('Arrow'))) flushSearch(); // act on what was just typed
@@ -2770,12 +2960,21 @@ function onKeyDown(e) {
   if (altOnly && e.code === 'KeyS') { e.preventDefault(); if (!e.repeat) star(state.entries[state.sel]); return; }
   if (altOnly && e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) captureOne(state.entries[state.sel]); return; }
   if (e.ctrlKey && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return cycleScope(k === 'ArrowRight' ? 1 : -1); }
+  // Shift+F10 or the menu key: the selected card's menu (everything its buttons do, and ticking it).
+  if ((k === 'F10' && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) || k === 'ContextMenu') {
+    e.preventDefault();
+    menuKeyAt = performance.now(); // Chrome's own context menu follows the key: not this time
+    if (!e.repeat) cardMenu();
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') { e.preventDefault(); el.search.focus(); el.search.select(); return; }
   // Ctrl+Z reopens what was last closed here (in a search box with text, it stays the box's own undo).
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ' && !el.search.value) { e.preventDefault(); if (!e.repeat) undoClose(); return; }
   // 1-9 switch straight to the card with that number: Alt+number always (Alt may still be held from
-  // Alt+Q), a plain number while the search box is empty (once you type, numbers are search text).
-  if (/^Digit[1-9]$/.test(e.code) && !e.ctrlKey && !e.metaKey && (altOnly || (!e.altKey && !e.shiftKey && !el.search.value))) {
+  // Alt+Q), a plain number only while the search box doesn't have the focus: there it is search text, so a
+  // title that starts with a number can be found ("2024 report").
+  const searchFocused = document.activeElement === el.search;
+  if (/^Digit[1-9]$/.test(e.code) && !e.ctrlKey && !e.metaKey && (altOnly || (!e.altKey && !e.shiftKey && !searchFocused && !el.search.value))) {
     e.preventDefault();
     if (e.repeat) return;
     if (!keysAllowed()) return finish('cancel');
@@ -2802,7 +3001,7 @@ function onKeyDown(e) {
     case ' ': // Space, with nothing typed: the selected card's big preview
       if (!el.search.value && !e.altKey && !e.ctrlKey && !e.metaKey && state.entries[state.sel]) { e.preventDefault(); openBig(state.entries[state.sel]); }
       return;
-    case 'Tab': e.preventDefault(); return cycle(e.shiftKey ? -1 : 1);
+    case 'Tab': e.preventDefault(); return cycle(e.shiftKey ? -1 : 1); // (Alt held: see the top)
     case 'ArrowRight': if (!typing) { e.preventDefault(); moveSpatial(1, 0); } return;
     case 'ArrowLeft': if (!typing) { e.preventDefault(); moveSpatial(-1, 0); } return;
     case 'ArrowDown': e.preventDefault(); return ddShown() ? ddMove(1) : moveSpatial(0, 1);
@@ -2962,8 +3161,9 @@ function listen() {
     if (hadFocus && !asking && !document.hasFocus()) finish('blur');
   }, 80));
   window.addEventListener('resize', () => { if (!state.done) render(); });
+  window.addEventListener('contextmenu', (e) => { if (menuKeyAt && performance.now() - menuKeyAt < 1000) e.preventDefault(); }); // the card's menu took that key
   el.scroller.addEventListener('scroll', hideTip, { passive: true });
-  // Holding Alt after Alt+Q / Alt+W, the wheel steps through the tabs like Q (down) and W (up); letting
+  // Holding Alt after Alt+Q / Alt+W, the wheel steps through the tabs: down to the next card (like W), up to the one before (like Q); letting
   // go of Alt still switches. A mouse wheel moves one tab per notch; a touchpad's small scrolls add up.
   let wheelSum = 0, wheelAt = 0;
   const WHEEL_STEP = 80;
@@ -3074,7 +3274,7 @@ function getLaunch() {
   state.sel = Math.max(0, first ? state.entries.findIndex((e) => e.key === first) : 0);
   el.app.hidden = false;
   document.documentElement.classList.add('intro'); // the opening animation, on the first draw only, not on every redraw
-  setTimeout(() => document.documentElement.classList.remove('intro'), 320); // once it has popped in
+  setTimeout(() => { if (!state.done) document.documentElement.classList.remove('intro'); }, 320); // once it has popped in
   render();
   if (CTX.mode === 'overlay') {
     parent.postMessage({ tabazing: FRAME_MSG.READY, light: document.documentElement.classList.contains('light') }, '*');
@@ -3093,3 +3293,33 @@ function getLaunch() {
     for (let i = 0; i < Math.abs(extra); i++) qPress(Math.sign(extra));
   } catch {}
 })();
+
+// For the unit tests (tests/): everything above, by name. Nothing in the extension imports this file.
+export {
+  CTX, $, el, IS_MAC, state, ICON, urlOf, favicon, hostOf, h, load, loadExtras, loadStarPreviews, hashOf,
+  loadClosed, closedFor, fieldIndex, fieldOf, typoDistance, typoMemo, typoNear, inOrder, wordScore, scoreWord,
+  searchScore, matches, queryWords, fieldHit, matchTier, highlight, hlSpan, isStarred, siteOf, byTitle,
+  winRank, FILTERS, SORTERS, sectionsFor, deriveSearch, derive, GRID_GAP, CARD_SIZES, cardWidth, renderWindows,
+  windowTag, thumbFor, starButton, canCapture, captureButton, DAY_MS, tabAge, renderCard, finishCard,
+  renderSection, renderTools, render, renderCount, tipTruncated, setTop, toTop, refresh, select, stepKey,
+  cycle, selectKey, moveSpatial, cardToward, toggleSection, setSort, setFilter, toggleStarFilter, star,
+  captureOne, setScope, cycleScope, finish, choose, armed, closeTab, forgetTab, pickBox, pick, pickPool,
+  selectAll, clearPicks, targets, ACTIONS, renderActs, renderDupesBar, dupesView, toastTimer, toast,
+  undoRecord, pushUndo, undoClose, reopenAt, introWait, afterIntro, reload, closeMany, copyText, copyLinks,
+  moveToWindow, googleUrl, asUrl, openFromBox, DD_MAX, DD_SOURCES, loadMarks, hist, loadHistory, histTimer,
+  searchHistory, histMemo, historyItems, urlKeys, urlKey, bigHits, fullTimer, scoreBig, fullPass, NONE, ddRows,
+  searchFrame, flushSearch, ddShown, ddMove, ddHighlight, ddPics, ddPic, renderDropdown, ddActivate,
+  restoreClosed, openPage, mergeWindows, snoozeChoices, whenLabel, snoozeMenu, snoozeTabs, unsnooze, dragIds,
+  clearDrop, dropAfter, dragToMove, moveTabs, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
+  isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
+  openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
+  quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
+  openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
+  whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,
+  goReview, askStep1, askStep2, askLater, showAlert, requestHostAccess, missingPreviews, updateSweepButton,
+  plainCaptureError, healthCheck, lightMq, themePref, applyTheme, openSettings, firstRun, dialogKey, MODIFIERS,
+  altDown, trackAlt, onKeyDown, qPress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
+  watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  refocus, mouseOnly, toastAct, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
+  keepFocusIn, menuKeyAt, cardMenu, dialogBack,
+};
