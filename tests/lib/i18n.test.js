@@ -99,8 +99,8 @@ describe('plural messages', () => {
     ]);
   });
   it('take other values next to the count', () => {
-    expect(t('bookmarkedN', { count: 2, folder: 'Work' })).toBe('Bookmarked 2 tabs in “Work”');
-    expect(t('bookmarkedN', { count: 1, folder: 'Work' })).toBe('Bookmarked 1 tab in “Work”');
+    expect(t('snoozedN', { count: 2, time: 'Fri 09:00' })).toBe('Snoozed 2 tabs until Fri 09:00');
+    expect(t('snoozedN', { count: 1, time: 'Fri 09:00' })).toBe('Snoozed 1 tab until Fri 09:00');
   });
   it('a language lacking the message gets English; nothing at all gives the key', async () => {
     vi.resetModules();

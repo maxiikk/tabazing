@@ -31,9 +31,6 @@ describe.each(Object.keys(BOOKS))('dictionaries/%s.json', (lang) => {
     expect(read(`_locales/${lang}/messages.json`)).toBe(localeFile(lang));
     expect(Object.keys(JSON.parse(read(`_locales/${lang}/messages.json`)))).toEqual(chromeKeys());
   });
-  it('says which locale it is', () => {
-    expect(book.localeCode).toBe(lang);
-  });
   it('every message is a non-empty string that parses as an ICU message', () => {
     for (const [k, v] of Object.entries(book)) {
       expect(typeof v, k).toBe('string');
@@ -119,6 +116,10 @@ describe('keys used in the code', () => {
     expect(found.length).toBeGreaterThan(200);
     expect(usedKeys.size).toBeGreaterThan(100);
     expect(htmlKeys.size).toBeGreaterThan(3);
+  });
+  it('every key in the dictionaries is used somewhere (no strings for things that are gone)', () => {
+    const used = new Set([...usedKeys, ...htmlKeys, ...manifestKeys]);
+    expect(Object.keys(EN).filter((k) => !used.has(k))).toEqual([]);
   });
   it('every t() key exists in English', () => {
     expect([...usedKeys].filter((k) => !(k in EN))).toEqual([]);

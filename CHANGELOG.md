@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.3] - 2026-10-17
+
+### Removed
+
+- For developers: 122 strings nothing used any more (for a tab-groups panel, bookmark editing, Help / Pro links, old tour steps and the old dropdown sections) are gone from every dictionary, and a test now fails if a string goes unused. Nothing changes for people using the extension.
+
 ## [3.0.2] - 2026-10-17
 
 ### Changed
@@ -131,7 +137,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...HEAD
+[3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...HEAD
+[3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...868f87a
 [3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...6d950ea
 [3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...ef9a3f9
 [2.0.0]: https://github.com/maxiikk/tabazing/compare/5516898...84ab029
