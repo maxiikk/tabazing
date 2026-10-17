@@ -22,7 +22,7 @@ import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './lib/constant
 import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getView, updateView, setResume, takeResume, getPrefs, updatePrefs } from './lib/store.js';
 import { reviewPrompt, dayOf } from './lib/review.js';
 import { timeAgo, localizePage, setLang, uiLang } from './lib/i18n.js';
-import { getTranslation } from './lib/translations.js';
+import { t } from './lib/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
 import { applyAccent, ACCENTS } from './lib/accent.js';
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './lib/archive.js';
@@ -226,7 +226,7 @@ async function load(prefs = null, { previews = true } = {}) {
       const active = wt.find((t) => t.active) || wt[0];
       return {
         id,
-        label: id === CTX.srcWin ? getTranslation('thisWindow') : getTranslation('windowN', { number: byAge.indexOf(id) + 2 }),
+        label: id === CTX.srcWin ? t('thisWindow') : t('windowN', { number: byAge.indexOf(id) + 2 }),
         count: wt.length,
         activeTitle: active ? active.title || '' : '',
         activeId: active ? active.id : null,
@@ -302,7 +302,7 @@ async function loadClosed(before) {
       const tabs = s.window.tabs;
       tabs.forEach((t) => covered.add(normalizeUrl(urlOf(t))));
       items.push({
-        id: 's' + s.window.sessionId, kind: 'window', url: urlOf(tabs[0]), title: getTranslation('closedWindow', { tabs: getTranslation('tabs', { count: tabs.length }) }),
+        id: 's' + s.window.sessionId, kind: 'window', url: urlOf(tabs[0]), title: t('closedWindow', { tabs: t('tabs', { count: tabs.length }) }),
         ts: stamp(s), count: tabs.length, session: s, fields: tabs.map((t) => [t.title, urlOf(t)]),
       });
     }
@@ -509,7 +509,7 @@ function sectionsFor(open) {
     out.forEach((x) => x.entries.sort((a, b) => close.has(a.tab.id) - close.has(b.tab.id)));
     return out;
   }
-  for (const e of open) add('u', { title: getTranslation('openTabs') }, e); // one plain list, in the chosen sort
+  for (const e of open) add('u', { title: t('openTabs') }, e); // one plain list, in the chosen sort
   return [...secs.values()];
 }
 
@@ -605,13 +605,13 @@ function renderWindows() {
   el.winHint.hidden = !multi;
   el.body.classList.toggle('with-wins', multi);
   if (!multi) return el.wins.replaceChildren();
-  const rows = [{ id: 'all', label: getTranslation('allWindows'), count: state.tabs.length, activeTitle: '' }, ...state.windows];
+  const rows = [{ id: 'all', label: t('allWindows'), count: state.tabs.length, activeTitle: '' }, ...state.windows];
   el.wins.replaceChildren(...rows.map((w) => {
     const row = h('div', 'wrow', null, 'window-row'); // the window's button, and its merge button beside it (not inside: a button in a button is unreachable)
     const b = h('button', 'win', null, w.id === 'all' ? 'window-all' : 'window-item');
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.scope === w.id));
-    if (w.activeTitle) b.title = getTranslation('activeTab', { title: w.activeTitle });
+    if (w.activeTitle) b.title = t('activeTab', { title: w.activeTitle });
     const pic = h('span', 'wpic', null, 'window-pic');
     if (w.id === 'all') pic.append(svgOf(ICON.windows));
     else {
@@ -620,15 +620,15 @@ function renderWindows() {
       else { const img = h('img', 'wfav', null, 'window-favicon'); img.src = favicon(w.activeUrl || ''); img.alt = ''; pic.append(img); }
     }
     const text = h('span', 'wtext', null, 'window-text');
-    text.append(h('span', 'wlabel', w.label, 'window-label'), h('span', 'wsub', getTranslation('tabs', { count: w.count }), 'window-count'));
+    text.append(h('span', 'wlabel', w.label, 'window-label'), h('span', 'wsub', t('tabs', { count: w.count }), 'window-count'));
     b.append(pic, text);
     row.append(b);
     if (w.id !== 'all' && w.id !== CTX.srcWin) { // pull this window's tabs into the current one (a second click confirms)
       const key = 'merge:' + w.id;
-      const m = h('button', 'wmerge' + (state.armed === key ? ' armed' : ''), state.armed === key ? getTranslation('mergeSure') : '', 'window-merge');
+      const m = h('button', 'wmerge' + (state.armed === key ? ' armed' : ''), state.armed === key ? t('mergeSure') : '', 'window-merge');
       m.type = 'button';
-      m.title = getTranslation('mergeThis');
-      m.setAttribute('aria-label', getTranslation('mergeThis'));
+      m.title = t('mergeThis');
+      m.setAttribute('aria-label', t('mergeThis'));
       if (state.armed !== key) m.append(svgOf(ICON.merge));
       m.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) mergeWindows([w.id], key); });
       row.append(m);
@@ -686,7 +686,7 @@ function thumbFor(entry, { label, sub, icon, action }) {
     const badge = h('span', 'icon', null, 'card-tile-badge');
     badge.append(svgOf(icon));
     tile.append(img, badge);
-    box.append(tile, h('div', 'label', label || getTranslation('noPreview'), 'card-no-preview-label'), h('div', 'sub', sub || '', 'card-no-preview-sub'));
+    box.append(tile, h('div', 'label', label || t('noPreview'), 'card-no-preview-label'), h('div', 'sub', sub || '', 'card-no-preview-sub'));
     if (action) box.append(action);
     thumb.append(box);
   }
@@ -698,8 +698,8 @@ function starButton(entry) {
   const on = isStarred(entry.url);
   const b = h('button', 'star' + (on ? ' on' : ''), null, 'card-star-button');
   b.type = 'button';
-  b.title = getTranslation(on ? 'unstar' : 'star') + (IS_MAC ? ' (⌥S)' : ' (Alt+S)');
-  b.setAttribute('aria-label', getTranslation(on ? 'unstarAria' : 'starAria'));
+  b.title = t(on ? 'unstar' : 'star') + (IS_MAC ? ' (⌥S)' : ' (Alt+S)');
+  b.setAttribute('aria-label', t(on ? 'unstarAria' : 'starAria'));
   b.setAttribute('aria-pressed', String(on));
   b.append(svgOf(ICON.star));
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) star(entry); });
@@ -710,10 +710,10 @@ function starButton(entry) {
 const canCapture = (tab) => !tab.discarded && isCapturableUrl(urlOf(tab)) && !state.nocap.has(normalizeUrl(urlOf(tab))) && state.hostOk;
 function captureButton(entry) {
   const busy = state.capturing === entry.tab.id;
-  const b = h('button', 'snap', getTranslation(busy ? 'capturing' : 'capturePreview'), 'card-capture');
+  const b = h('button', 'snap', t(busy ? 'capturing' : 'capturePreview'), 'card-capture');
   b.type = 'button';
   b.disabled = busy;
-  b.title = getTranslation('captureTitle') + (IS_MAC ? ' (⌥P)' : ' (Alt+P)');
+  b.title = t('captureTitle') + (IS_MAC ? ' (⌥P)' : ' (Alt+P)');
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) captureOne(entry); });
   return b;
 }
@@ -723,7 +723,7 @@ function captureButton(entry) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 function tabAge(tab) {
   const days = tab.lastAccessed > 0 ? Math.floor((Date.now() - tab.lastAccessed) / DAY_MS) : 0;
-  return days >= 1 ? h('span', 'tag age', getTranslation('ageDays', { count: days }), 'card-age') : null;
+  return days >= 1 ? h('span', 'tag age', t('ageDays', { count: days }), 'card-age') : null;
 }
 
 function renderCard(entry, index) {
@@ -753,7 +753,7 @@ function renderCard(entry, index) {
     fav.src = favicon(entry.url);
     const host = hostOf(entry.url);
     if (index < 9) head.append(h('span', 'knum', String(index + 1), 'card-number')); // the first nine are numbered: press 1-9 to switch to them
-    head.append(pickBox(entry, picked), fav, h('span', 'title', tab.title || host || getTranslation('untitled'), 'card-title'));
+    head.append(pickBox(entry, picked), fav, h('span', 'title', tab.title || host || t('untitled'), 'card-title'));
     // The site name only fits next to the title on wider cards; narrow ones
     // keep the title readable (the full URL is in the tooltip).
     if (tab.title && host && state.cardW >= 300 && state.cardSize !== 'list') head.append(h('span', 'host', host.replace(/^www\./, ''), 'card-host'));
@@ -761,18 +761,18 @@ function renderCard(entry, index) {
     if (age) head.append(age);
     const tag = windowTag(tab);
     if (tag) head.append(tag);
-    if (state.dupesView) { const goes = dupeIds().has(tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), getTranslation(goes ? 'dupeCloses' : 'dupeStays'), goes ? 'card-dupe-closes' : 'card-dupe-stays')); }
-    if (tab.pinned) { const b = h('span', 'badge', null, 'card-pinned'); b.append(svgOf(ICON.pin)); b.title = getTranslation('pinned'); head.append(b); }
+    if (state.dupesView) { const goes = dupeIds().has(tab.id); head.append(h('span', 'tag ' + (goes ? 'goes' : 'stays'), t(goes ? 'dupeCloses' : 'dupeStays'), goes ? 'card-dupe-closes' : 'card-dupe-stays')); }
+    if (tab.pinned) { const b = h('span', 'badge', null, 'card-pinned'); b.append(svgOf(ICON.pin)); b.title = t('pinned'); head.append(b); }
     if (tab.audible || isMuted(tab)) head.append(audioBadge(tab)); // playing sound (or muted): click to mute / unmute
     head.append(starButton(entry));
     const x = h('button', 'x', null, 'card-close');
     x.type = 'button';
-    x.title = getTranslation('closeTabTitle');
-    x.setAttribute('aria-label', getTranslation('closeTab'));
+    x.title = t('closeTabTitle');
+    x.setAttribute('aria-label', t('closeTab'));
     x.append(svgOf(ICON.close));
     x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeTab(entry); });
     head.append(x);
-    card.title = (tab.title || '') + '\n' + entry.url + (asleep ? '\n' + getTranslation('sleepingTip') : '');
+    card.title = (tab.title || '') + '\n' + entry.url + (asleep ? '\n' + t('sleepingTip') : '');
     // No preview just means Chrome only lets us screenshot the visible tab and
     // we haven't seen this one yet; it's an awake background tab, not asleep.
     // The placeholder shows the domain, since narrow cards hide it in the header.
@@ -783,8 +783,8 @@ function renderCard(entry, index) {
     }
     const sub = host;
     const thumb = thumbFor(entry, asleep || willSleep
-      ? { label: getTranslation(willSleep ? 'willSleep' : 'sleeping'), sub, icon: ICON.moon }
-      : { label: entry.preview ? '' : getTranslation('noPreview'), sub, icon: ICON.camera, action: !entry.preview && canCapture(tab) && !state.pvPending.has(tab.id) ? captureButton(entry) : null });
+      ? { label: t(willSleep ? 'willSleep' : 'sleeping'), sub, icon: ICON.moon }
+      : { label: entry.preview ? '' : t('noPreview'), sub, icon: ICON.camera, action: !entry.preview && canCapture(tab) && !state.pvPending.has(tab.id) ? captureButton(entry) : null });
     thumb.append(quickActions(entry));
     card.append(head, thumb);
   } else {
@@ -796,24 +796,24 @@ function renderCard(entry, index) {
     const ago = timeAgo(c.ts / 1000);
     head.append(fav, h('span', 'title', title, 'card-title'));
     if (ago && entry.kind === 'closed') head.append(h('span', 'tag', ago, 'card-closed-ago'));
-    if (entry.kind === 'snoozed') head.append(h('span', 'tag snz', getTranslation('wakesAt', { time: whenLabel(c.ts) }), 'card-wakes'));
+    if (entry.kind === 'snoozed') head.append(h('span', 'tag snz', t('wakesAt', { time: whenLabel(c.ts) }), 'card-wakes'));
     if (c.kind !== 'window') head.append(starButton(entry));
     if (entry.kind === 'snoozed') { // × cancels the snooze (the tab is not reopened)
       const x = h('button', 'x', null, 'card-cancel-snooze');
       x.type = 'button';
-      x.title = getTranslation('cancelSnooze');
-      x.setAttribute('aria-label', getTranslation('cancelSnooze'));
+      x.title = t('cancelSnooze');
+      x.setAttribute('aria-label', t('cancelSnooze'));
       x.append(svgOf(ICON.close));
       x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeTab(entry); });
       head.append(x);
     }
-    card.title = entry.kind === 'snoozed' ? getTranslation('snoozedTip', { title }) + '\n' + c.url : getTranslation('reopenTip', { title }) + (c.kind !== 'window' ? '\n' + c.url : '');
+    card.title = entry.kind === 'snoozed' ? t('snoozedTip', { title }) + '\n' + c.url : t('reopenTip', { title }) + (c.kind !== 'window' ? '\n' + c.url : '');
     if (state.cardSize === 'list') { card.append(head); return finishCard(card, entry); }
     card.append(head, entry.kind === 'snoozed'
-      ? thumbFor(entry, { label: getTranslation('snoozedLabel'), sub: hostOf(entry.url), icon: ICON.clock })
+      ? thumbFor(entry, { label: t('snoozedLabel'), sub: hostOf(entry.url), icon: ICON.clock })
       : entry.kind === 'star'
-      ? thumbFor(entry, { label: getTranslation('starred'), sub: hostOf(entry.url), icon: ICON.star })
-      : thumbFor(entry, { label: getTranslation('closedLabel'), sub: hostOf(entry.url), icon: ICON.history }));
+      ? thumbFor(entry, { label: t('starred'), sub: hostOf(entry.url), icon: ICON.star })
+      : thumbFor(entry, { label: t('closedLabel'), sub: hostOf(entry.url), icon: ICON.history }));
   }
   return finishCard(card, entry);
 }
@@ -863,7 +863,7 @@ function renderSection(sec, startIndex) {
     const head = h('button', 'ghead', null, 'section-toggle');
     head.type = 'button';
     head.setAttribute('aria-expanded', String(!sec.collapsed));
-    head.title = getTranslation(sec.collapsed ? 'sectionShow' : 'sectionCollapse');
+    head.title = t(sec.collapsed ? 'sectionShow' : 'sectionCollapse');
     const chev = h('span', 'chev', null, 'section-chevron');
     chev.append(svgOf(ICON.chevron));
     head.append(chev);
@@ -907,13 +907,13 @@ function renderTools() {
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.filter === id));
     b.append(svgOf(ICON[f.icon]));
-    b.append(h('span', 'label', getTranslation(f.label), 'filter-label'), h('span', 'n', String(n), 'filter-count'));
+    b.append(h('span', 'label', t(f.label), 'filter-label'), h('span', 'n', String(n), 'filter-count'));
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) setFilter(state.filter === id ? null : id); });
     return b;
   }).filter(Boolean));
   // Merge: pull every other window's tabs into this one (a second click confirms).
   el.mergeBtn.hidden = !state.otherWindows.length;
-  el.mergeText.textContent = state.armed === 'act:merge' ? getTranslation('mergeSure') : getTranslation('mergeN', { count: state.otherWindows.length });
+  el.mergeText.textContent = state.armed === 'act:merge' ? t('mergeSure') : t('mergeN', { count: state.otherWindows.length });
   el.mergeBtn.classList.toggle('armed', state.armed === 'act:merge');
   el.sort.value = state.sort;
   if (el.sort._fancy) el.sort._fancy.sync();
@@ -921,9 +921,9 @@ function renderTools() {
   el.starN.textContent = String(Object.keys(state.stars).length);
   const d = duplicates().length;
   el.dupesBtn.hidden = d === 0;
-  el.dupesText.textContent = getTranslation('dupesBtn', { count: d });
+  el.dupesText.textContent = t('dupesBtn', { count: d });
   el.dupesBtn.setAttribute('aria-pressed', String(state.dupesView));
-  el.dupesBtn.title = getTranslation('dupesTitle');
+  el.dupesBtn.title = t('dupesTitle');
   updateSweepButton();
 }
 
@@ -960,12 +960,12 @@ function render(only) {
   }
   el.snoozedSection.hidden = snoozedPart.length === 0;
   // While searching, "Recently closed" reaches back 7 days: say so, so nobody expects more.
-  el.closedH.textContent = state.starOnly ? getTranslation('starredNotOpen') : state.query ? getTranslation('closedSearchH') : getTranslation('recentlyClosed');
+  el.closedH.textContent = state.starOnly ? t('starredNotOpen') : state.query ? t('closedSearchH') : t('recentlyClosed');
   // Nothing found: say what Enter does with the text (open it as an address, or search the web for it).
   const q0 = state.query.trim();
-  el.openEmpty.textContent = state.starOnly && !q0 ? getTranslation('noStarredOpen')
-    : q0 && !state.entries.length ? (asUrl(q0) ? getTranslation('enterOpen', { address: q0 }) : getTranslation('enterSearch', { text: q0 }))
-    : q0 ? getTranslation('noMatchShift') : getTranslation('noMatch');
+  el.openEmpty.textContent = state.starOnly && !q0 ? t('noStarredOpen')
+    : q0 && !state.entries.length ? (asUrl(q0) ? t('enterOpen', { address: q0 }) : t('enterSearch', { text: q0 }))
+    : q0 ? t('noMatchShift') : t('noMatch');
   el.openEmpty.hidden = state.matchCount > 0;
   el.closedSection.hidden = closed.length === 0;
 
@@ -1018,7 +1018,7 @@ function refocus(m) {
 
 // The count in the search box: how many tabs are shown, or how many open and closed tabs the search found.
 function renderCount() {
-  el.count.textContent = state.query.trim() ? getTranslation('countSearch', { open: state.found.length, closed: state.foundClosed.length }) : getTranslation('tabs', { count: state.matchCount });
+  el.count.textContent = state.query.trim() ? t('countSearch', { open: state.found.length, closed: state.foundClosed.length }) : t('tabs', { count: state.matchCount });
 }
 
 // Text cut short with "…" gets its full wording as a tooltip.
@@ -1206,7 +1206,7 @@ async function captureOne(entry) {
   if (p) state.previews[tab.id] = p;
   else { // Chrome refused (or the page never finished loading): say so instead of doing nothing
     state.nocap = await getNoCapture().catch(() => state.nocap);
-    toast(getTranslation(state.nocap.has(normalizeUrl(urlOf(tab))) ? 'captureBlocked' : 'captureFailed'));
+    toast(t(state.nocap.has(normalizeUrl(urlOf(tab))) ? 'captureBlocked' : 'captureFailed'));
   }
   refresh({ keepKey: entry.key });
 }
@@ -1298,7 +1298,7 @@ async function closeTab(entry) {
     const i = state.entries.indexOf(entry);
     const next = [state.entries[i + 1], state.entries[i - 1]].find((e) => e && e !== entry);
     state.snoozed = await removeSnoozed([entry.item.id]).catch(() => state.snoozed);
-    toast(getTranslation('snoozeCancelled'));
+    toast(t('snoozeCancelled'));
     return refresh({ keepKey: next && next.key });
   }
   if (!entry || entry.kind !== 'tab' || state.done) return;
@@ -1344,8 +1344,8 @@ function pickBox(entry, on) {
   b.type = 'button';
   b.setAttribute('role', 'checkbox');
   b.setAttribute('aria-checked', String(on));
-  b.setAttribute('aria-label', getTranslation('pickAria'));
-  b.title = getTranslation('pickTitle');
+  b.setAttribute('aria-label', t('pickAria'));
+  b.title = t('pickTitle');
   b.append(svgOf(ICON.check));
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) pick(entry, { range: e.shiftKey }); });
   return b;
@@ -1371,16 +1371,16 @@ function clearPicks() { const before = new Set(state.picked); state.picked.clear
 function targets() { return state.tabs.filter((x) => state.picked.has(x.id)); }
 
 const ACTIONS = [
-  { id: 'close', icon: 'close', label: () => getTranslation('actClose'), title: () => getTranslation('actCloseTitle'), run: closeMany, confirm: (n) => n > 1 },
-  { id: 'copy', icon: 'link', label: () => getTranslation('actCopy'), title: () => getTranslation('actCopyTitle'), run: (tabs) => copyLinks(tabs, 'plain') },
+  { id: 'close', icon: 'close', label: () => t('actClose'), title: () => t('actCloseTitle'), run: closeMany, confirm: (n) => n > 1 },
+  { id: 'copy', icon: 'link', label: () => t('actCopy'), title: () => t('actCopyTitle'), run: (tabs) => copyLinks(tabs, 'plain') },
   // In "More" (⋯): used less often.
-  { id: 'md', more: true, label: () => getTranslation('actCopyMd'), title: () => getTranslation('actCopyMdTitle'), run: (tabs) => copyLinks(tabs, 'md') },
-  { id: 'win', more: true, label: () => getTranslation('actNewWindow'), run: moveToWindow },
-  { id: 'sleep', more: true, label: () => getTranslation('actSleep'), run: sleepTabs },
-  { id: 'snooze', more: true, label: () => getTranslation('actSnooze'), run: (tabs, btn) => snoozeMenu(tabs, btn) },
-  { id: 'archive', more: true, label: () => getTranslation('actArchive'), run: archiveTabs },
-  { id: 'pin', more: true, label: (tabs) => getTranslation(tabs.length && tabs.every((x) => x.pinned) ? 'actUnpin' : 'actPin'), run: pinTabs },
-  { id: 'mute', more: true, label: (tabs) => getTranslation(tabs.length && tabs.every((x) => x.mutedInfo && x.mutedInfo.muted) ? 'actUnmute' : 'actMute'), run: muteTabs },
+  { id: 'md', more: true, label: () => t('actCopyMd'), title: () => t('actCopyMdTitle'), run: (tabs) => copyLinks(tabs, 'md') },
+  { id: 'win', more: true, label: () => t('actNewWindow'), run: moveToWindow },
+  { id: 'sleep', more: true, label: () => t('actSleep'), run: sleepTabs },
+  { id: 'snooze', more: true, label: () => t('actSnooze'), run: (tabs, btn) => snoozeMenu(tabs, btn) },
+  { id: 'archive', more: true, label: () => t('actArchive'), run: archiveTabs },
+  { id: 'pin', more: true, label: (tabs) => t(tabs.length && tabs.every((x) => x.pinned) ? 'actUnpin' : 'actPin'), run: pinTabs },
+  { id: 'mute', more: true, label: (tabs) => t(tabs.length && tabs.every((x) => x.mutedInfo && x.mutedInfo.muted) ? 'actUnmute' : 'actMute'), run: muteTabs },
 ];
 
 // The floating pill at the bottom: shows while searching (to tick every match), once tabs are ticked,
@@ -1396,19 +1396,19 @@ function renderActs() {
   if (!show) return;
   const pool = pickPool();
   const allPicked = pool.length > 0 && pool.every((e) => state.picked.has(e.tab.id));
-  el.actsN.textContent = n ? getTranslation('pickedN', { count: n }) : '';
+  el.actsN.textContent = n ? t('pickedN', { count: n }) : '';
   el.actsN.hidden = !n;
   el.selAll.hidden = allPicked || !pool.length;
   el.selAll.className = n ? 'lnk' : 'qa primary';
-  el.selAll.textContent = state.query.trim() ? getTranslation('selAllMatches', { count: pool.length }) : getTranslation('selAllTabs', { count: pool.length });
+  el.selAll.textContent = state.query.trim() ? t('selAllMatches', { count: pool.length }) : t('selAllTabs', { count: pool.length });
   el.selNone.hidden = n === 0;
   el.actsBtns.hidden = n === 0; // nothing to act on yet: only the "Select all" button shows
   const more = h('button', 'qa more', null, 'actions-more');
   more.type = 'button';
-  more.title = getTranslation('actMore');
-  more.setAttribute('aria-label', getTranslation('actMore'));
+  more.title = t('actMore');
+  more.setAttribute('aria-label', t('actMore'));
   more.append(svgOf(ICON.more));
-  more.append(h('span', '', getTranslation('actMore'), 'actions-more-label'));
+  more.append(h('span', '', t('actMore'), 'actions-more-label'));
   more.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!pointerAllowed() || !n) return;
@@ -1420,13 +1420,13 @@ function renderActs() {
     const b = h('button', 'qa' + (sure ? ' armed' : '') + (a.id === 'close' ? ' danger' : ''), null, 'action-' + a.id);
     b.type = 'button';
     b.append(svgOf(ICON[a.icon]));
-    b.append(h('span', '', sure ? getTranslation('sureN', { count: n }) : a.label(tabs), 'action-label'));
+    b.append(h('span', '', sure ? t('sureN', { count: n }) : a.label(tabs), 'action-label'));
     if (a.title) b.title = a.title();
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!pointerAllowed() || !n) return;
       if (a.confirm && a.confirm(n) && !armed(key)) return;
-      Promise.resolve(a.run(targets(), b)).catch((err) => toast(getTranslation('actFailed'), err));
+      Promise.resolve(a.run(targets(), b)).catch((err) => toast(t('actFailed'), err));
     });
     return b;
   }), more);
@@ -1438,19 +1438,19 @@ function renderDupesBar() {
   el.acts.hidden = false;
   el.acts.classList.add('dupes');
   el.actsN.hidden = false;
-  el.actsN.textContent = d.length ? getTranslation('dupesSummary', { count: d.length }) : getTranslation('dupesNone');
+  el.actsN.textContent = d.length ? t('dupesSummary', { count: d.length }) : t('dupesNone');
   el.selAll.hidden = true;
   el.selNone.hidden = true;
   el.actsBtns.hidden = false;
   const close = h('button', 'qa danger' + (state.armed === 'act:dupes' ? ' armed' : ''), null, 'dupes-close');
   close.type = 'button';
   close.append(svgOf(ICON.close));
-  close.append(h('span', '', state.armed === 'act:dupes' ? getTranslation('sureN', { count: d.length }) : getTranslation('dupesClose', { count: d.length }), 'dupes-close-label'));
+  close.append(h('span', '', state.armed === 'act:dupes' ? t('sureN', { count: d.length }) : t('dupesClose', { count: d.length }), 'dupes-close-label'));
   close.disabled = !d.length;
   close.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeDupes(); });
   const back = h('button', 'qa', null, 'dupes-back');
   back.type = 'button';
-  back.append(h('span', '', getTranslation('dupesBack'), 'dupes-back-label'));
+  back.append(h('span', '', t('dupesBack'), 'dupes-back-label'));
   back.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dupesView(false); });
   el.actsBtns.replaceChildren(close, back);
 }
@@ -1500,13 +1500,13 @@ function pushUndo(group) {
   if (!group.length) return;
   state.undo.push(group);
   if (state.undo.length > 20) state.undo.shift();
-  toast(getTranslation('closedN', { count: group.length }), null, { label: getTranslation('undo') + (IS_MAC ? ' (⌘Z)' : ' (Ctrl+Z)'), fn: undoClose });
+  toast(t('closedN', { count: group.length }), null, { label: t('undo') + (IS_MAC ? ' (⌘Z)' : ' (Ctrl+Z)'), fn: undoClose });
 }
 async function undoClose() {
   const group = state.undo.pop();
-  if (!group || state.done) return toast(getTranslation('undoNothing'));
+  if (!group || state.done) return toast(t('undoNothing'));
   await reopenAt(group);
-  toast(getTranslation('reopenedN', { count: group.length }));
+  toast(t('reopenedN', { count: group.length }));
   await loadClosed();
   await reload();
 }
@@ -1573,7 +1573,7 @@ async function copyText(text) {
 async function copyLinks(tabs, fmt) {
   const md = (s) => String(s || '').replace(/([\[\]])/g, '\\$1');
   const text = tabs.map((x) => (fmt === 'md' ? `- [${md(x.title || hostOf(urlOf(x)))}](${urlOf(x)})` : urlOf(x))).join('\n');
-  toast((await copyText(text)) ? getTranslation('copiedN', { count: tabs.length }) : getTranslation('copyFailed'));
+  toast((await copyText(text)) ? t('copiedN', { count: tabs.length }) : t('copyFailed'));
 }
 
 async function moveToWindow(tabs) {
@@ -1741,8 +1741,8 @@ function ddRows() {
   }
   // No access to bookmarks or history: Chrome only turns on a new permission when the extension itself is
   // reloaded (an unpacked one picks up changed pages without that), so say so instead of skipping them silently.
-  if (!chrome.bookmarks) rows.push({ note: getTranslation('ddNoMarks') });
-  if (!chrome.history) rows.push({ note: getTranslation('ddNoHistory') });
+  if (!chrome.bookmarks) rows.push({ note: t('ddNoMarks') });
+  if (!chrome.history) rows.push({ note: t('ddNoHistory') });
   return rows;
 }
 // What a keystroke in the search box changes: the cards don't follow the search, so only the dropdown, the
@@ -1813,9 +1813,9 @@ function renderDropdown() {
     const src = DD_SOURCES[kind];
     const icon = h('span', 'ddsrc', null, 'dd-source-' + kind);
     icon.append(svgOf(ICON[src.icon]));
-    icon.title = getTranslation(src.label);
+    icon.title = t(src.label);
     icon.setAttribute('role', 'img');
-    icon.setAttribute('aria-label', getTranslation(src.label));
+    icon.setAttribute('aria-label', t(src.label));
     line.append(icon);
     return line;
   };
@@ -1833,7 +1833,7 @@ function renderDropdown() {
       const note = noteOf(urlOf(tab));
       const noteHit = fieldHit(ql, note);
       const w = tab.windowId !== CTX.srcWin && state.windows.find((x) => x.id === tab.windowId);
-      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || getTranslation('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', getTranslation('noteTitle'), 'dd-note-tag'), w && h('span', 'ddtag', w.label, 'dd-window-tag')),
+      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle'), 'dd-note-tag'), w && h('span', 'ddtag', w.label, 'dd-window-tag')),
         hlSpan('ddsub', siteOf(urlOf(tab)), ql));
       if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
       row.append(pic, txt);
@@ -1857,18 +1857,18 @@ function renderDropdown() {
     } else if (r.kind === 'visit') {
       const icon = ddPic(r.x.url, r.x.url, null, 'ddicon');
       const txt = h('span', 'ddtxt', null, 'dd-text');
-      const when = r.x.t ? getTranslation('visitedAgo', { when: timeAgo(r.x.t / 1000) }) : '';
+      const when = r.x.t ? t('visitedAgo', { when: timeAgo(r.x.t / 1000) }) : '';
       txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
       row.append(icon, txt);
     } else if (r.kind === 'url') {
       const icon = h('img', 'ddicon', null, 'dd-favicon');
       icon.src = favicon(r.url);
       icon.alt = '';
-      row.append(icon, h('span', 'ddtxt ddone', getTranslation('ddOpen', { address: q }), 'dd-text'));
+      row.append(icon, h('span', 'ddtxt ddone', t('ddOpen', { address: q }), 'dd-text'));
     } else {
       const icon = h('span', 'ddicon ddg', 'G', 'dd-google-icon');
       icon.setAttribute('aria-hidden', 'true');
-      row.append(icon, h('span', 'ddtxt ddone', getTranslation('ddGoogle', { text: q }), 'dd-text'));
+      row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', { text: q }), 'dd-text'));
     }
     row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; ddHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
@@ -1943,7 +1943,7 @@ async function mergeWindows(ids, key) {
       moved += tabs.length;
     } catch (e) { console.warn('[Tabazing] could not merge a window:', e && e.message); }
   }
-  toast(getTranslation('mergedN', { count: moved }));
+  toast(t('mergedN', { count: moved }));
   if (state.scope !== 'all') state.scope = 'all';
   await reload();
 }
@@ -1952,12 +1952,12 @@ async function mergeWindows(ids, key) {
 function snoozeChoices(now = new Date()) {
   const at = (d, h) => { const x = new Date(now); x.setDate(x.getDate() + d); x.setHours(h, 0, 0, 0); return x.getTime(); };
   const out = [
-    { label: getTranslation('snooze1h'), at: now.getTime() + 3600e3 },
-    { label: getTranslation('snooze3h'), at: now.getTime() + 3 * 3600e3 },
+    { label: t('snooze1h'), at: now.getTime() + 3600e3 },
+    { label: t('snooze3h'), at: now.getTime() + 3 * 3600e3 },
   ];
-  if (now.getHours() < 17) out.push({ label: getTranslation('snoozeEvening'), at: at(0, 18) });
-  out.push({ label: getTranslation('snoozeTomorrow'), at: at(1, 9) });
-  out.push({ label: getTranslation('snoozeWeek'), at: at(((8 - now.getDay()) % 7) || 7, 9) }); // next Monday
+  if (now.getHours() < 17) out.push({ label: t('snoozeEvening'), at: at(0, 18) });
+  out.push({ label: t('snoozeTomorrow'), at: at(1, 9) });
+  out.push({ label: t('snoozeWeek'), at: at(((8 - now.getDay()) % 7) || 7, 9) }); // next Monday
   return out.map((c) => ({ ...c, label: c.label + ' · ' + whenLabel(c.at) }));
 }
 // "Fri 09:00", or just "18:00" today.
@@ -1971,7 +1971,7 @@ function snoozeMenu(tabs, anchor) {
 }
 async function snoozeTabs(tabs, at) {
   const can = tabs.filter((x) => isWorthReopening(urlOf(x)));
-  if (!can.length) return toast(getTranslation('snoozeCant'));
+  if (!can.length) return toast(t('snoozeCant'));
   const now = Date.now();
   const items = can.map((x, i) => ({ id: `${x.id}-${now}-${i}`, url: urlOf(x), title: x.title || '', at, windowId: x.windowId, pinned: !!x.pinned, t: now }));
   state.snoozed = await addSnoozed(items);
@@ -1981,7 +1981,7 @@ async function snoozeTabs(tabs, at) {
   state.picked.clear();
   if (own) return chrome.tabs.remove(CTX.srcTab);
   ids.forEach((id) => forgetTab(id));
-  toast(getTranslation('snoozedN', { count: items.length, time: whenLabel(at) }), null, { label: getTranslation('undo'), fn: () => unsnooze(items) });
+  toast(t('snoozedN', { count: items.length, time: whenLabel(at) }), null, { label: t('undo'), fn: () => unsnooze(items) });
 }
 // Undo a snooze: forget it and reopen the tabs where they were.
 async function unsnooze(items) {
@@ -1990,7 +1990,7 @@ async function unsnooze(items) {
     try { await chrome.tabs.create({ url: x.url, windowId: x.windowId, active: false, pinned: x.pinned }); }
     catch { await chrome.tabs.create({ url: x.url, windowId: CTX.srcWin, active: false }).catch(() => {}); }
   }
-  toast(getTranslation('reopenedN', { count: items.length }));
+  toast(t('reopenedN', { count: items.length }));
   await reload();
 }
 
@@ -2022,7 +2022,7 @@ function dragToMove(card, tab) {
     e.preventDefault();
     const ids = dragIds, after = dropAfter(card, e);
     clearDrop();
-    if (ids && pointerAllowed()) moveTabs(ids, tab, after).catch((err) => toast(getTranslation('actFailed'), err));
+    if (ids && pointerAllowed()) moveTabs(ids, tab, after).catch((err) => toast(t('actFailed'), err));
   });
 }
 // Move tabs, in their tab-strip order, to just before or after `target`. One at a time, each placed
@@ -2045,12 +2045,12 @@ async function moveTabs(ids, target, after) {
 // sleep here is only marked (a moon on its card); it is unloaded as Tabazing closes. Clicking again unmarks.
 async function sleepTabs(tabs) {
   const can = tabs.filter((x) => !x.active && !x.discarded); // Chrome won't unload the tab you're looking at
-  if (!can.length) return toast(getTranslation('sleptNone'));
+  if (!can.length) return toast(t('sleptNone'));
   const undo = can.every((x) => state.toSleep.has(x.id));
   can.forEach((x) => (undo ? state.toSleep.delete(x.id) : state.toSleep.add(x.id)));
   const changed = new Set([...state.picked, ...can.map((x) => x.id)]);
   state.picked.clear();
-  toast(undo ? getTranslation('sleepUndone') : getTranslation('sleepLaterN', { count: can.length }));
+  toast(undo ? t('sleepUndone') : t('sleepLaterN', { count: can.length }));
   if (state.filter) refresh(); // (the Asleep filter may show or hide them now)
   else redraw((e) => e.kind === 'tab' && changed.has(e.tab.id));
 }
@@ -2058,14 +2058,14 @@ async function sleepTabs(tabs) {
 async function pinTabs(tabs) {
   const pin = !tabs.every((x) => x.pinned);
   for (const x of tabs) await chrome.tabs.update(x.id, { pinned: pin }).catch(() => {});
-  toast(getTranslation(pin ? 'pinnedN' : 'unpinnedN', { count: tabs.length }));
+  toast(t(pin ? 'pinnedN' : 'unpinnedN', { count: tabs.length }));
   await reload();
 }
 
 async function muteTabs(tabs) {
   const mute = !tabs.every((x) => x.mutedInfo && x.mutedInfo.muted);
   for (const x of tabs) await chrome.tabs.update(x.id, { muted: mute }).catch(() => {});
-  toast(getTranslation(mute ? 'mutedN' : 'unmutedN', { count: tabs.length }));
+  toast(t(mute ? 'mutedN' : 'unmutedN', { count: tabs.length }));
   await reload();
 }
 
@@ -2108,9 +2108,9 @@ function audioBadge(tab) {
   const b = h('button', 'badge audio' + (muted ? '' : ' on'), null, 'card-audio');
   b.type = 'button';
   b.append(svgOf(muted ? ICON.muted : ICON.speaker));
-  b.title = getTranslation(muted ? 'unmuteThis' : 'muteThis');
+  b.title = t(muted ? 'unmuteThis' : 'muteThis');
   b.setAttribute('aria-label', b.title);
-  b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleMute(tab).catch((err) => toast(getTranslation('actFailed'), err)); });
+  b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleMute(tab).catch((err) => toast(t('actFailed'), err)); });
   return b;
 }
 // Pin / unpin one tab. Chrome moves it to (or out of) the pinned tabs at the start of the tab strip,
@@ -2123,11 +2123,11 @@ async function togglePin(tab) {
     // "Tabs cannot be edited right now": Chrome is busy with the tab strip for a moment. Once more.
     await new Promise((r) => setTimeout(r, 150));
     try { await chrome.tabs.update(tab.id, { pinned }); }
-    catch (e2) { await reload(); return toast(getTranslation('actFailed') + ': ' + String((e2 && e2.message) || e2).slice(0, 120), e2); }
+    catch (e2) { await reload(); return toast(t('actFailed') + ': ' + String((e2 && e2.message) || e2).slice(0, 120), e2); }
   }
   await reload(); // what Chrome now has, whatever happened
   const now = state.tabs.find((x) => x.id === tab.id);
-  toast(getTranslation(now && now.pinned ? 'pinnedOne' : 'unpinnedOne', { title: tab.title || siteOf(urlOf(tab)) }));
+  toast(t(now && now.pinned ? 'pinnedOne' : 'unpinnedOne', { title: tab.title || siteOf(urlOf(tab)) }));
 }
 async function toggleMute(tab) {
   const muted = !isMuted(tab);
@@ -2141,13 +2141,13 @@ async function toggleMute(tab) {
 async function reloadTab(tab) {
   await chrome.tabs.reload(tab.id);
   if (CTX.mode === 'overlay' && tab.id === CTX.srcTab) return finish('cancel');
-  toast(getTranslation('reloadingOne', { title: tab.title || siteOf(urlOf(tab)) }));
+  toast(t('reloadingOne', { title: tab.title || siteOf(urlOf(tab)) }));
 }
 // Duplicate a tab: the copy opens right after it, in the background, so Tabazing stays open and shows it.
 async function duplicateTab(tab) {
   await chrome.tabs.create({ url: urlOf(tab), windowId: tab.windowId, index: tab.index + 1, active: false, pinned: !!tab.pinned, openerTabId: tab.id });
   await reload();
-  toast(getTranslation('duplicatedOne', { title: tab.title || siteOf(urlOf(tab)) }));
+  toast(t('duplicatedOne', { title: tab.title || siteOf(urlOf(tab)) }));
 }
 
 // ---- the archive: tabs moved into the "Tabs Archive" bookmarks folder (in "Other bookmarks", lib/archive.js).
@@ -2159,8 +2159,8 @@ async function loadArchived() {
 }
 async function archiveTabs(tabs) {
   const can = tabs.filter((x) => isWorthReopening(urlOf(x)));
-  if (!can.length) return toast(getTranslation('archiveCant'));
-  if (!chrome.bookmarks) return toast(getTranslation('ddNoMarks'));
+  if (!can.length) return toast(t('archiveCant'));
+  if (!chrome.bookmarks) return toast(t('ddNoMarks'));
   const undo = undoRecord(can);
   const added = await addArchived(can.map((x) => ({ url: urlOf(x), title: x.title || '' })));
   await loadArchived(); // before the tabs close, so "Recently closed" leaves them out
@@ -2170,13 +2170,13 @@ async function archiveTabs(tabs) {
   state.picked.clear();
   if (own) return chrome.tabs.remove(CTX.srcTab);
   ids.forEach((id) => forgetTab(id));
-  toast(getTranslation('archivedN', { count: added.length }), null, { label: getTranslation('undo'), fn: () => unarchive(added, undo) });
+  toast(t('archivedN', { count: added.length }), null, { label: t('undo'), fn: () => unarchive(added, undo) });
 }
 // Undo an archive: out of the folder, and the tabs back where they were.
 async function unarchive(added, group) {
   await removeArchived(added.map((x) => x.id));
   await reopenAt(group);
-  toast(getTranslation('reopenedN', { count: group.length }));
+  toast(t('reopenedN', { count: group.length }));
   await reload();
 }
 // Open an archived page: out of the archive, into a new tab in the window Tabazing was opened from.
@@ -2215,19 +2215,19 @@ async function openArchive(sel = 0) {
     el.app.append(back);
   }
   const head = h('div', 'archhead', null, 'archive-header');
-  const title = h('h2', 'archtitle', getTranslation('archiveTitle'), 'archive-title');
+  const title = h('h2', 'archtitle', t('archiveTitle'), 'archive-title');
   title.id = 'arch-h';
   title.append(h('span', 'n', String(state.archived.length), 'archive-count'));
   const x = h('button', 'archx', null, 'archive-close');
   x.type = 'button';
   x.append(svgOf(ICON.close));
-  x.title = getTranslation('archiveClose') + ' (Esc)';
-  x.setAttribute('aria-label', getTranslation('archiveClose'));
+  x.title = t('archiveClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('archiveClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeArchive(); });
-  head.append(title, h('span', 'archsub', getTranslation('archiveWhere'), 'archive-location'), x);
+  head.append(title, h('span', 'archsub', t('archiveWhere'), 'archive-location'), x);
   const body = h('div', 'archbody', null, 'archive-body');
-  if (!chrome.bookmarks) body.append(h('p', 'empty', getTranslation('ddNoMarks'), 'archive-no-bookmarks'));
-  else if (!state.archived.length) body.append(h('p', 'empty', getTranslation('archiveEmpty'), 'archive-empty'));
+  if (!chrome.bookmarks) body.append(h('p', 'empty', t('ddNoMarks'), 'archive-no-bookmarks'));
+  else if (!state.archived.length) body.append(h('p', 'empty', t('archiveEmpty'), 'archive-empty'));
   else {
     const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'archive-grid');
     grid.setAttribute('role', 'listbox');
@@ -2242,11 +2242,11 @@ async function openArchive(sel = 0) {
 }
 function archiveCard(item, i) {
   const entry = { kind: 'archived', item, url: item.url, preview: state.archivePreviews[normalizeUrl(item.url)] || null };
-  const title = item.title || hostOf(item.url) || getTranslation('untitled');
+  const title = item.title || hostOf(item.url) || t('untitled');
   const card = h('div', 'card', null, 'card-archived');
   card.id = 'arch-' + item.id;
   card.setAttribute('role', 'option');
-  card.title = getTranslation('archiveOpenTip', { title }) + '\n' + item.url;
+  card.title = t('archiveOpenTip', { title }) + '\n' + item.url;
   const head = h('div', 'head', null, 'card-head');
   const fav = h('img', 'fav', null, 'card-favicon');
   fav.src = favicon(item.url);
@@ -2256,13 +2256,13 @@ function archiveCard(item, i) {
   if (ago) head.append(h('span', 'tag', ago, 'card-archived-ago'));
   const x = h('button', 'x', null, 'card-unarchive');
   x.type = 'button';
-  x.title = getTranslation('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
-  x.setAttribute('aria-label', getTranslation('archiveRemove'));
+  x.title = t('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
+  x.setAttribute('aria-label', t('archiveRemove'));
   x.append(svgOf(ICON.close));
-  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dropArchived(item, i).catch((err) => toast(getTranslation('actFailed'), err)); });
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dropArchived(item, i).catch((err) => toast(t('actFailed'), err)); });
   head.append(x);
   card.append(head);
-  if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : getTranslation('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
+  if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
   mouseOnly(card); // its × is Del
   card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
   card.addEventListener('mousemove', () => { if (state.archSel !== i) archSelect(i, false); });
@@ -2272,7 +2272,7 @@ function archiveCard(item, i) {
 async function dropArchived(item, i) {
   await removeArchived([item.id]);
   await openArchive(i);
-  toast(getTranslation('archiveRemoved'), null, { label: getTranslation('undo'), fn: async () => { await addArchived([item]); if (archiveOpen()) await openArchive(i); } });
+  toast(t('archiveRemoved'), null, { label: t('undo'), fn: async () => { await addArchived([item]); if (archiveOpen()) await openArchive(i); } });
 }
 function archSelect(i, scroll = true) {
   const cards = [...document.querySelectorAll('.arch .card')];
@@ -2301,7 +2301,7 @@ function archiveKey(e) {
   if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
     if (e.repeat) return;
     if (!keysAllowed()) return finish('cancel');
-    return dropArchived(state.archived[state.archSel], state.archSel).catch((err) => toast(getTranslation('actFailed'), err));
+    return dropArchived(state.archived[state.archSel], state.archSel).catch((err) => toast(t('actFailed'), err));
   }
   if (k === 'Enter') {
     if (!keysAllowed()) return finish('cancel');
@@ -2319,18 +2319,18 @@ function quickActions(entry) {
     b.title = title;
     b.setAttribute('aria-label', title);
     b.append(svgOf(ICON[icon]));
-    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn().catch((err) => toast(getTranslation('actFailed'), err)); });
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn().catch((err) => toast(t('actFailed'), err)); });
     return b;
   };
-  box.append(mk('link', getTranslation('copyLink'), () => copyLinks([entry.tab], 'plain')));
-  box.append(mk('reload', getTranslation('reloadThis'), () => reloadTab(entry.tab)), mk('dupe', getTranslation('duplicateThis'), () => duplicateTab(entry.tab)));
-  const mute = mk(isMuted(entry.tab) ? 'muted' : 'speaker', getTranslation(isMuted(entry.tab) ? 'unmuteThis' : 'muteThis'), () => toggleMute(entry.tab));
-  const pin = mk('pin', getTranslation(entry.tab.pinned ? 'unpinThis' : 'pinThis'), () => togglePin(entry.tab));
-  const snooze = mk('clock', getTranslation('snoozeThis'), async () => snoozeMenu([entry.tab], snooze));
-  const archive = mk('archive', getTranslation('archiveThis'), () => archiveTabs([entry.tab]));
+  box.append(mk('link', t('copyLink'), () => copyLinks([entry.tab], 'plain')));
+  box.append(mk('reload', t('reloadThis'), () => reloadTab(entry.tab)), mk('dupe', t('duplicateThis'), () => duplicateTab(entry.tab)));
+  const mute = mk(isMuted(entry.tab) ? 'muted' : 'speaker', t(isMuted(entry.tab) ? 'unmuteThis' : 'muteThis'), () => toggleMute(entry.tab));
+  const pin = mk('pin', t(entry.tab.pinned ? 'unpinThis' : 'pinThis'), () => togglePin(entry.tab));
+  const snooze = mk('clock', t('snoozeThis'), async () => snoozeMenu([entry.tab], snooze));
+  const archive = mk('archive', t('archiveThis'), () => archiveTabs([entry.tab]));
   if (entry.tab.pinned) pin.classList.add('on'); // on: like a note button with a note
   if (isMuted(entry.tab)) mute.classList.add('on');
-  if (!entry.tab.active && !entry.tab.discarded) box.append(mk('moon', getTranslation(state.toSleep.has(entry.tab.id) ? 'sleepUndo' : 'sleepThis'), () => sleepTabs([entry.tab])));
+  if (!entry.tab.active && !entry.tab.discarded) box.append(mk('moon', t(state.toSleep.has(entry.tab.id) ? 'sleepUndo' : 'sleepThis'), () => sleepTabs([entry.tab])));
   box.append(mute, pin, snooze, archive, noteButton(entry)); // the note last: always in the same place, sleep or not
   return box;
 }
@@ -2343,26 +2343,26 @@ function cardMenu() {
   const card = document.querySelectorAll('#scroller .card')[state.sel];
   if (!entry || !card) return;
   const items = [];
-  const starItem = () => ({ label: getTranslation(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
+  const starItem = () => ({ label: t(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
   if (entry.kind === 'tab') {
     const tab = entry.tab;
     const note = card.querySelector('.qbtn.note'); // the note card opens at its button, which shows the note too
-    items.push({ label: getTranslation(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
-    items.push({ label: getTranslation('copyLink'), fn: () => copyLinks([tab], 'plain') });
-    if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ label: getTranslation('capturePreview'), fn: () => captureOne(entry) });
-    items.push({ label: getTranslation('reloadThis'), fn: () => reloadTab(tab) }, { label: getTranslation('duplicateThis'), fn: () => duplicateTab(tab) });
-    if (!tab.active && !tab.discarded) items.push({ label: getTranslation(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), fn: () => sleepTabs([tab]) });
+    items.push({ label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
+    items.push({ label: t('copyLink'), fn: () => copyLinks([tab], 'plain') });
+    if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ label: t('capturePreview'), fn: () => captureOne(entry) });
+    items.push({ label: t('reloadThis'), fn: () => reloadTab(tab) }, { label: t('duplicateThis'), fn: () => duplicateTab(tab) });
+    if (!tab.active && !tab.discarded) items.push({ label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), fn: () => sleepTabs([tab]) });
     items.push(
-      { label: getTranslation(isMuted(tab) ? 'unmuteThis' : 'muteThis'), fn: () => toggleMute(tab) },
-      { label: getTranslation(tab.pinned ? 'unpinThis' : 'pinThis'), fn: () => togglePin(tab) },
-      { label: getTranslation('snoozeThis'), fn: () => snoozeMenu([tab], card) },
-      { label: getTranslation('archiveThis'), fn: () => archiveTabs([tab]) },
+      { label: t(isMuted(tab) ? 'unmuteThis' : 'muteThis'), fn: () => toggleMute(tab) },
+      { label: t(tab.pinned ? 'unpinThis' : 'pinThis'), fn: () => togglePin(tab) },
+      { label: t('snoozeThis'), fn: () => snoozeMenu([tab], card) },
+      { label: t('archiveThis'), fn: () => archiveTabs([tab]) },
     );
-    if (note) items.push({ label: getTranslation(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
-    items.push(null, { label: getTranslation('closeTab'), danger: true, fn: () => closeTab(entry) });
+    if (note) items.push({ label: t(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
+    items.push(null, { label: t('closeTab'), danger: true, fn: () => closeTab(entry) });
   } else {
     if (!(entry.item && entry.item.kind === 'window')) items.push(starItem());
-    if (entry.kind === 'snoozed') items.push({ label: getTranslation('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
+    if (entry.kind === 'snoozed') items.push({ label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
   }
   if (items.length) menu(card, items, { back: el.search });
 }
@@ -2374,7 +2374,7 @@ function paintNote(b, text) {
   b.classList.toggle('on', !!text);
   b.dataset.note = text; // shown by our own tooltip (noteTip), quicker than Chrome's and in Tabazing's style
   b.title = ''; // no Chrome tooltip here, not even the card's
-  b.setAttribute('aria-label', text ? getTranslation('noteEdit') + ': ' + text : getTranslation('noteAdd'));
+  b.setAttribute('aria-label', text ? t('noteEdit') + ': ' + text : t('noteAdd'));
 }
 function noteButton(entry) {
   const b = h('button', 'qbtn note', null, 'quick-note');
@@ -2405,7 +2405,7 @@ function noteTip(b) {
     hideTip();
     const tip = h('div', 'tip', null, 'note-tooltip');
     tip.setAttribute('role', 'tooltip');
-    tip.append(h('span', 'tiph', getTranslation('noteTitle'), 'note-tooltip-title'), h('span', 'tipt', text, 'note-tooltip-text'));
+    tip.append(h('span', 'tiph', t('noteTitle'), 'note-tooltip-title'), h('span', 'tipt', text, 'note-tooltip-text'));
     tip.addEventListener('mouseenter', () => clearTimeout(tipHide));
     tip.addEventListener('mouseleave', hideTipSoon);
     el.app.append(tip);
@@ -2438,28 +2438,28 @@ function notePopover(url, anchor) {
   // × goes back to what had the focus: its note button (clicked), or the search box (the card's menu).
   const back = document.activeElement && document.activeElement !== document.body ? document.activeElement : el.search;
   pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-label', getTranslation('noteTitle'));
+  pop.setAttribute('aria-label', t('noteTitle'));
   const box = h('textarea', '', null, 'note-input');
   box.value = noteOf(url);
-  box.placeholder = getTranslation('notePh');
+  box.placeholder = t('notePh');
   box.maxLength = LIMITS.NOTE_MAX;
-  box.setAttribute('aria-label', getTranslation('noteTitle'));
+  box.setAttribute('aria-label', t('noteTitle'));
   // Top right: "Clear" (red; removes the note, the card stays open to write a new one; shown while there is
   // text), then × (closes the card, keeping what was written).
-  const clear = h('button', 'noteclear', getTranslation('noteClearBtn'), 'note-clear');
+  const clear = h('button', 'noteclear', t('noteClearBtn'), 'note-clear');
   clear.type = 'button';
-  clear.title = getTranslation('noteClear');
+  clear.title = t('noteClear');
   clear.hidden = !box.value;
   clear.addEventListener('click', (e) => { e.stopPropagation(); box.value = ''; clear.hidden = true; clearTimeout(timer); save(); box.focus(); });
   const x = h('button', 'noteclose', null, 'note-close');
   x.type = 'button';
-  x.title = getTranslation('noteCloseBtn');
-  x.setAttribute('aria-label', getTranslation('noteCloseBtn'));
+  x.title = t('noteCloseBtn');
+  x.setAttribute('aria-label', t('noteCloseBtn'));
   x.append(svgOf(ICON.close));
   x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); });
   const tools = h('div', 'notetools', null, 'note-tools');
   tools.append(clear, x);
-  pop.append(h('label', '', getTranslation('noteTitle'), 'note-label'), tools, box, h('p', 'pfine', getTranslation('noteHint'), 'note-hint'));
+  pop.append(h('label', '', t('noteTitle'), 'note-label'), tools, box, h('p', 'pfine', t('noteHint'), 'note-hint'));
   const save = () => setNote(url, box.value).then((notes) => { state.notes = notes; paintNote(anchor, noteOf(url)); }).catch(() => {});
   let timer = null;
   box.addEventListener('input', () => { clear.hidden = !box.value; clearTimeout(timer); timer = setTimeout(save, 400); });
@@ -2489,11 +2489,11 @@ function openBig(entry) {
   hideTip();
   bigEntry = entry;
   const url = entry.url || (entry.tab ? urlOf(entry.tab) : entry.item.url);
-  const title = (entry.tab ? entry.tab.title : entry.item.title) || hostOf(url) || getTranslation('untitled');
+  const title = (entry.tab ? entry.tab.title : entry.item.title) || hostOf(url) || t('untitled');
   const back = h('div', 'bigback', null, 'big-preview');
   back.setAttribute('role', 'dialog');
   back.setAttribute('aria-modal', 'true');
-  back.setAttribute('aria-label', getTranslation('bigTitle', { title }));
+  back.setAttribute('aria-label', t('bigTitle', { title }));
   const box = h('div', 'bigbox', null, 'big-preview-box');
   const head = h('div', 'bighead', null, 'big-preview-header');
   const fav = h('img', 'fav', null, 'big-preview-favicon');
@@ -2503,15 +2503,15 @@ function openBig(entry) {
   const x = h('button', 'bigx', null, 'big-preview-close');
   x.type = 'button';
   x.append(svgOf(ICON.close));
-  x.title = getTranslation('bigClose') + ' (Esc)';
-  x.setAttribute('aria-label', getTranslation('bigClose'));
+  x.title = t('bigClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('bigClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeBig(); });
   let shot;
   if (entry.preview && entry.preview.img) {
     // The card's small copy at once, then the sharp copy of the same capture as soon as it is read.
     shot = h('img', 'bigshot', null, 'big-preview-image');
     shot.src = entry.preview.img;
-    shot.alt = getTranslation('bigTitle', { title });
+    shot.alt = t('bigTitle', { title });
     getSharpPreview(url).then((p) => {
       if (!p || !shot.isConnected) return;
       const sharp = new Image();
@@ -2523,7 +2523,7 @@ function openBig(entry) {
     const img = h('img', '', null, 'big-preview-none-favicon');
     img.src = favicon(url);
     img.alt = '';
-    shot.append(img, h('span', '', getTranslation('noPreview'), 'big-preview-none-label'));
+    shot.append(img, h('span', '', t('noPreview'), 'big-preview-none-label'));
   }
   box.append(head, x, shot);
   box.addEventListener('click', (e) => e.stopPropagation());
@@ -2609,7 +2609,7 @@ function menu(anchor, items, opts = {}) {
       if (!pointerAllowed()) return;
       if (it.sure && !armedOnce) { armedOnce = true; b.textContent = it.sure; b.classList.add('armed'); return; }
       m.close(true);
-      try { await it.fn(); } catch (err) { toast(getTranslation('actFailed'), err); }
+      try { await it.fn(); } catch (err) { toast(t('actFailed'), err); }
     });
     m.append(b);
   }
@@ -2713,17 +2713,17 @@ function whenTapMode(fn) {
 const keyRows = (...rows) => { const d = h('div', 'keys', null, 'dialog-keys'); rows.forEach(([keys, word]) => { const k = h('span', '', null, 'dialog-keys-combo'); k.append(...keys); d.append(k, h('span', '', word, 'dialog-keys-action')); }); return d; };
 const ALT = IS_MAC ? '⌥' : 'Alt+';
 const TOUR_ALL = [
-  { id: 'switch', title: () => getTranslation('tourSwitchTitle'), hl: '.card[aria-selected="true"]', body: () => [
-    para(getTranslation('tourSwitchBody')),
-    keyRows([[K(ALT + 'Q')], getTranslation('keyPrevTab')], [[K(ALT + 'W')], getTranslation('keyNextTab')], [[K(ALT + 'E')], getTranslation('keyStay')])] },
-  { id: 'move', title: () => getTranslation('tour2Title'), hl: '.card[aria-selected="true"]', body: () => [
-    keyRows([[K('←'), K('→'), K('↑'), K('↓')], getTranslation('keyPick')], [[K(ALT + '1'), K('…'), K(ALT + '9')], getTranslation('keyNumber')], [[K('Enter')], getTranslation('keyOpen')], [[K('Space')], getTranslation('keyPreview')],
-      [[K('Del', '⌘⌫')], getTranslation('keyClose')], [[K('Ctrl+Z', '⌘Z')], getTranslation('keyUndo')], [[K('Shift+F10')], getTranslation('keyActions')], [[K('Esc')], getTranslation('keyLeave')])] },
-  { id: 'search', title: () => getTranslation('tour3Title'), hl: '.search', body: () => [para(getTranslation('tour3Body')), keyRows([[K('Ctrl+F', '⌘F')], getTranslation('keySearch')])] },
-  { id: 'cards', title: () => getTranslation('tourCardsTitle'), hl: '.card[aria-selected="true"]', body: () => [para(getTranslation('tourCardsBody')), para(getTranslation('tourCardsMouse'))] },
-  { id: 'many', title: () => getTranslation('tourManyTitle'), hl: '.card[aria-selected="true"] .head', body: () => [para(getTranslation('tourManyBody'))] },
-  { id: 'sort', title: () => getTranslation('tourSortTitle'), hl: '.sortbox', body: () => [para(getTranslation('tourSortBody'))] },
-  { id: 'settings', title: () => getTranslation('tourSetTitle'), hl: '#settings-btn', body: () => [para(getTranslation('tourSetBody'))] },
+  { id: 'switch', title: () => t('tourSwitchTitle'), hl: '.card[aria-selected="true"]', body: () => [
+    para(t('tourSwitchBody')),
+    keyRows([[K(ALT + 'Q')], t('keyPrevTab')], [[K(ALT + 'W')], t('keyNextTab')], [[K(ALT + 'E')], t('keyStay')])] },
+  { id: 'move', title: () => t('tour2Title'), hl: '.card[aria-selected="true"]', body: () => [
+    keyRows([[K('←'), K('→'), K('↑'), K('↓')], t('keyPick')], [[K(ALT + '1'), K('…'), K(ALT + '9')], t('keyNumber')], [[K('Enter')], t('keyOpen')], [[K('Space')], t('keyPreview')],
+      [[K('Del', '⌘⌫')], t('keyClose')], [[K('Ctrl+Z', '⌘Z')], t('keyUndo')], [[K('Shift+F10')], t('keyActions')], [[K('Esc')], t('keyLeave')])] },
+  { id: 'search', title: () => t('tour3Title'), hl: '.search', body: () => [para(t('tour3Body')), keyRows([[K('Ctrl+F', '⌘F')], t('keySearch')])] },
+  { id: 'cards', title: () => t('tourCardsTitle'), hl: '.card[aria-selected="true"]', body: () => [para(t('tourCardsBody')), para(t('tourCardsMouse'))] },
+  { id: 'many', title: () => t('tourManyTitle'), hl: '.card[aria-selected="true"] .head', body: () => [para(t('tourManyBody'))] },
+  { id: 'sort', title: () => t('tourSortTitle'), hl: '.sortbox', body: () => [para(t('tourSortBody'))] },
+  { id: 'settings', title: () => t('tourSetTitle'), hl: '#settings-btn', body: () => [para(t('tourSetBody'))] },
 ];
 let TOUR = TOUR_ALL;
 let tourAt = 0;
@@ -2738,9 +2738,9 @@ function tourStep(i) {
   if (target) target.classList.add('tour-hl');
   const row = h('div', 'row', null, 'tour-buttons');
   row.append(h('span', 'stepof', `${tourAt + 1} / ${TOUR.length}`, 'tour-step-of'), h('span', 'grow', null, 'tour-spacer'));
-  if (tourAt > 0) row.append(button('tour-back', getTranslation('back'), 'quiet', () => tourStep(tourAt - 1)));
-  if (!last) row.append(button('tour-skip', getTranslation('skip'), 'quiet', endTour));
-  row.append(button(last ? 'tour-done' : 'tour-next', getTranslation(last ? 'done' : 'next'), 'primary', () => (last ? endTour() : tourStep(tourAt + 1))));
+  if (tourAt > 0) row.append(button('tour-back', t('back'), 'quiet', () => tourStep(tourAt - 1)));
+  if (!last) row.append(button('tour-skip', t('skip'), 'quiet', endTour));
+  row.append(button(last ? 'tour-done' : 'tour-next', t(last ? 'done' : 'next'), 'primary', () => (last ? endTour() : tourStep(tourAt + 1))));
   const title = h('h3', '', step.title(), 'dialog-title');
   title.id = 'dlg-title';
   const num = h('span', 'num', String(tourAt + 1), 'tour-step-number');
@@ -2786,23 +2786,23 @@ const reviewDone = () => updateReview((r) => ({ ...r, done: true })).catch(() =>
 const goReview = async () => { await reviewDone(); openUrl(REVIEW_URL); };
 
 function askStep1() {
-  const title = h('h3', '', getTranslation('askTitle'), 'dialog-title');
+  const title = h('h3', '', t('askTitle'), 'dialog-title');
   title.id = 'dlg-title';
   const faces = h('div', 'faces', null, 'ask-moods');
-  for (const [label, mood] of [['moodGood', 'good'], ['moodOkay', 'okay'], ['moodBad', 'bad']]) faces.append(button('ask-mood-' + mood, getTranslation(label), '', () => askStep2(mood)));
+  for (const [label, mood] of [['moodGood', 'good'], ['moodOkay', 'okay'], ['moodBad', 'bad']]) faces.append(button('ask-mood-' + mood, t(label), '', () => askStep2(mood)));
   const row = h('div', 'row', null, 'ask-buttons');
-  row.append(button('ask-dont-ask', getTranslation('dontAsk'), 'quiet', () => { reviewDone(); closeDialog(); }), h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', getTranslation('notNow'), 'quiet', closeDialog));
-  showDialog('ask', [title, para(getTranslation('askBody')), faces, row]);
+  row.append(button('ask-dont-ask', t('dontAsk'), 'quiet', () => { reviewDone(); closeDialog(); }), h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', t('notNow'), 'quiet', closeDialog));
+  showDialog('ask', [title, para(t('askBody')), faces, row]);
 }
 function askStep2(mood) {
   const good = mood === 'good';
-  const title = h('h3', '', getTranslation(good ? 'askGoodTitle' : 'askBadTitle'), 'dialog-title');
+  const title = h('h3', '', t(good ? 'askGoodTitle' : 'askBadTitle'), 'dialog-title');
   title.id = 'dlg-title';
   const row = h('div', 'row', null, 'ask-buttons');
-  if (good) row.append(button('ask-review', getTranslation('reviewBtn'), 'primary', goReview));
-  else row.append(button('ask-survey', getTranslation('surveyBtn'), 'primary', async () => { await reviewDone(); openUrl(siteUrl('/survey', 'extension-prompt', '&mood=' + mood)); }), button('ask-review', getTranslation('reviewBtn'), '', goReview));
-  row.append(h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', getTranslation('notNow'), 'quiet', closeDialog));
-  showDialog('ask', [title, para(getTranslation(good ? 'askGoodBody' : 'askBadBody')), row, h('p', 'note', getTranslation('askNote'), 'ask-note')]);
+  if (good) row.append(button('ask-review', t('reviewBtn'), 'primary', goReview));
+  else row.append(button('ask-survey', t('surveyBtn'), 'primary', async () => { await reviewDone(); openUrl(siteUrl('/survey', 'extension-prompt', '&mood=' + mood)); }), button('ask-review', t('reviewBtn'), '', goReview));
+  row.append(h('span', 'grow', null, 'ask-spacer'), button('ask-not-now', t('notNow'), 'quiet', closeDialog));
+  showDialog('ask', [title, para(t(good ? 'askGoodBody' : 'askBadBody')), row, h('p', 'note', t('askNote'), 'ask-note')]);
 }
 function askLater() { closeDialog(); }
 
@@ -2828,7 +2828,7 @@ async function requestHostAccess() {
   asking = false;
   window.focus();
   if (!ok || state.done) return;
-  showAlert(getTranslation('hostThanks'));
+  showAlert(t('hostThanks'));
   setTimeout(() => { if (!state.done) { el.alert.hidden = true; el.liveAlert.textContent = ''; render(); } }, 3500);
 }
 // Tabs the current view shows (window, star filter, search) that have no preview yet.
@@ -2841,31 +2841,31 @@ function updateSweepButton() {
   const max = LIMITS.SWEEP_MAX_TABS;
   const scoped = state.scope !== 'all' || state.starOnly || state.query;
   el.sweepBtn.hidden = !state.hostOk || n === 0;
-  el.sweepText.textContent = n > max ? getTranslation('sweepFirst', { count: n, max }) : getTranslation(scoped ? 'sweepThese' : 'sweepAll', { count: n });
-  el.sweepBtn.title = getTranslation(scoped ? 'sweepTitleThese' : 'sweepTitleAll') + (n > max ? ' ' + getTranslation('sweepTitleMax', { max }) : '') + ' ' + getTranslation('sweepTitleOne');
+  el.sweepText.textContent = n > max ? t('sweepFirst', { count: n, max }) : t(scoped ? 'sweepThese' : 'sweepAll', { count: n });
+  el.sweepBtn.title = t(scoped ? 'sweepTitleThese' : 'sweepTitleAll') + (n > max ? ' ' + t('sweepTitleMax', { max }) : '') + ' ' + t('sweepTitleOne');
 }
 // Chrome's error text for a failed screenshot, in plain words (null = not worth mentioning).
 function plainCaptureError(msg) {
   const m = String(msg || '');
   if (/MAX_CAPTURE|quota|per second/i.test(m)) return null; // we just went too fast: it retries by itself
-  if (/invoked|activeTab|permission|host/i.test(m)) return { text: getTranslation('capErrHost'), fix: true };
-  if (/chrome:|extensions gallery|cannot access/i.test(m)) return { text: getTranslation('capErrPage') };
-  return { text: getTranslation('capErrOther') };
+  if (/invoked|activeTab|permission|host/i.test(m)) return { text: t('capErrHost'), fix: true };
+  if (/chrome:|extensions gallery|cannot access/i.test(m)) return { text: t('capErrPage') };
+  return { text: t('capErrOther') };
 }
 async function healthCheck() {
   try { state.hostOk = await chrome.permissions.contains({ origins: ['<all_urls>'] }); } catch { state.hostOk = true; }
   // Alt+Q itself can be left unassigned by Chrome (another app or extension owns it): say so, with the fix.
   let shortcut = 'assigned';
   try { const c = (await chrome.commands.getAll()).find((x) => x.name === 'open-switcher'); if (c && !c.shortcut) shortcut = 'missing'; } catch {}
-  if (shortcut === 'missing') return showAlert(getTranslation('shortcutMissing'), getTranslation('setShortcut'), () => openUrl('chrome://extensions/shortcuts'));
-  if (CTX.via === 'icon') toast(getTranslation('iconTip', { key: IS_MAC ? 'Option+Q' : 'Alt+Q' }));
-  if (!state.hostOk) showAlert(getTranslation('hostBlocked'), getTranslation('hostAllow'), requestHostAccess, getTranslation('hostBlockedTip'));
+  if (shortcut === 'missing') return showAlert(t('shortcutMissing'), t('setShortcut'), () => openUrl('chrome://extensions/shortcuts'));
+  if (CTX.via === 'icon') toast(t('iconTip', { key: IS_MAC ? 'Option+Q' : 'Alt+Q' }));
+  if (!state.hostOk) showAlert(t('hostBlocked'), t('hostAllow'), requestHostAccess, t('hostBlockedTip'));
   else {
     const cur = state.entries.find((e) => e.kind === 'tab' && e.tab.id === CTX.srcTab);
     if (cur && !cur.preview && /^https?:/.test(urlOf(cur.tab))) {
       const n = await getCaptureNote().catch(() => null);
       const say = n && n.stage === 'error' && Date.now() - n.t < 120000 ? plainCaptureError(n.msg) : null;
-      if (say) showAlert(say.text, say.fix ? getTranslation('hostAllow') : '', requestHostAccess, `${n.host || getTranslation('thisPage')}: ${n.msg}`);
+      if (say) showAlert(say.text, say.fix ? t('hostAllow') : '', requestHostAccess, `${n.host || t('thisPage')}: ${n.msg}`);
     }
   }
   updateSweepButton();
@@ -2890,10 +2890,10 @@ async function openSettings(anchor, redraw = false) {
   const pop = h('div', 'pop settings', null, 'settings');
   pop.setAttribute('role', 'dialog');
   pop.setAttribute('aria-modal', 'true'); // Tab stays in it (keepFocusIn) until it closes
-  pop.setAttribute('aria-label', getTranslation('settings'));
+  pop.setAttribute('aria-label', t('settings'));
   const lang = h('select', '', null, 'settings-language');
-  lang.setAttribute('aria-label', getTranslation('setLang'));
-  for (const [v, label] of [['auto', getTranslation('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']]) {
+  lang.setAttribute('aria-label', t('setLang'));
+  for (const [v, label] of [['auto', t('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']]) {
     const o = h('option', '', label, 'settings-language-' + v); o.value = v; if (v === prefs.lang) o.selected = true; lang.append(o);
   }
   lang.addEventListener('change', async () => {
@@ -2908,7 +2908,7 @@ async function openSettings(anchor, redraw = false) {
   start.id = 'set-startup';
   start.checked = prefs.startup;
   start.addEventListener('change', () => updatePrefs({ startup: start.checked }).catch(() => {}));
-  const startLabel = h('label', 'check', getTranslation('setStartup'), 'settings-startup-label');
+  const startLabel = h('label', 'check', t('setStartup'), 'settings-startup-label');
   startLabel.prepend(start);
   const allWins = h('input', '', null, 'settings-all-windows');
   allWins.type = 'checkbox';
@@ -2919,12 +2919,12 @@ async function openSettings(anchor, redraw = false) {
     state.scope = 'all';
     await reload();
   });
-  const allWinsLabel = h('label', 'check', getTranslation('setAllWindows'), 'settings-all-windows-label');
+  const allWinsLabel = h('label', 'check', t('setAllWindows'), 'settings-all-windows-label');
   allWinsLabel.prepend(allWins);
   // Accent colour: a few ready-made ones, and any colour from Chrome's picker (the last circle).
   const accents = h('div', 'accents', null, 'settings-accents');
   accents.setAttribute('role', 'radiogroup');
-  accents.setAttribute('aria-label', getTranslation('setAccent'));
+  accents.setAttribute('aria-label', t('setAccent'));
   const pickAccent = (c, save = true) => {
     const now = applyAccent(c);
     accents.querySelectorAll('.swatch').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.c === now)));
@@ -2944,8 +2944,8 @@ async function openSettings(anchor, redraw = false) {
   const custom = h('input', 'custom', null, 'settings-accent-custom');
   custom.type = 'color';
   custom.value = prefs.accent.toLowerCase();
-  custom.title = getTranslation('setAccentCustom');
-  custom.setAttribute('aria-label', getTranslation('setAccentCustom'));
+  custom.title = t('setAccentCustom');
+  custom.setAttribute('aria-label', t('setAccentCustom'));
   // Chrome's colour picker takes the focus for a moment: that is not the user leaving Tabazing.
   custom.addEventListener('click', () => { asking = true; });
   custom.addEventListener('input', () => pickAccent(custom.value, false)); // try it live...
@@ -2953,13 +2953,13 @@ async function openSettings(anchor, redraw = false) {
   accents.append(custom);
   pickAccent(prefs.accent, false);
   const size = h('select', '', null, 'settings-card-size');
-  size.setAttribute('aria-label', getTranslation('setSize'));
-  for (const [v, label] of [['default', getTranslation('setSizeDefault')], ['small', getTranslation('setSizeSmall')], ['list', getTranslation('setSizeList')]]) {
+  size.setAttribute('aria-label', t('setSize'));
+  for (const [v, label] of [['default', t('setSizeDefault')], ['small', t('setSizeSmall')], ['list', t('setSizeList')]]) {
     const o = h('option', '', label, 'settings-card-size-' + v); o.value = v; if (v === prefs.cardSize) o.selected = true; size.append(o);
   }
   const theme = h('select', '', null, 'settings-theme');
-  theme.setAttribute('aria-label', getTranslation('setTheme'));
-  for (const [v, label] of [['dark', getTranslation('setThemeDark')], ['light', getTranslation('setThemeLight')], ['system', getTranslation('setThemeSystem')]]) {
+  theme.setAttribute('aria-label', t('setTheme'));
+  for (const [v, label] of [['dark', t('setThemeDark')], ['light', t('setThemeLight')], ['system', t('setThemeSystem')]]) {
     const o = h('option', '', label, 'settings-theme-' + v); o.value = v; if (v === prefs.theme) o.selected = true; theme.append(o);
   }
   theme.addEventListener('change', () => {
@@ -2972,10 +2972,10 @@ async function openSettings(anchor, redraw = false) {
     updatePrefs({ cardSize: size.value }).catch(() => {});
     refresh();
   });
-  const sc = h('button', 'lnk', getTranslation('setShortcut'), 'settings-shortcut');
+  const sc = h('button', 'lnk', t('setShortcut'), 'settings-shortcut');
   sc.type = 'button';
   sc.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openUrl('chrome://extensions/shortcuts'); });
-  pop.append(h('h4', '', getTranslation('settings'), 'settings-title'), h('label', '', getTranslation('setLang'), 'settings-language-label'), lang, h('label', '', getTranslation('setTheme'), 'settings-theme-label'), theme, h('label', '', getTranslation('setSize'), 'settings-card-size-label'), size, h('label', '', getTranslation('setAccent'), 'settings-accent-label'), accents, allWinsLabel, h('p', 'pfine', getTranslation('setAllWindowsNote'), 'settings-all-windows-note'), startLabel, h('p', 'pfine', getTranslation('setStartupNote'), 'settings-startup-note'), sc);
+  pop.append(h('h4', '', t('settings'), 'settings-title'), h('label', '', t('setLang'), 'settings-language-label'), lang, h('label', '', t('setTheme'), 'settings-theme-label'), theme, h('label', '', t('setSize'), 'settings-card-size-label'), size, h('label', '', t('setAccent'), 'settings-accent-label'), accents, allWinsLabel, h('p', 'pfine', t('setAllWindowsNote'), 'settings-all-windows-note'), startLabel, h('p', 'pfine', t('setStartupNote'), 'settings-startup-note'), sc);
   pop.addEventListener('click', (e) => e.stopPropagation());
   pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pop.close(); } });
   // A press outside closes it; on the gear the click that follows does (above), or it would reopen at once.
@@ -3277,15 +3277,15 @@ function listen() {
     const tabIds = missingPreviews().map((x) => x.id).slice(0, LIMITS.SWEEP_MAX_TABS);
     asking = true; // the progress window takes focus: that is not the user leaving
     chrome.runtime.sendMessage({ type: MSG.SWEEP, tabIds, reopen: CTX.mode === 'overlay' ? CTX.srcTab : null })
-      .then((r) => { asking = false; if (r && r.n) finish('switch'); else toast(getTranslation('sweepNothing')); })
-      .catch(() => { asking = false; toast(getTranslation('actFailed')); });
+      .then((r) => { asking = false; if (r && r.n) finish('switch'); else toast(t('sweepNothing')); })
+      .catch(() => { asking = false; toast(t('actFailed')); });
   });
   el.starFilter.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleStarFilter(); });
   el.sort.addEventListener('click', (e) => e.stopPropagation());
   el.sort.addEventListener('change', () => { setSort(el.sort.value); el.search.focus(); });
   const on = (node, fn) => node.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(e); });
   on($('settings-btn'), (e) => openSettings(e.currentTarget));
-  on($('archive-btn'), () => openArchive().catch((err) => toast(getTranslation('actFailed'), err)));
+  on($('archive-btn'), () => openArchive().catch((err) => toast(t('actFailed'), err)));
   on(el.dupesBtn, closeDupes);
   on(el.mergeBtn, () => mergeWindows(state.otherWindows, 'act:merge'));
   on(el.selAll, selectAll);

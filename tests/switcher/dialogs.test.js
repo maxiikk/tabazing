@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, toastText, closedMsg } from './quiet-boot.js';
-import { getTranslation } from '../../lib/translations.js';
+import { t } from '../../lib/translations.js';
 import { REVIEW_URL } from '../../lib/constants.js';
 import RU from '../../dictionaries/ru.json';
 
@@ -62,18 +62,18 @@ describe('the tour', () => {
     sw.tourStep(0);
     const n = sw.TOUR_ALL.length;
     expect(sw.state.modal).toBe('tour');
-    expect(tid('dialog-title').textContent).toBe(getTranslation('tourSwitchTitle'));
+    expect(tid('dialog-title').textContent).toBe(t('tourSwitchTitle'));
     expect(tid('tour-step-number').textContent).toBe('1');
     expect(tid('tour-step-of').textContent).toBe(`1 / ${n}`);
     expect(tid('tour-back')).toBe(null);
     expect(tid('tour-skip')).not.toBe(null);
     expect(tids('card-tab').find((c) => c.getAttribute('aria-selected') === 'true').classList.contains('tour-hl')).toBe(true);
     tid('tour-next').click();
-    expect(tid('dialog-title').textContent).toBe(getTranslation('tour2Title'));
+    expect(tid('dialog-title').textContent).toBe(t('tour2Title'));
     tid('tour-back').click();
     expect(tid('tour-step-number').textContent).toBe('1');
     for (let i = 1; i < n; i++) tid('tour-next').click();
-    expect(tid('dialog-title').textContent).toBe(getTranslation('tourSetTitle'));
+    expect(tid('dialog-title').textContent).toBe(t('tourSetTitle'));
     expect(tid('settings-btn').classList.contains('tour-hl')).toBe(true);
     expect(tid('tour-next')).toBe(null);
     expect(tid('tour-skip')).toBe(null);
@@ -127,8 +127,8 @@ describe('the review prompt', () => {
   it('step 1 offers moods, "don\'t ask again" and "not now"', async () => {
     const sw = await boot({ tabs: AB });
     sw.askStep1();
-    expect(tid('dialog-title').textContent).toBe(getTranslation('askTitle'));
-    expect(['good', 'okay', 'bad'].map((m) => tid('ask-mood-' + m).textContent)).toEqual([getTranslation('moodGood'), getTranslation('moodOkay'), getTranslation('moodBad')]);
+    expect(tid('dialog-title').textContent).toBe(t('askTitle'));
+    expect(['good', 'okay', 'bad'].map((m) => tid('ask-mood-' + m).textContent)).toEqual([t('moodGood'), t('moodOkay'), t('moodBad')]);
     tid('ask-not-now').click();
     expect(modalOpen()).toBe(false);
     sw.askStep1();
@@ -141,9 +141,9 @@ describe('the review prompt', () => {
     const sw = await boot({ tabs: AB });
     sw.askStep1();
     tid('ask-mood-good').click();
-    expect(tid('dialog-title').textContent).toBe(getTranslation('askGoodTitle'));
+    expect(tid('dialog-title').textContent).toBe(t('askGoodTitle'));
     expect(tid('ask-survey')).toBe(null);
-    expect(tid('ask-note').textContent).toBe(getTranslation('askNote'));
+    expect(tid('ask-note').textContent).toBe(t('askNote'));
     tid('ask-review').click();
     await waitFor(() => closedMsg());
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: REVIEW_URL, windowId: 1, active: true });
@@ -153,7 +153,7 @@ describe('the review prompt', () => {
   it('another mood offers the survey too, with the mood in its address', async () => {
     const sw = await boot({ tabs: AB });
     sw.askStep2('bad');
-    expect(tid('dialog-title').textContent).toBe(getTranslation('askBadTitle'));
+    expect(tid('dialog-title').textContent).toBe(t('askBadTitle'));
     expect(tid('ask-review')).not.toBe(null);
     tid('ask-survey').click();
     await waitFor(() => closedMsg());
@@ -228,8 +228,8 @@ describe('alerts and health checks', () => {
     const sw = await boot({ tabs: AB });
     chrome.commands.getAll.mockResolvedValueOnce([{ name: 'open-switcher', shortcut: '' }]);
     await sw.healthCheck();
-    expect(tid('alert-text').textContent).toBe(getTranslation('shortcutMissing'));
-    expect(tid('alert-btn').textContent).toBe(getTranslation('setShortcut'));
+    expect(tid('alert-text').textContent).toBe(t('shortcutMissing'));
+    expect(tid('alert-btn').textContent).toBe(t('setShortcut'));
     tid('alert-btn').click();
     await waitFor(() => closedMsg());
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts', windowId: 1, active: true });
@@ -240,11 +240,11 @@ describe('alerts and health checks', () => {
     chrome.permissions.contains.mockResolvedValueOnce(false);
     await sw.healthCheck();
     expect(sw.state.hostOk).toBe(false);
-    expect(tid('alert-text').textContent).toBe(getTranslation('hostBlocked'));
-    expect(tid('alert').title).toBe(getTranslation('hostBlockedTip'));
+    expect(tid('alert-text').textContent).toBe(t('hostBlocked'));
+    expect(tid('alert').title).toBe(t('hostBlockedTip'));
     expect(tid('sweep-btn').hidden).toBe(true);
     tid('alert-btn').click();
-    await waitFor(() => tid('alert-text').textContent === getTranslation('hostThanks'));
+    await waitFor(() => tid('alert-text').textContent === t('hostThanks'));
     expect(chrome.permissions.request).toHaveBeenCalledWith({ origins: ['<all_urls>'] });
     expect(window.focus).toHaveBeenCalled();
   });
@@ -253,7 +253,7 @@ describe('alerts and health checks', () => {
     const sw = await boot({ tabs: AB });
     await chrome.storage.session.set({ capdiag: { t: Date.now(), stage: 'error', msg: 'Cannot access contents of the page', host: 'a.example' } });
     await sw.healthCheck();
-    expect(tid('alert-text').textContent).toBe(getTranslation('capErrPage'));
+    expect(tid('alert-text').textContent).toBe(t('capErrPage'));
     expect(tid('alert-btn').hidden).toBe(true);
     expect(tid('alert').title).toBe('a.example: Cannot access contents of the page');
   });
@@ -261,7 +261,7 @@ describe('alerts and health checks', () => {
   it('opened from the toolbar icon, it tips Alt+Q', async () => {
     const sw = await boot({ tabs: AB, ctx: { via: 'icon' } });
     await sw.healthCheck();
-    expect(toastText()).toBe(getTranslation('iconTip', { key: 'Alt+Q' }));
+    expect(toastText()).toBe(t('iconTip', { key: 'Alt+Q' }));
     expect(tid('alert').hidden).toBe(true);
   });
 
@@ -276,10 +276,10 @@ describe('alerts and health checks', () => {
     const sw = await boot({ tabs: [...AB, { title: 'C', url: 'https://c.example/' }, { title: 'X', url: 'chrome://extensions/' }] });
     sw.updateSweepButton();
     expect(tid('sweep-btn').hidden).toBe(false);
-    expect(tid('sweep-text').textContent).toBe(getTranslation('sweepAll', { count: 2 })); // B and C: not the current tab, not chrome://
+    expect(tid('sweep-text').textContent).toBe(t('sweepAll', { count: 2 })); // B and C: not the current tab, not chrome://
     sw.state.query = 'c';
     sw.updateSweepButton();
-    expect(tid('sweep-text').textContent).toBe(getTranslation('sweepThese', { count: 2 }));
+    expect(tid('sweep-text').textContent).toBe(t('sweepThese', { count: 2 }));
     sw.state.hostOk = false;
     sw.updateSweepButton();
     expect(tid('sweep-btn').hidden).toBe(true);
@@ -292,7 +292,7 @@ describe('Settings', () => {
   it('the gear opens it, and the gear again closes it', async () => {
     await boot({ tabs: AB });
     const pop = await open();
-    expect(tid('settings-title', pop).textContent).toBe(getTranslation('settings'));
+    expect(tid('settings-title', pop).textContent).toBe(t('settings'));
     tid('settings-btn').click();
     await tick(20);
     expect(tid('settings')).toBe(null);
@@ -309,7 +309,7 @@ describe('Settings', () => {
     expect(tid('settings-card-size').value).toBe('small');
     expect(tid('settings-theme').value).toBe('light');
     expect(tids('settings-accent').find((b) => b.getAttribute('aria-checked') === 'true').dataset.c).toBe('#86EFAC');
-    expect(tid('select-label', tid('select-settings-card-size')).textContent).toBe(getTranslation('setSizeSmall'));
+    expect(tid('select-label', tid('select-settings-card-size')).textContent).toBe(t('setSizeSmall'));
   });
 
   it('startup and accent persist', async () => {
@@ -344,7 +344,7 @@ describe('Settings', () => {
     await open();
     tid('select-settings-card-size').click();
     const items = tids('menu-item');
-    expect(items.map((x) => x.textContent)).toEqual([getTranslation('setSizeDefault'), getTranslation('setSizeSmall'), getTranslation('setSizeList')]);
+    expect(items.map((x) => x.textContent)).toEqual([t('setSizeDefault'), t('setSizeSmall'), t('setSizeList')]);
     expect(tid('settings')).not.toBe(null); // the list opens over Settings, which stays
     items[2].click();
     await waitFor(() => sw.state.cardSize === 'list');

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.2] - 2026-10-17
+
+### Changed
+
+- For developers: the translation function is `t(key, params)` (it was `getTranslation`); a test makes sure no local variable named `t` hides it where it is called. Nothing changes for people using the extension.
+
 ## [3.0.1] - 2026-10-17
 
 ### Changed
@@ -125,7 +131,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...HEAD
+[3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...HEAD
+[3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...6d950ea
 [3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...ef9a3f9
 [2.0.0]: https://github.com/maxiikk/tabazing/compare/5516898...84ab029
 [1.15.2]: https://github.com/maxiikk/tabazing/compare/590bb83...5516898

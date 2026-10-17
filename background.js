@@ -23,7 +23,7 @@ import {
 } from './lib/store.js';
 import { dayOf } from './lib/review.js';
 import { loadLang } from './lib/i18n.js';
-import { getTranslation } from './lib/translations.js';
+import { t } from './lib/translations.js';
 import { runSweep, cancelSweep, isSweeping, sweepJobs } from './lib/sweep.js';
 import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './lib/capture.js';
 import { isOwnUrl } from './lib/ext.js';
@@ -168,7 +168,7 @@ async function onCyclingRun(tab) {
   const mac = await chrome.runtime.getPlatformInfo().then((p) => p.os === 'mac').catch(() => false);
   await loadLang();
   const key = mac ? 'Option+Q' : 'Alt+Q';
-  const text = { title: getTranslation('nudgeTitle'), body: getTranslation('nudgeBody', { key }), tryIt: getTranslation('nudgeTry'), ok: getTranslation('nudgeOk'), never: getTranslation('nudgeNever'), close: getTranslation('dismiss') };
+  const text = { title: t('nudgeTitle'), body: t('nudgeBody', { key }), tryIt: t('nudgeTry'), ok: t('nudgeOk'), never: t('nudgeNever'), close: t('dismiss') };
   await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: injectNudge, args: [MSG.NUDGE, NUDGE.SHOW_MS, text, key] });
   await updateNudge((x) => ({ ...x, shown: x.shown + 1, last: now }));
 }
@@ -366,7 +366,7 @@ function injectInto(tabId, token, hold) {
   return chrome.scripting.executeScript({
     target: { tabId },
     func: overlayHost,
-    args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'launch', token, hold, LIMITS.STANDBY_DROP_MS, getTranslation('overlayLabel')],
+    args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'launch', token, hold, LIMITS.STANDBY_DROP_MS, t('overlayLabel')],
     injectImmediately: true,
   });
 }
@@ -383,7 +383,7 @@ function prepareSwitcher(tab, delay = 0) {
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: overlayHost,
-      args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'standby', null, false, LIMITS.STANDBY_DROP_MS, getTranslation('overlayLabel')],
+      args: [SWITCHER_URL, EXT_REAL_ORIGIN, FRAME_MSG, 'standby', null, false, LIMITS.STANDBY_DROP_MS, t('overlayLabel')],
       injectImmediately: true,
     }).catch(() => {});
   }, delay));
@@ -638,7 +638,7 @@ async function offerFlyout(tab) {
     await loadLang();
     await chrome.scripting.executeScript({
       target: { tabId: tab.id }, func: injectFlyout,
-      args: [MSG.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MS, { title: getTranslation('flyoutTitle'), body: getTranslation('flyoutBody', { key: '$KEY$' }), sub: getTranslation('flyoutSub'), close: getTranslation('dismiss') }],
+      args: [MSG.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MS, { title: t('flyoutTitle'), body: t('flyoutBody', { key: '$KEY$' }), sub: t('flyoutSub'), close: t('dismiss') }],
     });
   } catch {}
 }

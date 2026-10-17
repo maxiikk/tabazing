@@ -68,11 +68,11 @@ describe.each(Object.keys(BOOKS))('dictionaries/%s.json', (lang) => {
 const SOURCES = ['background.js', 'switcher.js', 'sweep.js', 'lib/i18n.js', 'lib/capture.js', 'lib/store.js', 'lib/sweep.js', 'lib/archive.js', 'lib/review.js'];
 const HTML = ['switcher.html', 'sweep.html'];
 
-// Every getTranslation(...) call: the string literals in its first argument (covers `cond ? 'a' : 'b'`) and the
+// Every t(...) call: the string literals in its first argument (covers `cond ? 'a' : 'b'`) and the
 // property names of the object in its second, if that is an object literal.
 function calls(src) {
   const out = [];
-  const re = /(?<![\w.$])getTranslation\(/g;
+  const re = /(?<![\w.$])t\(/g;
   let m;
   while ((m = re.exec(src))) {
     const args = [];
@@ -120,7 +120,7 @@ describe('keys used in the code', () => {
     expect(usedKeys.size).toBeGreaterThan(100);
     expect(htmlKeys.size).toBeGreaterThan(3);
   });
-  it('every getTranslation() key exists in English', () => {
+  it('every t() key exists in English', () => {
     expect([...usedKeys].filter((k) => !(k in EN))).toEqual([]);
   });
   it('every call passes exactly the values its message uses', () => {
@@ -148,3 +148,45 @@ describe('keys used in the code', () => {
   });
 });
 const args = (text) => text.split(',').length;
+
+// t() shares its name with a common local variable (tabs: `(t) => t.windowId`). A t('key') call inside a
+// scope with its own `t` would call that instead, so none may exist.
+describe('t() is never shadowed where it is called', async () => {
+  const { parseAst } = await import('rollup/parseAst');
+  const names = (p, out = []) => {
+    if (!p) return out;
+    if (p.type === 'Identifier') out.push(p.name);
+    else if (p.type === 'ObjectPattern') p.properties.forEach((q) => names(q.type === 'RestElement' ? q.argument : q.value, out));
+    else if (p.type === 'ArrayPattern') p.elements.forEach((q) => names(q, out));
+    else if (p.type === 'RestElement') names(p.argument, out);
+    else if (p.type === 'AssignmentPattern') names(p.left, out);
+    return out;
+  };
+  // What a node declares in its own scope: function parameters, and declarations directly in a block.
+  const declares = (n) => {
+    const out = [];
+    if (/Function/.test(n.type)) n.params.forEach((p) => names(p, out));
+    if (n.type === 'CatchClause') names(n.param, out);
+    const body = n.type === 'BlockStatement' ? n.body : n.type === 'SwitchCase' ? n.consequent : n.type === 'ForStatement' && n.init ? [n.init] : /^For(In|Of)/.test(n.type) ? [n.left] : [];
+    for (const s of body) {
+      if (s.type === 'VariableDeclaration') s.declarations.forEach((d) => names(d.id, out));
+      else if ((s.type === 'FunctionDeclaration' || s.type === 'ClassDeclaration') && s.id) out.push(s.id.name);
+    }
+    return out;
+  };
+  it.each(SOURCES)('%s', (file) => {
+    const src = read(file);
+    const clashes = [];
+    const walk = (n, shadowed) => {
+      if (!n || typeof n.type !== 'string') return;
+      const inner = shadowed || declares(n).includes('t');
+      if (inner && n.type === 'CallExpression' && n.callee.type === 'Identifier' && n.callee.name === 't') clashes.push(src.slice(n.start, n.end).slice(0, 80));
+      for (const v of Object.values(n)) {
+        if (Array.isArray(v)) v.forEach((c) => walk(c, inner));
+        else if (v && typeof v.type === 'string') walk(v, inner);
+      }
+    };
+    walk(parseAst(src), false);
+    expect(clashes).toEqual([]);
+  });
+});

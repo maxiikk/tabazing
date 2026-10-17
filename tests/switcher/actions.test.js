@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
 import { boot, frame, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
 import { MSG } from '../../lib/constants.js';
-import { getTranslation } from '../../lib/translations.js';
+import { t } from '../../lib/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },
@@ -144,7 +144,7 @@ describe('closeTab', () => {
     expect(sw.state.tabs.map((x) => x.title)).toEqual(['A', 'C']);
     expect(sw.state.entries[sw.state.sel].tab.title).toBe('C');
     expect(sw.state.undo.at(-1)).toEqual([{ url: 'https://b.example/', windowId: 1, index: 1, pinned: false }]);
-    expect(toastText()).toBe(getTranslation('closedN', { count: 1 }));
+    expect(toastText()).toBe(t('closedN', { count: 1 }));
     expect(toastButton().textContent).toMatch(/^Undo/);
   });
 
@@ -156,7 +156,7 @@ describe('closeTab', () => {
     expect((await chrome.storage.local.get('snoozed')).snoozed).toEqual([]);
     expect(sw.state.entries.some((e) => e.kind === 'snoozed')).toBe(false);
     expect(chrome.tabs.create).not.toHaveBeenCalled();
-    expect(toastText()).toBe(getTranslation('snoozeCancelled'));
+    expect(toastText()).toBe(t('snoozeCancelled'));
   });
 
   it('unstars a starred page that is not open', async () => {
@@ -245,10 +245,10 @@ describe('the quick-actions bar', () => {
     sw.pick(entryByTitle(sw, 'B'));
     sw.pick(entryByTitle(sw, 'C'));
     expect(tid('acts').hidden).toBe(false);
-    expect(tid('acts-n').textContent).toBe(getTranslation('pickedN', { count: 2 }));
+    expect(tid('acts-n').textContent).toBe(t('pickedN', { count: 2 }));
     const closeBtn = () => tid('action-close');
     closeBtn().click();
-    expect(closeBtn().textContent).toBe(getTranslation('sureN', { count: 2 }));
+    expect(closeBtn().textContent).toBe(t('sureN', { count: 2 }));
     expect(chrome.tabs.remove).not.toHaveBeenCalled();
     closeBtn().click();
     await waitFor(() => chrome.tabs.remove.mock.calls.length);
@@ -262,11 +262,11 @@ describe('the quick-actions bar', () => {
     const close = sw.ACTIONS.find((a) => a.id === 'close');
     expect([close.confirm(1), close.confirm(2)]).toEqual([false, true]);
     const pin = sw.ACTIONS.find((a) => a.id === 'pin');
-    expect(pin.label([{ pinned: true }])).toBe(getTranslation('actUnpin'));
-    expect(pin.label([{ pinned: true }, { pinned: false }])).toBe(getTranslation('actPin'));
+    expect(pin.label([{ pinned: true }])).toBe(t('actUnpin'));
+    expect(pin.label([{ pinned: true }, { pinned: false }])).toBe(t('actPin'));
     const mute = sw.ACTIONS.find((a) => a.id === 'mute');
-    expect(mute.label([{ mutedInfo: { muted: true } }])).toBe(getTranslation('actUnmute'));
-    expect(mute.label([])).toBe(getTranslation('actMute'));
+    expect(mute.label([{ mutedInfo: { muted: true } }])).toBe(t('actUnmute'));
+    expect(mute.label([])).toBe(t('actMute'));
   });
 
   it("More opens a menu of the rarer actions, and its items act on the ticked tabs", async () => {
@@ -274,7 +274,7 @@ describe('the quick-actions bar', () => {
     sw.pick(entryByTitle(sw, 'B'));
     tid('actions-more').click();
     const items = tids('menu-item').map((b) => b.textContent);
-    expect(items).toEqual([getTranslation('actCopyMd'), getTranslation('actNewWindow'), getTranslation('actSleep'), getTranslation('actSnooze'), getTranslation('actArchive'), getTranslation('actPin'), getTranslation('actMute')]);
+    expect(items).toEqual([t('actCopyMd'), t('actNewWindow'), t('actSleep'), t('actSnooze'), t('actArchive'), t('actPin'), t('actMute')]);
     tids('menu-item')[5].click(); // Pin
     await waitFor(() => live(tabByTitle(sw, 'B')?.id ?? 2).pinned);
   });
@@ -320,16 +320,16 @@ describe('undo', () => {
     await sw.undoClose();
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, index: 1, pinned: false, active: false });
     expect(sw.state.tabs.map((x) => x.url)).toContain('https://b.example/');
-    expect(toastText()).toBe(getTranslation('reopenedN', { count: 1 }));
+    expect(toastText()).toBe(t('reopenedN', { count: 1 }));
     await sw.undoClose();
-    expect(toastText()).toBe(getTranslation('undoNothing'));
+    expect(toastText()).toBe(t('undoNothing'));
   });
 
   it("the toast's Undo button undoes", async () => {
     const sw = await boot({ tabs: ABC });
     await sw.closeTab(entryByTitle(sw, 'C'));
     toastButton().click();
-    await waitFor(() => toastText() === getTranslation('reopenedN', { count: 1 }));
+    await waitFor(() => toastText() === t('reopenedN', { count: 1 }));
     expect(chrome._data.tabs.some((x) => x.url === 'https://c.example/')).toBe(true);
   });
 
@@ -365,7 +365,7 @@ describe('closeMany', () => {
     expect(order()).toEqual(['A']);
     expect(sw.state.picked.size).toBe(0);
     expect(sw.state.undo.at(-1).map((x) => x.url)).toEqual(['https://b.example/', 'https://c.example/']);
-    expect(toastText()).toBe(getTranslation('closedN', { count: 2 }));
+    expect(toastText()).toBe(t('closedN', { count: 2 }));
   });
 
   it('in an overlay closes the tab it sits on last', async () => {
@@ -406,10 +406,10 @@ describe('copying', () => {
     expect(clipboard.writeText).toHaveBeenLastCalledWith('https://d.example/x\nhttps://www.e.example/');
     await sw.copyLinks(tabs, 'md');
     expect(clipboard.writeText).toHaveBeenLastCalledWith('- [Docs \\[v2\\] guide](https://d.example/x)\n- [www.e.example](https://www.e.example/)');
-    expect(toastText()).toBe(getTranslation('copiedN', { count: 2 }));
+    expect(toastText()).toBe(t('copiedN', { count: 2 }));
     clipboard.writeText.mockRejectedValueOnce(new Error('no'));
     await sw.copyLinks(tabs, 'plain');
-    expect(toastText()).toBe(getTranslation('copyFailed'));
+    expect(toastText()).toBe(t('copyFailed'));
   });
 });
 
@@ -478,7 +478,7 @@ describe('mergeWindows', () => {
     expect(chrome.tabs.move).toHaveBeenCalledWith([w2tab.id], { windowId: 1, index: -1 });
     expect(chrome.tabs.update).toHaveBeenCalledWith(w2tab.id, { pinned: true });
     expect(live(w2tab.id).windowId).toBe(1);
-    expect(toastText()).toBe(getTranslation('mergedN', { count: 1 }));
+    expect(toastText()).toBe(t('mergedN', { count: 1 }));
     expect(sw.state.tabs.some((x) => x.title === 'W2')).toBe(true); // reloaded
   });
 });
@@ -492,7 +492,7 @@ describe('snooze', () => {
     sw.snoozeMenu([b], anchor);
     const items = tids('menu-item');
     expect(items.length).toBeGreaterThanOrEqual(4);
-    expect(items[0].textContent.startsWith(getTranslation('snooze1h') + ' · ')).toBe(true);
+    expect(items[0].textContent.startsWith(t('snooze1h') + ' · ')).toBe(true);
     items[0].click();
     await waitFor(() => !live(b.id));
     const stored = (await chrome.storage.local.get('snoozed')).snoozed;
@@ -509,7 +509,7 @@ describe('snooze', () => {
   it("won't snooze pages that can't be reopened", async () => {
     const sw = await boot({ tabs: [...ABC, { title: 'New', url: 'chrome://newtab/' }] });
     await sw.snoozeTabs([tabByTitle(sw, 'New')], Date.now() + 1000);
-    expect(toastText()).toBe(getTranslation('snoozeCant'));
+    expect(toastText()).toBe(t('snoozeCant'));
     expect(chrome.tabs.remove).not.toHaveBeenCalled();
   });
 
@@ -521,7 +521,7 @@ describe('snooze', () => {
       { url: 'https://q.example/', windowId: 7, active: false, pinned: true },
       { url: 'https://q.example/', windowId: 1, active: false },
     ]);
-    expect(toastText()).toBe(getTranslation('reopenedN', { count: 1 }));
+    expect(toastText()).toBe(t('reopenedN', { count: 1 }));
   });
 });
 
@@ -608,13 +608,13 @@ describe('sleep, pin, mute', () => {
     const [a, b] = [tabByTitle(sw, 'A'), tabByTitle(sw, 'B')];
     await sw.sleepTabs([a, b]);
     expect([...sw.state.toSleep]).toEqual([b.id]);
-    expect(toastText()).toBe(getTranslation('sleepLaterN', { count: 1 }));
+    expect(toastText()).toBe(t('sleepLaterN', { count: 1 }));
     expect(cardOf('B').classList.contains('asleep')).toBe(true);
     await sw.sleepTabs([b]);
     expect(sw.state.toSleep.size).toBe(0);
-    expect(toastText()).toBe(getTranslation('sleepUndone'));
+    expect(toastText()).toBe(t('sleepUndone'));
     await sw.sleepTabs([a]);
-    expect(toastText()).toBe(getTranslation('sleptNone'));
+    expect(toastText()).toBe(t('sleptNone'));
   });
 
   it('pinTabs pins them all, or unpins when all are pinned', async () => {
@@ -622,7 +622,7 @@ describe('sleep, pin, mute', () => {
     const tabs = [tabByTitle(sw, 'B'), tabByTitle(sw, 'C')];
     await sw.pinTabs(tabs);
     expect(tabs.map((x) => live(x.id).pinned)).toEqual([true, true]);
-    expect(toastText()).toBe(getTranslation('pinnedN', { count: 2 }));
+    expect(toastText()).toBe(t('pinnedN', { count: 2 }));
     await sw.pinTabs(sw.state.tabs.filter((x) => x.pinned));
     expect(tabs.map((x) => live(x.id).pinned)).toEqual([false, false]);
   });
@@ -632,7 +632,7 @@ describe('sleep, pin, mute', () => {
     const tabs = [tabByTitle(sw, 'B'), tabByTitle(sw, 'C')];
     await sw.muteTabs(tabs);
     expect(chrome.tabs.update).toHaveBeenCalledWith(tabs[0].id, { muted: true });
-    expect(toastText()).toBe(getTranslation('mutedN', { count: 2 }));
+    expect(toastText()).toBe(t('mutedN', { count: 2 }));
     await sw.muteTabs([tabByTitle(sw, 'B'), tabByTitle(sw, 'C')]);
     expect(tabs.map((x) => live(x.id).mutedInfo.muted)).toEqual([false, false]);
   });
@@ -649,8 +649,8 @@ describe('sleep, pin, mute', () => {
     const b = tabByTitle(sw, 'B');
     const badge = sw.audioBadge(b);
     expect(badge.className).toBe('badge audio on');
-    expect(badge.title).toBe(getTranslation('muteThis'));
-    expect(sw.audioBadge({ mutedInfo: { muted: true } }).title).toBe(getTranslation('unmuteThis'));
+    expect(badge.title).toBe(t('muteThis'));
+    expect(sw.audioBadge({ mutedInfo: { muted: true } }).title).toBe(t('unmuteThis'));
     expect(tid('card-audio', cardOf('B'))).not.toBe(null); // drawn on playing tabs
     badge.click();
     await waitFor(() => live(b.id).mutedInfo.muted);
@@ -672,7 +672,7 @@ describe('sleep, pin, mute', () => {
     await sw.togglePin(b);
     expect(chrome.tabs.update).toHaveBeenCalledTimes(2);
     expect(live(b.id).pinned).toBe(true);
-    expect(toastText()).toBe(getTranslation('pinnedOne', { title: 'B' }));
+    expect(toastText()).toBe(t('pinnedOne', { title: 'B' }));
   });
 
   it('togglePin says why when Chrome refuses twice', async () => {
@@ -680,7 +680,7 @@ describe('sleep, pin, mute', () => {
     chrome.tabs.update.mockRejectedValueOnce(new Error('busy')).mockRejectedValueOnce(new Error('still busy'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     await sw.togglePin(tabByTitle(sw, 'B'));
-    expect(toastText()).toBe(getTranslation('actFailed') + ': still busy');
+    expect(toastText()).toBe(t('actFailed') + ': still busy');
   });
 });
 
@@ -689,7 +689,7 @@ describe('one-tab quick buttons', () => {
     let sw = await boot({ tabs: ABC });
     await sw.reloadTab(tabByTitle(sw, 'B'));
     expect(chrome.tabs.reload).toHaveBeenCalledWith(tabByTitle(sw, 'B').id);
-    expect(toastText()).toBe(getTranslation('reloadingOne', { title: 'B' }));
+    expect(toastText()).toBe(t('reloadingOne', { title: 'B' }));
     expect(sw.state.done).toBe(false);
     sw = await boot({ tabs: ABC, overlay: true });
     await sw.reloadTab(tabByTitle(sw, 'A'));
@@ -702,7 +702,7 @@ describe('one-tab quick buttons', () => {
     await sw.duplicateTab(b);
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, index: 2, active: false, pinned: false, openerTabId: b.id });
     expect(sw.state.tabs.filter((x) => x.url === 'https://b.example/')).toHaveLength(2);
-    expect(toastText()).toBe(getTranslation('duplicatedOne', { title: 'B' }));
+    expect(toastText()).toBe(t('duplicatedOne', { title: 'B' }));
   });
 
   it('quickActions: copy, reload, duplicate, sleep (background tabs only), mute, pin, snooze, archive, note', async () => {
@@ -712,7 +712,7 @@ describe('one-tab quick buttons', () => {
     expect(labels(bEntry)).toEqual(['quick-link', 'quick-reload', 'quick-dupe', 'quick-moon', 'quick-speaker', 'quick-pin', 'quick-clock', 'quick-archive', 'quick-note']);
     expect(labels(entryByTitle(sw, 'A'))).not.toContain('quick-moon'); // the current tab can't sleep
     const box = sw.quickActions(bEntry);
-    expect(tid('quick-pin', box).title).toBe(getTranslation('unpinThis'));
+    expect(tid('quick-pin', box).title).toBe(t('unpinThis'));
     expect(tid('quick-pin', box).classList.contains('on')).toBe(true);
     tid('quick-link', box).click();
     await waitFor(() => clipboard.writeText.mock.calls.length);
@@ -724,7 +724,7 @@ describe('one-tab quick buttons', () => {
     chrome.tabs.reload.mockRejectedValueOnce(new Error('nope'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     tid('quick-reload', sw.quickActions(entryByTitle(sw, 'B'))).click();
-    await waitFor(() => toastText() === getTranslation('actFailed'));
+    await waitFor(() => toastText() === t('actFailed'));
   });
 });
 
@@ -790,7 +790,7 @@ describe('star and capture', () => {
   it('captureOne says so when no preview came back', async () => {
     const sw = await boot({ tabs: ABC });
     await sw.captureOne(entryByTitle(sw, 'B'));
-    expect(toastText()).toBe(getTranslation('captureFailed'));
+    expect(toastText()).toBe(t('captureFailed'));
   });
 
   it('captureOne from an overlay in the same window leaves and asks to be reopened where it was', async () => {

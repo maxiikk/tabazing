@@ -1,6 +1,6 @@
-// lib/translations.js: the ICU MessageFormat subset (formatMessage) and getTranslation over the dictionaries.
+// lib/translations.js: the ICU MessageFormat subset (formatMessage) and t over the dictionaries.
 import { describe, it, expect, afterEach } from 'vitest';
-import { formatMessage, getTranslation, setLocale, getLocale, LANGUAGES } from '../../lib/translations.js';
+import { formatMessage, t, setLocale, getLocale, LANGUAGES } from '../../lib/translations.js';
 
 afterEach(() => setLocale('en'));
 const f = (pattern, data, lang = 'en') => formatMessage(pattern, data, lang);
@@ -94,7 +94,7 @@ describe('formatMessage: quoting and errors', () => {
   });
 });
 
-describe('getTranslation', () => {
+describe('t', () => {
   it('knows its languages and switches between them', () => {
     expect([...LANGUAGES].sort()).toEqual(['en', 'es', 'ru']);
     expect(setLocale('ru')).toBe('ru');
@@ -102,12 +102,12 @@ describe('getTranslation', () => {
     expect(setLocale('xx')).toBe('en');
   });
   it('a key no dictionary has comes back as the key', () => {
-    expect(getTranslation('noSuchKey_abc')).toBe('noSuchKey_abc');
+    expect(t('noSuchKey_abc')).toBe('noSuchKey_abc');
   });
   it('reads the current language', () => {
     setLocale('es');
-    expect(getTranslation('newTab')).toBe('Nueva pestaña');
+    expect(t('newTab')).toBe('Nueva pestaña');
     setLocale('en');
-    expect(getTranslation('newTab')).toBe('New tab');
+    expect(t('newTab')).toBe('New tab');
   });
 });
