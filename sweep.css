@@ -1,0 +1,15 @@
+* { box-sizing: border-box; }
+:root { --accent: #7DD3FC; --on-accent: #1B2A4A; }
+body { margin: 0; height: 100vh; display: grid; place-items: center; background: #1B2A4A; color: #1B2A4A; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { width: calc(100% - 28px); padding: 16px 18px 14px; background: color-mix(in srgb, var(--accent) 12%, white); box-shadow: 0 -3px 0 var(--accent), 0 3px 0 var(--accent), -3px 0 0 var(--accent), 3px 0 0 var(--accent), 6px 6px 0 color-mix(in srgb, var(--accent) 55%, black); }
+.top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.top svg { image-rendering: pixelated; flex: none; }
+h1 { margin: 0; font-size: 17px; }
+#msg { margin: 0; font-weight: 600; }
+p { margin: 0 0 8px; }
+.note { font-size: 12px; opacity: .75; }
+.bar { height: 14px; background: #fff; box-shadow: 0 0 0 3px #1B2A4A; margin: 10px 3px 12px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s steps(4); }
+.row { display: flex; align-items: center; gap: 12px; }
+.row .grow { flex: 1; }
+button { font: inherit; font-weight: 700; padding: 5px 16px; background: var(--accent); color: var(--on-accent); border: 3px solid #1B2A4A; cursor: pointer; }

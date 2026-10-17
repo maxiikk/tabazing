@@ -1,0 +1,1418 @@
+{
+   "actBookmark": {
+      "message": "В закладки"
+   },
+   "actBookmarkTitle": {
+      "message": "Сохранить в закладки (несколько — в новую папку)"
+   },
+   "actClose": {
+      "message": "Закрыть"
+   },
+   "actCloseTitle": {
+      "message": "Закрыть выбранные вкладки. Они останутся в «Недавно закрытых»."
+   },
+   "actCopy": {
+      "message": "Копировать ссылки"
+   },
+   "actCopyMd": {
+      "message": "Копировать в Markdown"
+   },
+   "actCopyMdTitle": {
+      "message": "Скопировать строки «- [Название](ссылка)»: в Notion, Obsidian, GitHub, Slack или Docs они вставятся как кликабельные названия"
+   },
+   "actCopyTitle": {
+      "message": "Скопировать адреса, по одному на строку"
+   },
+   "actFailed": {
+      "message": "Не получилось: Chrome не разрешил."
+   },
+   "actGroup": {
+      "message": "Сгруппировать"
+   },
+   "actGroupTitle": {
+      "message": "Поместить в новую группу вкладок Chrome с названием и цветом"
+   },
+   "actMore": {
+      "message": "Ещё"
+   },
+   "actMute": {
+      "message": "Без звука"
+   },
+   "actNewWindow": {
+      "message": "В новое окно"
+   },
+   "actNewWindowTitle": {
+      "message": "Перенести в отдельное окно"
+   },
+   "actPin": {
+      "message": "Закрепить"
+   },
+   "actSleep": {
+      "message": "Усыпить"
+   },
+   "actSleepTitle": {
+      "message": "Выгрузить из памяти, когда вы закроете Tabazing. Они перезагрузятся при открытии."
+   },
+   "actUnmute": {
+      "message": "Включить звук"
+   },
+   "actUnpin": {
+      "message": "Открепить"
+   },
+   "actionTitle": {
+      "message": "Tabazing (Alt+Q)"
+   },
+   "activeTab": {
+      "message": "Активная вкладка: $1"
+   },
+   "allWindows": {
+      "message": "Все окна"
+   },
+   "askBadBody": {
+      "message": "Расскажите, что сделало бы её удобной для вас. Отзыв тоже будет кстати, когда захотите."
+   },
+   "askBadTitle": {
+      "message": "Спасибо за честность"
+   },
+   "askBody": {
+      "message": "Десять секунд. Так я узнаю, что делать дальше. Ваш ответ остаётся на компьютере: кнопки только открывают страницу, где вы сами решаете, что отправить."
+   },
+   "askGoodBody": {
+      "message": "Отзыв — лучший способ помочь другим найти Tabazing."
+   },
+   "askGoodTitle": {
+      "message": "Рад это слышать!"
+   },
+   "askNote": {
+      "message": "Всё открывается в новой вкладке. Сама Tabazing ничего не отправляет."
+   },
+   "askTitle": {
+      "message": "Как вам Tabazing?"
+   },
+   "back": {
+      "message": "Назад"
+   },
+   "badUrl": {
+      "message": "Похоже, в адресе ошибка."
+   },
+   "bookmarkThis": {
+      "message": "В закладки"
+   },
+   "bookmarkedN_few": {
+      "message": "$1 вкладки добавлены в закладки «$2»"
+   },
+   "bookmarkedN_many": {
+      "message": "$1 вкладок добавлено в закладки «$2»"
+   },
+   "bookmarkedN_one": {
+      "message": "$1 вкладка добавлена в закладки «$2»"
+   },
+   "bookmarkedN_other": {
+      "message": "$1 вкладки добавлено в закладки «$2»"
+   },
+   "cancel": {
+      "message": "Отмена"
+   },
+   "capErrHost": {
+      "message": "Chrome не разрешает Tabazing смотреть на эту страницу, поэтому превью нет. Обычно помогает разрешить Tabazing доступ ко всем сайтам."
+   },
+   "capErrOther": {
+      "message": "Tabazing не смогла снять эту страницу."
+   },
+   "capErrPage": {
+      "message": "Chrome не разрешает снимать такие страницы."
+   },
+   "captureBlocked": {
+      "message": "Chrome не разрешает делать превью этой страницы."
+   },
+   "captureFailed": {
+      "message": "Превью не получилось: страница не успела загрузиться. Попробуйте ещё раз."
+   },
+   "capturePreview": {
+      "message": "Сделать превью"
+   },
+   "captureTitle": {
+      "message": "На мгновение показывает вкладку, чтобы снять превью, и возвращается обратно"
+   },
+   "capturing": {
+      "message": "Снимаем…"
+   },
+   "closeTab": {
+      "message": "Закрыть вкладку"
+   },
+   "closeTabTitle": {
+      "message": "Закрыть вкладку (Del)"
+   },
+   "closedLabel": {
+      "message": "Закрыта"
+   },
+   "closedN_few": {
+      "message": "Закрыто $1 вкладки"
+   },
+   "closedN_many": {
+      "message": "Закрыто $1 вкладок"
+   },
+   "closedN_one": {
+      "message": "Закрыта $1 вкладка"
+   },
+   "closedN_other": {
+      "message": "Закрыто $1 вкладки"
+   },
+   "closedSearchH": {
+      "message": "Закрытые за последние 7 дней"
+   },
+   "closedWindow": {
+      "message": "Окно · $1"
+   },
+   "cmdOpen": {
+      "message": "Открыть Tabazing на предыдущей вкладке (отпустите Alt для перехода)"
+   },
+   "cmdReverse": {
+      "message": "Открыть Tabazing на следующей вкладке (отпустите Alt для перехода)"
+   },
+   "cmdStay": {
+      "message": "Открыть Tabazing и оставить открытым"
+   },
+   "coffee": {
+      "message": "Угостить кофе"
+   },
+   "coffeeTitle": {
+      "message": "Tabazing бесплатна. Если она экономит вам время, можете угостить меня кофе."
+   },
+   "collapse": {
+      "message": "Свернуть"
+   },
+   "copiedN_few": {
+      "message": "Скопировано $1 ссылки"
+   },
+   "copiedN_many": {
+      "message": "Скопировано $1 ссылок"
+   },
+   "copiedN_one": {
+      "message": "Скопирована $1 ссылка"
+   },
+   "copiedN_other": {
+      "message": "Скопировано $1 ссылки"
+   },
+   "copyFailed": {
+      "message": "Эта страница не даёт Tabazing доступ к буферу обмена. Попробуйте со страницы новой вкладки."
+   },
+   "copyLink": {
+      "message": "Копировать ссылку"
+   },
+   "countSearch": {
+      "message": "открыто: $1 · закрыто: $2"
+   },
+   "countSearchStarred": {
+      "message": "открыто: $1 · в избранном: $2"
+   },
+   "deleteMark": {
+      "message": "Удалить закладку"
+   },
+   "dismiss": {
+      "message": "Закрыть"
+   },
+   "done": {
+      "message": "Готово"
+   },
+   "dontAsk": {
+      "message": "Больше не спрашивать"
+   },
+   "dupeCloses": {
+      "message": "Закроется"
+   },
+   "dupeStays": {
+      "message": "Останется"
+   },
+   "dupesBack": {
+      "message": "Назад"
+   },
+   "dupesBtn_few": {
+      "message": "$1 дубликата"
+   },
+   "dupesBtn_many": {
+      "message": "$1 дубликатов"
+   },
+   "dupesBtn_one": {
+      "message": "$1 дубликат"
+   },
+   "dupesBtn_other": {
+      "message": "$1 дубликата"
+   },
+   "dupesClose_few": {
+      "message": "Закрыть $1 копии"
+   },
+   "dupesClose_many": {
+      "message": "Закрыть $1 копий"
+   },
+   "dupesClose_one": {
+      "message": "Закрыть $1 копию"
+   },
+   "dupesClose_other": {
+      "message": "Закрыть $1 копии"
+   },
+   "dupesNone": {
+      "message": "Дубликатов не осталось."
+   },
+   "dupesSummary_few": {
+      "message": "$1 лишние копии: по одной вкладке каждой страницы останется"
+   },
+   "dupesSummary_many": {
+      "message": "$1 лишних копий: по одной вкладке каждой страницы останется"
+   },
+   "dupesSummary_one": {
+      "message": "$1 лишняя копия: по одной вкладке каждой страницы останется"
+   },
+   "dupesSummary_other": {
+      "message": "$1 лишней копии: по одной вкладке каждой страницы останется"
+   },
+   "dupesSure": {
+      "message": "Закрыть $1? Нажмите ещё раз"
+   },
+   "dupesTitle": {
+      "message": "Показать страницы, открытые несколько раз (одинаковый адрес, без части после #). Потом вы решите, закрывать ли лишние копии."
+   },
+   "editMark": {
+      "message": "Изменить"
+   },
+   "expand": {
+      "message": "Развернуть"
+   },
+   "extDesc": {
+      "message": "Alt+Tab для вкладок Chrome: живые превью, мгновенный поиск и закрытые вкладки. Бесплатно, приватно, всё остаётся у вас."
+   },
+   "extName": {
+      "message": "Tabazing: переключатель вкладок с живыми превью"
+   },
+   "extShortName": {
+      "message": "Tabazing"
+   },
+   "feedback": {
+      "message": "Отзыв"
+   },
+   "flyoutBody": {
+      "message": "Нажмите $1, чтобы увидеть все вкладки."
+   },
+   "flyoutSub": {
+      "message": "Или нажмите на значок Tabazing на панели инструментов."
+   },
+   "flyoutTitle": {
+      "message": "Tabazing готова"
+   },
+   "folderDelete": {
+      "message": "Удалить папку"
+   },
+   "folderDeleteSure_few": {
+      "message": "Удалить её и $1 закладки внутри? Нажмите ещё раз"
+   },
+   "folderDeleteSure_many": {
+      "message": "Удалить её и $1 закладок внутри? Нажмите ещё раз"
+   },
+   "folderDeleteSure_one": {
+      "message": "Удалить её и $1 закладку внутри? Нажмите ещё раз"
+   },
+   "folderDeleteSure_other": {
+      "message": "Удалить её и закладки внутри ($1)? Нажмите ещё раз"
+   },
+   "folderMenu": {
+      "message": "Действия с папкой"
+   },
+   "gmBookmark": {
+      "message": "Добавить группу в закладки"
+   },
+   "gmClose": {
+      "message": "Закрыть (сохранить группу)"
+   },
+   "gmCloseSure": {
+      "message": "Закрыть вкладки ($1)? Нажмите ещё раз"
+   },
+   "gmDelete": {
+      "message": "Удалить группу и её вкладки"
+   },
+   "gmDeleteSure": {
+      "message": "Удалить и закрыть вкладки ($1)? Нажмите ещё раз"
+   },
+   "gmForget": {
+      "message": "Удалить сохранённую группу"
+   },
+   "gmForgetSure": {
+      "message": "Удалить? Нажмите ещё раз"
+   },
+   "gmRename": {
+      "message": "Переименовать или сменить цвет"
+   },
+   "gmReopen": {
+      "message": "Открыть снова"
+   },
+   "gmSelect": {
+      "message": "Выбрать её вкладки"
+   },
+   "gmSleep": {
+      "message": "Усыпить её вкладки"
+   },
+   "gmUngroup": {
+      "message": "Разгруппировать (вкладки останутся)"
+   },
+   "gmWindow": {
+      "message": "Перенести в новое окно"
+   },
+   "groupCreate_few": {
+      "message": "Сгруппировать $1 вкладки"
+   },
+   "groupCreate_many": {
+      "message": "Сгруппировать $1 вкладок"
+   },
+   "groupCreate_one": {
+      "message": "Сгруппировать $1 вкладку"
+   },
+   "groupCreate_other": {
+      "message": "Сгруппировать $1 вкладки"
+   },
+   "groupMenu": {
+      "message": "Действия с группой"
+   },
+   "groupName": {
+      "message": "Название группы"
+   },
+   "groupNamePh": {
+      "message": "например, Исследование"
+   },
+   "groupNeedsPerm": {
+      "message": "Chrome один раз спросит разрешение называть и раскрашивать группы."
+   },
+   "groupPinned": {
+      "message": "Закреплённые вкладки нельзя добавить в группу."
+   },
+   "groupedN_few": {
+      "message": "В группе $1 вкладки"
+   },
+   "groupedN_many": {
+      "message": "В группе $1 вкладок"
+   },
+   "groupedN_one": {
+      "message": "В группе $1 вкладка"
+   },
+   "groupedN_other": {
+      "message": "В группе $1 вкладки"
+   },
+   "groupsOn": {
+      "message": "Включить группы вкладок"
+   },
+   "groupsOnTitle": {
+      "message": "Показывать группы вкладок Chrome разделами и сохранять их после закрытия"
+   },
+   "groupsOpenH": {
+      "message": "Открытые"
+   },
+   "groupsPaneEmpty": {
+      "message": "Групп вкладок пока нет. Отметьте вкладки и выберите «Сгруппировать» или создайте группу в Chrome. Закрытые группы остаются здесь, пока вы их не удалите."
+   },
+   "groupsPaneNoMatch": {
+      "message": "Ни одна сохранённая группа не подходит."
+   },
+   "groupsPaneOff": {
+      "message": "Включите группы вкладок, и закрытые группы будут храниться здесь, как слои, пока вы их не удалите."
+   },
+   "groupsSavedH": {
+      "message": "Сохранённые (закрытые)"
+   },
+   "help": {
+      "message": "Помощь"
+   },
+   "helpTitle": {
+      "message": "Руководство Tabazing на сайте"
+   },
+   "hintClose": {
+      "message": "закрыть"
+   },
+   "hintExit": {
+      "message": "выход"
+   },
+   "hintMove": {
+      "message": "выбор"
+   },
+   "hintOpen": {
+      "message": "открыть"
+   },
+   "hintStar": {
+      "message": "в избранное"
+   },
+   "hintWindow": {
+      "message": "окно"
+   },
+   "hostAllow": {
+      "message": "Разрешить на всех сайтах"
+   },
+   "hostBlocked": {
+      "message": "Chrome не пускает Tabazing на ваши сайты, поэтому превью пока нет."
+   },
+   "hostBlockedTip": {
+      "message": "В Chrome для Tabazing «Доступ к сайтам» не установлен на «На всех сайтах». Без этого Tabazing не может делать превью и слышать Alt+Q на страницах."
+   },
+   "hostThanks": {
+      "message": "Спасибо. Теперь Tabazing видит ваши сайты. Превью появятся, когда вы будете открывать вкладки."
+   },
+   "iconTip": {
+      "message": "Совет: $1 открывает Tabazing откуда угодно, без мыши."
+   },
+   "justNow": {
+      "message": "только что"
+   },
+   "keyClose": {
+      "message": "закрыть вкладку"
+   },
+   "keyLeave": {
+      "message": "выйти"
+   },
+   "keyOpen": {
+      "message": "открыть"
+   },
+   "keyPick": {
+      "message": "выбрать"
+   },
+   "keySearch": {
+      "message": "перейти к поиску"
+   },
+   "localeCode": {
+      "message": "ru"
+   },
+   "markTitle": {
+      "message": "Название"
+   },
+   "markUrl": {
+      "message": "Адрес"
+   },
+   "marksAddHere_few": {
+      "message": "Добавить сюда $1 отмеченные вкладки"
+   },
+   "marksAddHere_many": {
+      "message": "Добавить сюда $1 отмеченных вкладок"
+   },
+   "marksAddHere_one": {
+      "message": "Добавить сюда отмеченную вкладку"
+   },
+   "marksAddHere_other": {
+      "message": "Добавить сюда отмеченные вкладки ($1)"
+   },
+   "marksAddPicked_few": {
+      "message": "Добавить $1 выбранные вкладки в закладки"
+   },
+   "marksAddPicked_many": {
+      "message": "Добавить $1 выбранных вкладок в закладки"
+   },
+   "marksAddPicked_one": {
+      "message": "Добавить выбранную вкладку в закладки"
+   },
+   "marksAddPicked_other": {
+      "message": "Добавить $1 выбранной вкладки в закладки"
+   },
+   "marksFolderName": {
+      "message": "Вкладки, $1"
+   },
+   "marksLoadFailed": {
+      "message": "Не удалось прочитать закладки."
+   },
+   "marksNoMatch": {
+      "message": "Ни одна закладка не подходит."
+   },
+   "marksOn": {
+      "message": "Включить закладки"
+   },
+   "marksPaneOff": {
+      "message": "Смотрите и наводите порядок в закладках Chrome прямо здесь: открывайте их, перетаскивайте вкладки в папки, переименовывайте и перемещайте."
+   },
+   "marksPaneOffNote": {
+      "message": "Chrome спросит разрешение на чтение и изменение закладок. Они остаются в Chrome: Tabazing не хранит копий и ничего не отправляет."
+   },
+   "matchesN_few": {
+      "message": "$1 подходящие вкладки"
+   },
+   "matchesN_many": {
+      "message": "$1 подходящих вкладок"
+   },
+   "matchesN_one": {
+      "message": "$1 подходящая вкладка"
+   },
+   "matchesN_other": {
+      "message": "$1 подходящей вкладки"
+   },
+   "moodBad": {
+      "message": "Надо доработать"
+   },
+   "moodGood": {
+      "message": "Очень нравится"
+   },
+   "moodOkay": {
+      "message": "Нормально"
+   },
+   "moveTo": {
+      "message": "Папка"
+   },
+   "mutedN_few": {
+      "message": "Звук выключен: $1 вкладки"
+   },
+   "mutedN_many": {
+      "message": "Звук выключен: $1 вкладок"
+   },
+   "mutedN_one": {
+      "message": "Звук выключен: $1 вкладка"
+   },
+   "mutedN_other": {
+      "message": "Звук выключен: $1 вкладки"
+   },
+   "newFolder": {
+      "message": "Новая папка здесь"
+   },
+   "newFolderName": {
+      "message": "Новая папка"
+   },
+   "newTab": {
+      "message": "Новая вкладка"
+   },
+   "next": {
+      "message": "Дальше"
+   },
+   "noMatch": {
+      "message": "Ни одна открытая вкладка не подходит."
+   },
+   "noPreview": {
+      "message": "Превью пока нет"
+   },
+   "noStarredOpen": {
+      "message": "Среди открытых вкладок нет избранных. Отметьте вкладку ☆ на её карточке."
+   },
+   "notNow": {
+      "message": "Не сейчас"
+   },
+   "nudgeBody": {
+      "message": "$1 показывает их все сразу, с превью. Начните печатать, чтобы найти нужную."
+   },
+   "nudgeNever": {
+      "message": "Больше не показывать"
+   },
+   "nudgeOk": {
+      "message": "Понятно"
+   },
+   "nudgeTitle": {
+      "message": "Ищете вкладку?"
+   },
+   "nudgeTry": {
+      "message": "Попробовать"
+   },
+   "openRemove": {
+      "message": "Открыть и убрать из закладок"
+   },
+   "openTabs": {
+      "message": "Открытые вкладки"
+   },
+   "otherSites": {
+      "message": "Другие сайты"
+   },
+   "paneGroups": {
+      "message": "Сохранённые группы"
+   },
+   "paneMarks": {
+      "message": "Закладки"
+   },
+   "panelAria": {
+      "message": "Сохранённые группы и закладки"
+   },
+   "panelBtn": {
+      "message": "Группы и закладки"
+   },
+   "panelHide": {
+      "message": "Скрыть панель"
+   },
+   "pickAria": {
+      "message": "Выбрать вкладку"
+   },
+   "pickTitle": {
+      "message": "Выбрать (или Ctrl+клик по карточке). Shift+клик выбирает диапазон."
+   },
+   "pickedN_few": {
+      "message": "выбрано $1"
+   },
+   "pickedN_many": {
+      "message": "выбрано $1"
+   },
+   "pickedN_one": {
+      "message": "выбрана $1"
+   },
+   "pickedN_other": {
+      "message": "выбрано $1"
+   },
+   "pinned": {
+      "message": "Закреплена"
+   },
+   "pinnedN_few": {
+      "message": "Закреплено $1 вкладки"
+   },
+   "pinnedN_many": {
+      "message": "Закреплено $1 вкладок"
+   },
+   "pinnedN_one": {
+      "message": "Закреплена $1 вкладка"
+   },
+   "pinnedN_other": {
+      "message": "Закреплено $1 вкладки"
+   },
+   "proAsk": {
+      "message": "Записаться в список ожидания Tabazing Pro"
+   },
+   "proBtn": {
+      "message": "Tabazing Pro · Записаться в список"
+   },
+   "proTitle": {
+      "message": "Tabazing остаётся бесплатной. Pro добавит возможности для тех, у кого много вкладок: запишитесь, чтобы узнать первым."
+   },
+   "recentlyClosed": {
+      "message": "Недавно закрытые"
+   },
+   "removeGroup": {
+      "message": "Удалить сохранённую группу"
+   },
+   "removeQ": {
+      "message": "Удалить?"
+   },
+   "rename": {
+      "message": "Переименовать"
+   },
+   "reopenGroup": {
+      "message": "Открыть всю группу ($1)"
+   },
+   "reopenTip": {
+      "message": "Открыть снова: $1"
+   },
+   "reviewBtn": {
+      "message": "Оставить отзыв в Chrome Web Store"
+   },
+   "save": {
+      "message": "Сохранить"
+   },
+   "searchAria": {
+      "message": "Поиск вкладок"
+   },
+   "searchPlaceholder": {
+      "message": "Поиск: открытые и закрытые за 7 дней"
+   },
+   "sectionCollapse": {
+      "message": "Свернуть раздел"
+   },
+   "sectionShow": {
+      "message": "Показать эти вкладки"
+   },
+   "selAllMatches_few": {
+      "message": "Выбрать все $1 найденные вкладки"
+   },
+   "selAllMatches_many": {
+      "message": "Выбрать все $1 найденных вкладок"
+   },
+   "selAllMatches_one": {
+      "message": "Выбрать найденную вкладку"
+   },
+   "selAllMatches_other": {
+      "message": "Выбрать все найденные вкладки ($1)"
+   },
+   "selAllN": {
+      "message": "Выбрать все ($1)"
+   },
+   "selAllTabs_few": {
+      "message": "Выбрать все $1 вкладки"
+   },
+   "selAllTabs_many": {
+      "message": "Выбрать все $1 вкладок"
+   },
+   "selAllTabs_one": {
+      "message": "Выбрать вкладку"
+   },
+   "selAllTabs_other": {
+      "message": "Выбрать все вкладки ($1)"
+   },
+   "selNone": {
+      "message": "Сбросить"
+   },
+   "selPick": {
+      "message": "Выбрать вкладки…"
+   },
+   "setLang": {
+      "message": "Язык"
+   },
+   "setLangAuto": {
+      "message": "Авто (язык Chrome)"
+   },
+   "setShortcut": {
+      "message": "Изменить сочетание Alt+Q"
+   },
+   "sortLabel": {
+      "message": "Сортировка"
+   },
+   "sortByOrder": {
+      "message": "По порядку"
+   },
+   "sortByRecent": {
+      "message": "Недавно открытые"
+   },
+   "sortByName": {
+      "message": "По названию"
+   },
+   "noteTitle": {
+      "message": "Заметка"
+   },
+   "noteAdd": {
+      "message": "Добавить заметку"
+   },
+   "noteEdit": {
+      "message": "Изменить заметку"
+   },
+   "notePh": {
+      "message": "Напишите заметку для этой вкладки…"
+   },
+   "noteClear": {
+      "message": "Очистить заметку"
+   },
+   "noteHint": {
+      "message": "Сохраняется при закрытии. Оставьте пустой, чтобы удалить заметку."
+   },
+   "ageDays_one": {
+      "message": "$1 день назад"
+   },
+   "ageDays_few": {
+      "message": "$1 дня назад"
+   },
+   "ageDays_many": {
+      "message": "$1 дней назад"
+   },
+   "ageDays_other": {
+      "message": "$1 дня назад"
+   },
+   "setAccent": {
+      "message": "Акцентный цвет"
+   },
+   "setAccentCustom": {
+      "message": "Выбрать любой цвет"
+   },
+   "muteThis": {
+      "message": "Выключить звук вкладки"
+   },
+   "unmuteThis": {
+      "message": "Включить звук вкладки"
+   },
+   "bigTitle": {
+      "message": "Просмотр: $1"
+   },
+   "bigClose": {
+      "message": "Закрыть просмотр"
+   },
+   "undo": {
+      "message": "Отменить"
+   },
+   "undoNothing": {
+      "message": "Нечего отменять"
+   },
+   "reopenedN_one": {
+      "message": "Снова открыта $1 вкладка"
+   },
+   "reopenedN_few": {
+      "message": "Снова открыты $1 вкладки"
+   },
+   "reopenedN_many": {
+      "message": "Снова открыто $1 вкладок"
+   },
+   "reopenedN_other": {
+      "message": "Снова открыто $1 вкладки"
+   },
+   "pinThis": {
+      "message": "Закрепить вкладку"
+   },
+   "unpinThis": {
+      "message": "Открепить вкладку"
+   },
+   "tourSwitchTitle": {
+      "message": "Переключайтесь как с Alt+Tab"
+   },
+   "tourSwitchBody": {
+      "message": "Удерживайте Alt и нажимайте Q, чтобы идти назад по вкладкам, W — вперёд, или крутите колесо мыши. Отпустите Alt, чтобы переключиться."
+   },
+   "keyPrevTab": {
+      "message": "предыдущая вкладка"
+   },
+   "keyNextTab": {
+      "message": "следующая вкладка"
+   },
+   "keyStay": {
+      "message": "открыть и не закрывать"
+   },
+   "keyNumber": {
+      "message": "перейти к этой карточке"
+   },
+   "keyUndo": {
+      "message": "вернуть закрытое"
+   },
+   "tourCardsTitle": {
+      "message": "На каждой карточке"
+   },
+   "tourCardsBody": {
+      "message": "Отметьте звёздочкой, выключите звук, закрепите, усыпите, скопируйте ссылку или оставьте себе заметку."
+   },
+   "tourCardsMouse": {
+      "message": "Ctrl+клик показывает большой просмотр. Средняя кнопка мыши закрывает вкладку."
+   },
+   "tourSortTitle": {
+      "message": "Сортировка"
+   },
+   "tourSortBody": {
+      "message": "Сначала недавно открытые. Выберите «По порядку», чтобы видеть их как на панели вкладок, и перетаскивайте карточки, чтобы двигать вкладки. Закреплённые всегда первыми."
+   },
+   "setAllWindows": {
+      "message": "Показывать вкладки всех окон"
+   },
+   "setAllWindowsNote": {
+      "message": "Выключено: только окно, в котором открыт Tabazing."
+   },
+   "mergeN_one": {
+      "message": "Объединить $1 окно с этим"
+   },
+   "mergeN_few": {
+      "message": "Объединить $1 окна с этим"
+   },
+   "mergeN_many": {
+      "message": "Объединить $1 окон с этим"
+   },
+   "mergeN_other": {
+      "message": "Объединить $1 окна с этим"
+   },
+   "mergeSure": {
+      "message": "Нажмите ещё раз, чтобы объединить"
+   },
+   "mergeThis": {
+      "message": "Перенести в это окно"
+   },
+   "mergedN_one": {
+      "message": "$1 вкладка перенесена в это окно"
+   },
+   "mergedN_few": {
+      "message": "$1 вкладки перенесены в это окно"
+   },
+   "mergedN_many": {
+      "message": "$1 вкладок перенесено в это окно"
+   },
+   "mergedN_other": {
+      "message": "$1 вкладки перенесено в это окно"
+   },
+   "filtersAria": {
+      "message": "Фильтры"
+   },
+   "fAudio": {
+      "message": "Звук"
+   },
+   "fPinned": {
+      "message": "Закреплённые"
+   },
+   "fAsleep": {
+      "message": "Спящие"
+   },
+   "fNotes": {
+      "message": "Заметки"
+   },
+   "enterSearch": {
+      "message": "Нажмите Enter, чтобы найти «$1» в Google."
+   },
+   "enterOpen": {
+      "message": "Нажмите Enter, чтобы открыть $1."
+   },
+   "noMatchShift": {
+      "message": "Нет подходящих открытых вкладок. Shift+Enter ищет в Google."
+   },
+   "snoozeThis": {
+      "message": "Отложить: закрыть сейчас, открыть позже"
+   },
+   "actSnooze": {
+      "message": "Отложить…"
+   },
+   "snooze1h": {
+      "message": "Через 1 час"
+   },
+   "snooze3h": {
+      "message": "Через 3 часа"
+   },
+   "snoozeEvening": {
+      "message": "Сегодня вечером"
+   },
+   "snoozeTomorrow": {
+      "message": "Завтра утром"
+   },
+   "snoozeWeek": {
+      "message": "На следующей неделе"
+   },
+   "snoozedN_one": {
+      "message": "$1 вкладка отложена до $2"
+   },
+   "snoozedN_few": {
+      "message": "$1 вкладки отложены до $2"
+   },
+   "snoozedN_many": {
+      "message": "$1 вкладок отложено до $2"
+   },
+   "snoozedN_other": {
+      "message": "$1 вкладки отложено до $2"
+   },
+   "snoozeCant": {
+      "message": "Эти страницы нельзя открыть позже."
+   },
+   "snoozedH": {
+      "message": "Отложенные"
+   },
+   "snoozedLabel": {
+      "message": "Отложена"
+   },
+   "wakesAt": {
+      "message": "вернётся $1"
+   },
+   "snoozedTip": {
+      "message": "$1: нажмите, чтобы открыть сейчас"
+   },
+   "cancelSnooze": {
+      "message": "Отменить откладывание"
+   },
+   "snoozeCancelled": {
+      "message": "Откладывание отменено"
+   },
+   "keyPreview": {
+      "message": "большой просмотр"
+   },
+   "ddTabs": {
+      "message": "Вкладки"
+   },
+   "ddMarks": {
+      "message": "Закладки"
+   },
+   "ddMoreTabs_one": {
+      "message": "ещё $1 в списке ниже"
+   },
+   "ddMoreTabs_few": {
+      "message": "ещё $1 в списке ниже"
+   },
+   "ddMoreTabs_many": {
+      "message": "ещё $1 в списке ниже"
+   },
+   "ddMoreTabs_other": {
+      "message": "ещё $1 в списке ниже"
+   },
+   "ddGoogle": {
+      "message": "Найти «$1» в Google"
+   },
+   "ddOpen": {
+      "message": "Открыть $1"
+   },
+   "ddOpenTab": {
+      "message": "открыта"
+   },
+   "ddNoMarks": {
+      "message": "Поиск по закладкам пока недоступен: перезагрузите Tabazing на странице chrome://extensions, чтобы включить доступ к закладкам."
+   },
+   "ddMoreFound_one": {
+      "message": "ещё $1 открытая вкладка подходит"
+   },
+   "ddMoreFound_few": {
+      "message": "ещё $1 открытые вкладки подходят"
+   },
+   "ddMoreFound_many": {
+      "message": "ещё $1 открытых вкладок подходят"
+   },
+   "ddMoreFound_other": {
+      "message": "ещё $1 открытой вкладки подходят"
+   },
+   "pinnedOne": {
+      "message": "«$1» закреплена"
+   },
+   "unpinnedOne": {
+      "message": "«$1» откреплена"
+   },
+   "ddHistory": {
+      "message": "История"
+   },
+   "visitedAgo": {
+      "message": "посещено $1"
+   },
+   "ddNoHistory": {
+      "message": "Поиск по истории пока недоступен: перезагрузите Tabazing на странице chrome://extensions, чтобы включить доступ к истории."
+   },
+   "reloadThis": {
+      "message": "Перезагрузить вкладку"
+   },
+   "duplicateThis": {
+      "message": "Дублировать вкладку"
+   },
+   "reloadingOne": {
+      "message": "Перезагрузка «$1»"
+   },
+   "duplicatedOne": {
+      "message": "«$1» продублирована"
+   },
+   "setTheme": {
+      "message": "Тема"
+   },
+   "setThemeDark": {
+      "message": "Тёмная"
+   },
+   "setThemeLight": {
+      "message": "Светлая"
+   },
+   "setThemeSystem": {
+      "message": "Как в системе"
+   },
+   "noteClearBtn": {
+      "message": "Очистить"
+   },
+   "noteCloseBtn": {
+      "message": "Закрыть"
+   },
+   "setSize": {
+      "message": "Размер карточек"
+   },
+   "setSizeDefault": {
+      "message": "Обычный"
+   },
+   "setSizeSmall": {
+      "message": "Маленький"
+   },
+   "setSizeList": {
+      "message": "Список"
+   },
+   "setFlat": {
+      "message": "Не группировать вкладки"
+   },
+   "setFlatNote": {
+      "message": "Показывает вкладки этого окна одним списком, без разделов групп."
+   },
+   "setStartup": {
+      "message": "Открывать Tabazing при запуске Chrome"
+   },
+   "setStartupNote": {
+      "message": "Через несколько секунд после запуска Chrome покажет все вкладки — с того места, где вы остановились."
+   },
+   "settings": {
+      "message": "Настройки"
+   },
+   "shortcutMissing": {
+      "message": "Для Tabazing не задано сочетание Alt+Q: возможно, его заняло другое приложение или расширение. Выберите сочетание в Chrome."
+   },
+   "skip": {
+      "message": "Пропустить"
+   },
+   "sleepLaterN_few": {
+      "message": "$1 вкладки уснут, когда вы закроете Tabazing"
+   },
+   "sleepLaterN_many": {
+      "message": "$1 вкладок уснут, когда вы закроете Tabazing"
+   },
+   "sleepLaterN_one": {
+      "message": "$1 вкладка уснёт, когда вы закроете Tabazing"
+   },
+   "sleepLaterN_other": {
+      "message": "$1 вкладки уснут, когда вы закроете Tabazing"
+   },
+   "sleepThis": {
+      "message": "Усыпить (освободить память)"
+   },
+   "sleepUndo": {
+      "message": "Не усыплять"
+   },
+   "sleepUndone": {
+      "message": "Не будет усыплена."
+   },
+   "sleeping": {
+      "message": "Спит"
+   },
+   "sleepingTip": {
+      "message": "Спит: Chrome выгрузил вкладку, чтобы сэкономить память. Она перезагрузится, когда вы её откроете."
+   },
+   "sleptN_few": {
+      "message": "Усыплено $1 вкладки"
+   },
+   "sleptN_many": {
+      "message": "Усыплено $1 вкладок"
+   },
+   "sleptN_one": {
+      "message": "Усыплена $1 вкладка"
+   },
+   "sleptN_other": {
+      "message": "Усыплено $1 вкладки"
+   },
+   "sleptNone": {
+      "message": "Нечего усыплять (Chrome не выгружает вкладку, на которой вы сейчас)."
+   },
+   "sortAria": {
+      "message": "Сортировка вкладок"
+   },
+   "sortName": {
+      "message": "А–Я"
+   },
+   "sortNameTitle": {
+      "message": "По названию, от А до Я"
+   },
+   "sortNewest": {
+      "message": "Новые"
+   },
+   "sortNewestTitle": {
+      "message": "Сначала открытые позже всех"
+   },
+   "sortOldest": {
+      "message": "Старые"
+   },
+   "sortOldestTitle": {
+      "message": "Сначала открытые раньше всех"
+   },
+   "sortRecent": {
+      "message": "Недавние"
+   },
+   "sortRecentTitle": {
+      "message": "Сначала те, что открывали последними (как Alt+Tab)"
+   },
+   "sortSite": {
+      "message": "По сайтам"
+   },
+   "sortSiteTitle": {
+      "message": "Собрать вкладки одного сайта вместе"
+   },
+   "star": {
+      "message": "В избранное"
+   },
+   "starAria": {
+      "message": "Добавить страницу в избранное"
+   },
+   "starFilterTitle": {
+      "message": "Показать только избранные страницы"
+   },
+   "starred": {
+      "message": "Избранное"
+   },
+   "starredNotOpen": {
+      "message": "Избранные, не открыты"
+   },
+   "sureN": {
+      "message": "Закрыть $1? Нажмите ещё раз"
+   },
+   "surveyBtn": {
+      "message": "Рассказать, что поможет"
+   },
+   "sweepAll_few": {
+      "message": "без превью: $1 · Снять все"
+   },
+   "sweepAll_many": {
+      "message": "без превью: $1 · Снять все"
+   },
+   "sweepAll_one": {
+      "message": "без превью: $1 · Снять"
+   },
+   "sweepAll_other": {
+      "message": "без превью: $1 · Снять все"
+   },
+   "sweepDone": {
+      "message": "Готово."
+   },
+   "sweepFirst_few": {
+      "message": "без превью: $1 · Снять первые $2"
+   },
+   "sweepFirst_many": {
+      "message": "без превью: $1 · Снять первые $2"
+   },
+   "sweepFirst_one": {
+      "message": "без превью: $1 · Снять первые $2"
+   },
+   "sweepFirst_other": {
+      "message": "без превью: $1 · Снять первые $2"
+   },
+   "sweepH": {
+      "message": "Tabazing снимает превью"
+   },
+   "sweepNote": {
+      "message": "Каждая вкладка покажется на мгновение. Потом вы вернётесь туда, где были."
+   },
+   "sweepNothing": {
+      "message": "Снимать нечего: у всех вкладок здесь уже есть превью, или его нельзя сделать."
+   },
+   "sweepPageTitle": {
+      "message": "Tabazing: снимаем превью"
+   },
+   "sweepStarting": {
+      "message": "Начинаем…"
+   },
+   "sweepStop": {
+      "message": "Остановить"
+   },
+   "sweepStopping": {
+      "message": "Останавливаем…"
+   },
+   "sweepTabOf": {
+      "message": "Вкладка $1 из $2"
+   },
+   "sweepThese_few": {
+      "message": "без превью: $1 · Снять эти"
+   },
+   "sweepThese_many": {
+      "message": "без превью: $1 · Снять эти"
+   },
+   "sweepThese_one": {
+      "message": "без превью: $1 · Снять"
+   },
+   "sweepThese_other": {
+      "message": "без превью: $1 · Снять эти"
+   },
+   "sweepTitleAll": {
+      "message": "На мгновение показывает каждую вкладку, чтобы снять превью, и возвращает вас туда, где вы были."
+   },
+   "sweepTitleMax": {
+      "message": "Не больше $1 за раз."
+   },
+   "sweepTitleOne": {
+      "message": "Превью одной вкладки можно снять с её карточки."
+   },
+   "sweepTitleThese": {
+      "message": "На мгновение показывает каждую из этих вкладок, чтобы снять превью, и возвращает вас туда, где вы были."
+   },
+   "tabs_few": {
+      "message": "$1 вкладки"
+   },
+   "tabs_many": {
+      "message": "$1 вкладок"
+   },
+   "tabs_one": {
+      "message": "$1 вкладка"
+   },
+   "tabs_other": {
+      "message": "$1 вкладки"
+   },
+   "tellMe": {
+      "message": "Написать"
+   },
+   "thisPage": {
+      "message": "Эта страница"
+   },
+   "thisWindow": {
+      "message": "Это окно"
+   },
+   "tour1Body": {
+      "message": "Все открытые вкладки, с превью."
+   },
+   "tour1Say": {
+      "message": "Вот и всё."
+   },
+   "tour1Title": {
+      "message": "Нажмите $1"
+   },
+   "tour2Title": {
+      "message": "Перемещение"
+   },
+   "tour3Body": {
+      "message": "Просто печатайте. Опечатки не страшны. Находит открытые вкладки и закрытые за последние 7 дней."
+   },
+   "tour3Title": {
+      "message": "Поиск"
+   },
+   "tour4Body": {
+      "message": "Ваши группы становятся разделами. Закрытые остаются сохранёнными, пока вы их не удалите."
+   },
+   "tour4On": {
+      "message": "Группы включены."
+   },
+   "tour4Say": {
+      "message": "По желанию."
+   },
+   "tour4Title": {
+      "message": "Группы вкладок"
+   },
+   "tour5Body": {
+      "message": "Напишите, что сломано или чего не хватает. Я исправлю."
+   },
+   "tour5Say": {
+      "message": "Я читаю каждое."
+   },
+   "tour5Title": {
+      "message": "Что-то не так?"
+   },
+   "tourBtn": {
+      "message": "Как это работает"
+   },
+   "tourManyBody": {
+      "message": "Отмечайте вкладки флажком (Shift+клик — диапазон). Затем закройте, скопируйте, перенесите или усыпите их вместе с панели внизу."
+   },
+   "tourManyTitle": {
+      "message": "Сразу несколько"
+   },
+   "tourPanelBody": {
+      "message": "Ваши группы вкладок и закладки Chrome — на этой панели. Закрытые группы сохраняются, пока вы их не удалите."
+   },
+   "tourPanelTitle": {
+      "message": "Группы и закладки"
+   },
+   "tourSetBody": {
+      "message": "Язык, размер карточек, акцентный цвет и запуск Tabazing вместе с Chrome."
+   },
+   "tourSetTitle": {
+      "message": "Настройки"
+   },
+   "tourTitle": {
+      "message": "Короткий тур по Tabazing"
+   },
+   "tourWinBody": {
+      "message": "Каждое окно Chrome с картинкой того, что в нём открыто. Нажмите на окно или Alt+W, чтобы видеть только его вкладки."
+   },
+   "tourWinTitle": {
+      "message": "Ваши окна"
+   },
+   "turnOn": {
+      "message": "Включить"
+   },
+   "ungrouped": {
+      "message": "Без группы"
+   },
+   "unmutedN_few": {
+      "message": "Звук включён: $1 вкладки"
+   },
+   "unmutedN_many": {
+      "message": "Звук включён: $1 вкладок"
+   },
+   "unmutedN_one": {
+      "message": "Звук включён: $1 вкладка"
+   },
+   "unmutedN_other": {
+      "message": "Звук включён: $1 вкладки"
+   },
+   "unnamedGroup": {
+      "message": "Группа без названия"
+   },
+   "unpinnedN_few": {
+      "message": "Откреплено $1 вкладки"
+   },
+   "unpinnedN_many": {
+      "message": "Откреплено $1 вкладок"
+   },
+   "unpinnedN_one": {
+      "message": "Откреплена $1 вкладка"
+   },
+   "unpinnedN_other": {
+      "message": "Откреплено $1 вкладки"
+   },
+   "unstar": {
+      "message": "Убрать из избранного"
+   },
+   "unstarAria": {
+      "message": "Убрать страницу из избранного"
+   },
+   "untitled": {
+      "message": "Без названия"
+   },
+   "viewAria": {
+      "message": "Сортировка и фильтр"
+   },
+   "willSleep": {
+      "message": "Уснёт после выхода"
+   },
+   "windowN": {
+      "message": "Окно $1"
+   },
+   "windowsAria": {
+      "message": "Окна"
+   }
+}

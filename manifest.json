@@ -1,0 +1,91 @@
+{
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    },
+    "default_title": "__MSG_actionTitle__"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "commands": {
+    "open-switcher": {
+      "description": "__MSG_cmdOpen__",
+      "suggested_key": {
+        "default": "Alt+Q",
+        "mac": "Alt+Q"
+      }
+    },
+    "open-switcher-reverse": {
+      "description": "__MSG_cmdReverse__",
+      "suggested_key": {
+        "default": "Alt+W",
+        "mac": "Alt+W"
+      }
+    },
+    "open-switcher-stay": {
+      "description": "__MSG_cmdStay__",
+      "suggested_key": {
+        "default": "Alt+E",
+        "mac": "Alt+E"
+      }
+    }
+  },
+  "content_scripts": [
+    {
+      "all_frames": true,
+      "js": [
+        "hotkey.js"
+      ],
+      "match_about_blank": true,
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  },
+  "default_locale": "en",
+  "description": "__MSG_extDesc__",
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "icons": {
+    "128": "icons/icon128.png",
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png"
+  },
+  "incognito": "not_allowed",
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "__MSG_extName__",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "favicon",
+    "sessions",
+    "unlimitedStorage",
+    "alarms",
+    "bookmarks",
+    "history"
+  ],
+  "short_name": "__MSG_extShortName__",
+  "version": "1.12.1",
+  "web_accessible_resources": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "resources": [
+        "switcher.html"
+      ],
+      "use_dynamic_url": true
+    }
+  ]
+}

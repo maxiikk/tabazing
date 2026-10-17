@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title data-i18n="sweepPageTitle">Tabazing: capturing previews</title>
+  <link rel="stylesheet" href="sweep.css">
+</head>
+<body>
+  <main>
+    <div class="top"><span id="ybit"></span><div><h1 data-i18n="sweepH">Tabazing is capturing previews</h1><p id="msg" aria-live="polite" data-i18n="sweepStarting">Starting…</p></div></div>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="fill"></i></div>
+    <div class="row"><p class="note grow" data-i18n="sweepNote">Tabazing is showing each tab for a moment. It will put you back where you were.</p><button id="cancel" type="button" data-i18n="sweepStop">Stop</button></div>
+  </main>
+  <script type="module" src="sweep.js"></script>
+</body>
+</html>

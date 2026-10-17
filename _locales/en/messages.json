@@ -1,0 +1,1226 @@
+{
+   "actBookmark": {
+      "message": "Bookmark"
+   },
+   "actBookmarkTitle": {
+      "message": "Save them as bookmarks (several go into a new folder)"
+   },
+   "actClose": {
+      "message": "Close"
+   },
+   "actCloseTitle": {
+      "message": "Close the selected tabs. They stay under Recently closed."
+   },
+   "actCopy": {
+      "message": "Copy links"
+   },
+   "actCopyMd": {
+      "message": "Copy as Markdown"
+   },
+   "actCopyMdTitle": {
+      "message": "Copy “- [Title](link)” lines: they paste as clickable titles in Notion, Obsidian, GitHub, Slack or Docs"
+   },
+   "actCopyTitle": {
+      "message": "Copy their addresses, one per line"
+   },
+   "actFailed": {
+      "message": "That didn’t work. Chrome said no."
+   },
+   "actGroup": {
+      "message": "Group"
+   },
+   "actGroupTitle": {
+      "message": "Put them in a new Chrome tab group with a name and colour"
+   },
+   "actMore": {
+      "message": "More"
+   },
+   "actMute": {
+      "message": "Mute"
+   },
+   "actNewWindow": {
+      "message": "Move to new window"
+   },
+   "actNewWindowTitle": {
+      "message": "Move them into a window of their own"
+   },
+   "actPin": {
+      "message": "Pin"
+   },
+   "actSleep": {
+      "message": "Sleep"
+   },
+   "actSleepTitle": {
+      "message": "Unload them to free memory once you leave Tabazing. They reload when you open them."
+   },
+   "actUnmute": {
+      "message": "Unmute"
+   },
+   "actUnpin": {
+      "message": "Unpin"
+   },
+   "actionTitle": {
+      "message": "Tabazing (Alt+Q)"
+   },
+   "activeTab": {
+      "message": "Active tab: $1"
+   },
+   "allWindows": {
+      "message": "All windows"
+   },
+   "askBadBody": {
+      "message": "Tell me what would make it work for you. A review is welcome too, whenever you like."
+   },
+   "askBadTitle": {
+      "message": "Thanks for being honest"
+   },
+   "askBody": {
+      "message": "Ten seconds. It tells me what to build next. Your answer stays on your computer; the buttons only open a page where you choose what to send."
+   },
+   "askGoodBody": {
+      "message": "A review is the best way to help other people find Tabazing."
+   },
+   "askGoodTitle": {
+      "message": "Glad to hear it!"
+   },
+   "askNote": {
+      "message": "Each opens in a new tab. Tabazing itself sends nothing."
+   },
+   "askTitle": {
+      "message": "How is Tabazing working for you?"
+   },
+   "back": {
+      "message": "Back"
+   },
+   "badUrl": {
+      "message": "That address doesn’t look right."
+   },
+   "bookmarkThis": {
+      "message": "Bookmark"
+   },
+   "bookmarkedN_one": {
+      "message": "Bookmarked $1 tab in “$2”"
+   },
+   "bookmarkedN_other": {
+      "message": "Bookmarked $1 tabs in “$2”"
+   },
+   "cancel": {
+      "message": "Cancel"
+   },
+   "capErrHost": {
+      "message": "Chrome isn’t letting Tabazing look at this page, so it has no picture. Allowing Tabazing on all sites usually fixes that."
+   },
+   "capErrOther": {
+      "message": "Tabazing couldn’t take a picture of this page just now."
+   },
+   "capErrPage": {
+      "message": "Chrome doesn’t allow pictures of this kind of page."
+   },
+   "captureBlocked": {
+      "message": "Chrome doesn’t allow a preview of this page."
+   },
+   "captureFailed": {
+      "message": "No preview this time: the page didn’t finish loading. Try again in a moment."
+   },
+   "capturePreview": {
+      "message": "Capture preview"
+   },
+   "captureTitle": {
+      "message": "Shows this tab for a moment to take its picture, then comes back"
+   },
+   "capturing": {
+      "message": "Capturing…"
+   },
+   "closeTab": {
+      "message": "Close tab"
+   },
+   "closeTabTitle": {
+      "message": "Close tab (Del)"
+   },
+   "closedLabel": {
+      "message": "Closed"
+   },
+   "closedN_one": {
+      "message": "Closed $1 tab"
+   },
+   "closedN_other": {
+      "message": "Closed $1 tabs"
+   },
+   "closedSearchH": {
+      "message": "Closed in the last 7 days"
+   },
+   "closedWindow": {
+      "message": "Window · $1"
+   },
+   "cmdOpen": {
+      "message": "Open Tabazing on the previous tab (let go of Alt to switch)"
+   },
+   "cmdReverse": {
+      "message": "Open Tabazing on the next tab (let go of Alt to switch)"
+   },
+   "cmdStay": {
+      "message": "Open Tabazing and keep it open"
+   },
+   "coffee": {
+      "message": "Buy me a coffee"
+   },
+   "coffeeTitle": {
+      "message": "Tabazing is free. If it saves you time, you can buy me a coffee."
+   },
+   "collapse": {
+      "message": "Collapse"
+   },
+   "copiedN_one": {
+      "message": "Copied $1 link"
+   },
+   "copiedN_other": {
+      "message": "Copied $1 links"
+   },
+   "copyFailed": {
+      "message": "This page won’t let Tabazing use the clipboard. Try from the popup (New Tab page)."
+   },
+   "copyLink": {
+      "message": "Copy link"
+   },
+   "countSearch": {
+      "message": "$1 open · $2 closed"
+   },
+   "countSearchStarred": {
+      "message": "$1 open · $2 starred"
+   },
+   "deleteMark": {
+      "message": "Delete bookmark"
+   },
+   "dismiss": {
+      "message": "Dismiss"
+   },
+   "done": {
+      "message": "Done"
+   },
+   "dontAsk": {
+      "message": "Don’t ask again"
+   },
+   "dupeCloses": {
+      "message": "Closes"
+   },
+   "dupeStays": {
+      "message": "Stays"
+   },
+   "dupesBack": {
+      "message": "Back"
+   },
+   "dupesBtn_one": {
+      "message": "$1 duplicate"
+   },
+   "dupesBtn_other": {
+      "message": "$1 duplicates"
+   },
+   "dupesClose_one": {
+      "message": "Close $1 copy"
+   },
+   "dupesClose_other": {
+      "message": "Close $1 copies"
+   },
+   "dupesNone": {
+      "message": "No duplicates left."
+   },
+   "dupesSummary_one": {
+      "message": "$1 extra copy: one tab of each page stays"
+   },
+   "dupesSummary_other": {
+      "message": "$1 extra copies: one tab of each page stays"
+   },
+   "dupesSure": {
+      "message": "Close $1? Click again"
+   },
+   "dupesTitle": {
+      "message": "Show the pages that are open more than once (same address, ignoring the #part). You then choose to close the extra copies."
+   },
+   "editMark": {
+      "message": "Edit"
+   },
+   "expand": {
+      "message": "Expand"
+   },
+   "extDesc": {
+      "message": "Alt+Tab for Chrome tabs: live previews, instant search and recently closed tabs. Free, private, nothing leaves your computer."
+   },
+   "extName": {
+      "message": "Tabazing: Visual Tab Switcher with Live Previews"
+   },
+   "extShortName": {
+      "message": "Tabazing"
+   },
+   "feedback": {
+      "message": "Feedback"
+   },
+   "flyoutBody": {
+      "message": "Press $1 to see all your tabs."
+   },
+   "flyoutSub": {
+      "message": "Or click the Tabazing icon in the toolbar."
+   },
+   "flyoutTitle": {
+      "message": "Tabazing is ready"
+   },
+   "folderDelete": {
+      "message": "Delete folder"
+   },
+   "folderDeleteSure_one": {
+      "message": "Delete it and the bookmark inside? Click again"
+   },
+   "folderDeleteSure_other": {
+      "message": "Delete it and the $1 bookmarks inside? Click again"
+   },
+   "folderMenu": {
+      "message": "Folder options"
+   },
+   "gmBookmark": {
+      "message": "Bookmark the group"
+   },
+   "gmClose": {
+      "message": "Close (keep it saved)"
+   },
+   "gmCloseSure": {
+      "message": "Close $1 tabs? Click again"
+   },
+   "gmDelete": {
+      "message": "Delete the group and its tabs"
+   },
+   "gmDeleteSure": {
+      "message": "Delete it and close $1 tabs? Click again"
+   },
+   "gmForget": {
+      "message": "Delete this saved group"
+   },
+   "gmForgetSure": {
+      "message": "Delete it? Click again"
+   },
+   "gmRename": {
+      "message": "Rename or recolour"
+   },
+   "gmReopen": {
+      "message": "Reopen"
+   },
+   "gmSelect": {
+      "message": "Select its tabs"
+   },
+   "gmSleep": {
+      "message": "Put its tabs to sleep"
+   },
+   "gmUngroup": {
+      "message": "Ungroup (keep the tabs)"
+   },
+   "gmWindow": {
+      "message": "Move to a new window"
+   },
+   "groupCreate_one": {
+      "message": "Group $1 tab"
+   },
+   "groupCreate_other": {
+      "message": "Group $1 tabs"
+   },
+   "groupMenu": {
+      "message": "Group options"
+   },
+   "groupName": {
+      "message": "Group name"
+   },
+   "groupNamePh": {
+      "message": "e.g. Research"
+   },
+   "groupNeedsPerm": {
+      "message": "Chrome will ask to let Tabazing name and colour groups (once)."
+   },
+   "groupPinned": {
+      "message": "Pinned tabs can’t go into a group."
+   },
+   "groupedN_one": {
+      "message": "Grouped $1 tab"
+   },
+   "groupedN_other": {
+      "message": "Grouped $1 tabs"
+   },
+   "groupsOn": {
+      "message": "Turn on tab groups"
+   },
+   "groupsOnTitle": {
+      "message": "Show your Chrome tab groups here as sections, and keep them when you close them"
+   },
+   "groupsOpenH": {
+      "message": "Open"
+   },
+   "groupsPaneEmpty": {
+      "message": "No tab groups yet. Tick some tabs and choose Group, or make one in Chrome. Closed groups stay here until you delete them."
+   },
+   "groupsPaneNoMatch": {
+      "message": "No saved group matches your search."
+   },
+   "groupsPaneOff": {
+      "message": "Turn on tab groups and the groups you close are kept here, like layers, until you remove them."
+   },
+   "groupsSavedH": {
+      "message": "Saved (closed)"
+   },
+   "help": {
+      "message": "Help"
+   },
+   "helpTitle": {
+      "message": "The Tabazing manual, on the website"
+   },
+   "hintClose": {
+      "message": "close tab"
+   },
+   "hintExit": {
+      "message": "exit"
+   },
+   "hintMove": {
+      "message": "move"
+   },
+   "hintOpen": {
+      "message": "open"
+   },
+   "hintStar": {
+      "message": "star"
+   },
+   "hintWindow": {
+      "message": "window"
+   },
+   "hostAllow": {
+      "message": "Allow on all sites"
+   },
+   "hostBlocked": {
+      "message": "Chrome is keeping Tabazing away from your sites, so there are no previews yet."
+   },
+   "hostBlockedTip": {
+      "message": "Chrome’s “Site access” for Tabazing isn’t set to “On all sites”. Without it Tabazing can’t take previews or hear Alt+Q on web pages."
+   },
+   "hostThanks": {
+      "message": "Thanks. Tabazing can see your sites now. Previews fill in as you visit tabs."
+   },
+   "iconTip": {
+      "message": "Tip: $1 opens Tabazing from anywhere, no mouse needed."
+   },
+   "justNow": {
+      "message": "just now"
+   },
+   "keyClose": {
+      "message": "close tab"
+   },
+   "keyLeave": {
+      "message": "leave"
+   },
+   "keyOpen": {
+      "message": "open"
+   },
+   "keyPick": {
+      "message": "pick"
+   },
+   "keySearch": {
+      "message": "jump to search"
+   },
+   "localeCode": {
+      "message": "en"
+   },
+   "markTitle": {
+      "message": "Name"
+   },
+   "markUrl": {
+      "message": "Address"
+   },
+   "marksAddHere_one": {
+      "message": "Bookmark the ticked tab here"
+   },
+   "marksAddHere_other": {
+      "message": "Bookmark the $1 ticked tabs here"
+   },
+   "marksAddPicked_one": {
+      "message": "Bookmark the selected tab"
+   },
+   "marksAddPicked_other": {
+      "message": "Bookmark $1 selected tabs"
+   },
+   "marksFolderName": {
+      "message": "Tabs, $1"
+   },
+   "marksLoadFailed": {
+      "message": "Couldn’t read your bookmarks just now."
+   },
+   "marksNoMatch": {
+      "message": "No bookmark matches your search."
+   },
+   "marksOn": {
+      "message": "Turn on bookmarks"
+   },
+   "marksPaneOff": {
+      "message": "See and tidy your Chrome bookmarks here: open them, drag tabs into folders, rename and move them."
+   },
+   "marksPaneOffNote": {
+      "message": "Chrome will ask to let Tabazing read and change your bookmarks. They stay in Chrome; Tabazing keeps no copy and sends nothing."
+   },
+   "matchesN_one": {
+      "message": "$1 matching tab"
+   },
+   "matchesN_other": {
+      "message": "$1 matching tabs"
+   },
+   "moodBad": {
+      "message": "Needs work"
+   },
+   "moodGood": {
+      "message": "Love it"
+   },
+   "moodOkay": {
+      "message": "It’s okay"
+   },
+   "moveTo": {
+      "message": "Folder"
+   },
+   "mutedN_one": {
+      "message": "Muted $1 tab"
+   },
+   "mutedN_other": {
+      "message": "Muted $1 tabs"
+   },
+   "newFolder": {
+      "message": "New folder here"
+   },
+   "newFolderName": {
+      "message": "New folder"
+   },
+   "newTab": {
+      "message": "New tab"
+   },
+   "next": {
+      "message": "Next"
+   },
+   "noMatch": {
+      "message": "No open tabs match your search."
+   },
+   "noPreview": {
+      "message": "No preview yet"
+   },
+   "noStarredOpen": {
+      "message": "No open tabs are starred. Star one with the ☆ on its card."
+   },
+   "notNow": {
+      "message": "Not now"
+   },
+   "nudgeBody": {
+      "message": "$1 shows all of them at once, with previews. Type to find one."
+   },
+   "nudgeNever": {
+      "message": "Don’t show again"
+   },
+   "nudgeOk": {
+      "message": "Got it"
+   },
+   "nudgeTitle": {
+      "message": "Looking for a tab?"
+   },
+   "nudgeTry": {
+      "message": "Try it"
+   },
+   "openRemove": {
+      "message": "Open and remove from bookmarks"
+   },
+   "openTabs": {
+      "message": "Open tabs"
+   },
+   "otherSites": {
+      "message": "Other sites"
+   },
+   "paneGroups": {
+      "message": "Saved groups"
+   },
+   "paneMarks": {
+      "message": "Bookmarks"
+   },
+   "panelAria": {
+      "message": "Saved groups and bookmarks"
+   },
+   "panelBtn": {
+      "message": "Groups & bookmarks"
+   },
+   "panelHide": {
+      "message": "Hide this panel"
+   },
+   "pickAria": {
+      "message": "Select this tab"
+   },
+   "pickTitle": {
+      "message": "Select (or Ctrl+click the card). Shift+click selects a range."
+   },
+   "pickedN_one": {
+      "message": "$1 selected"
+   },
+   "pickedN_other": {
+      "message": "$1 selected"
+   },
+   "pinned": {
+      "message": "Pinned"
+   },
+   "pinnedN_one": {
+      "message": "Pinned $1 tab"
+   },
+   "pinnedN_other": {
+      "message": "Pinned $1 tabs"
+   },
+   "proAsk": {
+      "message": "Join the Tabazing Pro waitlist"
+   },
+   "proBtn": {
+      "message": "Tabazing Pro · Join the waitlist"
+   },
+   "proTitle": {
+      "message": "Tabazing stays free. Pro would add extras for heavy tab users: join the list to hear first."
+   },
+   "recentlyClosed": {
+      "message": "Recently closed"
+   },
+   "removeGroup": {
+      "message": "Remove this saved group"
+   },
+   "removeQ": {
+      "message": "Remove?"
+   },
+   "rename": {
+      "message": "Rename"
+   },
+   "reopenGroup": {
+      "message": "Reopen the whole group ($1)"
+   },
+   "reopenTip": {
+      "message": "Reopen: $1"
+   },
+   "reviewBtn": {
+      "message": "Review on the Chrome Web Store"
+   },
+   "save": {
+      "message": "Save"
+   },
+   "searchAria": {
+      "message": "Search tabs"
+   },
+   "searchPlaceholder": {
+      "message": "Search open tabs and tabs closed in the last 7 days"
+   },
+   "sectionCollapse": {
+      "message": "Collapse this section"
+   },
+   "sectionShow": {
+      "message": "Show these tabs"
+   },
+   "selAllMatches_one": {
+      "message": "Select the matching tab"
+   },
+   "selAllMatches_other": {
+      "message": "Select all $1 matching tabs"
+   },
+   "selAllN": {
+      "message": "Select all $1"
+   },
+   "selAllTabs_one": {
+      "message": "Select the tab"
+   },
+   "selAllTabs_other": {
+      "message": "Select all $1 tabs"
+   },
+   "selNone": {
+      "message": "Clear"
+   },
+   "selPick": {
+      "message": "Select tabs…"
+   },
+   "setLang": {
+      "message": "Language"
+   },
+   "setLangAuto": {
+      "message": "Auto (Chrome’s language)"
+   },
+   "setShortcut": {
+      "message": "Change the Alt+Q shortcut"
+   },
+   "sortLabel": {
+      "message": "Sort"
+   },
+   "sortByOrder": {
+      "message": "By order"
+   },
+   "sortByRecent": {
+      "message": "By recently opened"
+   },
+   "sortByName": {
+      "message": "By name"
+   },
+   "noteTitle": {
+      "message": "Note"
+   },
+   "noteAdd": {
+      "message": "Add a note"
+   },
+   "noteEdit": {
+      "message": "Edit note"
+   },
+   "notePh": {
+      "message": "Write a note for this tab…"
+   },
+   "noteClear": {
+      "message": "Clear note"
+   },
+   "noteHint": {
+      "message": "Saved when you close this. Leave it empty to remove the note."
+   },
+   "ageDays_one": {
+      "message": "$1 day ago"
+   },
+   "ageDays_other": {
+      "message": "$1 days ago"
+   },
+   "setAccent": {
+      "message": "Accent colour"
+   },
+   "setAccentCustom": {
+      "message": "Pick any colour"
+   },
+   "muteThis": {
+      "message": "Mute this tab"
+   },
+   "unmuteThis": {
+      "message": "Unmute this tab"
+   },
+   "bigTitle": {
+      "message": "Preview of $1"
+   },
+   "bigClose": {
+      "message": "Close preview"
+   },
+   "undo": {
+      "message": "Undo"
+   },
+   "undoNothing": {
+      "message": "Nothing to undo"
+   },
+   "reopenedN_one": {
+      "message": "Reopened $1 tab"
+   },
+   "reopenedN_other": {
+      "message": "Reopened $1 tabs"
+   },
+   "pinThis": {
+      "message": "Pin this tab"
+   },
+   "unpinThis": {
+      "message": "Unpin this tab"
+   },
+   "tourSwitchTitle": {
+      "message": "Switch like Alt+Tab"
+   },
+   "tourSwitchBody": {
+      "message": "Hold Alt and press Q to go back through your tabs, W to go forward, or turn the mouse wheel. Let go of Alt to switch."
+   },
+   "keyPrevTab": {
+      "message": "previous tab"
+   },
+   "keyNextTab": {
+      "message": "next tab"
+   },
+   "keyStay": {
+      "message": "open and keep open"
+   },
+   "keyNumber": {
+      "message": "jump to that card"
+   },
+   "keyUndo": {
+      "message": "reopen what you closed"
+   },
+   "tourCardsTitle": {
+      "message": "On each card"
+   },
+   "tourCardsBody": {
+      "message": "Star it, mute it, pin it, put it to sleep, copy its link, or leave yourself a note."
+   },
+   "tourCardsMouse": {
+      "message": "Ctrl+click shows a big preview. Middle-click closes the tab."
+   },
+   "tourSortTitle": {
+      "message": "Sort"
+   },
+   "tourSortBody": {
+      "message": "Recently opened first. Choose “By order” to see them as in the tab strip, and drag cards to move tabs. Pinned tabs always come first."
+   },
+   "setAllWindows": {
+      "message": "Show tabs from all windows"
+   },
+   "setAllWindowsNote": {
+      "message": "Off: only the window you open Tabazing in."
+   },
+   "mergeN_one": {
+      "message": "Merge $1 window into this one"
+   },
+   "mergeN_other": {
+      "message": "Merge $1 windows into this one"
+   },
+   "mergeSure": {
+      "message": "Click again to merge"
+   },
+   "mergeThis": {
+      "message": "Merge into this window"
+   },
+   "mergedN_one": {
+      "message": "Moved $1 tab into this window"
+   },
+   "mergedN_other": {
+      "message": "Moved $1 tabs into this window"
+   },
+   "filtersAria": {
+      "message": "Filters"
+   },
+   "fAudio": {
+      "message": "Audio"
+   },
+   "fPinned": {
+      "message": "Pinned"
+   },
+   "fAsleep": {
+      "message": "Asleep"
+   },
+   "fNotes": {
+      "message": "Notes"
+   },
+   "enterSearch": {
+      "message": "Press Enter to search Google for “$1”."
+   },
+   "enterOpen": {
+      "message": "Press Enter to open $1."
+   },
+   "noMatchShift": {
+      "message": "No open tabs match. Shift+Enter searches Google."
+   },
+   "snoozeThis": {
+      "message": "Snooze: close now, reopen later"
+   },
+   "actSnooze": {
+      "message": "Snooze…"
+   },
+   "snooze1h": {
+      "message": "In 1 hour"
+   },
+   "snooze3h": {
+      "message": "In 3 hours"
+   },
+   "snoozeEvening": {
+      "message": "This evening"
+   },
+   "snoozeTomorrow": {
+      "message": "Tomorrow morning"
+   },
+   "snoozeWeek": {
+      "message": "Next week"
+   },
+   "snoozedN_one": {
+      "message": "Snoozed $1 tab until $2"
+   },
+   "snoozedN_other": {
+      "message": "Snoozed $1 tabs until $2"
+   },
+   "snoozeCant": {
+      "message": "These pages can’t be reopened later."
+   },
+   "snoozedH": {
+      "message": "Snoozed"
+   },
+   "snoozedLabel": {
+      "message": "Snoozed"
+   },
+   "wakesAt": {
+      "message": "back $1"
+   },
+   "snoozedTip": {
+      "message": "$1: click to open it now"
+   },
+   "cancelSnooze": {
+      "message": "Cancel the snooze"
+   },
+   "snoozeCancelled": {
+      "message": "Snooze cancelled"
+   },
+   "keyPreview": {
+      "message": "big preview"
+   },
+   "ddTabs": {
+      "message": "Tabs"
+   },
+   "ddMarks": {
+      "message": "Bookmarks"
+   },
+   "ddMoreTabs_one": {
+      "message": "+$1 more in the list below"
+   },
+   "ddMoreTabs_other": {
+      "message": "+$1 more in the list below"
+   },
+   "ddGoogle": {
+      "message": "Search Google for “$1”"
+   },
+   "ddOpen": {
+      "message": "Open $1"
+   },
+   "ddOpenTab": {
+      "message": "open"
+   },
+   "ddNoMarks": {
+      "message": "Bookmarks can’t be searched yet: reload Tabazing at chrome://extensions to turn on its bookmarks access."
+   },
+   "ddMoreFound_one": {
+      "message": "+$1 more open tab matches"
+   },
+   "ddMoreFound_other": {
+      "message": "+$1 more open tabs match"
+   },
+   "pinnedOne": {
+      "message": "Pinned “$1”"
+   },
+   "unpinnedOne": {
+      "message": "Unpinned “$1”"
+   },
+   "ddHistory": {
+      "message": "History"
+   },
+   "visitedAgo": {
+      "message": "visited $1"
+   },
+   "ddNoHistory": {
+      "message": "History can’t be searched yet: reload Tabazing at chrome://extensions to turn on its history access."
+   },
+   "reloadThis": {
+      "message": "Reload this tab"
+   },
+   "duplicateThis": {
+      "message": "Duplicate this tab"
+   },
+   "reloadingOne": {
+      "message": "Reloading “$1”"
+   },
+   "duplicatedOne": {
+      "message": "Duplicated “$1”"
+   },
+   "setTheme": {
+      "message": "Theme"
+   },
+   "setThemeDark": {
+      "message": "Dark"
+   },
+   "setThemeLight": {
+      "message": "Light"
+   },
+   "setThemeSystem": {
+      "message": "Match system"
+   },
+   "noteClearBtn": {
+      "message": "Clear"
+   },
+   "noteCloseBtn": {
+      "message": "Close"
+   },
+   "setSize": {
+      "message": "Card size"
+   },
+   "setSizeDefault": {
+      "message": "Default"
+   },
+   "setSizeSmall": {
+      "message": "Small"
+   },
+   "setSizeList": {
+      "message": "List"
+   },
+   "setFlat": {
+      "message": "Don't group tabs"
+   },
+   "setFlatNote": {
+      "message": "Shows this window's tabs as one list, without tab-group sections."
+   },
+   "setStartup": {
+      "message": "Open Tabazing when Chrome starts"
+   },
+   "setStartupNote": {
+      "message": "Shows all your tabs, where you left off, a few seconds after Chrome opens."
+   },
+   "settings": {
+      "message": "Settings"
+   },
+   "shortcutMissing": {
+      "message": "Alt+Q isn’t set for Tabazing: another app or extension may have it. Pick a shortcut in Chrome."
+   },
+   "skip": {
+      "message": "Skip"
+   },
+   "sleepLaterN_one": {
+      "message": "$1 tab will sleep when you leave Tabazing"
+   },
+   "sleepLaterN_other": {
+      "message": "$1 tabs will sleep when you leave Tabazing"
+   },
+   "sleepThis": {
+      "message": "Put to sleep (frees memory)"
+   },
+   "sleepUndo": {
+      "message": "Don’t put to sleep"
+   },
+   "sleepUndone": {
+      "message": "Won’t sleep."
+   },
+   "sleeping": {
+      "message": "Sleeping"
+   },
+   "sleepingTip": {
+      "message": "Sleeping: Chrome unloaded this tab to save memory. It reloads when you open it."
+   },
+   "sleptN_one": {
+      "message": "$1 tab is asleep"
+   },
+   "sleptN_other": {
+      "message": "$1 tabs are asleep"
+   },
+   "sleptNone": {
+      "message": "Nothing to put to sleep (Chrome won’t unload the tab you’re on)."
+   },
+   "sortAria": {
+      "message": "Sort tabs"
+   },
+   "sortName": {
+      "message": "A–Z"
+   },
+   "sortNameTitle": {
+      "message": "By title, A to Z"
+   },
+   "sortNewest": {
+      "message": "Newest"
+   },
+   "sortNewestTitle": {
+      "message": "Newest opened first"
+   },
+   "sortOldest": {
+      "message": "Oldest"
+   },
+   "sortOldestTitle": {
+      "message": "Oldest opened first"
+   },
+   "sortRecent": {
+      "message": "Recent"
+   },
+   "sortRecentTitle": {
+      "message": "Most recently used first (like Alt+Tab)"
+   },
+   "sortSite": {
+      "message": "By site"
+   },
+   "sortSiteTitle": {
+      "message": "Group tabs from the same site together"
+   },
+   "star": {
+      "message": "Star"
+   },
+   "starAria": {
+      "message": "Star this page"
+   },
+   "starFilterTitle": {
+      "message": "Show only starred pages"
+   },
+   "starred": {
+      "message": "Starred"
+   },
+   "starredNotOpen": {
+      "message": "Starred, not open"
+   },
+   "sureN": {
+      "message": "Close $1? Click again"
+   },
+   "surveyBtn": {
+      "message": "Tell me what would help"
+   },
+   "sweepAll_one": {
+      "message": "$1 without preview · Capture it"
+   },
+   "sweepAll_other": {
+      "message": "$1 without preview · Capture all"
+   },
+   "sweepDone": {
+      "message": "Done."
+   },
+   "sweepFirst_one": {
+      "message": "$1 without preview · Capture first $2"
+   },
+   "sweepFirst_other": {
+      "message": "$1 without preview · Capture first $2"
+   },
+   "sweepH": {
+      "message": "Tabazing is capturing previews"
+   },
+   "sweepNote": {
+      "message": "Each tab shows for a moment. You’ll be back where you were."
+   },
+   "sweepNothing": {
+      "message": "Nothing to capture: every tab here already has a preview, or can’t have one."
+   },
+   "sweepPageTitle": {
+      "message": "Tabazing: capturing previews"
+   },
+   "sweepStarting": {
+      "message": "Starting…"
+   },
+   "sweepStop": {
+      "message": "Stop"
+   },
+   "sweepStopping": {
+      "message": "Stopping…"
+   },
+   "sweepTabOf": {
+      "message": "Tab $1 of $2"
+   },
+   "sweepThese_one": {
+      "message": "$1 without preview · Capture it"
+   },
+   "sweepThese_other": {
+      "message": "$1 without preview · Capture these"
+   },
+   "sweepTitleAll": {
+      "message": "Shows each of your tabs for a moment to take its picture, then puts you back where you were."
+   },
+   "sweepTitleMax": {
+      "message": "$1 at a time."
+   },
+   "sweepTitleOne": {
+      "message": "You can also capture one tab from its card."
+   },
+   "sweepTitleThese": {
+      "message": "Shows each of these tabs for a moment to take its picture, then puts you back where you were."
+   },
+   "tabs_one": {
+      "message": "$1 tab"
+   },
+   "tabs_other": {
+      "message": "$1 tabs"
+   },
+   "tellMe": {
+      "message": "Tell me"
+   },
+   "thisPage": {
+      "message": "This page"
+   },
+   "thisWindow": {
+      "message": "This window"
+   },
+   "tour1Body": {
+      "message": "Every open tab, with a preview."
+   },
+   "tour1Say": {
+      "message": "That’s it."
+   },
+   "tour1Title": {
+      "message": "Press $1"
+   },
+   "tour2Title": {
+      "message": "Move"
+   },
+   "tour3Body": {
+      "message": "Just type. Typos are fine. It finds open tabs, and ones you closed in the last 7 days."
+   },
+   "tour3Title": {
+      "message": "Search"
+   },
+   "tour4Body": {
+      "message": "Your groups become sections. Closed ones stay saved until you remove them."
+   },
+   "tour4On": {
+      "message": "Groups are on."
+   },
+   "tour4Say": {
+      "message": "Optional."
+   },
+   "tour4Title": {
+      "message": "Tab groups"
+   },
+   "tour5Body": {
+      "message": "Tell me what’s broken or missing. I’ll fix it."
+   },
+   "tour5Say": {
+      "message": "I read every one."
+   },
+   "tour5Title": {
+      "message": "Anything off?"
+   },
+   "tourBtn": {
+      "message": "How it works"
+   },
+   "tourManyBody": {
+      "message": "Tick tabs with the box (Shift+click ticks a range). Then close, copy, move or put them to sleep together from the bar at the bottom."
+   },
+   "tourManyTitle": {
+      "message": "Many at once"
+   },
+   "tourPanelBody": {
+      "message": "Your tab groups and Chrome bookmarks live in this panel. Closed groups stay saved until you delete them."
+   },
+   "tourPanelTitle": {
+      "message": "Groups and bookmarks"
+   },
+   "tourSetBody": {
+      "message": "Language, card size, accent colour, and opening Tabazing when Chrome starts."
+   },
+   "tourSetTitle": {
+      "message": "Settings"
+   },
+   "tourTitle": {
+      "message": "A short tour of Tabazing"
+   },
+   "tourWinBody": {
+      "message": "Each Chrome window, with a picture of what it shows. Click one, or press Alt+W, to see only its tabs."
+   },
+   "tourWinTitle": {
+      "message": "Your windows"
+   },
+   "turnOn": {
+      "message": "Turn on"
+   },
+   "ungrouped": {
+      "message": "Ungrouped"
+   },
+   "unmutedN_one": {
+      "message": "Unmuted $1 tab"
+   },
+   "unmutedN_other": {
+      "message": "Unmuted $1 tabs"
+   },
+   "unnamedGroup": {
+      "message": "Unnamed group"
+   },
+   "unpinnedN_one": {
+      "message": "Unpinned $1 tab"
+   },
+   "unpinnedN_other": {
+      "message": "Unpinned $1 tabs"
+   },
+   "unstar": {
+      "message": "Unstar"
+   },
+   "unstarAria": {
+      "message": "Unstar this page"
+   },
+   "untitled": {
+      "message": "Untitled"
+   },
+   "viewAria": {
+      "message": "Sort and filter"
+   },
+   "willSleep": {
+      "message": "Sleeps when you leave"
+   },
+   "windowN": {
+      "message": "Window $1"
+   },
+   "windowsAria": {
+      "message": "Windows"
+   }
+}
