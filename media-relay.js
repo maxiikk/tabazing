@@ -16,11 +16,14 @@
 
   const existing = window.__tabazingMedia;
   if (existing && existing.alive()) return;
-  if (existing) document.removeEventListener(MEDIA, existing.onMedia, true);
+  if (existing) {
+    document.removeEventListener(MEDIA, existing.onMedia, true);
+    if (existing.onSync) document.removeEventListener(SYNC, existing.onSync, true);
+  }
 
   let last = '';
   function onMedia(e) {
-    if (!alive()) { document.removeEventListener(MEDIA, onMedia, true); return; }
+    if (!alive()) { document.removeEventListener(MEDIA, onMedia, true); document.removeEventListener(SYNC, onSync, true); return; }
     const state = e.detail;
     if (typeof state !== 'string' || !state || state.length > MAX || state === last) return;
     let v = 0;
@@ -30,8 +33,13 @@
     chrome.runtime.sendMessage({ type: MEDIA, state }).catch(() => {});
   }
 
+  // Everything is said again (this relay starting, or the background asking after the tab loaded, having
+  // forgotten what it knew): the answer goes through even when it is the text sent last.
+  function onSync() { last = ''; }
+
   document.addEventListener(MEDIA, onMedia, true);
-  window.__tabazingMedia = { alive, onMedia };
+  document.addEventListener(SYNC, onSync, true);
+  window.__tabazingMedia = { alive, onMedia, onSync };
   // Started after the page did (installed, updated, reloaded: what the background knew is gone): ask the
   // page's media-hook.js for what it plays now. At the start of a page there is no hook yet, and nothing to say.
   document.dispatchEvent(new CustomEvent(SYNC));

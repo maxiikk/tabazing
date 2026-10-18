@@ -110,7 +110,7 @@ describe('onCyclingRun', () => {
     const [o] = nudgeCalls()[0];
     expect(o.target).toEqual({ tabId: 1 });
     expect(o.args).toEqual([MSG.NUDGE, NUDGE.SHOW_MS, {
-      title: 'Looking for a tab?', body: 'Alt+Q shows all of them at once, with previews. Type to find one.',
+      title: 'Looking for a tab?', body: 'Press Alt+Q and keep holding Alt: all your tabs, with previews. Let go of Alt to switch.',
       tryIt: expect.any(String), ok: expect.any(String), never: expect.any(String), close: expect.any(String),
     }, 'Alt+Q']);
     expect(L().get(KEY.NUDGE)).toMatchObject({ runs: 2, shown: 1, last: Date.now() });
@@ -121,7 +121,7 @@ describe('onCyclingRun', () => {
     chrome.runtime.getPlatformInfo.mockResolvedValueOnce({ os: 'mac' });
     await bg().onCyclingRun(tab());
     expect(nudgeCalls()[0][0].args[3]).toBe('Option+Q');
-    expect(nudgeCalls()[0][0].args[2].body).toMatch(/^Option\+Q /);
+    expect(nudgeCalls()[0][0].args[2].body).toMatch(/^Press Option\+Q /);
   });
 
   it('the first run of a day only counts', async () => {
@@ -188,7 +188,7 @@ describe('offerFlyout', () => {
     expect(flyoutCalls()).toHaveLength(1);
     expect(flyoutCalls()[0][0]).toEqual({
       target: { tabId: 3 }, func: bg().injectFlyout,
-      args: [MSG.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MS, { title: expect.any(String), body: 'Press $KEY$ to see all your tabs.', sub: expect.any(String), close: expect.any(String) }],
+      args: [MSG.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MS, { title: expect.any(String), body: 'Press $KEY$ and keep holding Alt to see your tabs; let go to switch.', sub: expect.any(String), close: expect.any(String) }],
     });
   });
 

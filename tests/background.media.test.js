@@ -2,7 +2,7 @@
 // player, and forgotten when the tab closes or loads a new page.
 import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS } from '../lib/constants.js';
-import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send } from './background.shared.js';
+import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send, env } from './background.shared.js';
 
 freshWorker();
 const media = () => chrome.storage.session._data.get(KEY.MEDIA);
@@ -93,16 +93,35 @@ describe('forgetting', () => {
     chrome.tabs.onUpdated._emit(other.id, { status: 'complete' }, other); // had media, but didn't load: not asked
     await flush();
     expect(resyncs().map(([o]) => o.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
-    // what it runs in the page: the hook's sync, if the page has the hook
-    const sync = vi.fn();
-    window[Symbol.for('tabazing.media')] = Object.assign(() => true, { sync });
+    // what it runs in the page: the sync event, which media-hook.js answers and media-relay.js lets through
+    const asked = vi.fn();
+    document.addEventListener('tabazing:media-sync', asked);
     resyncs()[0][0].func();
-    expect(sync).toHaveBeenCalledTimes(1);
-    delete window[Symbol.for('tabazing.media')];
-    expect(() => resyncs()[0][0].func()).not.toThrow(); // no hook: nothing
+    document.removeEventListener('tabazing:media-sync', asked);
+    expect(asked).toHaveBeenCalledTimes(1);
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab); // asked once per load
     await flush();
     expect(resyncs()).toHaveLength(1);
+  });
+
+  it('asked even when the load completes before the forgetting is done (a page changing its own address)', async () => {
+    const { tab } = await playing();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'loading', url: 'https://example.com/next' }, { ...tab, status: 'loading' });
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab); // at once, as Chrome does for history.pushState
+    await flush();
+    expect(media()[tab.id]).toBeUndefined();
+    const resyncs = chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files);
+    expect(resyncs.map(([o]) => o.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
+  });
+
+  it('two loads before it completes: still asked, once', async () => {
+    const { tab } = await playing();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
+    await flush();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'loading', url: 'https://example.com/b' }, { ...tab, status: 'loading' }); // nothing left to forget
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
+    await flush();
+    expect(chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files)).toHaveLength(1);
   });
 
   it('a tab that had no media is not asked after it loads', async () => {
@@ -122,5 +141,91 @@ describe('forgetting', () => {
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
     await flush();
     expect(media()[tab.id]).toBeDefined();
+  });
+});
+
+describe('checking with the pages (MSG.MEDIA_CHECK, as the switcher opens)', () => {
+  const S = chrome.storage.session;
+  const json = (p = {}) => JSON.stringify({ v: 3, ...STATE, ...p });
+  // What each tab's frames answer: tabId -> [{ frameId, result }] | Error | 'hang'
+  function pages(answers) {
+    chrome.scripting.executeScript.mockImplementation(async ({ target, func }) => {
+      const a = answers[target.tabId];
+      if (a instanceof Error) throw a;
+      if (a === 'hang') return new Promise(() => {}); // a frozen tab: never answers
+      return a || [];
+    });
+  }
+  async function stored(entries) {
+    const at = Date.now() - 60000;
+    await S.set({ [KEY.MEDIA]: Object.fromEntries(Object.entries(entries).map(([tab, frames]) => [tab, Object.fromEntries(Object.entries(frames).map(([f, p]) => [f, { ...STATE, ...p, t: at }]))])) });
+    return at;
+  }
+  const check = async () => { send({ type: MSG.MEDIA_CHECK }, fromSwitcherPage()); await flush(); vi.advanceTimersByTime(env.bg.CHECK_MS); await flush(); };
+
+  it('replaces what was known with what the frames say now: a removed player\'s frame and a tab with nothing go', async () => {
+    const a = chrome._addTab({ url: 'https://a.example/' });
+    const b = chrome._addTab({ url: 'https://b.example/' });
+    const at = await stored({ [a.id]: { 0: {}, 7: { title: 'Embed' } }, [b.id]: { 0: {} } });
+    pages({ [a.id]: [{ frameId: 0, result: json() }], [b.id]: [{ frameId: 0, result: json({ media: false }) }, { frameId: 3, result: null }] });
+    await check();
+    expect(media()).toEqual({ [a.id]: { 0: { ...STATE, t: at } } }); // unchanged: its time is kept (paused media ages out)
+    const call = chrome.scripting.executeScript.mock.calls[0][0];
+    expect(call).toMatchObject({ target: { tabId: a.id, allFrames: true }, world: 'MAIN' });
+  });
+
+  it('a frame that now plays something else gets a fresh time', async () => {
+    const a = chrome._addTab({ url: 'https://a.example/' });
+    pages({ [a.id]: [{ frameId: 0, result: json({ playing: false, title: 'Paused' }) }] });
+    const before = await stored({ [a.id]: { 0: { playing: true } } });
+    await check();
+    expect(media()[a.id][0]).toMatchObject({ playing: false, title: 'Paused' });
+    expect(media()[a.id][0].t).toBeGreaterThan(before); // when the answer came
+  });
+
+  it('a tab that can\'t run scripts any more (closed, crashed) has nothing; one that doesn\'t answer in time (frozen) keeps what was known', async () => {
+    const gone = chrome._addTab({ url: 'https://gone.example/' });
+    const frozen = chrome._addTab({ url: 'https://frozen.example/' });
+    await stored({ [gone.id]: { 0: {} }, [frozen.id]: { 0: {} } });
+    pages({ [gone.id]: new Error('No tab with id'), [frozen.id]: 'hang' });
+    await check();
+    expect(Object.keys(media())).toEqual([String(frozen.id)]);
+  });
+
+  it('a report that doesn\'t check out counts as nothing', async () => {
+    const a = chrome._addTab({ url: 'https://a.example/' });
+    await stored({ [a.id]: { 0: {} } });
+    pages({ [a.id]: [{ frameId: 0, result: '{"media":true,"playing":"yes"}' }, { frameId: 2, result: 42 }] });
+    await check();
+    expect(media()).toEqual({});
+  });
+
+  it('only the switcher can ask', async () => {
+    const a = chrome._addTab({ url: 'https://a.example/' });
+    await stored({ [a.id]: { 0: {} } });
+    send({ type: MSG.MEDIA_CHECK }, fromPage(a));
+    await flush();
+    expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
+  });
+
+  it('what it runs in the page asks media-hook.js, and copes without it', () => {
+    const { pageMediaState } = env.bg;
+    expect(pageMediaState()).toBeNull();
+    window[Symbol.for('tabazing.media')] = Object.assign(() => true, { state: () => json() });
+    expect(pageMediaState()).toBe(json());
+    window[Symbol.for('tabazing.media')] = Object.assign(() => true, { state: () => { throw new Error('page'); } });
+    expect(pageMediaState()).toBeNull();
+    delete window[Symbol.for('tabazing.media')];
+  });
+});
+
+describe('unloaded tabs', () => {
+  it('a tab Chrome discards loses its media (as in Chrome\'s controls)', async () => {
+    const { tab } = seed();
+    report(STATE, fromPage(tab));
+    await flush();
+    chrome.tabs.onUpdated._emit(tab.id, { discarded: true }, { ...tab, discarded: true });
+    await flush();
+    expect(media()).toEqual({});
   });
 });

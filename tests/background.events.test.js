@@ -471,4 +471,28 @@ describe('snoozed tabs', () => {
     expect(chrome.tabs.create).not.toHaveBeenCalled();
     expect(chrome.windows.create).not.toHaveBeenCalled();
   });
+
+  it('notes each woken tab (in a window or a new one) for the switcher', async () => {
+    const { w } = seed();
+    L().set(KEY.SNOOZED, [snooze({ windowId: w.id })]);
+    await bg().wakeSnoozed();
+    const tab = await chrome.tabs.create.mock.results[0].value;
+    L().set(KEY.SNOOZED, [snooze({ id: 'b', windowId: null })]);
+    chrome.windows.getLastFocused.mockRejectedValueOnce(new Error('none'));
+    await bg().wakeSnoozed();
+    const win = await chrome.windows.create.mock.results[0].value;
+    expect(S().get(KEY.WOKEN)).toEqual({ [tab.id]: Date.now(), [win.tabs[0].id]: Date.now() });
+  });
+
+  it('a woken tab is forgotten once looked at, or closed', async () => {
+    const { w, tab } = seed();
+    const other = chrome._addTab({ windowId: w.id, url: 'https://b.com/' });
+    S().set(KEY.WOKEN, { [tab.id]: Date.now(), [other.id]: Date.now() });
+    await chrome.tabs.onActivated._emit({ tabId: tab.id, windowId: w.id })[0];
+    await flush();
+    expect(S().get(KEY.WOKEN)).toEqual({ [other.id]: Date.now() });
+    chrome.tabs.onRemoved._emit(other.id, { windowId: w.id, isWindowClosing: false });
+    await flush();
+    expect(S().get(KEY.WOKEN)).toEqual({});
+  });
 });

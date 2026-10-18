@@ -243,7 +243,7 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     sw.select(1);
     key('F10', { shiftKey: true });
     menuItem(t('snoozeThis')).click();
-    expect(tids('menu-item').length).toBe(sw.snoozeChoices().length);
+    expect(tids('menu-item').length).toBe(sw.snoozeChoices().length + 1); // and "Pick a time…"
     key('Escape');
     expect(focused()).toBe(tid('search'));
     key('F10', { shiftKey: true });

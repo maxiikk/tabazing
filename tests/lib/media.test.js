@@ -124,10 +124,9 @@ describe('mediaEntries', () => {
     expect(list.map((e) => [e.tabId, e.frameId])).toEqual([[3, 0], [4, 3], [2, 0]]);
   });
 
-  it('a tab whose media was dismissed is listed again while it makes sound', () => {
-    const now = 10 * LIMITS.MEDIA_PAUSED_MS;
-    const list = mediaEntries({ 1: { 0: st({ t: 0 }) } }, [tab(1, { audible: true })], now);
-    expect(list.map((e) => [e.tabId, e.playing])).toEqual([[1, true]]);
+  it('a tab Chrome unloaded (discarded) is left out: its media is gone', () => {
+    const list = mediaEntries({ 1: { 0: st() }, 2: { 0: st() } }, [tab(1, { discarded: true }), tab(2)]);
+    expect(list.map((e) => e.tabId)).toEqual([2]);
   });
 
   it('one entry per tab, with what the switcher shows', () => {
@@ -154,11 +153,10 @@ describe('mediaEntries', () => {
     expect(list.map((e) => e.tabId)).toEqual([2, 3, 1]);
   });
 
-  it('a tab making sound without a report (open from before) is listed with what Chrome knows', () => {
-    const quiet = tab(4, { audible: true, title: 'Old radio', url: 'https://radio.example/', lastAccessed: 70 });
-    const list = mediaEntries({ 1: { 0: st({ playing: true, t: 5 }) } }, [tab(1, { audible: true }), quiet, tab(5)]);
-    expect(list.map((e) => e.tabId)).toEqual([4, 1]); // both playing, the radio more recent
-    expect(list[0]).toEqual({ tabId: 4, frameId: 0, title: 'Old radio', artist: '', site: 'radio.example', playing: true, canPrev: false, canNext: false, kind: 'audio', t: 70, tab: quiet });
+  it('a tab making sound without media (a game, a call: Web Audio, WebRTC) is not listed, as in Chrome', () => {
+    const game = tab(4, { audible: true, title: 'A game' });
+    const list = mediaEntries({ 1: { 0: st({ playing: true, t: 5 }) } }, [tab(1, { audible: true }), game]);
+    expect(list.map((e) => e.tabId)).toEqual([1]);
   });
 
   it('falls back to the tab\'s title, leaves out incognito tabs, and copes with a pending URL', () => {
@@ -173,11 +171,15 @@ describe('loadMedia', () => {
     chrome._addWindow({ id: 1 });
     chrome._addWindow({ id: 2 });
     const a = chrome._addTab({ windowId: 1, title: 'A', url: 'https://a.example/' });
-    const b = chrome._addTab({ windowId: 2, title: 'B', url: 'https://b.example/', audible: true });
-    await S.set({ [KEY.MEDIA]: { [a.id]: { 0: { media: true, playing: false, kind: 'audio', title: 'Song', artist: '', canPrev: true, canNext: true, muted: false, t: Date.now() } } } });
+    chrome._addWindow({ id: 3, type: 'popup' }); // a site's mini-player window, an installed web app
+    const b = chrome._addTab({ windowId: 2, title: 'B', url: 'https://b.example/', audible: true }); // sound, no media
+    const c = chrome._addTab({ windowId: 3, title: 'C', url: 'https://c.example/' });
+    const st = (title, playing) => ({ 0: { media: true, playing, kind: 'audio', title, artist: '', canPrev: true, canNext: true, muted: false, t: Date.now() } });
+    await S.set({ [KEY.MEDIA]: { [a.id]: st('Song', false), [c.id]: st('Popup song', true) } });
     const list = await loadMedia();
-    expect(chrome.tabs.query).toHaveBeenCalledWith({ windowType: 'normal' });
-    expect(list.map((e) => [e.tabId, e.title, e.playing])).toEqual([[b.id, 'B', true], [a.id, 'Song', false]]);
+    expect(chrome.tabs.query).toHaveBeenCalledWith({}); // every window, popups and apps too
+    expect(list.map((e) => [e.tabId, e.title, e.playing])).toEqual([[c.id, 'Popup song', true], [a.id, 'Song', false]]);
+    expect(list.some((e) => e.tabId === b.id)).toBe(false);
   });
 
   it('nothing stored, nothing audible: an empty list', async () => {

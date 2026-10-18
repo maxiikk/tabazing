@@ -52,6 +52,8 @@ beforeEach(() => {
   setHandler = vi.fn(function (action) { if (!KNOWN_ACTIONS.includes(action)) throw new TypeError(`'${action}' is not a valid MediaSessionAction`); });
   MediaSession.prototype.setActionHandler = setHandler;
   Object.defineProperty(MediaSession.prototype, 'metadata', Object.getOwnPropertyDescriptor(class { get metadata() { return this._meta; } set metadata(v) { this._meta = v; } }.prototype, 'metadata'));
+  // Chrome's playbackState is an accessor too ('none' until the page says otherwise)
+  Object.defineProperty(MediaSession.prototype, 'playbackState', { configurable: true, get() { return this._state || 'none'; }, set(v) { this._state = v; } });
   window.MediaSession = MediaSession;
   Object.defineProperty(navigator, 'mediaSession', { value: new MediaSession(), configurable: true });
   P.play = nativePlay = vi.fn(function () { states.get(this).paused = false; fire(this, 'play'); fire(this, 'playing'); return Promise.resolve(); });
@@ -83,7 +85,7 @@ describe('reports', () => {
     settle();
     expect(reports).toHaveLength(1);
     expect(typeof reports[0]).toBe('string');
-    expect(last()).toEqual({ v: 2, media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
+    expect(last()).toEqual({ v: 3, media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
   });
 
   it('injected into a page that is already playing (install, update), it says so without waiting for an event', () => {
@@ -127,7 +129,7 @@ describe('reports', () => {
     v.remove();
     v.pause();
     settle();
-    expect(last()).toEqual({ v: 2, media: false });
+    expect(last()).toEqual({ v: 3, media: false });
     expect(reports).toHaveLength(2);
   });
 
@@ -136,7 +138,7 @@ describe('reports', () => {
     v.play();
     settle();
     window.dispatchEvent(new Event('pagehide'));
-    expect(last()).toEqual({ v: 2, media: false });
+    expect(last()).toEqual({ v: 3, media: false });
     window.dispatchEvent(new Event('pagehide'));
     expect(reports).toHaveLength(2); // said once
     const back = new Event('pageshow');
@@ -443,7 +445,7 @@ describe('keeping the background up to date', () => {
     document.dispatchEvent(new CustomEvent('tabazing:media-sync'));
     settle();
     expect(reports).toHaveLength(n + 1);
-    expect(last()).toMatchObject({ v: 2, media: true, playing: true });
+    expect(last()).toMatchObject({ v: 3, media: true, playing: true });
     window[KEY].sync(); // the background's way in, after a tab loaded
     settle();
     expect(reports).toHaveLength(n + 2);
@@ -466,7 +468,7 @@ describe('keeping the background up to date', () => {
     Object.defineProperty(window, KEY, { value: old, configurable: true, enumerable: false, writable: false });
     load();
     expect(window[KEY]).not.toBe(old);
-    expect(window[KEY].version).toBe(2);
+    expect(window[KEY].version).toBe(3);
     const current = window[KEY];
     load();
     expect(window[KEY]).toBe(current);
@@ -492,5 +494,116 @@ describe('keeping the background up to date', () => {
     settle();
     expect(reports).toHaveLength(1); // one report: only the newer copy speaks
     expect(last()).toMatchObject({ media: true, playing: false, canNext: true });
+  });
+});
+
+describe('edge cases', () => {
+  it('a player moved elsewhere in the page (a mini player) keeps its place; taken out, it is gone until put back', () => {
+    const v = media('video');
+    v.play();
+    v.pause();
+    settle();
+    const box = document.createElement('div');
+    document.body.append(box);
+    box.append(v); // moved: never reported as gone
+    settle();
+    expect(last()).toMatchObject({ media: true, kind: 'video' });
+    v.remove();
+    fire(v, 'pause'); // Chrome pauses media taken out of the page
+    settle();
+    expect(last()).toEqual({ v: 3, media: false });
+    box.append(v); // put back (a page restoring its player)
+    fire(v, 'loadedmetadata');
+    fire(v, 'pause');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: false, kind: 'video' });
+  });
+
+  it('a muted preview starting does not hide which media you used last', () => {
+    const song = media('audio', { duration: 300 });
+    const clip = media('video', { duration: 300 });
+    song.play(); song.pause();
+    clip.play(); clip.pause();
+    song.play(); song.pause(); // the song was used last
+    settle();
+    expect(last()).toMatchObject({ kind: 'audio' });
+    const preview = media('video', { muted: true }); // a feed's hover preview
+    preview.play();
+    settle();
+    expect(last()).toMatchObject({ kind: 'audio', playing: false });
+  });
+
+  it('a call (a MediaStream: Meet, Zoom) is not media, as in Chrome\'s controls', () => {
+    class MediaStream {}
+    vi.stubGlobal('MediaStream', MediaStream);
+    try {
+      const a = media('audio', { src: '', duration: Infinity });
+      a.srcObject = new MediaStream();
+      a.play();
+      settle();
+      expect(reports).toEqual([]);
+      const b = media('audio', { src: '', duration: Infinity });
+      b.srcObject = {}; // a MediaSource-like object (a streaming site): that is media
+      b.play();
+      settle();
+      expect(last()).toMatchObject({ media: true, kind: 'audio' });
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it('a stream that never says how long it is joins after playing 5 s with sound', () => {
+    const v = media('video', { duration: NaN });
+    let time = 0;
+    Object.defineProperty(v, 'currentTime', { get: () => time, configurable: true });
+    v.play();
+    settle();
+    expect(reports).toEqual([]);
+    time = 4.9;
+    fire(v, 'timeupdate');
+    settle();
+    expect(reports).toEqual([]);
+    time = 5;
+    fire(v, 'timeupdate');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: true });
+  });
+
+  it('playing / paused follows what the page declares in its Media Session (as Chrome shows it), and reports its change', () => {
+    const v = media('video');
+    v.play();
+    settle();
+    expect(last().playing).toBe(true);
+    navigator.mediaSession.playbackState = 'paused'; // e.g. a player that keeps its element running between tracks
+    settle();
+    expect(last().playing).toBe(false);
+    navigator.mediaSession.playbackState = 'none'; // no say: the element decides again
+    settle();
+    expect(last().playing).toBe(true);
+  });
+
+  it('media starting by itself inside a closed shadow root (autoplay, no play() call) is heard', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const root = host.attachShadow({ mode: 'closed' }); // made after the hook: it listens there
+    const v = media('video', { root });
+    states.get(v).paused = false;
+    fire(v, 'play'); // not composed: never reaches the window
+    fire(v, 'playing');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: true, kind: 'video' });
+  });
+
+  it('a <video> with no picture (a radio stream, a podcast) is sound', () => {
+    const v = media('video');
+    Object.defineProperty(v, 'readyState', { value: 4, configurable: true });
+    Object.defineProperty(v, 'videoWidth', { value: 0, configurable: true });
+    v.play();
+    settle();
+    expect(last()).toMatchObject({ kind: 'audio' });
+  });
+
+  it('state() says what this frame plays now, for the background to check', () => {
+    expect(JSON.parse(window[KEY].state())).toEqual({ v: 3, media: false });
+    media('audio').play();
+    expect(JSON.parse(window[KEY].state())).toMatchObject({ v: 3, media: true, playing: true, kind: 'audio' });
   });
 });

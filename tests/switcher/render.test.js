@@ -29,13 +29,65 @@ describe('renderCard: open tabs', () => {
     expect(nums).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9', null, null]);
   });
 
-  it('pinned tabs come first and carry a pin badge', async () => {
+  it('pinned tabs come first and carry a pin badge, on the picture', async () => {
     const tabs = ABC();
     tabs[2].pinned = true;
     await boot({ tabs });
     expect(titles()[0]).toBe('Charlie');
-    expect(tid('card-pinned', card('Charlie'))).not.toBe(null);
+    expect(tid('card-pinned', tid('card-flags', tid('card-thumb', card('Charlie'))))).not.toBe(null);
+    expect(tid('card-pinned', tid('card-head', card('Charlie')))).toBe(null);
     expect(tid('card-pinned', card('Bravo'))).toBe(null);
+  });
+
+  it('Settings -> Pinned tabs first off: pinned tabs stay in the chosen sort', async () => {
+    const tabs = ABC();
+    tabs[2].pinned = true;
+    await boot({ tabs, prefs: { pinnedFirst: false } });
+    expect(titles()).toEqual(['Alpha', 'Bravo', 'Charlie']);
+  });
+
+  it('the tags (days ago, window, back from snooze) sit on the picture, top left; the site name only shows without them', async () => {
+    const old = Date.now() - 3 * 86400e3;
+    const sw = await boot({
+      tabs: [ABC()[0], { ...ABC()[1], lastAccessed: old }, ABC()[2]],
+      beforeImport: () => chrome.storage.session.set({ woken: { 3: Date.now() - 1000 } }),
+    });
+    const flags = tid('card-flags', tid('card-thumb', card('Bravo')));
+    expect(tid('card-age', flags).textContent).toBe('3 days ago');
+    expect(tid('card-age', tid('card-head', card('Bravo')))).toBe(null);
+    expect(tid('card-woken', tid('card-thumb', card('Charlie'))).textContent).toBe('Back from snooze');
+    expect(tid('card-woken', card('Alpha'))).toBe(null);
+    expect(tid('card-flags', card('Alpha'))).toBe(null); // no tags: no empty pill
+    sw.state.cardW = 320;
+    sw.redraw(() => true);
+    expect(tid('card-host', card('Bravo'))).toBe(null); // tags shown: no site name
+    expect(tid('card-host', card('Alpha')).textContent).toBe('alpha.example');
+  });
+
+  it('Settings -> Show "days ago" tags off: no age tag', async () => {
+    await boot({ tabs: [ABC()[0], { ...ABC()[1], lastAccessed: Date.now() - 5 * 86400e3 }], prefs: { showAge: false } });
+    expect(tid('card-age', card('Bravo'))).toBe(null);
+  });
+
+  it('list size: the tags stay in the row, compact', async () => {
+    await boot({ tabs: [ABC()[0], { ...ABC()[1], pinned: true }], prefs: { cardSize: 'list' } });
+    expect(tid('card-pinned', tid('card-flags', tid('card-head', card('Bravo'))))).not.toBe(null);
+  });
+
+  it('the star and × sit in one box over the end of the header (they take no room while hidden)', async () => {
+    await boot({ tabs: ABC() });
+    const box = tid('card-head-buttons', card('Bravo'));
+    expect(box.parentElement).toBe(tid('card-head', card('Bravo')));
+    expect([...box.children].map((b) => b.dataset.testid)).toEqual(['card-star-button', 'card-close']);
+    expect(box.classList.contains('two')).toBe(true);
+  });
+
+  it('two title lines by default (html.lines2); Settings -> Title lines: one', async () => {
+    let sw = await boot({ tabs: ABC() });
+    expect(document.documentElement.classList.contains('lines2')).toBe(true);
+    sw = await boot({ tabs: ABC(), prefs: { titleLines: 1 } });
+    expect(document.documentElement.classList.contains('lines2')).toBe(false);
+    expect(sw.state.prefs.titleLines).toBe(1);
   });
 
   it('audio badge: speaker while playing, crossed out while muted', async () => {
@@ -79,7 +131,7 @@ describe('renderCard: open tabs', () => {
     await chrome.storage.session.set({ slept: [2] });
     await boot({ tabs });
     expect(card('Bravo').classList.contains('asleep')).toBe(true);
-    expect(tid('card-no-preview-label', card('Bravo')).textContent).toBe('Sleeping');
+    expect(tid('card-no-preview-label', card('Bravo')).textContent).toBe('Asleep');
     expect(card('Charlie').classList.contains('asleep')).toBe(false);
   });
 
@@ -165,24 +217,47 @@ describe('finishCard: the mouse on a card', () => {
     expect(window.close).toHaveBeenCalled();
   });
 
-  it('Ctrl+click shows the big preview instead', async () => {
+  it('Shift+click on the preview shows it big', async () => {
     const sw = await boot({ tabs: ABC() });
-    card('Bravo').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+    tid('card-thumb', card('Bravo')).dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
     expect(tid('big-preview-title').textContent).toBe('Bravo');
     expect(sw.state.done).toBe(false);
+    expect(sw.state.picked.size).toBe(0);
   });
 
-  it('Shift+click ticks; with ticks, a plain click ticks too; Shift+click again ticks the range', async () => {
+  it('Ctrl+click (⌘-click) ticks and unticks a card; Shift+click on a tick box ticks the range from the last one', async () => {
     const sw = await boot({ tabs: ABC() });
-    card('Alpha').dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+    card('Alpha').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
     expect([...sw.state.picked]).toEqual([1]);
-    card('Bravo').click();
+    card('Bravo').dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true }));
     expect([...sw.state.picked].sort()).toEqual([1, 2]);
-    card('Bravo').click(); // untick
+    card('Bravo').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true })); // untick
     expect([...sw.state.picked]).toEqual([1]);
-    card('Charlie').dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); // from Bravo (the last one clicked)
+    tid('card-pick', card('Charlie')).dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); // from Bravo (the last one clicked)
     expect([...sw.state.picked].sort()).toEqual([1, 2, 3]);
     expect(sw.state.done).toBe(false);
+    expect(tid('big-preview')).toBe(null);
+  });
+
+  it('a plain click switches to the tab even while others are ticked; the bar says how to tick more', async () => {
+    const sw = await boot({ tabs: ABC() });
+    sw.pick(sw.state.entries[0]);
+    expect(tid('acts-hint').hidden).toBe(false);
+    expect(tid('acts-hint').textContent).toBe('Ctrl+click cards to select more');
+    card('Charlie').click();
+    await waitFor(() => sw.state.done);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(3, { active: true });
+  });
+
+  it('right-click opens the card menu at the pointer, not Chrome’s', async () => {
+    const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
+    const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 150, clientY: 60 });
+    card('Charlie').dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
+    expect(selectedTitle()).toBe('Charlie');
+    expect(tid('menu')).not.toBe(null);
+    expect(tid('menu').style.left).toBe('150px');
+    expect(tids('menu-item').map((b) => b.textContent)).toContain('Close tab');
   });
 
   it('middle-click closes the tab', async () => {
@@ -205,11 +280,20 @@ describe('finishCard: the mouse on a card', () => {
     expect(selectedTitle()).toBe('Charlie');
   });
 
-  it('a click on empty space cancels', async () => {
+  it('a click on the backdrop around the content cancels', async () => {
     const sw = await boot({ tabs: ABC() });
     tid('scroller').click();
     await waitFor(() => sw.state.done);
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'tabazing:closed', reason: 'cancel' }));
+  });
+
+  it('a click between cards, on a heading, the toolbar or the window list does not', async () => {
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 60, tab: { sessionId: 'x1', url: 'https://gone.example/', title: 'Gone' } }];
+    const sw = await boot({ tabs: ABC(), prefs: { allWindows: true }, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Delta', url: 'https://delta.example/' }); } });
+    for (const id of ['section-grid', 'open-grid', 'open-h', 'closed-h', 'closed-section', 'open-section', 'tools', 'view-toolbar', 'wins', 'qfilters']) {
+      tid(id).click();
+      expect(sw.state.done, id).toBe(false);
+    }
   });
 });
 
@@ -263,9 +347,12 @@ describe('windows: renderWindows, windowTag, setScope, cycleScope', () => {
     expect(tid('wins').children.length).toBe(0);
   });
 
-  it('several: "All windows", then each window; tabs elsewhere get a window tag', async () => {
+  it('several: "Merge all into this window", "All windows", then each window; tabs elsewhere get a window tag', async () => {
     const sw = await twoWindows();
     expect(tid('wins').hidden).toBe(false);
+    expect(tid('wins').firstChild).toBe(tid('windows-merge-all'));
+    expect(tid('windows-merge-all-label').textContent).toBe('Merge all into this window');
+    expect(tid('merge-btn').hidden).toBe(true); // the window list's own takes over
     expect(tid('body').classList.contains('with-wins')).toBe(true);
     expect(tids('window-label').map((x) => x.textContent)).toEqual(['All windows', 'This window', 'Window 2']);
     expect(tid('window-all').getAttribute('aria-pressed')).toBe('true');
@@ -273,6 +360,22 @@ describe('windows: renderWindows, windowTag, setScope, cycleScope', () => {
     expect(tid('card-window-tag', card('Delta')).textContent).toBe('Window 2');
     expect(tid('card-window-tag', card('Alpha'))).toBe(null);
     expect(sw.windowTag(sw.state.tabs.find((x) => x.title === 'Delta')).textContent).toBe('Window 2');
+  });
+
+  it('"Merge all into this window" merges at once, with Undo', async () => {
+    const sw = await twoWindows();
+    tid('windows-merge-all').click();
+    await waitFor(() => tid('toast-action'));
+    expect(chrome.tabs.move).toHaveBeenCalledWith([4], { windowId: 1, index: -1 });
+    expect(sw.state.undo.at(-1).kind).toBe('merge');
+  });
+
+  it("a window's own merge button merges just that one, at once", async () => {
+    const sw = await twoWindows();
+    tid('window-merge').click();
+    await waitFor(() => chrome.tabs.move.mock.calls.length);
+    expect(chrome.tabs.move).toHaveBeenCalledWith([4], { windowId: 1, index: -1 });
+    expect(sw.state.done).toBe(false);
   });
 
   it('clicking a window shows only its tabs (no window tags then)', async () => {
@@ -414,10 +517,24 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     expect(tid('acts').hidden).toBe(true);
   });
 
-  it('merge button when there are other windows', async () => {
+  it('no merge button while only this window is shown (Settings: all windows off)', async () => {
     await boot({ tabs: ABC(), beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Delta', url: 'https://delta.example/' }); } });
-    expect(tid('merge-btn').hidden).toBe(false);
+    expect(tid('merge-btn').hidden).toBe(true);
     expect(tid('merge-text').textContent).toMatch(/1/);
+  });
+
+  it('with all windows on, the merge button shows only while the window list does not', async () => {
+    const sw = await boot({ tabs: ABC(), prefs: { allWindows: true }, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Delta', url: 'https://delta.example/' }); } });
+    expect(tid('merge-btn').hidden).toBe(true);
+    sw.state.windows = sw.state.windows.slice(0, 1); // (say its tabs are all Tabazing's own pages)
+    sw.render();
+    expect(tid('merge-btn').hidden).toBe(false);
+  });
+
+  it('"Capture all" is a small camera with the count', async () => {
+    await boot({ tabs: ABC() });
+    expect(tid('sweep-btn').classList.contains('compact')).toBe(true);
+    expect(tid('sweep-text').textContent).toBe('2');
   });
 });
 
@@ -447,12 +564,12 @@ describe('sort', () => {
   it('the themed select: shows the choice, opens a menu with it ticked, and picking one sorts', async () => {
     const sw = await boot({ tabs: tabs() });
     const fs = tid('select-sort');
-    expect(tid('select-label', fs).textContent).toBe('By recently opened');
+    expect(tid('select-label', fs).textContent).toBe('By recently used');
     expect(tid('sort').classList.contains('fs-native')).toBe(true);
     expect(sw.fancySelect(tid('sort'))).toBe(tid('sort')._fancy); // made once only
     fs.click();
     const items = tids('menu-item');
-    expect(items.map((x) => x.textContent)).toEqual(['By order', 'By recently opened', 'By name']);
+    expect(items.map((x) => x.textContent)).toEqual(['By order', 'By recently used', 'By name']);
     expect(items[1].getAttribute('aria-checked')).toBe('true');
     expect(document.activeElement).toBe(items[1]);
     items[2].click();
@@ -580,7 +697,7 @@ describe('renderCount / renderActs', () => {
     expect(tid('acts').hidden).toBe(true);
   });
 
-  it('ticked tabs: how many, Clear, and the action buttons (Close asks again for several)', async () => {
+  it('ticked tabs: how many, Clear, and the action buttons (Close closes at once: Undo brings them back)', async () => {
     const sw = await boot({ tabs: ABC() });
     sw.state.picked.add(2).add(3);
     sw.refresh();
@@ -588,9 +705,6 @@ describe('renderCount / renderActs', () => {
     expect(tid('acts-n').textContent).toMatch(/2/);
     expect(tid('sel-none').hidden).toBe(false);
     expect([...tid('acts-btns').children].map((b) => b.dataset.testid)).toEqual(['action-close', 'action-copy', 'actions-more']);
-    tid('action-close').click();
-    expect(chrome.tabs.remove).not.toHaveBeenCalled();
-    expect(tid('action-close').classList.contains('armed')).toBe(true); // asks "sure?"
     tid('action-close').click();
     await waitFor(() => chrome.tabs.remove.mock.calls.length);
     expect(chrome.tabs.remove).toHaveBeenCalledWith([2, 3]);
@@ -612,6 +726,7 @@ describe('renderCount / renderActs', () => {
     const all = tid('sel-all');
     expect(all.hidden).toBe(false);
     expect(all.textContent).toMatch(/2/);
+    expect(all.className).toBe('lnk'); // a secondary link, not the bar's main button
     expect(tid('acts-btns').hidden).toBe(true);
     all.click();
     expect([...sw.state.picked].sort()).toEqual([1, 4]);
@@ -632,6 +747,36 @@ describe('toast', () => {
       vi.advanceTimersByTime(200);
       expect(tid('toast').hidden).toBe(true);
     } finally { vi.useRealTimers(); }
+  });
+
+  it('waits while hovered or focused (so Undo stays reachable), then hides', async () => {
+    const sw = await boot();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      sw.toast('Closed 1 tab', null, { label: 'Undo', fn: () => {} });
+      tid('toast').dispatchEvent(new MouseEvent('mouseenter'));
+      vi.advanceTimersByTime(20000);
+      expect(tid('toast').hidden).toBe(false);
+      tid('toast').dispatchEvent(new MouseEvent('mouseleave'));
+      vi.advanceTimersByTime(1);
+      vi.advanceTimersByTime(6000);
+      expect(tid('toast').hidden).toBe(true);
+      sw.toast('Closed 2 tabs', null, { label: 'Undo', fn: () => {} });
+      tid('toast').dispatchEvent(new FocusEvent('focusin'));
+      vi.advanceTimersByTime(20000);
+      expect(tid('toast').hidden).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('sits above the actions bar while that shows (never over it)', async () => {
+    const sw = await boot({ tabs: ABC() });
+    sw.toast('Hello');
+    expect(tid('toast').style.bottom).toBe('20px');
+    expect(tid('toast').classList.contains('lifted')).toBe(false);
+    sw.pick(sw.state.entries[1]);
+    expect(tid('acts').hidden).toBe(false);
+    expect(parseFloat(tid('toast').style.bottom)).toBeGreaterThan(20);
+    expect(tid('toast').classList.contains('lifted')).toBe(true);
   });
 
   it('with an action: a button that runs it and hides the note', async () => {
@@ -663,7 +808,7 @@ describe('small pieces', () => {
     document.documentElement.classList.remove('intro');
   });
 
-  it('applyTheme: light, dark, and anything else is dark', async () => {
+  it('applyTheme: light, dark, and anything else follows the system', async () => {
     const sw = await boot();
     const html = document.documentElement;
     sw.applyTheme('light');
@@ -671,9 +816,17 @@ describe('small pieces', () => {
     sw.applyTheme('dark');
     expect(html.classList.contains('light')).toBe(false);
     sw.applyTheme('purple');
+    expect(sw.themePref).toBe('system');
+    expect(html.classList.contains('light')).toBe(false); // the fake OS prefers dark
+    sw.applyTheme('system');
     expect(html.classList.contains('light')).toBe(false);
-    sw.applyTheme('system'); // the fake OS prefers dark
-    expect(html.classList.contains('light')).toBe(false);
+  });
+
+  it('with no theme saved, it follows the system', async () => {
+    const sw = await boot({ beforeImport: () => vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {} })) });
+    expect(sw.themePref).toBe('system');
+    expect(document.documentElement.classList.contains('light')).toBe(true);
+    sw.applyTheme('dark');
   });
 
   it('applyTheme: "system" follows a light OS', async () => {
@@ -686,6 +839,41 @@ describe('small pieces', () => {
   it('the theme saved in Settings is applied at boot', async () => {
     await boot({ prefs: { theme: 'light' } });
     expect(document.documentElement.classList.contains('light')).toBe(true);
+  });
+
+  it('layoutHeader: below 1100 px the player moves under the search box (.narrow), below 900 px icons only (.tight)', async () => {
+    const sw = await boot();
+    const bar = tid('header');
+    sw.layoutHeader(1400);
+    expect([bar.classList.contains('narrow'), bar.classList.contains('tight')]).toEqual([false, false]);
+    sw.layoutHeader(1000);
+    expect([bar.classList.contains('narrow'), bar.classList.contains('tight')]).toEqual([true, false]);
+    sw.layoutHeader(800);
+    expect([bar.classList.contains('narrow'), bar.classList.contains('tight')]).toEqual([true, true]);
+    // a resize lays it out again, and the card area follows the header's new height
+    Object.defineProperty(window, 'innerWidth', { value: 1500, configurable: true });
+    Object.defineProperty(bar, 'offsetHeight', { value: 108, configurable: true });
+    sw.render();
+    expect(bar.classList.contains('narrow')).toBe(false);
+    expect(tid('body').style.getPropertyValue('--top')).toBe('108px');
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+  });
+
+  it('the header has no shortcut row any more: an ⓘ button instead', async () => {
+    await boot();
+    expect(tid('hint')).toBe(null);
+    expect(tid('keys-btn').getAttribute('aria-label')).toBe('Keyboard and mouse shortcuts');
+    expect(tid('keys-btn').getAttribute('aria-haspopup')).toBe('dialog');
+  });
+
+  it('the light theme draws rings and outlines with the darkened accent (--ring), for 3:1 on a light ground', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('switcher.css', 'utf8');
+    expect(css).toMatch(/html\.light \{[^}]*--ring: var\(--accent-ink\)/);
+    expect(css).toMatch(/:root \{[^}]*--ring: var\(--accent\)/);
+    expect(css).toMatch(/^:focus-visible \{ outline: 2px solid var\(--ring\)/m);
+    expect(css).toMatch(/\.card\[aria-selected="true"\] \{[^}]*box-shadow: 0 0 0 2px var\(--ring\)/);
+    expect(css).toMatch(/\.tour-hl \{ outline: 3px solid var\(--ring\)/);
   });
 
   it('setTop: the card area starts under the header, the toolbar and a shown alert', async () => {
@@ -755,13 +943,10 @@ describe('menu / closePops', () => {
     expect(document.activeElement.textContent).toBe('One');
   });
 
-  it('a click runs the item and closes the menu; a "sure" item asks first', async () => {
+  it('a click runs the item at once and closes the menu', async () => {
     const { sw, anchor, fns, items } = await setup();
     sw.menu(anchor, items);
     const [, , three] = tids('menu-item');
-    three.click();
-    expect(fns[2]).not.toHaveBeenCalled();
-    expect(three.textContent).toBe('Sure?');
     three.click();
     expect(fns[2]).toHaveBeenCalledOnce();
     expect(tid('menu')).toBe(null);

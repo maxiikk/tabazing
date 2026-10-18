@@ -12,7 +12,7 @@
 // copies from before versions existed can't be retired, so media-relay.js ignores reports without a version.
 (() => {
   const KEY = Symbol.for('tabazing.media');
-  const VERSION = 2; // in every report as "v"; media-relay.js passes on reports from VERSION 2 on
+  const VERSION = 3; // in every report as "v"; media-relay.js passes on reports from VERSION 2 on
   const prev = window[KEY];
   if (prev && prev.version >= VERSION) return;
   if (prev && typeof prev.retire === 'function') prev.retire();
@@ -52,47 +52,72 @@
       return r;
     };
   }
-  const meta = MS && Object.getOwnPropertyDescriptor(MS, 'metadata');
-  if (meta && meta.set && meta.configurable) {
-    Object.defineProperty(MS, 'metadata', {
-      configurable: true, enumerable: meta.enumerable, get: meta.get,
-      set(v) { meta.set.call(this, v); schedule(); },
+  // Its metadata (the title Chrome shows) and its playbackState (playing / paused, when the page says so
+  // itself): both report when they change.
+  for (const name of ['metadata', 'playbackState']) {
+    const d = MS && Object.getOwnPropertyDescriptor(MS, name);
+    if (!d || !d.set || !d.configurable) continue;
+    Object.defineProperty(MS, name, {
+      configurable: true, enumerable: d.enumerable, get: d.get,
+      set(v) { d.set.call(this, v); schedule(); },
     });
   }
 
   // ---- media elements: the document's events reach the window; play() tells us about the others
-  // Events of an element outside the document (in a shadow root, never added, or just removed: Chrome
-  // pauses it then) don't reach the window: so every element heard from gets listeners of its own.
+  // Events of an element outside the document (in a shadow root, never added, or just taken out: Chrome
+  // pauses it then) don't reach the window, so every element heard from gets listeners of its own too. Each
+  // event is handled once (a feed of muted videos fires many): by the window while the element is in the
+  // document, by its own listener while it isn't.
   function watch(el) {
     if (watched.has(el)) return;
     watched.add(el);
-    for (const e of EVENTS) el.addEventListener(e, onMedia);
+    for (const e of EVENTS) el.addEventListener(e, onOwn);
+  }
+  function onOwn(e) {
+    if (e.currentTarget.getRootNode() !== document) onMedia(e); // else the window heard it
+  }
+  function onWindow(e) {
+    const el = e.target;
+    if (watched.has(el) && el.getRootNode() !== document) return; // its own listener has it
+    onMedia(e);
+  }
+  // Shadow roots, even closed ones, as the page makes them: media inside that starts by itself (autoplay,
+  // no play() call) is heard there.
+  const A = window.Element && window.Element.prototype;
+  if (A && typeof A.attachShadow === 'function') {
+    const attach = A.attachShadow;
+    A.attachShadow = function () {
+      const root = attach.apply(this, arguments);
+      try { for (const e of EVENTS) root.addEventListener(e, onWindow, true); } catch {}
+      return root;
+    };
   }
   const P = window.HTMLMediaElement && window.HTMLMediaElement.prototype;
   if (P && typeof P.play === 'function') {
     const play = P.play;
     P.play = function () {
       watch(this);
-      lastPlayed = this;
       schedule();
       return play.apply(this, arguments);
     };
   }
   function onMedia(e) {
     const el = e.target;
-    if (!(el instanceof HTMLMediaElement)) return;
+    if (!(el instanceof HTMLMediaElement) || retired) return;
     watch(el);
     // timeupdate (a few times a second while playing) only matters until the element has joined: its sound
     // may be decoded, or its duration known, only a moment after it starts.
-    if (retired) return;
-    if (e.type === 'timeupdate') { if (join(el)) schedule(); return; }
-    if (e.type === 'play' || e.type === 'playing') lastPlayed = el;
+    if (e.type === 'timeupdate') { if (join(el)) { lastPlayed = el; schedule(); } return; }
     join(el);
+    // "Played last" is about this frame's media only: a muted preview starting doesn't hide which video you used.
+    if ((e.type === 'play' || e.type === 'playing') && active.has(el)) lastPlayed = el;
     schedule();
   }
-  for (const e of EVENTS) window.addEventListener(e, onMedia, true);
+  for (const e of EVENTS) window.addEventListener(e, onWindow, true);
 
-  const hasSource = (el) => !!(el.currentSrc || el.src || el.srcObject);
+  // A source, but not a live call (a MediaStream: Meet, Zoom...), which Chrome's media controls leave out.
+  const isStream = (o) => !!o && typeof MediaStream === 'function' && o instanceof MediaStream;
+  const hasSource = (el) => !isStream(el.srcObject) && !!(el.currentSrc || el.src || el.srcObject);
   const playing = (el) => !el.paused && !el.ended;
   // Sound: not muted, not at zero volume, and an audio track: an <audio>, or a video whose sound Chrome has
   // decoded (webkitAudioDecodedByteCount; a video without sound never joins). Where that counter doesn't
@@ -103,9 +128,12 @@
     const n = el.webkitAudioDecodedByteCount;
     return typeof n !== 'number' || n > 0;
   }
-  // Long enough: 5 s or more, or live (endless). An unknown duration waits until it is known.
-  const longEnough = (el) => el.duration === Infinity || (Number.isFinite(el.duration) && el.duration >= MIN_SECONDS);
-  const gone = (el) => !el.isConnected && inDoc.has(el); // was in the page, taken out of it
+  // Long enough: 5 s or more, or live (endless). An unknown duration waits until it is known, or until it
+  // has played 5 s (some streams never say how long they are).
+  const longEnough = (el) => el.duration === Infinity || (Number.isFinite(el.duration) ? el.duration >= MIN_SECONDS : el.currentTime >= MIN_SECONDS);
+  // Was in the page and is out of it now. Only for now: a player moved elsewhere in the page (a mini player)
+  // is back as soon as it is put back in.
+  const gone = (el) => !el.isConnected && inDoc.has(el);
   // Playing with sound right now: it joins this frame's media (and stays). Returns whether it just joined.
   // `before`: it doesn't have to be playing now if it has played (el.played): for a hook injected into a page
   // that is already open, which wasn't there to see it.
@@ -114,28 +142,35 @@
     const played = playing(el) || (before && el.played && el.played.length > 0);
     if (active.has(el) || gone(el) || !played || !hasSource(el) || !withSound(el) || !longEnough(el)) return false;
     active.add(el);
-    if (active.size > MAX_KNOWN) active.delete(active.values().next().value);
+    if (active.size > MAX_KNOWN) { // too many: those out of the page go first, then the oldest
+      const out = [...active].find(gone);
+      active.delete(out || active.values().next().value);
+    }
     return true;
   }
   // This frame's one media: the playing one (the one started last, if several), else the one played last,
   // else the one that joined last.
   function primary() {
-    for (const el of [...active]) if (gone(el)) active.delete(el);
-    if (!active.size) return null;
-    if (lastPlayed && playing(lastPlayed) && active.has(lastPlayed)) return lastPlayed;
-    const newestFirst = [...active].reverse();
-    return newestFirst.find(playing) || (active.has(lastPlayed) ? lastPlayed : null) || newestFirst[0];
+    const here = [...active].filter((el) => !gone(el));
+    if (!here.length) return null;
+    if (lastPlayed && playing(lastPlayed) && here.includes(lastPlayed)) return lastPlayed;
+    const newestFirst = here.reverse();
+    return newestFirst.find(playing) || (here.includes(lastPlayed) ? lastPlayed : null) || newestFirst[0];
   }
   const text = (v) => (typeof v === 'string' ? v : '');
   function current() {
     const el = primary();
     if (!el) return { v: VERSION, media: false };
     const m = metadata();
+    // Playing or paused: what the page declares in its Media Session, if it does (Chrome's controls show
+    // that too), else the element itself.
+    const declared = session() && session().playbackState;
     return {
       v: VERSION,
       media: true,
-      playing: playing(el),
-      kind: el instanceof HTMLVideoElement ? 'video' : 'audio',
+      playing: declared === 'playing' ? true : declared === 'paused' ? false : playing(el),
+      // A <video> with no picture (a radio stream, a podcast) is sound.
+      kind: el instanceof HTMLVideoElement && !(el.readyState >= 1 && el.videoWidth === 0) ? 'video' : 'audio',
       title: text(m && m.title) || document.title || '',
       artist: text(m && m.artist),
       canPrev: handlers.has('previoustrack'),
@@ -197,6 +232,7 @@
   // A newer copy takes over (see the top): this one stops reporting and acting.
   act.version = VERSION;
   act.sync = sync;
+  act.state = () => JSON.stringify(current()); // what this frame plays now (the background checks with it)
   act.retire = () => { retired = true; clearTimeout(timer); document.removeEventListener(SYNC, sync); };
   act.handoff = () => ({ handlers, active, lastPlayed }); // what a newer copy takes over (see below)
   Object.defineProperty(window, KEY, { value: act, configurable: true, enumerable: false, writable: false });

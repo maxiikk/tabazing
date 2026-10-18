@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2026-10-18
+
+### Added
+
+- **New Tab page**: Tabazing now provides Chrome's New Tab page (search box, your most visited sites, your starred pages, your shortcut), so the switcher opens as a real overlay there too instead of a separate window. Chrome asks once whether to keep it: choose "Keep it" ("Change it back" turns Tabazing off).
+- An **ⓘ** button in the header lists every keyboard and mouse shortcut; the shortcut hint row is gone.
+- A **⋯** button on each card, and right-click, open the card's full menu of actions.
+- Selection: Ctrl/⌘+click ticks a card, Shift+click on a tick box ticks a range, Shift+arrows extend the selection and Ctrl+Space ticks the selected card.
+- Undo for "Merge windows" and "Move to new window"; Undo after closing tabs brings them back with their back/forward history.
+- Snooze: "Pick a time…" for any date and time, "Tomorrow evening" after 17:00, and a "Back from snooze" tag on tabs a snooze has just reopened.
+- "Show more" in Recently closed.
+- New settings: pinned tabs first, show Recently closed, show Snoozed, show "days ago" tags, title lines, search history / bookmarks, always open in its own window, replay the tour, keyboard shortcuts (grouped into Appearance, Cards, Search and Behaviour).
+- The first-run tour also covers snooze, archive, windows and the media player.
+- "Capture all previews" shows how long is left, and mutes each tab while it shows it.
+- Media player: double-click a row in its list to play or pause it.
+
+### Changed
+
+- **Shift+click on a card opens the big preview** (it was Ctrl+click), and a plain click always switches to the tab, even while some are ticked.
+- Alt+Q / Alt+W are described everywhere as they work: the previous / next card in the list, wrapping around; hold Alt and let go to switch.
+- While you search, cards that don't match are dimmed, and the search box says what it searches (and leaves out history or bookmarks if you turn them off in Settings).
+- Card headers are tidier: age, window and pinned tags sit on the preview, the star and × take no room until shown, and titles can use two lines. Cards show their most used buttons (pin, snooze, archive, note) and ⋯ for the rest.
+- The header adapts to narrow windows: the search box is smaller, and the media player moves below it.
+- No more "click again" confirmations: everything that asked for one now has Undo.
+- The theme follows the system by default; in the light theme the selection and focus rings are darker so they stay visible.
+- When Tabazing has to open in its own window (Chrome's own pages), the window covers your browser window.
+- Toasts sit above the actions bar and stay while you point at them; the toolbar-icon tip shows at most 3 times; "Merge windows" moved into the windows list; "Capture all previews" is a compact button.
+- Clicking between cards or on section headings no longer closes Tabazing; only clicking the backdrop does.
+- Cards whose preview is still loading show a plain placeholder instead of "No preview yet".
+- Clearer messages when an action fails, and consistent wording ("By recently used", sleep / asleep, close Tabazing).
+- Media player detection matches Chrome's own media controls in more cases: video calls are left out, players moved within the page or inside web components are followed, streams of unknown length count after 5 s, the page's own playing / paused state is used, and the list is checked against the pages each time Tabazing opens (removed players, unloaded or crashed tabs drop out). Media in popup and app windows is listed too.
+
+### Removed
+
+- The shortcut hint row (see ⓘ).
+- Ctrl+click for the big preview (now Shift+click) and Shift+click on a card for a range (now Shift+click on its tick box).
+- Tabs that only make sound without media (games, calls) no longer appear in the media player, as in Chrome.
+
+### Fixed
+
+- Enter in the search box could open a hidden search result instead of the selected card.
+- Media playing in a page that changes its own address (as YouTube does between videos) dropped out of the player.
+
 ## [3.1.2] - 2026-10-18
 
 ### Fixed
@@ -157,7 +200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.1.2]: https://github.com/maxiikk/tabazing/compare/6223238...HEAD
+[4.0.0]: https://github.com/maxiikk/tabazing/compare/81d1eae...HEAD
+[3.1.2]: https://github.com/maxiikk/tabazing/compare/6223238...81d1eae
 [3.1.1]: https://github.com/maxiikk/tabazing/compare/b6177be...6223238
 [3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...b6177be
 [3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...9e19aa0

@@ -3,10 +3,10 @@
       "message": "Tabazing (Alt+Q)"
    },
    "cmdOpen": {
-      "message": "Abrir Tabazing en la pestaña anterior (suelta Alt para cambiar)"
+      "message": "Abrir Tabazing en la tarjeta anterior de la lista (da la vuelta); suelta Alt para cambiar"
    },
    "cmdReverse": {
-      "message": "Abrir Tabazing en la pestaña siguiente (suelta Alt para cambiar)"
+      "message": "Abrir Tabazing en la tarjeta siguiente de la lista (da la vuelta); suelta Alt para cambiar"
    },
    "cmdStay": {
       "message": "Abrir Tabazing y dejarlo abierto"

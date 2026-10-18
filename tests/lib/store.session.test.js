@@ -445,3 +445,35 @@ describe('capture notes', () => {
     expect(await s.getNoCapture()).toEqual(new Set(['https://a.com/']));
   });
 });
+
+describe('woken snoozed tabs', () => {
+  it('records each woken tab with when it woke', async () => {
+    expect(await s.getWoken()).toEqual({});
+    await s.markWoken(5);
+    await s.markWoken(7, NOW - 1000);
+    expect(await s.getWoken()).toEqual({ 5: NOW, 7: NOW - 1000 });
+    expect(S._data.get(KEY.WOKEN)).toEqual({ 5: NOW, 7: NOW - 1000 });
+  });
+
+  it('ignores a bad tab id', async () => {
+    await s.markWoken(undefined);
+    await s.markWoken(-1);
+    expect(S._data.has(KEY.WOKEN)).toBe(false);
+  });
+
+  it('drops entries older than a day, and invalid ones, on read', async () => {
+    S._data.set(KEY.WOKEN, { 1: NOW - LIMITS.WOKEN_TTL_MS, 2: NOW - LIMITS.WOKEN_TTL_MS + 1, x: NOW, 3: 'soon', 4: -5 });
+    expect(await s.getWoken()).toEqual({ 2: NOW - LIMITS.WOKEN_TTL_MS + 1 });
+    for (const v of [null, [], 'x']) { S._data.set(KEY.WOKEN, v); expect(await s.getWoken()).toEqual({}); }
+  });
+
+  it('forgetWoken removes one, and writes nothing for a tab that is not there', async () => {
+    await s.markWoken(5);
+    await s.markWoken(6);
+    await s.forgetWoken(5);
+    expect(await s.getWoken()).toEqual({ 6: NOW });
+    S.set.mockClear();
+    await s.forgetWoken(99);
+    expect(S.set).not.toHaveBeenCalled();
+  });
+});

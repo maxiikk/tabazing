@@ -618,3 +618,113 @@ describe('ddActivate: each kind of row', () => {
     expect(chrome.tabs.create).not.toHaveBeenCalled();
   });
 });
+
+describe('searching dims the cards that do not match', () => {
+  it('while there is text, the others step back (they keep their places), and come back when it is cleared', async () => {
+    const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
+    type(sw, 'brav');
+    await nextFrame();
+    const dim = () => openCards().filter((c) => c.classList.contains('nomatch')).map(titleOf);
+    expect(dim()).toEqual(['Alpha', 'Charlie']);
+    expect(openCards().map(titleOf)).toEqual(['Alpha', 'Bravo', 'Charlie']); // same cards, same order
+    expect(sw.state.hits.has('t2')).toBe(true);
+    sw.refresh(); // a redraw keeps it
+    expect(dim()).toEqual(['Alpha', 'Charlie']);
+    key('Escape');
+    expect(dim()).toEqual([]);
+    expect(sw.state.hits).toBe(null);
+  });
+});
+
+describe('Enter with search text', () => {
+  it('uses the dropdown only while it shows: with it hidden, Enter opens the selected card', async () => {
+    const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
+    type(sw, 'charlie');
+    await nextFrame();
+    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); // hides the dropdown
+    expect(sw.ddShown()).toBe(false);
+    expect(sw.state.dd.items.length).toBeGreaterThan(0); // (its rows are still known)
+    tid('search').focus();
+    key('Enter');
+    await waitFor(() => sw.state.done);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(1, { active: true }); // Alpha, the selected card, not Charlie's row
+  });
+});
+
+describe('Settings -> Search', () => {
+  it('the placeholder says what is searched', async () => {
+    let sw = await boot({ tabs: ABC() });
+    expect(tid('search').placeholder).toBe('Search tabs, history, bookmarks and the archive');
+    sw = await boot({ tabs: ABC(), prefs: { searchHistory: false } });
+    expect(tid('search').placeholder).toBe('Search tabs, bookmarks and the archive');
+    sw = await boot({ tabs: ABC(), prefs: { searchBookmarks: false } });
+    expect(tid('search').placeholder).toBe('Search tabs, history and the archive');
+    sw = await boot({ tabs: ABC(), prefs: { searchBookmarks: false, searchHistory: false } });
+    expect(tid('search').placeholder).toBe('Search tabs and the archive');
+  });
+
+  it('history and bookmarks left out are neither read nor listed', async () => {
+    chrome._addBookmark({ title: 'Zebra docs', url: 'https://zebra.example/' });
+    chrome._data.history = [{ url: 'https://zebra-history.example/', title: 'Zebra history', lastVisitTime: Date.now(), visitCount: 1 }];
+    const sw = await boot({ tabs: ABC(), prefs: { searchBookmarks: false, searchHistory: false } });
+    type(sw, 'zebra');
+    await nextFrame();
+    await tick(200);
+    expect(chrome.bookmarks.getTree).not.toHaveBeenCalled();
+    expect(chrome.history.search).not.toHaveBeenCalled();
+    expect(ddRows().map((r) => r.dataset.testid)).toEqual(['dd-row-google']);
+  });
+});
+
+describe('ticking from the keyboard', () => {
+  const picked = (sw) => sw.state.tabs.filter((x) => sw.state.picked.has(x.id)).map((x) => x.title);
+  const many = () => [...ABC(), { title: 'Delta', url: 'https://delta.example/' }, { title: 'Echo', url: 'https://echo.example/' }];
+
+  it('Shift+→ / Shift+← tick a range from the selected card; stepping back shrinks it', async () => {
+    const sw = await boot({ tabs: many(), ctx: { dir: 0 } });
+    sw.select(1); // Bravo
+    tid('scroller').focus();
+    key('ArrowRight', { shiftKey: true });
+    expect(selectedTitle()).toBe('Charlie');
+    expect(picked(sw)).toEqual(['Bravo', 'Charlie']);
+    key('ArrowRight', { shiftKey: true });
+    expect(picked(sw)).toEqual(['Bravo', 'Charlie', 'Delta']);
+    key('ArrowLeft', { shiftKey: true });
+    expect(picked(sw)).toEqual(['Bravo', 'Charlie']);
+    key('ArrowLeft', { shiftKey: true });
+    key('ArrowLeft', { shiftKey: true }); // past the start: the other way
+    expect(picked(sw)).toEqual(['Alpha', 'Bravo']);
+  });
+
+  it('a run keeps the ticks made before it; any other key ends it', async () => {
+    const sw = await boot({ tabs: many(), ctx: { dir: 0 } });
+    sw.pick(sw.state.entries[4]); // Echo
+    sw.select(0);
+    tid('scroller').focus();
+    key('ArrowRight', { shiftKey: true });
+    expect(picked(sw)).toEqual(['Alpha', 'Bravo', 'Echo']);
+    key('ArrowRight'); // ends the run
+    expect(sw.state.shiftBase).toBe(null);
+  });
+
+  it('Ctrl+Space ticks and unticks the selected card; Space alone is still its big preview', async () => {
+    const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
+    sw.select(1);
+    const e = key(' ', { ctrlKey: true });
+    expect(e.defaultPrevented).toBe(true);
+    expect(picked(sw)).toEqual(['Bravo']);
+    expect(tid('big-preview')).toBe(null);
+    key(' ', { metaKey: true });
+    expect(picked(sw)).toEqual([]);
+    key(' ');
+    expect(tid('big-preview')).not.toBe(null);
+  });
+
+  it('Shift+arrows in the search box with text stay the box’s own (text selection)', async () => {
+    const sw = await boot({ tabs: ABC() });
+    type(sw, 'al');
+    const e = key('ArrowLeft', { shiftKey: true });
+    expect(e.defaultPrevented).toBe(false);
+    expect(sw.state.picked.size).toBe(0);
+  });
+});

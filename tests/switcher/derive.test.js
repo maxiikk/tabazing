@@ -107,15 +107,18 @@ describe('helpers', () => {
     expect(sw.plainCaptureError(undefined)).toEqual({ text: expect.stringMatching(/couldn’t/) });
   });
 
-  it('snoozeChoices: in 1 h, 3 h, this evening (before 17:00), tomorrow 9:00, next Monday 9:00', () => {
+  it('snoozeChoices: in 1 h, 3 h, this evening (before 17:00) or tomorrow evening (after), tomorrow 9:00, next Monday 9:00', () => {
     const wed = new Date(2026, 9, 14, 10, 30); // a Wednesday morning
     const c = sw.snoozeChoices(wed);
     const at = (d, h) => new Date(2026, 9, 14 + d, h).getTime();
     expect(c.map((x) => x.at)).toEqual([wed.getTime() + HOUR, wed.getTime() + 3 * HOUR, at(0, 18), at(1, 9), at(5, 9)]);
     expect(c[2].label).toMatch(/^This evening · /);
 
-    const late = sw.snoozeChoices(new Date(2026, 9, 14, 17, 5));
-    expect(late).toHaveLength(4); // no "this evening" after 17:00
+    const lateAt = new Date(2026, 9, 14, 17, 5);
+    const late = sw.snoozeChoices(lateAt);
+    // after 17:00 no "this evening": tomorrow evening (18:00) instead, after tomorrow morning
+    expect(late.map((x) => x.at)).toEqual([lateAt.getTime() + HOUR, lateAt.getTime() + 3 * HOUR, at(1, 9), at(1, 18), at(5, 9)]);
+    expect(late[3].label).toMatch(/^Tomorrow evening · /);
     const mon = sw.snoozeChoices(new Date(2026, 9, 19, 8)); // a Monday: next Monday is a week on
     expect(mon.at(-1).at).toBe(new Date(2026, 9, 26, 9).getTime());
     const sun = sw.snoozeChoices(new Date(2026, 9, 18, 8));
@@ -200,9 +203,10 @@ describe('recently closed', () => {
 
   it('one entry per page: within 5 s it is the same closing and Chrome’s (with history) wins', async () => {
     chrome._data.closed = [sTab('a', 'https://a.com/', 'Chrome A', 60), sTab('b', 'https://b.com/', 'Chrome B', 600)];
-    await chrome.storage.local.set({ closedlog: [logged('https://a.com/#x', 'Log A', 58e3), logged('https://b.com/', 'Log B', 60e3)] });
+    await chrome.storage.local.set({ closedlog: [logged('https://a.com/#x', 'Log A', 58e3), logged('https://b.com/', 'Log B', 30e3)] });
     await sw.loadClosed();
-    // a.com: 2 s apart, Chrome's kept. b.com: closed again later, the newer log entry wins.
+    // a.com: 2 s apart, Chrome's kept. b.com: closed again later, the newer log entry wins (and, 30 s ago, is
+    // clearly newer than Chrome A: Chrome's times are whole seconds, so equal times would tie at random).
     expect(sw.state.closed.map((c) => c.title)).toEqual(['Log B', 'Chrome A']);
   });
 

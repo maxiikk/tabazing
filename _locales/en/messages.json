@@ -3,10 +3,10 @@
       "message": "Tabazing (Alt+Q)"
    },
    "cmdOpen": {
-      "message": "Open Tabazing on the previous tab (let go of Alt to switch)"
+      "message": "Open Tabazing on the previous card in the list (wraps around); let go of Alt to switch"
    },
    "cmdReverse": {
-      "message": "Open Tabazing on the next tab (let go of Alt to switch)"
+      "message": "Open Tabazing on the next card in the list (wraps around); let go of Alt to switch"
    },
    "cmdStay": {
       "message": "Open Tabazing and keep it open"

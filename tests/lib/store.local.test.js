@@ -250,7 +250,12 @@ describe('view', () => {
 });
 
 describe('prefs', () => {
-  const defaults = { lang: 'auto', startup: false, cardSize: 'default', accent: DEFAULT_ACCENT, allWindows: false, theme: 'dark' };
+  const defaults = {
+    lang: 'auto', startup: false, cardSize: 'default', accent: DEFAULT_ACCENT, allWindows: false, theme: 'system',
+    pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, ownWindow: false, titleLines: 2,
+    searchHistory: true, searchBookmarks: true, iconTips: 0,
+  };
+  const SWITCHES = ['pinnedFirst', 'showClosed', 'showSnoozed', 'showAge', 'searchHistory', 'searchBookmarks']; // on unless set to false
 
   it('defaults', async () => {
     expect(await s.getPrefs()).toEqual(defaults);
@@ -259,9 +264,11 @@ describe('prefs', () => {
   it('accepts every valid value', async () => {
     for (const lang of ['auto', 'en', 'ru', 'es']) { L._data.set(KEY.PREFS, { lang }); expect((await s.getPrefs()).lang).toBe(lang); }
     for (const cardSize of ['small', 'list']) { L._data.set(KEY.PREFS, { cardSize }); expect((await s.getPrefs()).cardSize).toBe(cardSize); }
-    for (const theme of ['light', 'system']) { L._data.set(KEY.PREFS, { theme }); expect((await s.getPrefs()).theme).toBe(theme); }
+    for (const theme of ['dark', 'light', 'system']) { L._data.set(KEY.PREFS, { theme }); expect((await s.getPrefs()).theme).toBe(theme); }
     L._data.set(KEY.PREFS, { startup: true, allWindows: true, accent: '#abcdef' });
     expect(await s.getPrefs()).toEqual({ ...defaults, startup: true, allWindows: true, accent: '#ABCDEF' });
+    L._data.set(KEY.PREFS, { ...Object.fromEntries(SWITCHES.map((k) => [k, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
+    expect(await s.getPrefs()).toEqual({ ...defaults, ...Object.fromEntries(SWITCHES.map((k) => [k, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
   });
 
   it('replaces every invalid field with its default', async () => {
@@ -269,6 +276,11 @@ describe('prefs', () => {
     expect(await s.getPrefs()).toEqual(defaults);
     L._data.set(KEY.PREFS, { accent: '#abc' });
     expect((await s.getPrefs()).accent).toBe(DEFAULT_ACCENT);
+    L._data.set(KEY.PREFS, { ...Object.fromEntries(SWITCHES.map((k) => [k, 'false'])), ownWindow: 'true', titleLines: 3, iconTips: -1 });
+    expect(await s.getPrefs()).toEqual(defaults);
+    for (const iconTips of [1.5, '2', null]) { L._data.set(KEY.PREFS, { iconTips }); expect((await s.getPrefs()).iconTips).toBe(0); }
+    L._data.set(KEY.PREFS, { titleLines: '1' });
+    expect((await s.getPrefs()).titleLines).toBe(2);
   });
 
   it('updatePrefs merges a patch; reads validate it', async () => {
@@ -276,7 +288,9 @@ describe('prefs', () => {
     await s.updatePrefs({ startup: true });
     expect(await s.getPrefs()).toEqual({ ...defaults, theme: 'light', startup: true });
     await s.updatePrefs({ theme: 'bogus' });
-    expect((await s.getPrefs()).theme).toBe('dark');
+    expect((await s.getPrefs()).theme).toBe('system');
+    await s.updatePrefs({ iconTips: 1, showAge: false });
+    expect(await s.getPrefs()).toMatchObject({ iconTips: 1, showAge: false, startup: true });
   });
 
   it('concurrent updates are not lost', async () => {

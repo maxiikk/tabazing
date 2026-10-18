@@ -21,7 +21,8 @@ describe('the first draw', () => {
     await waitFor(() => tids('card-preview').length === 50);
     const reads = pvReads();
     expect(reads.length).toBe(2);
-    expect(reads[0].length).toBeLessThanOrEqual(sw.FIRST_PREVIEWS + 2); // the first cards, the selected one, the current tab
+    expect(reads[0].length).toBeLessThanOrEqual(sw.previewBatch() + 2); // the cards that fit, the selected one, the current tab
+    expect(reads[0].length).toBeLessThan(32); // fewer than the old fixed batch: a 1024 x 768 window shows about a dozen
     expect(reads[0]).toContain('pv:https://t1.example/'); // the current tab
     expect(reads[0]).toContain('pv:' + entry(sw, 'Tab 2').tab.url); // the selected card (the tab used before)
     expect(new Set([...reads[0], ...reads[1]]).size).toBe(50);
@@ -30,15 +31,30 @@ describe('the first draw', () => {
     expect(openCards().every((c) => tid('card-preview', c))).toBe(true);
   });
 
-  it('offers no "Capture preview" for a card whose preview is still being read', async () => {
+  it('previewBatch: as many cards as fit on the screen at the card size, one row more', async () => {
+    const sw = await boot({ tabs: ABC() });
+    expect(sw.previewBatch(1024, 768)).toBe(12); // 3 across, 3 rows down, and one more
+    expect(sw.previewBatch(1920, 1080)).toBeGreaterThan(sw.previewBatch(1024, 768));
+    sw.state.cardSize = 'small';
+    expect(sw.previewBatch(1024, 768)).toBeGreaterThan(12);
+    sw.state.cardSize = 'list';
+    expect(sw.previewBatch(1024, 768)).toBeGreaterThan(30);
+    expect(sw.previewBatch(0, 0)).toBe(sw.FIRST_PREVIEWS); // size unknown
+  });
+
+  it('a card whose preview is still being read shows a plain placeholder: its favicon, no "No preview yet", no Capture', async () => {
     const sw = await boot({ tabs: ABC() });
     const b = entry(sw, 'Bravo');
     sw.state.pvPending.add(b.tab.id);
     sw.refresh();
+    expect(tid('card-loading', card('Bravo'))).not.toBe(null);
+    expect(tid('card-tile-favicon', card('Bravo'))).not.toBe(null);
+    expect(tid('card-no-preview-label', card('Bravo'))).toBe(null);
     expect(tid('card-capture', card('Bravo'))).toBe(null);
     expect(sw.missingPreviews().map((x) => x.title)).not.toContain('Bravo');
     sw.state.pvPending.delete(b.tab.id);
     sw.refresh();
+    expect(tid('card-loading', card('Bravo'))).toBe(null);
     expect(tid('card-capture', card('Bravo'))).not.toBe(null);
   });
 
@@ -106,15 +122,16 @@ describe('redraws', () => {
     expect(tid('card-audio', card('Bravo'))).not.toBe(null);
   });
 
-  it('an armed button redraws no card, and the card buttons keep their mouse-only marks', async () => {
+  it('a search keystroke dims cards without building them again, and the card buttons keep their mouse-only marks', async () => {
     const sw = await boot({ tabs: ABC() });
     const before = openCards();
     sw.pick(entry(sw, 'Alpha'));
     sw.pick(entry(sw, 'Bravo'));
     const now = openCards();
-    sw.armed('act:close');
+    sw.state.query = 'charl';
+    sw.flushSearch();
     expect(openCards()).toEqual(now);
-    expect(tid('action-close').classList.contains('armed')).toBe(true);
+    expect(card('Alpha').classList.contains('nomatch')).toBe(true);
     expect(now[2]).toBe(before[2]);
     for (const b of now[0].querySelectorAll('button')) {
       expect(b.tabIndex).toBe(-1);

@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **3.1.2** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **4.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -27,7 +27,7 @@ Tabazing needs **Chrome 123 or later**.
 3. Click **Load unpacked** and choose this folder (the one that contains `manifest.json`).
 4. Pin the Tabazing icon to the toolbar if you like. The icon shows how many tabs you have open.
 
-Right after installing, a small card on the page you are on says "Tabazing is ready – Press Alt+Q to see all your tabs".
+Right after installing, a small card on the page you are on says "Tabazing is ready – Press Alt+Q and keep holding Alt to see your tabs; let go to switch".
 
 **Changing the shortcuts:** go to `chrome://extensions/shortcuts`, or open Tabazing → **Settings** → **Change the Alt+Q shortcut**. If another app or extension already uses Alt+Q, Chrome leaves it unassigned. Tabazing then shows a warning with a button that takes you to that page. On ordinary web pages Alt+Q still works, because the page itself listens for it.
 
@@ -39,27 +39,32 @@ Tabazing does not run in Incognito windows.
 
 | Shortcut | Mac | What it does |
 |---|---|---|
-| **Alt+Q** | Option+Q | Opens Tabazing with the card **before** the current tab selected. Keep holding Alt and press Q again to go further back. **Let go of Alt to switch** to the selected tab, just like Alt+Tab. |
-| **Alt+W** | Option+W | The same, but moves **forward** (the card after the current tab). |
+| **Alt+Q** | Option+Q | **Hold Alt and press Q** to see your tabs, with the **previous card in the list** selected (the card before the current tab, in the order the cards are shown). From the first card it wraps around to the last. Keep holding Alt and press Q again to go further back. **Let go of Alt to switch** to the selected tab, just like Alt+Tab. |
+| **Alt+W** | Option+W | The same, but selects the **next card in the list** (wrapping around from the last card to the first). |
 | **Alt+E** | Option+E | Opens Tabazing with the current tab selected and **keeps it open**, so you can search, use the arrow keys or the mouse. |
-| Toolbar icon | Toolbar icon | Opens Tabazing and keeps it open. |
+| Toolbar icon | Toolbar icon | Opens Tabazing and keeps it open. The first three times, a note reminds you that Alt+Q does this from anywhere. |
 
 While you hold Alt after Alt+Q or Alt+W:
 
-- Press **Q** to go back and **W** to go forward. Add **Shift** to go the other way.
+- Press **Q** for the previous card in the list and **W** for the next (both wrap around). Add **Shift** to go the other way.
 - **Turn the mouse wheel** to move through the cards. Scrolling a touchpad works too.
+- **Tab** and **Shift+Tab** step to the next and previous card too.
 - Press **1–9** (Alt is already down, so this is Alt+1–9) to jump straight to that numbered card.
 - **Let go of Alt** to switch. If you start typing, move the mouse or let go of Alt without switching, Tabazing stays open as if you had pressed Alt+E. Pressing Alt+Q or Alt+W in an open Tabazing makes it behave like Alt+Tab again.
 
-**Where it appears.** On normal web pages Tabazing opens as an overlay on top of the page. Chrome does not let extensions draw on some pages, such as `chrome://` pages, the New Tab page and the Chrome Web Store. On those, and on pages that block the overlay, it opens in its own small popup window instead. Both versions work the same way.
+**Where it appears.** On normal web pages Tabazing opens as an overlay on top of the page. Chrome does not let extensions draw on some pages, such as `chrome://` pages, the New Tab page and the Chrome Web Store. On those, and on pages that block the overlay, it opens in its own small popup window instead. Both versions work the same way. Turn on **Always open in its own window** in Settings to use the popup window everywhere.
 
-**Closing it.** Press **Esc**, click an empty area, or switch to another window. Tabazing also closes after you pick a tab.
+**Closing it.** Press **Esc**, click the backdrop around the content (the top strip, or the space below the last section; clicks between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
+
+**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Keyboard and mouse shortcuts** opens it too.
+
+**A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px the Settings, New tab and Archive buttons show only their icons. The cards always start right below the header.
 
 **Open when Chrome starts.** Turn this on in Settings and Tabazing shows all your tabs a few seconds after Chrome starts, once your tabs have been restored.
 
 **"Looking for a tab?"** If you often click through tabs one by one (Ctrl+Tab, Ctrl+PgDn), a small note may suggest Alt+Q instead. It appears at most once a day and three times in total. It stops once you are using Tabazing, and **Don't show again** turns it off for good.
 
-**First-run tour.** The first time you open Tabazing, a short tour walks through switching, moving around, search, the buttons on each card, selecting many tabs, sorting and settings. Use **Next**, **Back** or **Skip**, or the ← → arrow keys. Esc closes it.
+**First-run tour.** The first time you open Tabazing, a short tour walks through switching (hold Alt and press Q; let go to switch), moving around, search, the buttons on each card (notes among them), snooze and archive, selecting many tabs (every card shows its tick box for that step), sorting, the window list and the media player (when they are on screen) and settings. Use **Next**, **Back** or **Skip**, or the ← → arrow keys. Esc closes it. **Settings → Replay the tour** shows it again.
 
 ---
 
@@ -70,25 +75,30 @@ While you hold Alt after Alt+Q or Alt+W:
 Each open tab is a card that shows the page title, its favicon and a screenshot of the page.
 
 - Chrome only lets extensions screenshot the tab that is currently on screen. Tabazing takes a picture every time you look at a tab, so previews fill in as you use your tabs. A tab you have not looked at since Chrome started shows its icon and "No preview yet".
-- **Pinned tabs always come first**, followed by the rest in the order you chose under [Sort](#sort-and-filters).
+- Right after Tabazing opens, the previews of the cards that fit on the screen are read first; the others follow a moment later. Until a card's preview arrives it shows just its icon on a plain tile.
+- **Pinned tabs come first**, followed by the rest in the order you chose under [Sort](#sort-and-filters). Settings → **Pinned tabs first** turns this off.
 - The **first nine cards are numbered**. Press **Alt+number** (⌥+number on a Mac) to switch to that tab.
-- Small tags on a card show:
-  - how long ago you last looked at the tab ("3 days ago", for tabs not viewed for a day or more)
+- Titles get **two lines** on the default-size cards (Settings → **Title lines** → One line keeps them to one; small cards always use one).
+- Small tags sit on the top left of the preview (in the List size, compactly in the row):
+  - how long ago you last looked at the tab ("3 days ago", for tabs not viewed for a day or more; Settings → **Show "days ago" tags** turns them off)
   - which window it is in (when you view tabs from several windows)
+  - **Back from snooze**, for a tab a snooze has just reopened, until you look at it
   - a pin for pinned tabs
-  - a speaker for tabs playing sound (click it to mute or unmute)
-- Sleeping tabs (unloaded by Chrome to save memory) show a moon with "Sleeping".
+- The site name shows next to the title on wide cards that have no tags.
+- A speaker in the header marks a tab playing sound (click it to mute or unmute).
+- The **☆ star** and **× close** buttons appear at the end of the header on hover and on the selected card; while hidden they take no room from the title.
+- Asleep tabs (unloaded by Chrome to save memory) show a moon with "Asleep".
 - Hover a card to see its full title and address.
 
 #### Capture preview / Capture all previews
 
 - **One tab:** a card with no preview has a **Capture preview** button (or press **Alt+P** / Option+P with the card selected). Tabazing shows that tab for a moment, takes its picture and comes back.
-- **Many tabs:** when some tabs have no preview, a **"N without preview · Capture all"** button appears in the toolbar. When the view is narrowed, it reads "Capture these" instead. A small progress window opens, and each tab is shown briefly (up to 100 per run) before you are taken back where you were. Click **Stop** in that window to stop early. Sleeping tabs are skipped so they are not woken up.
+- **Many tabs:** when some tabs have no preview, a small **camera button with the count** appears in the toolbar; its tooltip says "N without preview · Capture all" (or "Capture these" when the view is narrowed) and what it does. A small progress window opens, and each tab is shown briefly (up to 100 per run) before you are taken back where you were. Click **Stop** in that window to stop early. Asleep tabs are skipped so they are not woken up.
 - Some pages cannot be captured, such as Chrome's own pages and the Web Store. If Chrome's **Site access** for Tabazing is not set to "On all sites", previews cannot be taken; Tabazing says so and offers an **Allow on all sites** button.
 
 #### Big preview
 
-- Press **Space** (with nothing typed in the search box), or **Ctrl+click** a card (**Cmd+click** on a Mac), to see its preview in full size in the middle of the screen.
+- Press **Space** (with nothing typed in the search box), or **Shift+click** a card's preview, to see it in full size in the middle of the screen.
 - In the big preview, **← / →** move to the previous or next card, **Enter** opens that tab, and **Esc**, Space or clicking outside closes it.
 
 ### Keyboard reference
@@ -98,72 +108,93 @@ On a Mac, "Alt" is the Option key (⌥).
 | Key | Windows / Linux | Mac | What it does |
 |---|---|---|---|
 | Move | ← → ↑ ↓ | ← → ↑ ↓ | Move the selection between cards. With the search list open, ↑ ↓ move through the results. |
-| Next / previous | Tab / Shift+Tab, while holding Alt | Tab / Shift+Tab, while holding ⌥ | Step through the open tabs in the order shown, like Alt+Tab. Without Alt held, Tab moves the keyboard focus through Tabazing's buttons and fields, as on any page. |
-| Card actions | Shift+F10 or the Menu key | Shift+F10 | Open a menu of everything you can do with the selected card: select it, star, copy link, capture, reload, duplicate, sleep, mute, pin, snooze, archive, note, close. |
-| Jump | Alt+1 … Alt+9 | ⌥1 … ⌥9 | Switch to that numbered card. Works at any time, including while still holding Alt after Alt+Q. Plain digits type into the search box, so you can find titles that start with a number. |
+| Next / previous | Tab / Shift+Tab, while holding Alt | Tab / Shift+Tab, while holding ⌥ | Step to the next / previous card in the list (wrapping around), like Alt+Tab. Without Alt held, Tab moves the keyboard focus through Tabazing's buttons and fields, as on any page. |
+| Card actions | Shift+F10 or the Menu key | Shift+F10 | Open a menu of everything you can do with the selected card: select it, star, copy link, capture, reload, duplicate, put to sleep, mute, pin, snooze, archive, note, close. (Right-clicking a card, or its **⋯** button, opens the same menu.) |
+| Jump | Alt+1 … Alt+9 | ⌥1 … ⌥9 | Switch to that numbered card. Works at any time, including while still holding Alt after Alt+Q. Plain digits do the same while you are not typing in the search box; there they type, so you can find titles that start with a number. |
+| Tick | Ctrl+Space | ⌘Space | Tick or untick the selected card (see [Selecting many tabs](#selecting-many-tabs-and-the-actions-bar)). |
+| Tick a range | Shift+← → ↑ ↓ | Shift+← → ↑ ↓ | Tick from the selected card to where the arrow goes, like in a file list; going back shrinks the range. Not while typing in the search box, where they select text. |
 | Open | Enter | Enter | Switch to the selected tab, or open the highlighted search result. |
 | Address / Google | Shift+Enter | Shift+Enter | Open what you typed as an address, or search Google for it. |
 | Big preview | Space | Space | Show the selected card's preview in full size (when nothing is typed). |
 | Close tab | Del | ⌘⌫ | Close the selected tab. On a snoozed tab, cancels the snooze. On a "Starred, not open" card, removes the star. |
-| Undo close | Ctrl+Z | ⌘Z | Reopen what you last closed in Tabazing, in the same window and position (when the search box is empty). |
+| Undo | Ctrl+Z | ⌘Z | Undo what you last did in Tabazing: reopen closed tabs, or move merged or moved tabs back (when the search box is empty). |
 | Star | Alt+S | ⌥S | Star or unstar the selected page. |
 | Capture | Alt+P | ⌥P | Take a preview of the selected tab. |
 | Search | Ctrl+F | ⌘F | Jump to the search box. Just typing anywhere works too. |
 | Windows | Ctrl+← / Ctrl+→ | ⌃← / ⌃→ | Show the previous or next window's tabs, or all windows (when there is more than one window). |
-| Back / exit | Esc | Esc | In this order: clears the search, leaves the duplicates view, clears the selection, closes Tabazing. |
+| Back / close | Esc | Esc | In this order: clears the search, leaves the duplicates view, clears the ticks, closes Tabazing. |
+
+All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card at the top right.
 
 ### Mouse
 
 | Action | Result |
 |---|---|
-| Click a card | Switch to that tab, or reopen a closed, snoozed or starred page. |
-| Ctrl+click (Cmd+click) | Big preview. |
-| Shift+click | Select every tab between the last one you selected and this one. |
-| Click the tick box on a card | Select or deselect it. Once any tab is selected, a plain click on a card also selects or deselects it. |
+| Click a card | Switch to that tab, or reopen a closed, snoozed or starred page. Always, even while some tabs are ticked. |
+| Shift+click a card's preview | Big preview. |
+| Ctrl+click (Cmd+click) a card | Tick or untick it. |
+| Click the tick box on a card | Tick or untick it. |
+| Shift+click a tick box | Tick every tab between the last one you ticked and this one. |
+| Right-click a card, or its **⋯** | The card's menu (everything it can do). |
 | Middle-click (press the wheel) | Close the tab. |
 | Drag a card | Move the tab in the tab strip. Only works when sorted **By order** (see below). |
 | Alt + mouse wheel | Step through cards while holding Alt after Alt+Q or Alt+W. |
-| Click empty space | Close Tabazing. |
+| Click the backdrop | Close Tabazing (not a click between cards, on a heading, the toolbar or the window list). |
 
 ### Search
 
-Type anywhere and the text goes into the search box. As you type, a dropdown under the box shows **one ranked list** of everything that matches, best match first:
+Type anywhere and the text goes into the search box, which says what it searches ("Search tabs, history, bookmarks and the archive"). As you type, a dropdown under the box shows **one ranked list** of everything that matches, best match first:
 
 | Icon / source | What it covers |
 |---|---|
 | Open tab | Your open tabs. A tag shows the window if it is a different one. |
 | Recently closed | Tabs and windows closed in the **last 7 days**. |
 | Archived | Pages in your [Archive](#archive). |
-| Bookmark | Your Chrome bookmarks, with their folder path. |
-| History | Pages from your browsing history: the last 90 days, plus Chrome's own history search for older pages. |
+| Bookmark | Your Chrome bookmarks, with their folder path (unless Settings → Search → **Include bookmarks** is off). |
+| History | Pages from your browsing history: the last 90 days, plus Chrome's own history search for older pages (unless Settings → Search → **Include history** is off). |
 
 - An icon at the right of each row shows where the result comes from. If the same page is found in several places, it is listed once, under the most useful source (an open tab comes before its bookmark, for example).
 - **Typos are fine.** Words can match at the start of a word, as initials ("pr" finds "Pull request"), anywhere in a word, as letters in order ("gh" finds "GitHub"), or with one wrong, missing, extra or swapped letter (two in long words). Words that contain digits must be typed exactly. Search also looks at the **notes** you wrote on tabs.
-- **↑ / ↓** move through the list, **Enter** opens the highlighted row, and a click does the same. Open tabs are switched to. Closed tabs are reopened with their back/forward history when Chrome still has it. Bookmarks and history entries switch to the tab if the page is already open, or open a new tab otherwise.
+- **↑ / ↓** move through the list, **Enter** opens the highlighted row, and a click does the same. Open tabs are switched to. Closed tabs are reopened with their back/forward history when Chrome still has it. Bookmarks and history entries switch to the tab if the page is already open, or open a new tab otherwise. A click elsewhere hides the list (typing brings it back); while it is hidden, Enter opens the selected card instead.
 - **Nothing found?** The list offers **Open \<address\>** when what you typed looks like a web address, and **Search Google for "…"**. **Shift+Enter** does this at any time.
 - The count in the search box shows how many open and closed tabs matched.
-- While searching, the bar at the bottom offers **Select all N matching tabs**, so you can act on every match at once (see [Selecting many tabs](#selecting-many-tabs-and-the-actions-bar)).
-- The cards behind the dropdown do not change while you search. Press Esc to clear the search.
+- While searching, the bar at the bottom offers a **Select all N matching tabs** link, so you can act on every match at once (see [Selecting many tabs](#selecting-many-tabs-and-the-actions-bar)).
+- The cards behind the dropdown keep their places while you search, but the ones that don't match are dimmed (and a dimmed selected card loses its glow). Press Esc to clear the search.
+- With **Include history** or **Include bookmarks** turned off in Settings, Tabazing doesn't read that source at all.
 
 ### Media player
 
-When a tab is playing a video or music, a small player appears in the header, right of the search box and the same height. It shows the preview of that tab (or its icon), the title of what is playing (and the artist or the site under it), and **Previous**, **Play / Pause** and **Next** buttons. It is hidden while nothing plays, and while you hold Alt after Alt+Q or Alt+W.
+When a tab is playing a video or music, a small player appears in the header, right of the search box and the same height (in a window narrower than 1100 px, on its own row under the search box). It shows the preview of that tab (or its icon), the title of what is playing (and the artist or the site under it), and **Previous**, **Play / Pause** and **Next** buttons. It is hidden while nothing plays, and while you hold Alt after Alt+Q or Alt+W.
 
 - **Play / Pause** works on any video or audio. **Previous** and **Next** work where the site has its own previous / next track buttons (the ones Chrome's own media controls show, as on YouTube, Spotify or SoundCloud); elsewhere they are greyed out.
-- The **⌄** button at the end opens **All media in your tabs**: one row per tab that has something to play, in every window, playing first. Each row has its preview, title, site, a moving-bars sign while it plays, and its own **Previous**, **Play / Pause**, **Next** and **Go to tab** buttons. Click a row to show it in the header player. **Go to tab** switches to that tab, like picking its card. **Tab** moves through the list, **Esc**, a click outside or the ⌄ again closes it.
+- The **⌄** button at the end opens **All media in your tabs**: one row per tab that has something to play, in every window, playing first. Each row has its preview, title, site, a moving-bars sign while it plays, and its own **Previous**, **Play / Pause**, **Next** and **Go to tab** buttons. Click a row to show it in the header player; double-click it to play or pause it. **Go to tab** switches to that tab, like picking its card. **Tab** moves through the list, **Esc**, a click outside or the ⌄ again closes it.
 - What counts is exactly what Chrome's own media controls list: a video or audio shows up only once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs"), videos without sound and sounds shorter than 5 seconds never show. Once it has played, it stays while paused, muted or finished (also when the site stops it to play something in another tab, as YouTube does), until it is taken off the page, the page loads something else, or it has been paused for an hour.
 - Pages that were already open when Tabazing was installed, updated or reloaded get the player at once, including media that played there before; their **Previous** / **Next** work after the page is reloaded (or once the site sets them up again, as YouTube does for every video).
 - If a page doesn't respond (some players ignore outside play requests), a message says so and the button goes back.
 
+### New Tab page
+
+Tabazing provides Chrome's New Tab page. Chrome doesn't let extensions draw on its own New Tab page, so the switcher used to open there in a separate window; now Alt+Q opens it right over the page, as on any website.
+
+The page itself is quick and private (nothing is loaded from the network):
+
+- **Search box**: type an address and press Enter to open it, or anything else to search Google. Start typing anywhere on the page to jump into it.
+- **Most visited**: your 8 most visited sites from the last 90 days of history. Hover a tile and click × (or press Delete on it) to remove it; Undo brings it back.
+- **Starred**: the pages you starred in the switcher (Alt+S).
+- A reminder of your shortcut, or a link to set one if Chrome left it unassigned (Alt+Q still works on the page itself).
+
+It follows Tabazing's theme, accent colour and language settings. The first time, Chrome asks whether to keep the new New Tab page: choose **Keep it**. If you choose **Change it back**, Chrome turns Tabazing off.
+
 ### Windows
 
 - **Show tabs from all windows** (Settings) lists the tabs of every Chrome window. When it is off, Tabazing shows only the window you opened it in.
-- With more than one window shown, a **window list** appears on the left. It starts with **All windows**, then each window with a small picture of the tab it is showing and its number of tabs. Click a window, or press **Ctrl+← / Ctrl+→**, to see only that window's tabs. Cards from other windows carry a "Window N" tag.
+- With more than one window shown, a **window list** appears on the left. It starts with **Merge all into this window**, then **All windows**, then each window with a small picture of the tab it is showing and its number of tabs. Click a window, or press **Ctrl+← / Ctrl+→**, to see only that window's tabs. Cards from other windows carry a "Window N" tag.
 
 #### Merge windows
 
-- **Everything into this window:** when you have other windows open, the toolbar shows **Merge N windows into this one**. Click it, then click again to confirm. All their tabs move into the current window, after the tabs it already has. Pinned tabs stay pinned and the emptied windows close.
-- **One window:** hover a window in the window list and click its **merge** icon (click twice to confirm) to pull just that window's tabs in.
+- **Everything into this window:** click **Merge all into this window** at the top of the window list. All the other windows' tabs move into the current window, after the tabs it already has, at once. Pinned tabs stay pinned and the emptied windows close. (When **Show tabs from all windows** is on but the window list isn't shown, the toolbar has a **Merge N windows into this one** button instead; with that setting off, there is no merge button, since the other windows aren't in view.)
+- **One window:** hover a window in the window list and click its **merge** icon to pull just that window's tabs in.
+- A message offers **Undo** (or press Ctrl+Z / ⌘Z): every tab goes back to its window and place, and a window the merge closed is made again, behind Tabazing.
 
 ### Sort and filters
 
@@ -171,11 +202,11 @@ When a tab is playing a video or music, a small player appears in the header, ri
 
 | Option | Order |
 |---|---|
-| **By recently opened** (default) | Most recently used first, like Alt+Tab. |
+| **By recently used** (default) | Most recently used first, like Alt+Tab. |
 | **By order** | The same order as Chrome's tab strip, current window first. **Drag cards to move tabs**: drop on the left or right half of another card to place the tab before or after it. If you selected several tabs, they all move together. With all windows shown, you can drag a tab into another window. |
 | **By name** | Title, A to Z. |
 
-Pinned tabs come first in every order.
+Pinned tabs come first in every order (unless Settings → **Pinned tabs first** is off).
 
 **Filters** (chips next to Sort): pick one at a time, and click it again to turn it off. A chip only appears when some tab matches it, and it shows how many do.
 
@@ -189,19 +220,15 @@ Pinned tabs come first in every order.
 
 ### Buttons on each card
 
-Hover a card to show its quick buttons along the bottom of the preview. With the **List** card size, they sit in the card's single row.
+Hover a card (or select it) to show its quick buttons at the top right of the preview. With the **List** card size, they sit in the card's single row. On a narrow card they wrap rather than run off its edge. Only the most used ones are on the card; **⋯** opens the card's menu with everything else.
 
 | Button | What it does |
 |---|---|
-| Copy link | Copies the tab's address. |
-| Reload | Reloads the tab. A sleeping tab wakes up. |
-| Duplicate | Opens a copy right after it, in the background. |
-| Sleep (moon) | Marks the tab to be unloaded to free memory. See [Sleep](#sleep). Not shown on the active tab. |
-| Mute / Unmute | Turns the tab's sound off or on. |
-| Pin / Unpin | Pins or unpins the tab. |
+| Pin / Unpin | Pins or unpins the tab. (A tab that plays sound has its mute button in the header, the speaker, so pin is the one on the card.) |
 | Snooze (clock) | Closes the tab now and reopens it later. See [Snooze](#snooze). |
 | Archive (box) | Moves the tab into the archive. See [Archive](#archive). |
 | Note | Adds or edits a note. See [Notes](#notes). |
+| ⋯ | The card's menu: select, star, copy link, capture preview, reload, duplicate, put to sleep, mute / unmute, pin / unpin, snooze, archive, note, close. Right-clicking the card opens the same menu at the pointer, and Shift+F10 (or the Menu key) on the selected card. |
 
 The card header also has a **☆ star** and an **× close** button.
 
@@ -214,7 +241,7 @@ The card header also has a **☆ star** and an **× close** button.
 ### Notes
 
 1. Click the **note** button on a card.
-2. Type your note (up to 1,000 characters). It is saved as you type and when the note card closes. Click outside, press Esc or click the ×.
+2. Type your note (up to 1,000 characters). It is saved as you type. Click outside, press Esc or click the × to close it.
 3. To remove a note, click **Clear**, or leave the box empty.
 
 Notes belong to the page's address. A card with a note has a highlighted note button, and hovering it shows the note. Search finds tabs by their notes, and the **Notes** filter shows every tab that has one.
@@ -224,10 +251,10 @@ Notes belong to the page's address. A card with a note has a highlighted note bu
 Snoozing closes a tab now and has Tabazing reopen it later, in the background, in the window it came from.
 
 1. Click the **clock** button on a card, or select several tabs and choose **More → Snooze…**.
-2. Choose when: **In 1 hour**, **In 3 hours**, **This evening** (18:00, offered before 17:00), **Tomorrow morning** (9:00) or **Next week** (Monday 9:00).
+2. Choose when: **In 1 hour**, **In 3 hours**, **This evening** (18:00, offered before 17:00), **Tomorrow morning** (9:00), **Tomorrow evening** (18:00, offered from 17:00 on, instead of this evening) or **Next week** (Monday 9:00). Or **Pick a time…**: a small card with a date and time box opens; choose any time still to come and press **Snooze** (Enter works too). A time that has already passed is refused with a note. Esc or **Cancel** closes it.
 3. A message confirms the time and offers **Undo**.
 
-Snoozed tabs appear in a **Snoozed** section below your open tabs, soonest first, each marked "back \<time\>". Click one to open it now, or press its **×** (or Del) to cancel the snooze without reopening. If a snoozed tab comes due while Chrome is closed, it reopens the next time Chrome starts. Chrome's own pages (such as `chrome://` pages) cannot be snoozed.
+Snoozed tabs appear in a **Snoozed** section below your open tabs, soonest first, each marked "back \<time\>" (Settings → **Show Snoozed** hides the section). Click one to open it now, or press its **×** (or Del) to cancel the snooze without reopening. If a snoozed tab comes due while Chrome is closed, it reopens the next time Chrome starts. A tab a snooze has reopened carries a **Back from snooze** tag until you look at it. Chrome's own pages (such as `chrome://` pages) cannot be snoozed.
 
 ### Archive
 
@@ -244,24 +271,31 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 ### Recently closed
 
 - Below your open tabs, a **Recently closed** section shows what you closed in the last few hours (up to 8 items, including up to 2 whole windows). Click one to reopen it. Tabs Chrome still remembers come back with their back/forward history.
+- **Show more** under the section (a button, reachable with Tab) shows everything Tabazing knows you closed in the last 7 days, up to 24 items; **Show fewer** goes back.
+- Settings → **Show Recently closed** hides the section (search still finds closed tabs).
 - **Search reaches further back:** it finds anything closed in the **last 7 days**, using Chrome's own list plus Tabazing's local log of closed tabs.
 
-### Undo close
+### Undo
 
-Closing a tab in Tabazing, with the × button, Del, middle-click or the **Close** action, shows a message with an **Undo** button. **Ctrl+Z** (⌘Z) works too. Undo reopens the tabs in the same window and position, pinned if they were pinned. You can undo several closes in a row, up to the last 20, while Tabazing stays open.
+Closing tabs in Tabazing (the × button, Del, middle-click, the **Close** action or closing duplicates), merging windows and moving tabs to a new window each show a message with an **Undo** button. **Ctrl+Z** (⌘Z) works too. Because everything can be undone, none of these asks "are you sure?" first.
+
+- **Closed tabs** come back in the same window and position, pinned if they were pinned. A tab Chrome still lists as just closed is restored through Chrome itself, **with its back/forward history**; the window then shows the tab it showed before. Others are opened afresh, in the background.
+- **Merged or moved tabs** go back to their windows and places; a window that was closed by the merge is made again, behind Tabazing.
+- You can undo several steps in a row, up to the last 20, while Tabazing stays open.
+- The message stays while the pointer or the keyboard focus is on it, so its Undo can't disappear under you, and it sits above the actions bar instead of covering it.
 
 ### Selecting many tabs and the actions bar
 
-1. Select tabs with the **tick box** on each card. **Shift+click** selects a range. While searching, **Select all N matching tabs** selects every match; otherwise **Select all N tabs** selects everything shown.
+1. Tick tabs with the **tick box** on each card, or **Ctrl+click** (⌘-click) the cards. **Shift+click a tick box** ticks everything from the last one you ticked. From the keyboard, **Ctrl+Space** (⌘Space) ticks the selected card and **Shift+arrows** tick a range from it. A plain click on a card still switches to that tab; the bar reminds you: "Ctrl+click cards to select more". While searching, the **Select all N matching tabs** link selects every match; otherwise **Select all N tabs** selects everything shown.
 2. A bar floats at the bottom of the screen with the number selected and these actions:
 
 | Action | What it does |
 |---|---|
-| **Close** | Closes the selected tabs. With more than one, click twice to confirm. They can be undone and appear under Recently closed. |
+| **Close** | Closes the selected tabs at once. Undo brings them back, and they appear under Recently closed. |
 | **Copy links** | Copies their addresses, one per line. |
 | **More → Copy as Markdown** | Copies `- [Title](link)` lines, which paste as clickable titles in Notion, Obsidian, GitHub, Slack or Docs. |
-| **More → Move to new window** | Moves them into a window of their own. |
-| **More → Sleep** | Marks them to be unloaded. |
+| **More → Move to new window** | Moves them into a window of their own, opened behind Tabazing, which stays open so you can undo it. (In an overlay, with the tab Tabazing is drawn over among them, Tabazing goes along and closes.) |
+| **More → Put to sleep** | Marks them to be unloaded. |
 | **More → Snooze…** | Snoozes them all until the time you choose. |
 | **More → Archive** | Archives them all. |
 | **More → Pin / Unpin** | Pins them, or unpins them if they are all pinned already. |
@@ -274,16 +308,16 @@ Closing a tab in Tabazing, with the × button, Del, middle-click or the **Close*
 When the same page is open in more than one tab, the toolbar shows **N duplicates**. Tabazing compares addresses and ignores the `#…` part and a trailing slash.
 
 1. Click it. Tabazing shows only the duplicated pages, grouped by page. Each card is marked **Stays** or **Closes**. The copy that stays is the pinned one if any, otherwise the one you used most recently.
-2. Click **Close N copies**, then click again to confirm. Undo is offered.
+2. Click **Close N copies**. They close at once; Undo is offered.
 3. **Back**, or Esc, leaves the view without closing anything.
 
 ### Sleep
 
 Sleeping a tab unloads it from memory. It keeps its place and reloads when you open it.
 
-- Click the **moon** on a card, or select tabs and choose **More → Sleep**. The card is marked "Sleeps when you leave". The tab is unloaded once you close Tabazing, so the switcher stays smooth. Click the moon again to change your mind.
+- Choose **Put to sleep** in a card's menu (⋯, right-click or Shift+F10), or select tabs and choose **More → Put to sleep**. The card is marked "Goes to sleep when you close Tabazing". The tab is unloaded once you close Tabazing, so the switcher stays smooth. Choose **Don't put to sleep** to change your mind.
 - Chrome won't unload the tab you are looking at.
-- Tabs that Chrome itself unloaded (Memory Saver) are marked **Sleeping**. The **Asleep** filter shows both kinds.
+- Tabs that Chrome itself unloaded (Memory Saver) are marked **Asleep**. The **Asleep** filter shows both kinds.
 
 ### New tab
 
@@ -291,19 +325,33 @@ The **New tab** button in the header opens a new tab in the current window.
 
 ### Settings
 
-Click **Settings** (the gear at the top left).
+Click **Settings** (the gear at the top left). The settings are in four groups, in two columns; on a short window the card scrolls.
 
-| Setting | Options |
-|---|---|
-| **Language** | Auto (Chrome's language), English, Español, Русский. |
-| **Theme** | Dark (default), Light, Match system. |
-| **Card size** | Default, Small, List (one line per tab, no screenshot). |
-| **Accent colour** | A set of colour swatches, or **Pick any colour**. |
-| **Show tabs from all windows** | Off: only the window you open Tabazing in. On: every window, with the window list on the left. |
-| **Open Tabazing when Chrome starts** | Shows all your tabs, where you left off, a few seconds after Chrome opens. |
-| **Change the Alt+Q shortcut** | Opens `chrome://extensions/shortcuts`. |
+| Group | Setting | Options |
+|---|---|---|
+| Appearance | **Language** | Auto (Chrome's language), English, Español, Русский. |
+| | **Theme** | Match system (default), Dark, Light. In the light theme the selected card's edge, focus rings and other outlines use a darkened accent so they stay visible. |
+| | **Accent colour** | A set of colour swatches, or **Pick any colour**. |
+| | **Card size** | Default, Small, List (one line per tab, no screenshot). |
+| | **Title lines** | Two lines (default) or one line, on the default-size cards. |
+| Cards | **Pinned tabs first** | On (default): pinned tabs lead every sort order. |
+| | **Show tabs from all windows** | Off: only the window you open Tabazing in. On: every window, with the window list on the left. |
+| | **Show Recently closed** | On (default): the Recently closed section below the open tabs. |
+| | **Show Snoozed** | On (default): the Snoozed section. |
+| | **Show "days ago" tags** | On (default): the "3 days ago" tags on cards. |
+| Search | **Include history** | On (default): search your browsing history. |
+| | **Include bookmarks** | On (default): search your bookmarks. |
+| Behaviour | **Open Tabazing when Chrome starts** | Shows all your tabs, where you left off, a few seconds after Chrome opens. |
+| | **Always open in its own window** | Off (default): over the page you are on when Chrome allows it. On: always in its own popup window. |
+| | **Change the Alt+Q shortcut** | Opens `chrome://extensions/shortcuts`. |
+| | **Keyboard and mouse shortcuts** | Opens the ⓘ shortcuts card. |
+| | **Replay the tour** | Shows the first-run tour again. |
 
 Settings, the sort order and your stars, notes and snoozed tabs are remembered between sessions.
+
+### Messages and errors
+
+Short messages appear at the bottom ("Copied 5 links", "Closed 2 tabs · Undo"); while the actions bar shows, they sit just above it. When Chrome refuses something, the message says what failed ("Couldn't close that tab", "Couldn't move the tabs", "Couldn't pin or unpin the tab", …) instead of a generic error.
 
 ### Feedback prompt
 

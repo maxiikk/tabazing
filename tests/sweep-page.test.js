@@ -53,6 +53,27 @@ describe('sweep page', () => {
     expect(tid('fill').style.width).toBe('100%');
   });
 
+  it('estimates the time left once a tab is done: seconds, then whole minutes rounded up', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const now = Date.now();
+      await open({ running: true, done: 0, total: 5, startedAt: now });
+      expect(tid('sweep-left').hidden).toBe(true);
+      await setProgress({ running: true, done: 2, total: 5, startedAt: now - 20000 }); // 10 s a tab, 3 to go
+      expect(tid('sweep-left').hidden).toBe(false);
+      expect(tid('sweep-left').textContent).toBe('About 30 sec left');
+      await setProgress({ running: true, done: 1, total: 4, startedAt: now - 50500 }); // 151.5 s
+      expect(tid('sweep-left').textContent).toBe('About 3 min left');
+      await setProgress({ running: true, done: 4, total: 4, startedAt: now - 1000 }); // nothing left
+      expect(tid('sweep-left').hidden).toBe(true);
+      await setProgress({ running: true, done: 1, total: 4 }); // no start time (an older worker): no guess
+      expect(tid('sweep-left').hidden).toBe(true);
+      await setProgress({ running: true, done: 1, total: 3, startedAt: now - 2000 });
+      await setProgress({ running: false, done: 0, total: 0 });
+      expect(tid('sweep-left').hidden).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
   it('says Done when the run ends (or there is none)', async () => {
     await open();
     expect(tid('msg').textContent).toBe('Done.');

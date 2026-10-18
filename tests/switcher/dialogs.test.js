@@ -60,7 +60,8 @@ describe('the tour', () => {
   it('walks through every step: Next, Back, then Done remembers it', async () => {
     const sw = await boot({ tabs: AB });
     sw.tourStep(0);
-    const n = sw.TOUR_ALL.length;
+    const n = sw.TOUR.length; // the steps for what is on screen (one window, nothing playing: no windows or media step)
+    expect(sw.TOUR.map((s) => s.id)).toEqual(['switch', 'move', 'search', 'cards', 'later', 'many', 'sort', 'settings']);
     expect(sw.state.modal).toBe('tour');
     expect(tid('dialog-title').textContent).toBe(t('tourSwitchTitle'));
     expect(tid('tour-step-number').textContent).toBe('1');
@@ -104,9 +105,50 @@ describe('the tour', () => {
 
   it('ArrowRight on the last step ends it', async () => {
     const sw = await boot({ tabs: AB });
-    sw.tourStep(sw.TOUR_ALL.length - 1);
+    sw.tourStep(0);
+    sw.tourStep(sw.TOUR.length - 1);
     key('ArrowRight');
     expect(modalOpen()).toBe(false);
+  });
+
+  it('the "many at once" step shows every tick box (and points at the selected one), until the step changes', async () => {
+    const sw = await boot({ tabs: AB });
+    sw.tourStep(0);
+    const many = sw.TOUR.findIndex((s) => s.id === 'many');
+    sw.tourStep(many);
+    expect(document.documentElement.classList.contains('tour-picking')).toBe(true);
+    const sel = tids('card-tab').find((c) => c.getAttribute('aria-selected') === 'true');
+    expect(tid('card-pick', sel).classList.contains('tour-hl')).toBe(true);
+    expect(tid('dialog-text').textContent).toBe(t('tourManyBody', { key: 'Ctrl' }));
+    sw.tourStep(many + 1);
+    expect(document.documentElement.classList.contains('tour-picking')).toBe(false);
+    sw.tourStep(many);
+    key('Escape');
+    expect(document.documentElement.classList.contains('tour-picking')).toBe(false);
+  });
+
+  it('adds a windows step and a media step when those are on screen', async () => {
+    const sw = await boot({ tabs: AB, prefs: { allWindows: true }, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'W', url: 'https://w.example/' }); } });
+    sw.state.media = [{ tabId: sw.state.tabs[0].id, frameId: 0, tab: sw.state.tabs[0], title: 'Song', site: 'a.example', playing: true }];
+    sw.renderPlayer();
+    sw.tourStep(0);
+    const ids = sw.TOUR.map((s) => s.id);
+    expect(ids).toContain('windows');
+    expect(ids).toContain('player');
+    sw.tourStep(ids.indexOf('windows'));
+    expect(tid('wins').classList.contains('tour-hl')).toBe(true);
+    expect(tid('dialog-title').textContent).toBe(t('tourWinTitle'));
+    sw.tourStep(ids.indexOf('player'));
+    expect(tid('player').classList.contains('tour-hl')).toBe(true);
+  });
+
+  it('every step says Alt+Q / Alt+W the corrected way: previous / next card in the list, wrapping around', async () => {
+    const sw = await boot({ tabs: AB });
+    sw.tourStep(0);
+    expect(tid('dialog').textContent).toContain(t('keyPrevTab'));
+    expect(tid('dialog').textContent).toContain(t('keyNextTab'));
+    expect(t('tourSwitchBody')).toMatch(/Hold Alt and press Q/);
+    expect(t('keyPrevTab')).toBe('previous card in the list (wraps around)');
   });
 
   it('placeTour puts the card next to its target, or nowhere in particular without one', async () => {
@@ -276,10 +318,13 @@ describe('alerts and health checks', () => {
     const sw = await boot({ tabs: [...AB, { title: 'C', url: 'https://c.example/' }, { title: 'X', url: 'chrome://extensions/' }] });
     sw.updateSweepButton();
     expect(tid('sweep-btn').hidden).toBe(false);
-    expect(tid('sweep-text').textContent).toBe(t('sweepAll', { count: 2 })); // B and C: not the current tab, not chrome://
+    // compact: a camera and the count; the label and tooltip say the rest
+    expect(tid('sweep-text').textContent).toBe('2'); // B and C: not the current tab, not chrome://
+    expect(tid('sweep-btn').getAttribute('aria-label')).toBe(t('sweepAll', { count: 2 }));
+    expect(tid('sweep-btn').title).toContain(t('sweepTitleAll'));
     sw.state.query = 'c';
     sw.updateSweepButton();
-    expect(tid('sweep-text').textContent).toBe(t('sweepThese', { count: 2 }));
+    expect(tid('sweep-btn').getAttribute('aria-label')).toBe(t('sweepThese', { count: 2 }));
     sw.state.hostOk = false;
     sw.updateSweepButton();
     expect(tid('sweep-btn').hidden).toBe(true);
@@ -408,5 +453,177 @@ describe('Settings', () => {
     await tick();
     tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(tid('settings')).toBe(null);
+  });
+});
+
+describe('the toolbar-icon tip', () => {
+  it('shows at most three times, counting in prefs.iconTips', async () => {
+    let sw = await boot({ tabs: AB, ctx: { via: 'icon' }, prefs: { iconTips: 2 } });
+    await sw.healthCheck();
+    expect(toastText()).toBe(t('iconTip', { key: 'Alt+Q' }));
+    await vi.waitFor(async () => expect((await prefs()).iconTips).toBe(3));
+    sw = await boot({ tabs: AB, ctx: { via: 'icon' } });
+    sw.toast('');
+    await sw.healthCheck();
+    expect(toastText()).not.toBe(t('iconTip', { key: 'Alt+Q' }));
+  });
+});
+
+describe('the shortcuts card (ⓘ)', () => {
+  const openKeys = async () => { tid('keys-btn').click(); return waitFor(() => tid('keys-popover')); };
+
+  it('opens below ⓘ with the focus in it, lists every shortcut in groups, and closes with ⓘ again', async () => {
+    await boot({ tabs: AB });
+    const pop = await openKeys();
+    expect(pop.getAttribute('role')).toBe('dialog');
+    expect(pop.getAttribute('aria-modal')).toBe('true');
+    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(tid('keys-close'));
+    expect(tids('keys-group-title').map((x) => x.textContent)).toEqual([t('keysGroupOpen'), t('keysGroupMove'), t('keysGroupAct'), t('keysGroupSearch'), t('keysGroupEsc')]);
+    const keys = tids('keys-key').map((x) => x.textContent);
+    for (const k of ['Alt+Q', 'Alt+W', 'Alt+E', 'Alt+Tab', 'Alt+1', 'Ctrl+←', 'Enter', 'Shift+Enter', 'Space', 'Del', 'Ctrl+Z', 'Alt+S', 'Alt+P', 'Shift+F10', 'Ctrl+Space', 'Ctrl+F', 'Esc']) expect(keys, k).toContain(k);
+    for (const k of [t('kbdClick', { key: 'Shift' }), t('kbdClick', { key: 'Ctrl' }), t('kbdClickBox', { key: 'Shift' }), t('kbdRight'), t('kbdMiddle'), t('kbdLetGo', { key: 'Alt' }), t('kbdWheel', { key: 'Alt' })]) expect(keys, k).toContain(k);
+    const actions = tids('keys-action').map((x) => x.textContent);
+    expect(actions).toContain(t('keyPrevTab'));
+    expect(actions).toContain(t('keyNextTab'));
+    expect(actions).toContain(t('keyEsc'));
+    tid('keys-btn').click();
+    await tick(20);
+    expect(tid('keys-popover')).toBe(null);
+    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps Tab inside, and Esc, its × or a press outside close it, with the focus back on ⓘ', async () => {
+    const sw = await boot({ tabs: AB });
+    await openKeys();
+    expect(key('Tab').defaultPrevented).toBe(true); // its only control: Tab stays on it
+    expect(document.activeElement).toBe(tid('keys-close'));
+    key('Escape');
+    expect(tid('keys-popover')).toBe(null);
+    expect(document.activeElement).toBe(tid('keys-btn'));
+    expect(sw.state.done).toBe(false);
+    await openKeys();
+    tid('keys-close').click();
+    expect(tid('keys-popover')).toBe(null);
+    await openKeys();
+    await tick();
+    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(tid('keys-popover')).toBe(null);
+    expect(document.activeElement).toBe(tid('keys-btn'));
+  });
+
+  it('names the keys as on this keyboard (not a Mac here: Alt, Ctrl)', async () => {
+    const sw = await boot({ tabs: AB });
+    expect(sw.IS_MAC).toBe(false);
+    const keys = sw.shortcutGroups().flatMap(([, , rows]) => rows.flatMap(([k]) => k));
+    expect(keys).toContain('Alt+Q');
+    expect(keys).not.toContain('⌥Q');
+  });
+});
+
+describe('Settings: the new groups and switches', () => {
+  const open = async () => { tid('settings-btn').click(); return waitFor(() => tid('settings')); };
+
+  it('is grouped: Appearance, Cards, Search, Behaviour', async () => {
+    await boot({ tabs: AB });
+    await open();
+    expect(tids('settings-group-title').map((x) => x.textContent)).toEqual([t('setGroupLook'), t('setGroupCards'), t('setGroupSearch'), t('setGroupBehave')]);
+    expect(tid('settings').style.maxHeight).not.toBe(''); // scrolls inside on a short window
+  });
+
+  it('with no theme saved, "Match system" is the one chosen', async () => {
+    await boot({ tabs: AB });
+    await open();
+    expect(tid('settings-theme').value).toBe('system');
+  });
+
+  it('every switch shows its stored value and saves', async () => {
+    await boot({ tabs: AB });
+    await open();
+    const want = { 'pinned-first': ['pinnedFirst', true], 'show-closed': ['showClosed', true], 'show-snoozed': ['showSnoozed', true], 'show-age': ['showAge', true], 'own-window': ['ownWindow', false], 'search-history': ['searchHistory', true], 'search-bookmarks': ['searchBookmarks', true] };
+    for (const [id, [k, on]] of Object.entries(want)) {
+      const box = tid('settings-' + id);
+      expect(box.checked, id).toBe(on);
+      box.checked = !on;
+      box.dispatchEvent(new Event('change'));
+      await vi.waitFor(async () => expect((await prefs())[k], id).toBe(!on));
+    }
+  });
+
+  it('Show Recently closed / Show Snoozed off hide those sections at once', async () => {
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 60, tab: { sessionId: 'x1', url: 'https://gone.example/', title: 'Gone' } }];
+    const snz = { id: 'z1', url: 'https://snz.example/', title: 'Snz', at: Date.now() + 3600e3, windowId: 1, pinned: false, t: Date.now() };
+    const sw = await boot({ tabs: AB, beforeImport: () => chrome.storage.local.set({ snoozed: [snz] }) });
+    expect(tid('closed-section').hidden).toBe(false);
+    expect(tid('snoozed-section').hidden).toBe(false);
+    await open();
+    for (const id of ['show-closed', 'show-snoozed']) { const b = tid('settings-' + id); b.checked = false; b.dispatchEvent(new Event('change')); }
+    await waitFor(() => tid('closed-section').hidden && tid('snoozed-section').hidden);
+    expect(sw.state.entries.every((e) => e.kind === 'tab')).toBe(true);
+  });
+
+  it('Title lines: two by default; one takes html.lines2 away', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    expect(tid('settings-title-lines').value).toBe('2');
+    tid('select-settings-title-lines').click();
+    tids('menu-item')[1].click();
+    await vi.waitFor(async () => expect((await prefs()).titleLines).toBe(1));
+    expect(document.documentElement.classList.contains('lines2')).toBe(false);
+    expect(sw.state.prefs.titleLines).toBe(1);
+  });
+
+  it('Search switches change the placeholder', async () => {
+    await boot({ tabs: AB });
+    await open();
+    const h = tid('settings-search-history');
+    h.checked = false;
+    h.dispatchEvent(new Event('change'));
+    await waitFor(() => tid('search').placeholder === t('searchPhNoHistory'));
+  });
+
+  it('"Replay the tour" closes Settings and starts the tour', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    tid('settings-tour').click();
+    expect(tid('settings')).toBe(null);
+    expect(sw.state.modal).toBe('tour');
+    expect(tid('tour-step-number').textContent).toBe('1');
+  });
+
+  it('"Keyboard and mouse shortcuts" opens the shortcuts card', async () => {
+    await boot({ tabs: AB });
+    await open();
+    tid('settings-keys').click();
+    expect(tid('settings')).toBe(null);
+    expect(tid('keys-popover')).not.toBe(null);
+  });
+});
+
+describe('Recently closed: Show more', () => {
+  const closed = (n) => Array.from({ length: n }, (_, i) => ({ lastModified: Math.floor(Date.now() / 1000) - 60 - i, tab: { sessionId: 's' + i, url: `https://gone${i}.example/`, title: 'Gone ' + i } }));
+
+  it('shows the first few; "Show more" (a button, reachable by Tab) shows up to the search limit, "Show fewer" goes back', async () => {
+    chrome._data.closed = closed(14);
+    const sw = await boot({ tabs: AB });
+    const n = () => sw.state.entries.filter((e) => e.kind === 'closed').length;
+    expect(n()).toBe(8);
+    const more = tid('closed-more');
+    expect(more.hidden).toBe(false);
+    expect(more.tagName).toBe('BUTTON');
+    expect(more.textContent).toBe(t('closedMore'));
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    more.click();
+    expect(n()).toBe(14);
+    expect(tid('closed-more').textContent).toBe(t('closedFewer'));
+    expect(tid('closed-more').getAttribute('aria-expanded')).toBe('true');
+    tid('closed-more').click();
+    expect(n()).toBe(8);
+  });
+
+  it('is not offered when everything already shows', async () => {
+    chrome._data.closed = closed(3);
+    await boot({ tabs: AB });
+    expect(tid('closed-more').hidden).toBe(true);
   });
 });

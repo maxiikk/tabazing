@@ -219,12 +219,13 @@ describe('SWEEP', () => {
     send({ type: MSG.SWEEP }, fromSwitcherPage());
     await flush();
     await vi.advanceTimersByTimeAsync(150);
-    expect(chrome.tabs.update).toHaveBeenCalledTimes(1);
+    const shown = () => chrome.tabs.update.mock.calls.filter(([, p]) => p.active).map(([id]) => id); // (the sweep also mutes each visit)
+    expect(shown()).toEqual([2]);
     send({ type: MSG.SWEEP_CANCEL }, fromSwitcherPage()); // not the sweep window
     send({ type: MSG.SWEEP_CANCEL }, { id: chrome.runtime.id, url: `chrome-extension://${chrome.runtime.id}/sweep.html` });
     await vi.advanceTimersByTimeAsync(10000);
     // the first visit, then only putting the window back on its tab
-    expect(chrome.tabs.update.mock.calls.map(([id]) => id)).toEqual([2, 1]);
+    expect(shown()).toEqual([2, 1]);
   });
 });
 

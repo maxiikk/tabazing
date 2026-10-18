@@ -1,9 +1,9 @@
 // The media player beside the search box, and its list of everything that plays in the tabs (the chevron).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
 import { boot, tid, tids, toastText, closedMsg } from './quiet-boot.js';
 import { t } from '../../lib/translations.js';
-import { KEY } from '../../lib/constants.js';
+import { KEY, MSG } from '../../lib/constants.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
 const TABS = [
@@ -137,12 +137,14 @@ describe('the player', () => {
     expect(tid('media-list')).toBe(null);
   });
 
-  it('lists a tab that makes sound without a report (open from before Tabazing), with its title', async () => {
-    await boot({ tabs: [...TABS, { title: 'Old music', url: 'https://music.example/', audible: true }] });
-    expect(tid('player').hidden).toBe(false);
-    expect(tid('player-title').textContent).toBe('Old music');
-    expect(tid('player-prev').disabled).toBe(true);
-    expect(tid('player-next').disabled).toBe(true);
+  it('a tab that makes sound without media (a game, a call) shows no player, as in Chrome', async () => {
+    await boot({ tabs: [...TABS, { title: 'A game', url: 'https://game.example/', audible: true }] });
+    expect(tid('player').hidden).toBe(true);
+  });
+
+  it('asks the background, as it opens, to check the list with the pages', async () => {
+    await bootWith(PLAYING);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: MSG.MEDIA_CHECK });
   });
 
   it('shows what plays first, then the most recent', async () => {
@@ -297,6 +299,38 @@ describe('the list (chevron)', () => {
     expect(tid('player-title').textContent).toBe('Embedded');
     expect(focused()).toBe(tid('media-row-pick', rows()[2]));
     expect(tid('media-list')).not.toBe(null);
+  });
+
+  it('double-clicking a row plays or pauses it (and shows it in the player)', async () => {
+    await bootWith(ALL);
+    await openList();
+    chrome.scripting.executeScript.mockResolvedValue([{ result: true }]);
+    const live = () => rows().find((r) => tid('media-row-title', r).textContent === 'Live');
+    live().click();
+    expect(scriptCalls()).toEqual([]); // one press only picks it
+    live().click(); // the second press of a double click (the list was redrawn in between)
+    await tick();
+    expect(scriptCalls()).toEqual([expect.objectContaining({ args: ['play'] })]); // it was paused
+    expect(tid('player-title').textContent).toBe('Live');
+    live().click(); // a third press starts a new count: picks only
+    await tick();
+    expect(scriptCalls()).toHaveLength(1);
+  });
+
+  it('two presses far apart, or on two different rows, are not a double click', async () => {
+    await bootWith(ALL);
+    await openList();
+    chrome.scripting.executeScript.mockResolvedValue([{ result: true }]);
+    rows()[0].click();
+    rows()[1].click(); // another row
+    await tick();
+    expect(scriptCalls()).toEqual([]);
+    const at = performance.now();
+    const now = vi.spyOn(performance, 'now').mockReturnValue(at + 10000);
+    rows()[1].click(); // the same row, but long after
+    await tick();
+    now.mockRestore();
+    expect(scriptCalls()).toEqual([]);
   });
 
   it('"Go to tab" switches to it and closes the switcher, like choosing its card', async () => {

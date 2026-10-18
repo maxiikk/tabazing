@@ -10,6 +10,7 @@
   --accent: var(--accent);    /* Settings -> Accent colour sets these three (lib/accent.js) */
   --on-accent: #1B2A4A; /* text and icons drawn on the accent */
   --on-accent-ink: #000;
+  --ring: var(--accent); /* focus rings, the selected card's edge and other accent outlines (html.light darkens it) */
   --w: 320px;
 }
 * { box-sizing: border-box; }
@@ -27,8 +28,8 @@ html.overlay body {
   box-shadow: inset 0 0 80px 40px rgba(0, 0, 0, .45); /* hides the bright blur fringe at the edges */
 }
 [hidden] { display: none !important; }
-/* The keyboard focus is always visible (WCAG 2.4.7), in the accent colour. */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The keyboard focus is always visible (WCAG 2.4.7), in the accent colour (darkened on the light theme: --ring). */
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 button { font: inherit; color: inherit; }
 
 /* ---------- header ---------- */
@@ -38,8 +39,10 @@ button { font: inherit; color: inherit; }
   background: none; border: 0; font-size: 14px; padding: 8px 10px; border-radius: 6px; cursor: pointer;
 }
 .ghost:hover, .ghost:focus-visible { background: var(--fill-2); }
+.ghost.icon { padding: 7px; color: var(--fg-2); } /* ⓘ: the shortcuts card */
+.ghost.icon:hover, .ghost.icon:focus-visible, .ghost.icon[aria-expanded="true"] { color: var(--fg); background: var(--fill-2); }
 .search {
-  flex: 0 1 560px; margin: 0 auto;
+  flex: 0 1 460px; min-width: 240px; margin: 0 auto;
   display: flex; align-items: center; gap: 10px; padding: 0 14px; height: 40px;
   background: var(--fill); border: 1px solid var(--line); border-radius: 10px; color: var(--fg-3);
   cursor: text;
@@ -83,14 +86,20 @@ button { font: inherit; color: inherit; }
 .pbtn.more[aria-expanded="true"] svg { transform: rotate(180deg); }
 /* While Alt is held (html.alttab) the bar is only for the cards: the player comes back with the search box. */
 html.alttab .player { display: none !important; }
-@media (max-width: 900px) { .player { flex: none; min-width: 0; } .player .ptext { display: none; } }
-.hint { color: var(--fg-3); font-size: 12px; white-space: nowrap; flex: none; }
+/* A narrow window (.bar.narrow, below 1100 px: switcher.js layoutHeader): the header becomes a grid and the media
+   player gets its own row under the search box, as wide as it. Below 900 px (.tight) the buttons around them keep
+   only their icons (their words stay, for screen readers). The card area follows the header's height (setTop). */
+.bar.narrow { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 8px 12px; }
+.bar.narrow .search { flex: none; width: 100%; max-width: 560px; margin: 0 auto; }
+.bar.narrow .player { grid-column: 3; grid-row: 2; width: 100%; max-width: 560px; min-width: 0; margin: 0 auto; }
+.bar.tight { padding-left: 20px; padding-right: 20px; gap: 8px; }
+.bar.tight .ghost > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.bar.tight .ghost { padding: 8px; }
 kbd {
   font: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px;
   background: var(--fill-2); color: rgba(255,255,255,.85);
 }
 kbd + kbd { margin-left: 2px; }
-@media (max-width: 1100px) { .hint { display: none; } }
 
 /* ---------- toolbar: windows · star filter + sort · setup ---------- */
 .tools { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; padding: 4px 44px 6px; }
@@ -107,6 +116,8 @@ kbd + kbd { margin-left: 2px; }
 }
 .act svg { color: var(--accent); flex: none; }
 .act:hover, .act:focus-visible { color: var(--fg); background: var(--fill-2); border-color: rgba(255,255,255,.35); }
+/* "Capture all": a camera and a number; the tooltip says the rest */
+.act.compact { padding: 0 10px; gap: 6px; font-variant-numeric: tabular-nums; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px;
   border-radius: 15px; border: 1px solid var(--line); background: transparent; cursor: pointer;
@@ -135,15 +146,22 @@ main {
 .wins { flex: 0 0 196px; width: 196px; min-width: 0; margin: 8px 0 12px 24px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .win { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--fg-2); cursor: pointer; text-align: left; }
 .win:hover { background: var(--fill); color: var(--fg); }
-.win[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); color: var(--fg); }
+.win[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 10%, transparent); border-color: color-mix(in srgb, var(--ring) 60%, transparent); color: var(--fg); }
 .wpic { flex: none; width: 64px; height: 40px; border-radius: 5px; overflow: hidden; background: #1d2027; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(0,0,0,.35); }
 .wpic img { width: 100%; height: 100%; object-fit: cover; object-position: top left; }
 .wpic img.wfav { width: 18px; height: 18px; object-fit: contain; }
-.win[aria-pressed="true"] .wpic { box-shadow: 0 0 0 2px var(--accent); }
+.win[aria-pressed="true"] .wpic { box-shadow: 0 0 0 2px var(--ring); }
 .wtext { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .wlabel { font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wsub { font-size: 11px; color: var(--fg-3); }
-@media (max-width: 1000px) { .wins { flex-basis: 84px; width: 84px; } .wtext { display: none; } }
+@media (max-width: 1000px) { .wins { flex-basis: 84px; width: 84px; } .wtext, .wmergeall .wlabel { display: none; } }
+/* "Merge all into this window": the first row of the window list */
+.wmergeall {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 32px; padding: 6px 10px; flex: none;
+  border: 1px dashed var(--line); border-radius: 10px; background: none; color: var(--fg-2); font-size: 12px; cursor: pointer;
+}
+.wmergeall svg { flex: none; color: var(--accent); }
+.wmergeall:hover, .wmergeall:focus-visible { background: var(--fill); color: var(--fg); border-style: solid; }
 .section-h {
   font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
   color: var(--fg-3); margin: 14px 8px 10px;
@@ -190,16 +208,34 @@ html.intro body {
 }
 .card[aria-selected="true"] {
   z-index: 2; translate: 0 -4px; scale: 1.03;
-  box-shadow: 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45);
+  box-shadow: 0 0 0 2px var(--ring), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45);
 }
 .grid .card:not([aria-selected="true"]):not(.dragging) .thumb { filter: opacity(.8); } /* the picture only: the text keeps its contrast */
+/* While searching, the cards that don't match step far back (they keep their places), and the selected one
+   doesn't glow: the glow is for a card the search found. filter, not opacity (the opening animation's). */
+.card.nomatch { filter: opacity(.3) grayscale(.6); }
+.card.nomatch:hover { filter: opacity(.6); }
+.card.nomatch[aria-selected="true"], .card.picked.nomatch[aria-selected="true"] { translate: none; scale: none; box-shadow: none; background: transparent; }
 @media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { translate: none; scale: none; } .card { transition: none; } }
 
-.head { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 2px 6px; }
+.head { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 2px 6px; position: relative; }
 .fav { width: 18px; height: 18px; flex: none; border-radius: 3px; }
 /* When the header runs short, the site name gives way first (shrinks 1000x faster), so the title stays readable. */
 .title { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
 .small .title { font-size: 12.5px; }
+/* Settings -> Title lines: two (html.lines2) on the default-size cards. The header is two lines tall on every
+   card, so the pictures of a row stay level. */
+html.lines2 .grid:not(.small):not(.list) .head { height: 44px; align-items: flex-start; padding-top: 1px; }
+html.lines2 .grid:not(.small):not(.list) .title { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; overflow-wrap: anywhere; }
+html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { margin-top: 1px; }
+/* The star and × over the end of the header: hidden, they take none of the title's room; shown (hover, the
+   selected card, a starred page's star), the title makes way for them. */
+.hbtns { position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 0; height: 26px; }
+.card:hover .head:has(.hbtns), .card[aria-selected="true"] .head:has(.hbtns), .head:has(.hbtns :focus-visible) { padding-right: 52px; }
+.card:hover .head:has(.hbtns:not(.two)), .card[aria-selected="true"] .head:has(.hbtns:not(.two)) { padding-right: 28px; }
+.head:has(.hbtns.two .star.on) { padding-right: 52px; } /* a starred page's star stays in view */
+.head:has(.hbtns:not(.two) .star.on) { padding-right: 28px; }
+.grid.list .hbtns { top: 3px; }
 .host {
   flex: 0 1000 auto; max-width: 40%; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-size: 11.5px; color: var(--fg-3);
@@ -210,7 +246,7 @@ html.intro body {
 }
 .badge { flex: none; opacity: .75; display: inline-flex; }
 .star {
-  flex: none; width: 24px; height: 24px; border: 0; border-radius: 5px; padding: 0; margin-right: -4px;
+  flex: none; width: 24px; height: 24px; border: 0; border-radius: 5px; padding: 0;
   background: transparent; cursor: pointer; opacity: 0; color: var(--fg-2);
   display: inline-flex; align-items: center; justify-content: center;
 }
@@ -239,23 +275,34 @@ html.intro body {
 .pick, .grid.small .qbtn, .badge.audio, .wmerge { position: relative; }
 .pick::after, .grid.small .qbtn::after, .badge.audio::after, .wmerge::after { content: ''; position: absolute; inset: -3px; }
 
-/* tick box on a card: shows on hover, and on every card once one is ticked */
+/* tick box on a card: shows on hover, and on every card once one is ticked (or while the tour shows them) */
 .pick {
   flex: none; width: 18px; height: 18px; padding: 0; margin: 0; border-radius: 4px; cursor: pointer; box-sizing: border-box;
   border: 1.5px solid var(--fg-3); background: transparent; color: transparent; display: none; align-items: center; justify-content: center;
 }
-.card:hover .pick, .picking .pick, .pick.on { display: inline-flex; }
-.card:hover .pick + .fav, .picking .pick + .fav { display: none; }
-.pick:hover { border-color: var(--accent); }
+.card:hover .pick, .picking .pick, .tour-picking .pick, .pick.on { display: inline-flex; }
+.card:hover .pick + .fav, .picking .pick + .fav, .tour-picking .pick + .fav { display: none; }
+.pick:hover { border-color: var(--ring); }
 .pick:focus-visible { display: inline-flex; }
 .star:focus-visible, .x:focus-visible { opacity: 1; }
 .pick.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .card.picked { background: color-mix(in srgb, var(--accent) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent); }
-.card.picked[aria-selected="true"] { border-color: var(--accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45); }
+.card.picked[aria-selected="true"] { border-color: var(--ring);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), 0 0 0 2px var(--ring), 0 12px 32px color-mix(in srgb, var(--accent) 35%, transparent), 0 18px 40px rgba(0,0,0,.45); }
 
-/* quick actions on a card's preview (hover); a tab's note button stays in view while it has a note */
-.quick { position: absolute; top: 8px; right: 8px; display: flex; gap: 4px; z-index: 1; }
+/* quick actions on a card's preview (hover); a tab's note button stays in view while it has a note. On a narrow
+   card they wrap onto a second row rather than run off its edge. */
+.quick { position: absolute; top: 8px; right: 8px; left: 8px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; z-index: 1; pointer-events: none; }
+.quick > * { pointer-events: auto; }
+/* a card's tags on its picture, top left: days since it was used, its window, pinned, back from snooze */
+.flags { position: absolute; top: 8px; left: 8px; max-width: calc(100% - 16px); display: flex; flex-wrap: wrap; gap: 4px; pointer-events: none; }
+.flags .tag, .flags .badge { background: rgba(10,12,16,.72); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.flags .badge { opacity: 1; width: 18px; height: 16px; border-radius: 8px; align-items: center; justify-content: center; }
+.flags .badge svg { width: 11px; height: 11px; }
+.card:hover .flags, .card[aria-selected="true"] .flags { opacity: .35; } /* the quick buttons above them read first */
+.grid.list .flags { position: static; flex: 0 1 auto; flex-wrap: nowrap; overflow: hidden; max-width: 45%; opacity: 1; pointer-events: auto; }
+.grid.list .flags .tag, .grid.list .flags .badge { background: var(--fill-2); color: var(--fg-2); box-shadow: none; }
+.tag.woken { background: color-mix(in srgb, var(--accent) 80%, black) !important; color: #fff !important; }
 .qbtn { opacity: 0; transition: opacity .1s; }
 .card:hover .qbtn, .card[aria-selected="true"] .qbtn, .qbtn:focus-visible, .qbtn.note.on { opacity: 1; }
 .qbtn { width: 26px; height: 26px; border-radius: 6px; border: 0; padding: 0; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
@@ -270,6 +317,8 @@ html.intro body {
 .acts-btns { flex-wrap: nowrap !important; gap: 8px !important; }
 .qa.more svg { opacity: .9; }
 .acts-n { font-weight: 650; color: var(--accent); white-space: nowrap; }
+.acts-hint { color: var(--fg-3); font-size: 11.5px; white-space: nowrap; }
+@media (max-width: 900px) { .acts { flex-wrap: wrap; white-space: normal; row-gap: 8px; justify-content: center; } .acts-hint { display: none; } }
 .acts-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .lnk { background: none; border: 0; padding: 2px; color: var(--fg-2); font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .lnk:hover, .lnk:focus-visible { color: var(--fg); }
@@ -287,13 +336,14 @@ html.intro body {
 .pop { position: fixed; z-index: 6; width: 290px; padding: 12px; border-radius: 12px; background: #1d2027; border: 1px solid rgba(255,255,255,.2); box-shadow: 0 16px 40px rgba(0,0,0,.6); display: grid; gap: 8px; user-select: text; }
 .pop label { font-size: 12px; font-weight: 600; color: var(--fg-2); }
 .pop input { font: inherit; font-size: 13px; color: var(--fg); background: rgba(0,0,0,.3); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
-.pop input:focus { outline: 0; border-color: var(--accent); }
+.pop input:focus { outline: 0; border-color: var(--ring); }
 .pop .pfine { margin: 0; font-size: 11.5px; color: var(--fg-3); }
 .pop .row { margin-top: 2px; }
 
-/* a short note at the bottom ("Copied 5 links") */
-.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6; padding: 8px 16px; border-radius: 8px;
-  background: color-mix(in srgb, var(--accent) 12%, white); color: #1B2A4A; font-weight: 650; font-size: 13px; box-shadow: 3px 3px 0 #1B2A4A; animation: pop .16s ease-out both; }
+/* a short note at the bottom ("Copied 5 links"); above the actions bar while that shows (switcher.js placeToast) */
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 6; padding: 8px 16px; border-radius: 8px; max-width: calc(100% - 40px);
+  background: color-mix(in srgb, var(--accent) 12%, white); color: #1B2A4A; font-weight: 650; font-size: 13px; box-shadow: 3px 3px 0 #1B2A4A; animation: pop .16s ease-out both;
+  transition: bottom .14s ease; }
 /* for screen readers only (the live regions): there, but not seen */
 .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .clip { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; user-select: text; }
@@ -327,6 +377,10 @@ html.intro body {
   color: #c7d2ff;
 }
 .nopreview .label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.85); }
+/* still loading (just after the first draw): only the favicon, quietly, on a plain tile */
+.nopreview.loading { background: #23262e; }
+.nopreview.loading .tile { background: none; }
+.nopreview.loading .tile img { filter: none; opacity: .55; }
 .nopreview .sub { font-size: 11.5px; color: var(--fg-3); max-width: 92%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .small .nopreview .sub { display: none; }
 /* Awake tabs with no screenshot yet: plain, full-colour favicon (not asleep). */
@@ -408,7 +462,7 @@ html.intro body {
 .dialog.manual[data-side="left"]::after { right: -7px; top: calc(var(--ay) - 7px); transform: rotate(45deg); box-shadow: none; }
 .dialog.manual[data-side="below"]::after { top: -7px; left: calc(var(--ax) - 7px); transform: rotate(45deg); box-shadow: none; }
 .dialog.manual[data-side="above"]::after { bottom: -7px; left: calc(var(--ax) - 7px); transform: rotate(45deg); box-shadow: none; }
-.tour-hl { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+.tour-hl { outline: 3px solid var(--ring); outline-offset: 3px; border-radius: 8px; }
 
 /* ---------- alert bar: a quiet note, not a warning ---------- */
 .alert { margin: 0 44px 6px; padding: 6px 12px; border-radius: 8px; background: var(--fill); border: 1px solid var(--line); color: var(--fg-2); font-size: 12.5px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -443,7 +497,7 @@ html.intro body {
 .mlist { display: grid; gap: 2px; max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
 .mrow { display: flex; align-items: center; gap: 2px; padding: 4px 6px 4px 4px; border-radius: 8px; cursor: pointer; min-width: 0; }
 .mrow:hover { background: var(--fill); }
-.mrow.on { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.mrow.on { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 3px 0 0 var(--ring); }
 .mpick { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 2px 6px 2px 4px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 /* playing: three bars that move (still and faint when paused) */
 .meq { flex: none; display: inline-flex; align-items: flex-end; gap: 2px; width: 12px; height: 12px; margin-right: 4px; }
@@ -453,10 +507,37 @@ html.intro body {
 .meq.on i:nth-child(3) { animation-delay: -.55s; }
 @keyframes eq { from { height: 25%; } to { height: 100%; } }
 
-/* settings card */
+/* settings card: two columns of groups (Appearance | Cards, Search, Behaviour); it scrolls inside when short */
+.pop.settings { width: 580px; max-width: calc(100vw - 24px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .pop.settings h4 { margin: 0 0 2px; font-size: 13px; }
-.pop .check { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; font-weight: 500; color: var(--fg); margin-top: 6px; }
-.pop .lnk { justify-self: start; }
+.scols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; align-items: start; }
+@media (max-width: 640px) { .scols { grid-template-columns: 1fr; } }
+.scol { display: grid; gap: 14px; min-width: 0; }
+.sgroup { display: grid; gap: 7px; align-content: start; min-width: 0; }
+.sgroup h5 { margin: 0; font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-3); }
+.pop .check { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; font-weight: 500; color: var(--fg); margin-top: 2px; min-height: 24px; }
+.pop .lnk { justify-self: start; min-height: 24px; text-align: left; }
+.pop .perr { color: #ffb4aa; }
+html.light .pop .perr { color: #b42318; }
+/* the shortcuts card (ⓘ) */
+.pop.keyspop { width: 470px; max-width: calc(100vw - 24px); padding: 12px 8px 12px 14px; gap: 6px; grid-template-rows: auto minmax(0, 1fr); }
+.keyshead { display: flex; align-items: center; gap: 8px; }
+.keyshead h4 { flex: 1; margin: 0; font-size: 13px; }
+.keysbody { overflow-y: auto; overscroll-behavior: contain; padding-right: 6px; scrollbar-width: thin; display: grid; gap: 12px; }
+.kgroup h5 { margin: 0 0 6px; font-size: 10.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-3); }
+.kgroup dl { margin: 0; display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr); gap: 5px 12px; align-items: baseline; }
+.kgroup dt { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px; max-width: 220px; }
+.kgroup dd { margin: 0; font-size: 12.5px; color: var(--fg-2); }
+.kgroup kbd { white-space: nowrap; }
+.kor { color: var(--fg-3); font-size: 11px; }
+/* the snooze time picker */
+.pop.snoozepop { width: 270px; }
+.pop.snoozepop input { color-scheme: dark; }
+html.light .pop.snoozepop input { color-scheme: light; }
+.pop.snoozepop .row { margin-top: 0; }
+.pop .btn { padding: 6px 12px; font-size: 12.5px; }
+/* "Show more" under Recently closed */
+#closed-more { display: block; min-height: 24px; margin: 12px 8px 0; }
 /* the narrower tour card: keep its buttons on one line */
 .dialog.manual .row { flex-wrap: nowrap; gap: 6px; }
 .dialog.manual .row .btn { padding: 6px 10px; font-size: 13px; }
@@ -475,7 +556,7 @@ html.intro body {
 /* ---------- List (Settings -> Card size): one line per tab, no screenshot ---------- */
 .grid.list .card { padding: 4px 6px; }
 .grid.list .head { height: 30px; padding: 0 2px; }
-.grid.list .quick { position: static; }
+.grid.list .quick { position: static; flex-wrap: nowrap; }
 .grid.small .quick { gap: 2px; top: 7px; right: 7px; }
 .grid.small .qbtn { width: 21px; height: 21px; border-radius: 5px; }
 .grid.list .qbtn { width: 24px; height: 24px; display: none; } /* in a line they take room only when shown */
@@ -496,7 +577,7 @@ html.intro body {
   font: inherit; font-size: 13px; color: var(--fg); background: rgba(0,0,0,.3); border: 1px solid var(--line);
   border-radius: 6px; padding: 7px 9px; min-height: 96px; resize: vertical;
 }
-.notepop textarea:focus { outline: 0; border-color: var(--accent); }
+.notepop textarea:focus { outline: 0; border-color: var(--ring); }
 /* top right of the note card: [Clear] (red text) and × (close) */
 .notetools { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; gap: 4px; }
 .noteclear {
@@ -643,7 +724,7 @@ html.light #archive-btn svg { color: var(--accent-ink); }
 }
 .ddnote { margin: 2px 10px 6px; font-size: 11.5px; color: var(--fg-3); }
 .ddr { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; cursor: pointer; min-width: 0; }
-.ddr.on { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
+.ddr.on { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 3px 0 0 var(--ring); }
 .ddpic {
   flex: none; width: 64px; height: 40px; border-radius: 5px; overflow: hidden; background: #2a2e38;
   display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,.35);
@@ -678,7 +759,7 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
   transition: background .12s, border-color .12s;
 }
 .fs:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: var(--accent); }
-.fs:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fs:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .fsl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fsc { display: inline-flex; color: var(--accent); }
 .fs[aria-expanded="true"] .fsc, .fs:focus-within .fsc { transform: none; }
@@ -705,7 +786,7 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
 .pop .check input[type="checkbox"]:hover { border-color: var(--accent); }
 .pop .check input[type="checkbox"]:checked { background: var(--accent); border-color: var(--accent); }
 .pop .check input[type="checkbox"]:checked::after { transform: scale(1); }
-.pop .check input[type="checkbox"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.pop .check input[type="checkbox"]:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .pop .check { align-items: center; }
 
 /* ---------- light theme (Settings -> Theme; html.light) ----------
@@ -722,6 +803,7 @@ html.light {
   --fill-2: rgba(0,0,0,.085);
   --sel: #16191f;
   --accent-ink: color-mix(in srgb, var(--accent) 52%, #000);
+  --ring: var(--accent-ink); /* rings and outlines reach 3:1 on the light ground, whatever the accent */
 }
 html.light.window body { background: radial-gradient(1200px 700px at 30% 10%, #ffffff, #e3e7ee); }
 html.light.overlay body { background: rgba(242,244,248,.8); box-shadow: inset 0 0 80px 40px rgba(255,255,255,.35); }
@@ -734,8 +816,9 @@ html.light .chip[aria-pressed="true"] .n { background: rgba(255,255,255,.2); }
 html.light .qfilters .chip[aria-pressed="true"] svg, html.light #star-filter[aria-pressed="true"] svg { color: var(--accent); }
 html.light main, html.light .dd { scrollbar-color: rgba(0,0,0,.25) transparent; }
 html.light #closed-section, html.light #snoozed-section { border-top-color: rgba(0,0,0,.09); }
-html.light .card[aria-selected="true"] { background: rgba(0,0,0,.06); box-shadow: 0 0 0 2px var(--accent), 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent), 0 16px 34px rgba(20,30,50,.18); }
-html.light .card.picked { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+html.light .card[aria-selected="true"] { background: rgba(0,0,0,.06); box-shadow: 0 0 0 2px var(--ring), 0 12px 30px color-mix(in srgb, var(--accent) 30%, transparent), 0 16px 34px rgba(20,30,50,.18); }
+html.light .nopreview.loading { background: #eceff4; }
+html.light .card.picked { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: inset 0 0 0 1px var(--ring); }
 html.light .x:hover { color: #fff; }
 
 /* surfaces: cards that float (settings, menus, dialogs, the tooltip, the big preview, the dropdown, the bar at the bottom) */
@@ -743,7 +826,7 @@ html.light .pop, html.light .menu, html.light .dialog:not(.manual), html.light .
   background: #fff; border-color: rgba(0,0,0,.12); box-shadow: 0 14px 38px rgba(20,30,50,.2);
 }
 html.light .tip { border-left-color: var(--accent); }
-html.light .acts { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+html.light .acts { border-color: var(--ring); }
 html.light .wpic, html.light .thumb, html.light .ddpic, html.light .bigshot, html.light .ppic, html.light .mpic { background: #e6e9ef; }
 html.light .mpic { box-shadow: 0 2px 8px rgba(20,30,50,.16); }
 html.light .player:focus-within { border-color: rgba(0,0,0,.32); }

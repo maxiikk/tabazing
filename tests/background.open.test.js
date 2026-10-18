@@ -122,8 +122,18 @@ describe('openSwitcher', () => {
     expect(l.ctx).toEqual({ src: tab.id, win: w.id, dir: 1, via: 'icon', hold: false, state: 'normal', mode: 'window' });
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
     expect(chrome.windows.create).toHaveBeenCalledWith({
-      url: bg().SWITCHER_URL + '?t=' + l.token, type: 'popup', focused: true, width: 1120, height: 720, left: 40, top: 40,
+      url: bg().SWITCHER_URL + '?t=' + l.token, type: 'popup', focused: true, width: 1200, height: 800, left: 0, top: 0,
     });
+  });
+
+  it('Settings "own window": the popup window even over a web page', async () => {
+    const { tab } = seed('https://example.com/a');
+    await chrome.storage.local.set({ [KEY.PREFS]: { ownWindow: true } });
+    await bg().openSwitcher(1, tab);
+    expect(launch().ctx.mode).toBe('window');
+    expect(launchInjections()).toEqual([]);
+    expect(chrome.storage.session._data.has(KEY.OVERLAY)).toBe(false);
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'popup', url: bg().SWITCHER_URL + '?t=' + launch().token }));
   });
 
   it('falls back to the popup window when the overlay cannot be injected', async () => {
@@ -369,16 +379,26 @@ describe('watchdog', () => {
 });
 
 describe('openPopupWindow', () => {
-  it('centres the popup over the window it came from', async () => {
-    await bg().openPopupWindow({ left: 100, top: 50, width: 1600, height: 1000 }, 'tok');
+  it('covers the window it came from', async () => {
+    await bg().openPopupWindow({ left: 100, top: 50, width: 1600, height: 1000, state: 'normal' }, 'tok');
     expect(chrome.windows.create).toHaveBeenCalledWith({
-      url: bg().SWITCHER_URL + '?t=tok', type: 'popup', focused: true, width: 1180, height: 780, left: 310, top: 160,
+      url: bg().SWITCHER_URL + '?t=tok', type: 'popup', focused: true, width: 1600, height: 1000, left: 100, top: 50,
     });
   });
 
-  it('assumes 1280x800 when the window size is unknown', async () => {
+  it('is never smaller than 640x480', async () => {
+    await bg().openPopupWindow({ left: -8, top: 20.4, width: 300, height: 200 }, 'tok');
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 640, height: 480, left: -8, top: 20 }));
+  });
+
+  it('assumes 1280x800 at the corner when the window is unknown', async () => {
     await bg().openPopupWindow({}, 'tok');
-    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 1180, height: 720, left: 50, top: 40 }));
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 1280, height: 800, left: 0, top: 0 }));
+  });
+
+  it.each(['maximized', 'fullscreen'])('over a %s window: maximized, without bounds', async (state) => {
+    await bg().openPopupWindow({ left: 0, top: 0, width: 1920, height: 1080, state }, 'tok');
+    expect(chrome.windows.create).toHaveBeenCalledWith({ url: bg().SWITCHER_URL + '?t=tok', type: 'popup', focused: true, state: 'maximized' });
   });
 
   it('lets Chrome place it when the bounds are rejected', async () => {

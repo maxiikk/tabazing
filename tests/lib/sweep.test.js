@@ -107,12 +107,43 @@ describe('runSweep', () => {
       [w.id, expect.objectContaining({ id: b.id, url: 'https://b.com/' })],
       [w.id, expect.objectContaining({ id: c.id, url: 'https://c.com/' })],
     ]);
+    const startedAt = Date.parse('2026-10-17T12:00:00Z'); // (the fake clock)
     expect(progress).toEqual([
-      { running: true, done: 0, total: 2 },
-      { running: true, done: 1, total: 2 },
-      { running: true, done: 2, total: 2 },
+      { running: true, done: 0, total: 2, startedAt },
+      { running: true, done: 1, total: 2, startedAt },
+      { running: true, done: 2, total: 2, startedAt },
       { running: false, done: 0, total: 0 },
     ]);
+  });
+
+  it('mutes each tab while it is shown and unmutes it after its capture', async () => {
+    const { b, c } = seed();
+    const mutedAtCapture = [];
+    captureTab.mockImplementation(async (_w, tab) => { mutedAtCapture.push(chrome._data.tabs.find((t) => t.id === tab.id).mutedInfo.muted); });
+    await sweep();
+    expect(mutedAtCapture).toEqual([true, true]);
+    const calls = chrome.tabs.update.mock.calls.filter(([id]) => id === b.id || id === c.id).map(([id, p]) => [id, p]);
+    expect(calls).toEqual([
+      [b.id, { muted: true }], [b.id, { active: true }], [b.id, { muted: false }],
+      [c.id, { muted: true }], [c.id, { active: true }], [c.id, { muted: false }],
+    ]);
+    expect(chrome._data.tabs.every((t) => !t.mutedInfo.muted)).toBe(true);
+  });
+
+  it('leaves a tab the user muted muted', async () => {
+    const { b } = seed();
+    chrome._data.tabs.find((t) => t.id === b.id).mutedInfo = { muted: true };
+    await sweep({ only: [b.id] });
+    expect(chrome.tabs.update.mock.calls.filter(([, p]) => 'muted' in p)).toEqual([]);
+    expect(chrome._data.tabs.find((t) => t.id === b.id).mutedInfo.muted).toBe(true);
+  });
+
+  it('unmutes even when the capture fails or the run is cancelled', async () => {
+    const { b } = seed();
+    captureTab.mockImplementationOnce(async () => { cancelSweep(); throw new Error('boom'); });
+    expect(await sweep()).toBe(1);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(b.id, { muted: false });
+    expect(chrome._data.tabs.every((t) => !t.mutedInfo.muted)).toBe(true);
   });
 
   it('captures only once the page has loaded and painted', async () => {

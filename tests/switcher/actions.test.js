@@ -116,20 +116,11 @@ describe('choose', () => {
   });
 });
 
-describe('armed', () => {
-  it('asks once, acts on the second press, and forgets after 3.5 s', async () => {
+describe('no "click again" confirmations', () => {
+  it('everything that closes or moves tabs has Undo instead, so nothing asks twice', async () => {
     const sw = await boot({ tabs: ABC });
-    expect(sw.armed('k')).toBe(false);
-    expect(sw.state.armed).toBe('k');
-    expect(sw.armed('k')).toBe(true);
-    expect(sw.state.armed).toBe(null);
-    vi.useFakeTimers();
-    try {
-      sw.armed('k');
-      vi.advanceTimersByTime(3500);
-      expect(sw.state.armed).toBe(null);
-      expect(sw.armed('k')).toBe(false); // armed afresh, not confirmed
-    } finally { vi.useRealTimers(); }
+    expect(sw.armed).toBeUndefined();
+    expect('armed' in sw.state).toBe(false);
   });
 });
 
@@ -143,7 +134,7 @@ describe('closeTab', () => {
     expect(live(b.tab.id)).toBeUndefined();
     expect(sw.state.tabs.map((x) => x.title)).toEqual(['A', 'C']);
     expect(sw.state.entries[sw.state.sel].tab.title).toBe('C');
-    expect(sw.state.undo.at(-1)).toEqual([{ url: 'https://b.example/', windowId: 1, index: 1, pinned: false }]);
+    expect(sw.state.undo.at(-1)).toMatchObject({ kind: 'close', tabs: [{ id: b.tab.id, url: 'https://b.example/', windowId: 1, index: 1, pinned: false }] });
     expect(toastText()).toBe(t('closedN', { count: 1 }));
     expect(toastButton().textContent).toMatch(/^Undo/);
   });
@@ -240,27 +231,27 @@ describe('ticking tabs', () => {
 });
 
 describe('the quick-actions bar', () => {
-  it('shows with tabs ticked; Close asks again for several tabs, then closes them', async () => {
+  it('shows with tabs ticked; Close closes them at once (Undo brings them back)', async () => {
     const sw = await boot({ tabs: ABC });
     sw.pick(entryByTitle(sw, 'B'));
     sw.pick(entryByTitle(sw, 'C'));
     expect(tid('acts').hidden).toBe(false);
     expect(tid('acts-n').textContent).toBe(t('pickedN', { count: 2 }));
-    const closeBtn = () => tid('action-close');
-    closeBtn().click();
-    expect(closeBtn().textContent).toBe(t('sureN', { count: 2 }));
-    expect(chrome.tabs.remove).not.toHaveBeenCalled();
-    closeBtn().click();
+    tid('action-close').click();
     await waitFor(() => chrome.tabs.remove.mock.calls.length);
     expect(order()).toEqual(['A']);
+    expect(toastButton().textContent).toMatch(/^Undo/);
   });
 
-  it('lists every action, the rarer ones under More', async () => {
+  it('lists every action, the rarer ones under More, each with its own error note', async () => {
     const sw = await boot({ tabs: ABC });
     expect(sw.ACTIONS.map((a) => a.id)).toEqual(['close', 'copy', 'md', 'win', 'sleep', 'snooze', 'archive', 'pin', 'mute']);
     expect(sw.ACTIONS.filter((a) => !a.more).map((a) => a.id)).toEqual(['close', 'copy']);
-    const close = sw.ACTIONS.find((a) => a.id === 'close');
-    expect([close.confirm(1), close.confirm(2)]).toEqual([false, true]);
+    expect(sw.ACTIONS.every((a) => !a.confirm)).toBe(true);
+    expect(Object.fromEntries(sw.ACTIONS.map((a) => [a.id, a.err()]))).toEqual({
+      close: t('errClose'), copy: t('copyFailed'), md: t('copyFailed'), win: t('errMove'), sleep: t('errSleep'),
+      snooze: t('errSnooze'), archive: t('errArchive'), pin: t('errPin'), mute: t('errMute'),
+    });
     const pin = sw.ACTIONS.find((a) => a.id === 'pin');
     expect(pin.label([{ pinned: true }])).toBe(t('actUnpin'));
     expect(pin.label([{ pinned: true }, { pinned: false }])).toBe(t('actPin'));
@@ -286,7 +277,7 @@ describe('the quick-actions bar', () => {
     ['pin', (tabs) => expect(tabs.map((x) => live(x.id).pinned)).toEqual([true, true])],
     ['mute', (tabs) => expect(tabs.map((x) => live(x.id).mutedInfo.muted)).toEqual([true, true])],
     ['close', (tabs) => expect(tabs.map((x) => live(x.id))).toEqual([undefined, undefined])],
-    ['win', (tabs) => { expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: tabs[0].id, focused: true }); expect(closedMsg().reason).toBe('switch'); }],
+    ['win', (tabs) => { expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: tabs[0].id, focused: false }); expect(closedMsg()).toBeUndefined(); }],
     ['archive', (tabs) => expect(chrome.bookmarks.create).toHaveBeenCalledWith(expect.objectContaining({ url: tabs[1].url }))],
     ['snooze', () => expect(tids('menu-item').length).toBeGreaterThanOrEqual(4)],
   ])('%s runs on the tabs it is given', async (id, check) => {
@@ -301,28 +292,64 @@ describe('the quick-actions bar', () => {
 describe('undo', () => {
   it('undoRecord keeps where each tab was', async () => {
     const sw = await boot({ tabs: [...ABC, { title: 'P', url: 'https://p.example/', pinned: true }] });
-    expect(sw.undoRecord([tabByTitle(sw, 'P')])).toEqual([{ url: 'https://p.example/', windowId: 1, index: 3, pinned: true }]);
+    const p = tabByTitle(sw, 'P');
+    expect(sw.undoRecord([p])).toEqual([{ id: p.id, url: 'https://p.example/', windowId: 1, index: 3, pinned: true }]);
   });
 
-  it('pushUndo keeps the last 20 closings and ignores empty ones', async () => {
+  it('pushUndo keeps the last 20 and ignores empty ones; the note says what it undoes', async () => {
     const sw = await boot({ tabs: ABC });
     sw.pushUndo([]);
     expect(sw.state.undo).toEqual([]);
     for (let i = 0; i < 21; i++) sw.pushUndo([{ url: 'https://x/' + i, windowId: 1, index: 0, pinned: false }]);
     expect(sw.state.undo).toHaveLength(20);
-    expect(sw.state.undo[0][0].url).toBe('https://x/1');
+    expect(sw.state.undo[0].tabs[0].url).toBe('https://x/1');
+    expect(sw.state.undo[0].kind).toBe('close');
+    sw.pushUndo([{ id: 1, url: 'https://x/', windowId: 2, index: 0, pinned: false }], 'merge');
+    expect(toastText()).toBe(t('mergedN', { count: 1 }));
+    sw.pushUndo([{ id: 1, url: 'https://x/', windowId: 1, index: 0, pinned: false }], 'move');
+    expect(toastText()).toBe(t('movedN', { count: 1 }));
   });
 
-  it('undoClose reopens the last closing where it was, in the background', async () => {
+  it('undoLast reopens the last closing where it was, in the background, when Chrome no longer lists it', async () => {
     const sw = await boot({ tabs: ABC });
     await sw.closeTab(entryByTitle(sw, 'B'));
     chrome.tabs.create.mockClear();
-    await sw.undoClose();
+    await sw.undoLast();
+    expect(chrome.sessions.restore).not.toHaveBeenCalled();
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, index: 1, pinned: false, active: false });
     expect(sw.state.tabs.map((x) => x.url)).toContain('https://b.example/');
     expect(toastText()).toBe(t('reopenedN', { count: 1 }));
-    await sw.undoClose();
+    await sw.undoLast();
     expect(toastText()).toBe(t('undoNothing'));
+  });
+
+  it("undoLast brings a tab Chrome closed just now back through Chrome's sessions (its history too), and shows the tab that was showing", async () => {
+    const sw = await boot({ tabs: ABC });
+    const b = entryByTitle(sw, 'B');
+    await sw.closeTab(b);
+    const now = Math.floor(Date.now() / 1000);
+    chrome._data.closed = [
+      { lastModified: now - 3600, tab: { sessionId: 'old', url: 'https://b.example/', title: 'B' } }, // the same page, long ago: not this one
+      { lastModified: now, tab: { sessionId: 's-b', url: 'https://b.example/', title: 'B' } },
+    ];
+    chrome.tabs.create.mockClear();
+    chrome.tabs.update.mockClear();
+    await sw.undoLast();
+    expect(chrome.sessions.restore).toHaveBeenCalledWith('s-b');
+    expect(chrome.sessions.restore).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
+    expect(chrome.tabs.update).toHaveBeenCalledWith(tabByTitle(sw, 'A').id, { active: true }); // the window shows its tab again
+    expect(sw.asking).toBe(false);
+  });
+
+  it('a restore Chrome refuses falls back to opening the page', async () => {
+    const sw = await boot({ tabs: ABC });
+    await sw.closeTab(entryByTitle(sw, 'C'));
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000), tab: { sessionId: 's-c', url: 'https://c.example/', title: 'C' } }];
+    chrome.sessions.restore.mockRejectedValueOnce(new Error('gone'));
+    await sw.undoLast();
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://c.example/', active: false }));
+    expect(sw.asking).toBe(false);
   });
 
   it("the toast's Undo button undoes", async () => {
@@ -364,7 +391,7 @@ describe('closeMany', () => {
     await sw.closeMany([tabByTitle(sw, 'B'), tabByTitle(sw, 'C')]);
     expect(order()).toEqual(['A']);
     expect(sw.state.picked.size).toBe(0);
-    expect(sw.state.undo.at(-1).map((x) => x.url)).toEqual(['https://b.example/', 'https://c.example/']);
+    expect(sw.state.undo.at(-1).tabs.map((x) => x.url)).toEqual(['https://b.example/', 'https://c.example/']);
     expect(toastText()).toBe(t('closedN', { count: 2 }));
   });
 
@@ -414,15 +441,37 @@ describe('copying', () => {
 });
 
 describe('opening things', () => {
-  it('moveToWindow puts the tabs in a new window, in order, and closes the switcher', async () => {
+  it('moveToWindow puts the tabs in a new window behind Tabazing, in order, and Undo moves them back', async () => {
     const sw = await boot({ tabs: ABC });
     const [b, c] = [tabByTitle(sw, 'B'), tabByTitle(sw, 'C')];
     await sw.moveToWindow([b, c]);
     const w = chrome._data.windows.at(-1);
+    expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: b.id, focused: false });
     expect(live(b.id).windowId).toBe(w.id);
     expect(live(c.id).windowId).toBe(w.id);
     expect(order(w.id)).toEqual(['B', 'C']);
+    expect(closedMsg()).toBeUndefined(); // still open, to offer Undo
+    expect(toastText()).toBe(t('movedN', { count: 2 }));
+    toastButton().click();
+    await waitFor(() => toastText() === t('movedBackN', { count: 2 }));
+    expect(order()).toEqual(['A', 'B', 'C']);
+  });
+
+  it('moveToWindow from an overlay, with the tab it sits on, goes along and closes', async () => {
+    const sw = await boot({ tabs: ABC, overlay: true });
+    await sw.moveToWindow([tabByTitle(sw, 'A'), tabByTitle(sw, 'B')]);
+    expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: tabByTitle(sw, 'A').id, focused: true });
     expect(closedMsg().reason).toBe('switch');
+  });
+
+  it('moveBack makes a window that is gone again, behind Tabazing, and puts the tabs in their places', async () => {
+    const sw = await boot({ tabs: ABC });
+    const [b, c] = [tabByTitle(sw, 'B'), tabByTitle(sw, 'C')];
+    await sw.moveBack([{ id: c.id, windowId: 9, index: 1, pinned: false }, { id: b.id, windowId: 9, index: 0, pinned: true }]);
+    const w = chrome._data.windows.at(-1);
+    expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: b.id, focused: false });
+    expect(order(w.id)).toEqual(['B', 'C']);
+    expect(live(b.id).pinned).toBe(true);
   });
 
   it('openFromBox opens an address as one, anything else as a Google search', async () => {
@@ -465,21 +514,34 @@ describe('opening things', () => {
 });
 
 describe('mergeWindows', () => {
-  it("on the second press pulls another window's tabs in, keeping pins", async () => {
+  it("pulls another window's tabs in at once, keeping pins; Undo puts them back in a new window", async () => {
     let w2tab;
     const sw = await boot({
       tabs: ABC,
       beforeImport: () => { w2tab = chrome._addTab({ windowId: 2, title: 'W2', url: 'https://w2.example/', pinned: true }); },
     });
     expect(sw.state.otherWindows).toEqual([2]);
-    await sw.mergeWindows([2], 'act:merge');
-    expect(chrome.tabs.move).not.toHaveBeenCalled(); // armed only
-    await sw.mergeWindows([2], 'act:merge');
+    await sw.mergeWindows([2]);
     expect(chrome.tabs.move).toHaveBeenCalledWith([w2tab.id], { windowId: 1, index: -1 });
     expect(chrome.tabs.update).toHaveBeenCalledWith(w2tab.id, { pinned: true });
     expect(live(w2tab.id).windowId).toBe(1);
     expect(toastText()).toBe(t('mergedN', { count: 1 }));
     expect(sw.state.tabs.some((x) => x.title === 'W2')).toBe(true); // reloaded
+    expect(sw.state.undo.at(-1)).toMatchObject({ kind: 'merge', tabs: [{ id: w2tab.id, windowId: 2, index: 0, pinned: true }] });
+    await chrome.windows.remove(2); // Chrome closes a window a merge empties
+    chrome.windows.create.mockClear();
+    await sw.undoLast();
+    expect(chrome.windows.create).toHaveBeenCalledWith({ tabId: w2tab.id, focused: false });
+    expect(toastText()).toBe(t('movedBackN', { count: 1 }));
+    expect(live(w2tab.id).windowId).not.toBe(1);
+    expect(live(w2tab.id).pinned).toBe(true);
+  });
+
+  it('says so when nothing could be merged', async () => {
+    const sw = await boot({ tabs: ABC });
+    await sw.mergeWindows([42]);
+    expect(toastText()).toBe(t('errMerge'));
+    expect(sw.state.undo).toEqual([]);
   });
 });
 
@@ -491,7 +553,8 @@ describe('snooze', () => {
     const before = Date.now();
     sw.snoozeMenu([b], anchor);
     const items = tids('menu-item');
-    expect(items.length).toBeGreaterThanOrEqual(4);
+    expect(items.length).toBeGreaterThanOrEqual(5);
+    expect(items.at(-1).textContent).toBe(t('snoozePick'));
     expect(items[0].textContent.startsWith(t('snooze1h') + ' · ')).toBe(true);
     items[0].click();
     await waitFor(() => !live(b.id));
@@ -504,6 +567,46 @@ describe('snooze', () => {
     await waitFor(() => chrome._data.tabs.some((x) => x.url === 'https://b.example/'));
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, active: false, pinned: false });
     expect((await chrome.storage.local.get('snoozed')).snoozed).toEqual([]);
+  });
+
+  it('"Pick a time…" opens a date and time box; a time in the past is refused, a later one snoozes', async () => {
+    const sw = await boot({ tabs: ABC });
+    const b = tabByTitle(sw, 'B');
+    const anchor = document.body.appendChild(document.createElement('button'));
+    sw.snoozeMenu([b], anchor);
+    tids('menu-item').at(-1).click();
+    await waitFor(() => tid('snooze-picker'));
+    const pop = tid('snooze-picker');
+    const input = tid('snooze-picker-input', pop);
+    expect(pop.getAttribute('role')).toBe('dialog');
+    expect(input.type).toBe('datetime-local');
+    expect(document.activeElement).toBe(input);
+    expect(new Date(input.value).getTime()).toBeGreaterThan(Date.now()); // starts on a time to come
+    input.value = sw.localInput(Date.now() - 3600e3);
+    pop.dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(tid('snooze-picker-error').hidden).toBe(false);
+    expect(tid('snooze-picker-error').textContent).toBe(t('snoozePast'));
+    expect(live(b.id)).toBeDefined();
+    const at = Date.now() + 2 * 86400e3;
+    input.value = sw.localInput(at);
+    pop.dispatchEvent(new Event('submit', { cancelable: true }));
+    await waitFor(() => !live(b.id));
+    expect(tid('snooze-picker')).toBe(null);
+    const stored = (await chrome.storage.local.get('snoozed')).snoozed;
+    expect(Math.abs(stored[0].at - at)).toBeLessThan(60e3); // to the minute
+  });
+
+  it('the time box closes with Esc or Cancel, giving the focus back', async () => {
+    const sw = await boot({ tabs: ABC });
+    const anchor = document.body.appendChild(document.createElement('button'));
+    anchor.focus();
+    sw.snoozePicker([tabByTitle(sw, 'B')], anchor);
+    tid('snooze-picker-cancel').click();
+    expect(tid('snooze-picker')).toBe(null);
+    expect(document.activeElement).toBe(anchor);
+    sw.snoozePicker([tabByTitle(sw, 'B')], anchor);
+    tid('snooze-picker').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(tid('snooze-picker')).toBe(null);
   });
 
   it("won't snooze pages that can't be reopened", async () => {
@@ -675,12 +778,20 @@ describe('sleep, pin, mute', () => {
     expect(toastText()).toBe(t('pinnedOne', { title: 'B' }));
   });
 
-  it('togglePin says why when Chrome refuses twice', async () => {
+  it('togglePin says what failed when Chrome refuses twice', async () => {
     const sw = await boot({ tabs: ABC });
     chrome.tabs.update.mockRejectedValueOnce(new Error('busy')).mockRejectedValueOnce(new Error('still busy'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     await sw.togglePin(tabByTitle(sw, 'B'));
-    expect(toastText()).toBe(t('actFailed') + ': still busy');
+    expect(toastText()).toBe(t('errPin'));
+  });
+
+  it('a speaker Chrome refuses to mute says so', async () => {
+    const sw = await boot({ tabs: [ABC[0], { ...ABC[1], audible: true }] });
+    chrome.tabs.update.mockRejectedValueOnce(new Error('no'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    tid('card-audio', cardOf('B')).click();
+    await waitFor(() => toastText() === t('errMute'));
   });
 });
 
@@ -705,53 +816,72 @@ describe('one-tab quick buttons', () => {
     expect(toastText()).toBe(t('duplicatedOne', { title: 'B' }));
   });
 
-  it('quickActions: copy, reload, duplicate, sleep (background tabs only), mute, pin, snooze, archive, note', async () => {
-    const sw = await boot({ tabs: [ABC[0], { ...ABC[1], pinned: true }] });
+  it('quickActions: only pin, snooze, archive, the note and ⋯ (its menu has the rest)', async () => {
+    const sw = await boot({ tabs: [ABC[0], { ...ABC[1], pinned: true }, { ...ABC[2], audible: true }] });
     const labels = (e) => [...sw.quickActions(e).children].map((b) => b.dataset.testid);
     const bEntry = entryByTitle(sw, 'B');
-    expect(labels(bEntry)).toEqual(['quick-link', 'quick-reload', 'quick-dupe', 'quick-moon', 'quick-speaker', 'quick-pin', 'quick-clock', 'quick-archive', 'quick-note']);
-    expect(labels(entryByTitle(sw, 'A'))).not.toContain('quick-moon'); // the current tab can't sleep
+    expect(labels(bEntry)).toEqual(['quick-pin', 'quick-clock', 'quick-archive', 'quick-note', 'quick-more']);
+    expect(labels(entryByTitle(sw, 'C'))).toEqual(labels(bEntry)); // a playing tab mutes with its speaker, in the header
     const box = sw.quickActions(bEntry);
     expect(tid('quick-pin', box).title).toBe(t('unpinThis'));
     expect(tid('quick-pin', box).classList.contains('on')).toBe(true);
-    tid('quick-link', box).click();
+    expect(tid('quick-more', box).title).toBe(t('cardMenu'));
+    expect(tid('quick-more', box).getAttribute('aria-haspopup')).toBe('menu');
+  });
+
+  it('⋯ opens the card menu at the button, the same one as Shift+F10', async () => {
+    const sw = await boot({ tabs: ABC });
+    tid('quick-more', cardOf('B')).click();
+    await waitFor(() => tid('menu'));
+    expect(tid('menu').anchor).toBe(tid('quick-more', cardOf('B')));
+    const items = tids('menu-item').map((b) => b.textContent);
+    expect(items).toContain(t('copyLink'));
+    expect(items).toContain(t('reloadThis'));
+    expect(items).toContain(t('closeTab'));
+    tids('menu-item').find((b) => b.textContent === t('copyLink')).click();
     await waitFor(() => clipboard.writeText.mock.calls.length);
     expect(clipboard.writeText).toHaveBeenCalledWith('https://b.example/');
   });
 
-  it('a failing quick button says so', async () => {
+  it('a failing quick button says what failed', async () => {
+    const sw = await boot({ tabs: ABC });
+    chrome.tabs.update.mockRejectedValue(new Error('nope'));
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    tid('quick-pin', cardOf('B')).click();
+    await waitFor(() => toastText() === t('errPin'));
+  });
+
+  it('a failing menu item says what failed', async () => {
     const sw = await boot({ tabs: ABC });
     chrome.tabs.reload.mockRejectedValueOnce(new Error('nope'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    tid('quick-reload', sw.quickActions(entryByTitle(sw, 'B'))).click();
-    await waitFor(() => toastText() === t('actFailed'));
+    sw.cardMenu(entryByTitle(sw, 'B'));
+    tids('menu-item').find((b) => b.textContent === t('reloadThis')).click();
+    await waitFor(() => toastText() === t('errReload'));
   });
 });
 
 describe('duplicates', () => {
   const DUPES = [ABC[0], { title: 'D1', url: 'https://dup.example/' }, { title: 'D2', url: 'https://dup.example/#x' }];
 
-  it('closeDupes first shows the copies, then asks, then closes all but one', async () => {
+  it('closeDupes first shows the copies, then closes all but one (with Undo)', async () => {
     const sw = await boot({ tabs: DUPES });
     await sw.closeDupes();
     expect(sw.state.dupesView).toBe(true);
     expect(sw.state.entries.map((e) => e.tab.title)).toEqual(['D1', 'D2']);
     expect(tid('acts').classList.contains('dupes')).toBe(true);
-    await sw.closeDupes();
-    expect(sw.state.armed).toBe('act:dupes');
-    expect(chrome.tabs.remove).not.toHaveBeenCalled();
+    expect(tid('dupes-close-label').textContent).toBe(t('dupesClose', { count: 1 }));
     await sw.closeDupes();
     expect(order()).toEqual(['A', 'D1']); // the most recently used copy stays
     expect(sw.state.dupesView).toBe(false);
+    expect(toastButton().textContent).toMatch(/^Undo/);
   });
 
-  it('dupesView(false) goes back and drops ticks and arming', async () => {
+  it('dupesView(false) goes back and drops ticks', async () => {
     const sw = await boot({ tabs: DUPES });
     sw.dupesView(true);
-    sw.state.armed = 'x';
     sw.state.picked.add(1);
     sw.dupesView(false);
-    expect(sw.state.armed).toBe(null);
     expect(sw.state.picked.size).toBe(0);
     expect(sw.state.entries).toHaveLength(3);
   });

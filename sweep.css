@@ -6,6 +6,7 @@ main { width: calc(100% - 28px); padding: 16px 18px 14px; background: color-mix(
 .top svg { image-rendering: pixelated; flex: none; }
 h1 { margin: 0; font-size: 17px; }
 #msg { margin: 0; font-weight: 600; }
+.left { margin: 2px 0 0; font-size: 12px; opacity: .75; }
 p { margin: 0 0 8px; }
 .note { font-size: 12px; opacity: .75; }
 .bar { height: 14px; background: #fff; box-shadow: 0 0 0 3px #1B2A4A; margin: 10px 3px 12px; }

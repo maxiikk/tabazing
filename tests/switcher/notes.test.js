@@ -157,9 +157,9 @@ describe('big preview', () => {
     expect(sw.state.done).toBe(false);
   });
 
-  it('Ctrl+click on a card opens it; Enter then opens that tab', async () => {
+  it('Shift+click on a card\'s preview opens it; Enter then opens that tab', async () => {
     const sw = await boot({ tabs: AB });
-    cardOf('B').dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }));
+    tid('card-thumb', cardOf('B')).dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
     expect(tid('big-preview-title').textContent).toBe('B');
     key('Enter');
     await waitFor(() => closedMsg());
@@ -192,17 +192,25 @@ describe('menu', () => {
     expect(tid('menu')).toBe(null);
   });
 
-  it('a "sure" item asks again before acting', async () => {
+  it('an item acts at once (nothing asks "sure?": what closes has Undo), and says what failed with its own words', async () => {
     const sw = await boot({ tabs: AB });
-    const fn = vi.fn();
-    sw.menu(anchorBtn(), [{ label: 'Delete all', sure: 'Really?', danger: true, fn }]);
-    const b = tids('menu-item')[0];
-    b.click();
-    expect(fn).not.toHaveBeenCalled();
-    expect(b.textContent).toBe('Really?');
-    b.click();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fn = vi.fn(() => { throw new Error('no'); });
+    sw.menu(anchorBtn(), [{ label: 'Close all', danger: true, err: 'Could not close.', fn }]);
+    tids('menu-item')[0].click();
     await tick();
     expect(fn).toHaveBeenCalled();
+    expect(toastText()).toBe('Could not close.');
+  });
+
+  it('at a point (a right-click) it opens there, and a second right-click opens it anew', async () => {
+    const sw = await boot({ tabs: AB });
+    const a = anchorBtn();
+    sw.menu(a, [{ label: 'X', fn: () => {} }], { at: { x: 120, y: 80 } });
+    expect(tid('menu').style.left).toBe('120px');
+    sw.menu(a, [{ label: 'Y', fn: () => {} }], { at: { x: 140, y: 90 } });
+    expect(tids('menu')).toHaveLength(1);
+    expect(tid('menu-item').textContent).toBe('Y');
   });
 
   it('ticks the current choice, and says so when an item fails', async () => {

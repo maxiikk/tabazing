@@ -15,7 +15,7 @@
       </button>
       <label class="search" data-testid="search-box">
         <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-        <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="open-grid snoozed-grid closed-grid" data-testid="search">
+        <input id="search" type="search" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="open-grid snoozed-grid closed-grid" data-testid="search">
         <span id="count" class="count" aria-live="polite" data-testid="count"></span>
       </label>
       <!-- The media player: what plays in the tabs (switcher.js renderPlayer). Hidden when nothing does. -->
@@ -27,9 +27,8 @@
         <button id="player-next" class="pbtn" type="button" data-i18n-title="mediaNext" data-i18n-aria="mediaNext" data-testid="player-next"></button>
         <button id="player-more" class="pbtn more" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="mediaList" data-i18n-aria="mediaList" data-testid="player-more"></button>
       </div>
-      <div class="hint" aria-hidden="true" data-testid="hint">
-        <kbd data-testid="hint-key">←</kbd><kbd data-testid="hint-key">→</kbd> <span data-i18n="hintMove" data-testid="hint-move">move</span> · <kbd data-testid="hint-key">Enter</kbd> <span data-i18n="hintOpen" data-testid="hint-open">open</span> · <kbd data-mac="⌘⌫" data-testid="hint-key">Del</kbd> <span data-i18n="hintClose" data-testid="hint-close">close tab</span> · <kbd data-mac="⌥S" data-testid="hint-key">Alt+S</kbd> <span data-i18n="hintStar" data-testid="hint-star">star</span> · <kbd data-testid="hint-key">Esc</kbd> <span data-i18n="hintExit" data-testid="hint-exit">exit</span> · <kbd data-testid="hint-key">Shift+F10</kbd> <span data-i18n="hintActions" data-testid="hint-actions">actions</span><span id="hint-win" hidden data-testid="hint-win"> · <kbd data-mac="⌃←" data-testid="hint-key">Ctrl+←</kbd><kbd data-mac="⌃→" data-testid="hint-key">Ctrl+→</kbd> <span data-i18n="hintWindow" data-testid="hint-window">window</span></span>
-      </div>
+      <!-- Every keyboard and mouse shortcut, in a card that opens below (switcher.js openShortcuts). -->
+      <button id="keys-btn" class="ghost icon" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="keys-popover" data-i18n-title="keysTitle" data-i18n-aria="keysTitle" data-testid="keys-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".95" fill="currentColor"/></svg></button>
       <button id="archive-btn" class="ghost" type="button" data-i18n-title="archiveBtnTitle" data-testid="archive-btn"><span data-i18n="archiveBtn" data-testid="archive-btn-label">Archive</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </header>
 
@@ -38,7 +37,7 @@
         <label class="sortbox" data-testid="sort-box"><span data-i18n="sortLabel" data-testid="sort-label">Sort</span>
           <select id="sort" data-i18n-aria="sortAria" data-testid="sort">
             <option value="order" data-i18n="sortByOrder" data-testid="sort-order">By order</option>
-            <option value="recent" data-i18n="sortByRecent" data-testid="sort-recent">By recently opened</option>
+            <option value="recent" data-i18n="sortByRecent" data-testid="sort-recent">By recently used</option>
             <option value="name" data-i18n="sortByName" data-testid="sort-name">By name</option>
           </select>
         </label>
@@ -57,7 +56,7 @@
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="2" y="2" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="6" y="6" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
           <span id="dupes-text" data-testid="dupes-text"></span>
         </button>
-        <button id="sweep-btn" class="act" type="button" hidden data-testid="sweep-btn">
+        <button id="sweep-btn" class="act compact" type="button" hidden data-testid="sweep-btn">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.5 5.5h2.2l1.2-1.8h4.2l1.2 1.8h2.2v7h-11z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/><circle cx="8" cy="8.8" r="2" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
           <span id="sweep-text" data-testid="sweep-text"></span>
         </button>
@@ -70,6 +69,7 @@
       <span id="acts-n" class="acts-n" data-testid="acts-n"></span>
       <button id="sel-all" class="lnk" type="button" data-testid="sel-all"></button>
       <button id="sel-none" class="lnk" type="button" data-i18n="selNone" hidden data-testid="sel-none">Clear</button>
+      <span id="acts-hint" class="acts-hint" hidden data-testid="acts-hint"></span>
       <span class="grow" data-testid="acts-spacer"></span>
       <span id="acts-btns" class="acts-btns" data-testid="acts-btns"></span>
     </div>
@@ -90,6 +90,7 @@
         <section id="closed-section" aria-labelledby="closed-h" hidden data-testid="closed-section">
           <h2 id="closed-h" class="section-h" data-testid="closed-h"></h2>
           <div id="closed-grid" class="grid small" role="listbox" aria-labelledby="closed-h" data-testid="closed-grid"></div>
+          <button id="closed-more" class="lnk more" type="button" aria-controls="closed-grid" hidden data-testid="closed-more"></button>
         </section>
       </main>
 

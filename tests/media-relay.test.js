@@ -13,7 +13,7 @@ const PLAYING = JSON.stringify({ v: 2, media: true, playing: true, kind: 'video'
 
 function unload() {
   const r = window.__tabazingMedia;
-  if (r) document.removeEventListener('tabazing:media', r.onMedia, true);
+  if (r) { document.removeEventListener('tabazing:media', r.onMedia, true); document.removeEventListener('tabazing:media-sync', r.onSync, true); }
   delete window.__tabazingMedia;
 }
 beforeEach(() => load());
@@ -35,6 +35,14 @@ describe('media-relay.js', () => {
     report(PLAYING);
     report(PLAYING);
     expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('after a sync (the background forgot what it knew), the same text is sent again', () => {
+    report(PLAYING);
+    document.dispatchEvent(new CustomEvent('tabazing:media-sync'));
+    report(PLAYING);
+    report(PLAYING);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
   });
 
   it('drops what isn\'t a string, an empty one, and one over the limit', () => {
@@ -82,6 +90,7 @@ describe('media-relay.js', () => {
       load();
       expect(window.__tabazingMedia).not.toBe(old);
       expect(remove).toHaveBeenCalledWith('tabazing:media', old.onMedia, true);
+      expect(remove).toHaveBeenCalledWith('tabazing:media-sync', old.onSync, true);
       chrome.runtime.id = EXT_ID;
       report(PLAYING);
       expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
