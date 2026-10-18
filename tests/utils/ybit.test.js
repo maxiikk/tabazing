@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ybit } from '../../lib/ybit.js';
+import { ybit } from '../../utils/ybit.js';
 
 const PAL = ['#1B2A4A', '#FF9F5A', '#FFC38F', '#E0703A', '#FFFFFF', '#FF8FB1', '#6BCB77', '#3E8E41', '#C0392B'];
 // The pixels are the svg's children (decorative, so no test ids of their own).

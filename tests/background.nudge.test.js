@@ -1,7 +1,7 @@
 // background.js: the "use Alt+Q" nudge (Ctrl+Tab runs) and the first-run flyout.
 import { describe, it, expect, vi } from 'vitest';
-import { MSG, KEY, LIMITS, NUDGE } from '../lib/constants.js';
-import { dayOf } from '../lib/review.js';
+import { MSG, KEY, LIMITS, NUDGE } from '../utils/constants.js';
+import { dayOf } from '../utils/review.js';
 import { env, flush, freshWorker } from './background.shared.js';
 
 freshWorker();

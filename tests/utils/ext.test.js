@@ -1,17 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
-import { isOwnUrl, normalizeUrl, isCapturableUrl, isWorthReopening } from '../../lib/ext.js';
+import { isOwnUrl, normalizeUrl, isCapturableUrl, isWorthReopening } from '../../utils/ext.js';
 
 const OWN = `chrome-extension://${chrome.runtime.id}/`;
 
 describe('isOwnUrl', () => {
   it('matches the extension origin, optionally under a path', () => {
     expect(isOwnUrl(OWN)).toBe(true);
-    expect(isOwnUrl(OWN + 'switcher.html?x=1')).toBe(true);
-    expect(isOwnUrl(OWN + 'switcher.html', 'switcher.html')).toBe(true);
-    expect(isOwnUrl(OWN + 'sweep.html', 'switcher.html')).toBe(false);
+    expect(isOwnUrl(OWN + 'markup/switcher.html?x=1')).toBe(true);
+    expect(isOwnUrl(OWN + 'markup/switcher.html', 'markup/switcher.html')).toBe(true);
+    expect(isOwnUrl(OWN + 'markup/sweep.html', 'markup/switcher.html')).toBe(false);
   });
   it('rejects other origins and non-strings', () => {
-    expect(isOwnUrl('chrome-extension://otherotherotherotherotherotherot/switcher.html')).toBe(false);
+    expect(isOwnUrl('chrome-extension://otherotherotherotherotherotherot/markup/switcher.html')).toBe(false);
     expect(isOwnUrl('https://example.com/' + OWN)).toBe(false);
     expect(isOwnUrl(`chrome-extension://${chrome.runtime.id}`)).toBe(false); // no trailing slash: not a page URL
     for (const v of [undefined, null, 1, {}, '']) expect(isOwnUrl(v)).toBe(false);
@@ -19,10 +19,10 @@ describe('isOwnUrl', () => {
   it('accepts both the dynamic origin and the real-id one (use_dynamic_url)', async () => {
     vi.resetModules();
     chrome.runtime.getURL.mockImplementation((p = '') => 'chrome-extension://0f1e2d3c-dynamic/' + p);
-    const ext = await import('../../lib/ext.js');
-    expect(ext.isOwnUrl('chrome-extension://0f1e2d3c-dynamic/switcher.html', 'switcher.html')).toBe(true);
-    expect(ext.isOwnUrl(OWN + 'switcher.html', 'switcher.html')).toBe(true);
-    expect(ext.isWorthReopening('chrome-extension://0f1e2d3c-dynamic/sweep.html')).toBe(false);
+    const ext = await import('../../utils/ext.js');
+    expect(ext.isOwnUrl('chrome-extension://0f1e2d3c-dynamic/markup/switcher.html', 'markup/switcher.html')).toBe(true);
+    expect(ext.isOwnUrl(OWN + 'markup/switcher.html', 'markup/switcher.html')).toBe(true);
+    expect(ext.isWorthReopening('chrome-extension://0f1e2d3c-dynamic/markup/sweep.html')).toBe(false);
   });
 });
 
@@ -90,7 +90,7 @@ describe('isWorthReopening', () => {
     expect(isWorthReopening('chrome://settings/')).toBe(true);
   });
   it('skips blank, New Tab and own pages', () => {
-    for (const v of ['about:blank', 'chrome://newtab/', 'chrome-search://local-ntp/', 'edge://newtab/', 'brave://newtab/', OWN + 'switcher.html', '', undefined, null])
+    for (const v of ['about:blank', 'chrome://newtab/', 'chrome-search://local-ntp/', 'edge://newtab/', 'brave://newtab/', OWN + 'markup/switcher.html', '', undefined, null])
       expect(isWorthReopening(v)).toBe(false);
   });
 });

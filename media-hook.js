@@ -2,10 +2,10 @@
 // It runs in the page's own JavaScript world, the only place that can see the page's Media Session
 // handlers (its own previous / next track buttons). It reports through a DOM event that media-relay.js
 // (the isolated world) passes to the background, and offers window[Symbol.for('tabazing.media')](action)
-// for the switcher to play, pause or skip (lib/media.js).
+// for the switcher to play, pause or skip (utils/media.js).
 //
 // Security: the page sees and can fake all of this (same world). That only changes what Tabazing shows
-// for this tab and what its buttons do here; the background validates every report (lib/store.js).
+// for this tab and what its buttons do here; the background validates every report (utils/store.js).
 //
 // Idempotent: a second copy of the same version in the same page (declared and injected) finds the first and
 // does nothing. A newer version (injected into open tabs after an update) retires an older one and takes over;
@@ -212,7 +212,7 @@
   });
   window.addEventListener('pageshow', (e) => { if (e.persisted) { last = ''; schedule(); } });
 
-  // The switcher's buttons (lib/media.js). The page's own handler when it has one (as Chrome's media
+  // The switcher's buttons (utils/media.js). The page's own handler when it has one (as Chrome's media
   // controls do), else the element itself; there is no previous / next without the page's handler.
   function act(action) {
     if (retired || !ACTIONS.includes(action)) return false;

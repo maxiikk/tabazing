@@ -1,6 +1,6 @@
-// lib/translations.js: the ICU MessageFormat subset (formatMessage) and t over the dictionaries.
+// utils/translations.js: the ICU MessageFormat subset (formatMessage) and t over the dictionaries.
 import { describe, it, expect, afterEach } from 'vitest';
-import { formatMessage, t, setLocale, getLocale, LANGUAGES } from '../../lib/translations.js';
+import { formatMessage, t, setLocale, getLocale, LANGUAGES } from '../../utils/translations.js';
 
 afterEach(() => setLocale('en'));
 const f = (pattern, data, lang = 'en') => formatMessage(pattern, data, lang);

@@ -7,7 +7,7 @@
 // Idempotent, like hotkey.js: a live copy makes later copies no-ops; a copy orphaned by an extension
 // reload (chrome.runtime.id is gone) is replaced.
 (() => {
-  const MEDIA = 'tabazing:media'; // keep in sync with MSG.MEDIA in lib/constants.js (also media-hook.js's event name)
+  const MEDIA = 'tabazing:media'; // keep in sync with MSG.MEDIA in utils/constants.js (also media-hook.js's event name)
   const MAX = 4096;               // keep in sync with LIMITS.MEDIA_STATE_MAX
   const SYNC = 'tabazing:media-sync'; // media-hook.js says everything again when asked
   const MIN_VERSION = 2;          // media-hook.js's VERSION: copies older than that (left in pages open from

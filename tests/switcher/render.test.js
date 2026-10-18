@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
 import { boot, ABC, cards, openCards, titles, titleOf, selectedTitle, tid, tids } from './_ui.js';
-import { t } from '../../lib/translations.js';
+import { t } from '../../utils/translations.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
 const preview = (url) => ({ ['pv:' + url]: { img: IMG, t: Date.now() } });
@@ -515,7 +515,7 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
 
   it('the toolbar row takes no room while none of its buttons shows; the row of the Open tabs title spreads its ends apart', async () => {
     const { readFileSync } = await import('node:fs');
-    const css = readFileSync('switcher.css', 'utf8');
+    const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/\.tools:not\(:has\(> \.setup > :not\(\[hidden\]\)\)\) \{ display: none; \}/);
     expect(css).toMatch(/\.open-head \{[^}]*justify-content: space-between;[^}]*flex-wrap: wrap;/);
     expect(css).toMatch(/\.chip \{[^}]*height: 30px; min-width: 30px;/); // a target of 24 px or more
@@ -905,7 +905,7 @@ describe('small pieces', () => {
 
   it('the light theme draws rings and outlines with the darkened accent (--ring), for 3:1 on a light ground', async () => {
     const { readFileSync } = await import('node:fs');
-    const css = readFileSync('switcher.css', 'utf8');
+    const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.light \{[^}]*--ring: var\(--accent-ink\)/);
     expect(css).toMatch(/:root \{[^}]*--ring: var\(--accent\)/);
     expect(css).toMatch(/^:focus-visible \{ outline: 2px solid var\(--ring\)/m);
@@ -1058,7 +1058,7 @@ describe('menu / closePops', () => {
 describe('"Show more" under Recently closed', () => {
   it('is a ghost button: plain text until pointed at or focused, then on the accent', async () => {
     const { readFileSync } = await import('node:fs');
-    const css = readFileSync('switcher.css', 'utf8').replace(/\r\n/g, '\n');
+    const css = readFileSync('styles/switcher.css', 'utf8').replace(/\r\n/g, '\n');
     const rule = (sel) => { const i = css.indexOf(sel + ' {'); return i < 0 ? '' : css.slice(i + sel.length + 2, css.indexOf('}', i)); };
     const rest = rule('#closed-more');
     expect(rest).toMatch(/background:\s*transparent/);

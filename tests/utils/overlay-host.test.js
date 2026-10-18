@@ -1,8 +1,8 @@
-// lib/overlay-host.js: the switcher's overlay over a page, as background.js injects it into web pages and the
+// utils/overlay-host.js: the switcher's overlay over a page, as background.js injects it into web pages and the
 // New Tab page runs it itself. Run here in jsdom; elements are found by data-testid only.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { FRAME_MSG } from '../../lib/constants.js';
-import { overlayHost, removeOverlay } from '../../lib/overlay-host.js';
+import { FRAME_MSG } from '../../utils/constants.js';
+import { overlayHost, removeOverlay } from '../../utils/overlay-host.js';
 
 const $ = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
 beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); });
@@ -20,7 +20,7 @@ describe('self-contained', () => {
   it('works rebuilt from its source alone (no imports, no outside variables)', () => {
     const host = new Function('return ' + overlayHost.toString().replace(/^export /, ''))();
     const remove = new Function('return ' + removeOverlay.toString())();
-    host('chrome-extension://abc/switcher.html', 'chrome-extension://abc', FRAME_MSG, 'standby', null, false, 60000, 'Label');
+    host('chrome-extension://abc/markup/switcher.html', 'chrome-extension://abc', FRAME_MSG, 'standby', null, false, 60000, 'Label');
     expect($('overlay-frame')).not.toBeNull();
     remove();
     expect($('overlay-frame')).toBeNull();
@@ -33,7 +33,7 @@ describe('self-contained', () => {
 });
 
 describe('overlayHost', () => {
-  const SRC = 'chrome-extension://abc/switcher.html';
+  const SRC = 'chrome-extension://abc/markup/switcher.html';
   const ORIGIN = 'chrome-extension://abc';
   const host = (mode, token = null, hold = false) => overlayHost(SRC, ORIGIN, FRAME_MSG, mode, token, hold, 60000);
   const frame = () => $('overlay-frame');

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_ACCENT, ACCENTS, isAccent, applyAccent } from '../../lib/accent.js';
+import { DEFAULT_ACCENT, ACCENTS, isAccent, applyAccent } from '../../utils/accent.js';
 
 // WCAG relative luminance / contrast, computed independently of the module.
 const lum = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)

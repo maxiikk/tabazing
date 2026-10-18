@@ -11,7 +11,7 @@
 // install/reload. A live copy makes later copies no-ops; a copy orphaned by
 // an extension reload (chrome.runtime.id is gone) is replaced.
 (() => {
-  const HOTKEY = 'tabazing:hotkey'; // keep in sync with MSG.HOTKEY in lib/constants.js
+  const HOTKEY = 'tabazing:hotkey'; // keep in sync with MSG.HOTKEY in utils/constants.js
   const alive = () => { try { return !!chrome.runtime.id; } catch { return false; } };
 
   const existing = window.__tabazingHotkey;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { asUrl, googleUrl } from '../../lib/web.js';
+import { asUrl, googleUrl } from '../../utils/web.js';
 
 describe('asUrl', () => {
   it('keeps text that already has a scheme', () => {

@@ -1,8 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import * as C from '../../lib/constants.js';
-import { setLang } from '../../lib/i18n.js';
+import * as C from '../../utils/constants.js';
+import { setLang } from '../../utils/i18n.js';
 
 const root = (p) => resolve(process.cwd(), p);
 const VERSION = JSON.parse(readFileSync(root('manifest.json'), 'utf8')).version;

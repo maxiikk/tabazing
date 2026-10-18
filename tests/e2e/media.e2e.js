@@ -211,7 +211,7 @@ describe('what is reported', () => {
       navigator.mediaSession.metadata = new MediaMetadata({ title: 'Song Two', artist: 'Other' });
     });
     await poll(() => ext.topOf(page)).toMatchObject({ title: 'Song Two', artist: 'Other', canPrev: true, canNext: true });
-    // The switcher's "next" (lib/media.js: pageMediaAction), from the extension side.
+    // The switcher's "next" (utils/media.js: pageMediaAction), from the extension side.
     const r = await ext.inMain(page, () => window[Symbol.for('tabazing.media')]('nexttrack'));
     expect(r).toBe(true);
     expect(await page.evaluate(() => window.calls)).toEqual(['nexttrack']);
@@ -220,7 +220,7 @@ describe('what is reported', () => {
     await poll(() => ext.topOf(page)).toMatchObject({ canNext: false, canPrev: true });
   });
 
-  it('the switcher\'s play / pause (lib/media.js mediaAction) reach the element', async () => {
+  it('the switcher\'s play / pause (utils/media.js mediaAction) reach the element', async () => {
     const page = await open('buttons');
     await page.evaluate(addAudio, 8);
     await page.evaluate(play);
@@ -229,14 +229,14 @@ describe('what is reported', () => {
     const sw = await ext.extPage();
     pages.push(sw);
     // A string, so vitest leaves the page's import() alone.
-    const act = (a) => sw.evaluate(`import('./lib/media.js').then((m) => m.mediaAction(${tabId}, 0, '${a}'))`);
+    const act = (a) => sw.evaluate(`import('/utils/media.js').then((m) => m.mediaAction(${tabId}, 0, '${a}'))`);
     expect(await act('pause')).toBe(true);
     await poll(() => ext.topOf(page)).toMatchObject({ playing: false });
     expect(await page.evaluate(() => window.el.paused)).toBe(true);
     expect(await act('play')).toBe(true);
     await poll(() => ext.topOf(page)).toMatchObject({ playing: true });
-    // ...and the player's list (lib/media.js loadMedia) has the tab.
-    const list = await sw.evaluate("import('./lib/media.js').then((m) => m.loadMedia()).then((l) => l.map((e) => ({ tabId: e.tabId, playing: e.playing, kind: e.kind })))");
+    // ...and the player's list (utils/media.js loadMedia) has the tab.
+    const list = await sw.evaluate("import('/utils/media.js').then((m) => m.loadMedia()).then((l) => l.map((e) => ({ tabId: e.tabId, playing: e.playing, kind: e.kind })))");
     expect(list).toContainEqual({ tabId, playing: true, kind: 'audio' });
   });
 

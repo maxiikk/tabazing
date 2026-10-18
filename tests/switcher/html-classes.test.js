@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 
 const js = readFileSync('switcher.js', 'utf8');
-const html = readFileSync('switcher.html', 'utf8');
+const html = readFileSync('markup/switcher.html', 'utf8');
 
 // Classes set on the document element: classList.add / toggle / replace on document.documentElement.
 const pageModes = new Set([...js.matchAll(/document\.documentElement\.classList\.(?:add|toggle)\(\s*'([\w-]+)'/g)].map((m) => m[1]));

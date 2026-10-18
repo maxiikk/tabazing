@@ -1,6 +1,6 @@
 // background.js: opening the switcher (shortcuts, toolbar icon, overlay vs popup window, watchdog).
 import { describe, it, expect, vi } from 'vitest';
-import { MSG, KEY, LIMITS, FRAME_MSG, PREVIEW_PREFIX } from '../lib/constants.js';
+import { MSG, KEY, LIMITS, FRAME_MSG, PREVIEW_PREFIX } from '../utils/constants.js';
 import { env, flush, freshWorker, seed, launch, fromSwitcherPage, send } from './background.shared.js';
 
 freshWorker();
@@ -10,7 +10,7 @@ const cycleCalls = () => chrome.runtime.sendMessage.mock.calls.map(([m]) => m).f
 
 describe('constants', () => {
   it('points at the switcher page and the real extension origin', () => {
-    expect(bg().SWITCHER_URL).toBe(`chrome-extension://${chrome.runtime.id}/switcher.html`);
+    expect(bg().SWITCHER_URL).toBe(`chrome-extension://${chrome.runtime.id}/markup/switcher.html`);
     expect(bg().EXT_REAL_ORIGIN).toBe(`chrome-extension://${chrome.runtime.id}`);
   });
   it('INJECTABLE: web and file pages only', () => {
@@ -212,7 +212,7 @@ describe('openSwitcher', () => {
 
     chrome.tabs.captureVisibleTab.mockClear();
     vi.advanceTimersByTime(LIMITS.OPENING_LOCK_MS);
-    const { savePreview } = await import('../lib/store.js'); // the worker's own copy (one module per worker)
+    const { savePreview } = await import('../utils/store.js'); // the worker's own copy (one module per worker)
     await savePreview('https://example.com/', { img: PREVIEW_PREFIX + 'AAAA', t: Date.now() });
     chrome.storage.local.get.mockClear();
     await bg().openSwitcher(1, tab);

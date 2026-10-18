@@ -3,8 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
 import { boot, frame, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
-import { MSG } from '../../lib/constants.js';
-import { t } from '../../lib/translations.js';
+import { MSG } from '../../utils/constants.js';
+import { t } from '../../utils/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },

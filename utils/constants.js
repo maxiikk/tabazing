@@ -143,12 +143,12 @@ export const HELP_URL = SITE_URL + '/manual';
 const VERSION = chrome.runtime.getManifest().version;
 // Pages on the site that Tabazing opens. Only where the click came from, the version and the
 // language go in the URL; whatever people write is typed on the page itself, never put in a link.
-// The language is the one Tabazing is shown in (its own setting, see lib/i18n.js), read at the moment of the click.
+// The language is the one Tabazing is shown in (its own setting, see utils/i18n.js), read at the moment of the click.
 export const siteUrl = (path, from, extra = '') => `${SITE_URL}${path}?from=${from}&v=${VERSION}&lang=${uiLang()}${extra}`;
 // "Send feedback" opens the site's feedback form; `from` and the version are prefilled from the URL.
 export const feedbackUrl = () => siteUrl('/feedback', 'extension');
 // Chrome opens this after someone removes Tabazing (chrome.runtime.setUninstallURL). Nothing is sent by the removal itself.
 export const uninstallUrl = () => siteUrl('/uninstall', 'uninstall');
 
-export const SWITCHER_PAGE = 'switcher.html';
-export const SWEEP_PAGE = 'sweep.html';
+export const SWITCHER_PAGE = 'markup/switcher.html';
+export const SWEEP_PAGE = 'markup/sweep.html';

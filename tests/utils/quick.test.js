@@ -1,7 +1,7 @@
-// lib/quick.js: the command palette's quick answers. Pure, so every case is a plain call. Times and dates use a
+// utils/quick.js: the command palette's quick answers. Pure, so every case is a plain call. Times and dates use a
 // fixed "now" and local time zone, so they don't depend on the machine running the tests.
 import { describe, it, expect } from 'vitest';
-import { quick, parseNumber, formatNumber, resolveZone, zoneOffset, unitOf } from '../../lib/quick.js';
+import { quick, parseNumber, formatNumber, resolveZone, zoneOffset, unitOf } from '../../utils/quick.js';
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0); // Sunday 18 October 2026, 12:00 UTC (14:00 in Madrid)
 const q = (s, opts = {}) => quick(s, { lang: 'en', now: NOW, zone: 'Europe/Madrid', ...opts });

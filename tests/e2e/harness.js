@@ -116,11 +116,11 @@ export class Ext {
       func: (code, list) => (0, eval)(`(${code})`)(...list),
     }).then((rs) => rs[0] && rs[0].result), tabId, frameId, func.toString(), args);
   }
-  // A tab with the extension's switcher.html, loaded without a launch token: it shows nothing, but it is an
+  // A tab with the extension's markup/switcher.html, loaded without a launch token: it shows nothing, but it is an
   // extension page the background accepts messages from (fromSwitcher) and can import the extension's modules.
   async extPage() {
     const page = await this.browser.newPage();
-    await page.goto(`chrome-extension://${this.id}/switcher.html`);
+    await page.goto(`chrome-extension://${this.id}/markup/switcher.html`);
     return page;
   }
 }

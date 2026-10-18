@@ -1,9 +1,9 @@
 // Writes _locales/<lang>/messages.json from dictionaries/<lang>.json: `npm run i18n`.
 //
-// dictionaries/ holds every string Tabazing shows, one file per language (lib/i18n.js reads them).
+// dictionaries/ holds every string Tabazing shows, one file per language (utils/i18n.js reads them).
 // Chrome itself only reads _locales/, for what manifest.json names with __MSG_key__ (the extension's
 // name, description, shortcut names, toolbar title), so only those keys are written there. Run this after
-// changing any of them, or after adding a language; tests/lib/dictionaries.test.js fails until you do.
+// changing any of them, or after adding a language; tests/utils/dictionaries.test.js fails until you do.
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

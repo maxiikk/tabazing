@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **6.0.1** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -425,6 +425,15 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 
 The extension itself has no build step and no runtime dependencies. Load the folder unpacked (see [Installation](#installation)); after editing, click the reload button on Tabazing's card at `chrome://extensions`. Reload the extension after a change to `manifest.json` permissions; Chrome only grants new permissions then.
 
+### Layout
+
+- The root holds `manifest.json`, the service worker (`background.js`), the content scripts (`hotkey.js`, `media-hook.js`, `media-relay.js`) and each page's script (`switcher.js`, `sweep.js`).
+- `markup/`: the HTML pages (`switcher.html`, `sweep.html`).
+- `styles/`: their stylesheets.
+- `utils/`: the shared modules (storage, translations, capture, media…), imported by the scripts above.
+- `dictionaries/`: every string, one file per language; `_locales/` is generated from it.
+- `icons/`, `scripts/` (dev tooling), `tests/`.
+
 ### Tests
 
 The tests use [Vitest](https://vitest.dev) with jsdom.
@@ -436,7 +445,7 @@ npx vitest run tests/switcher/archive    # run part of it
 npm run test:watch                       # re-run on change
 ```
 
-- `tests/` mirrors the source: `tests/lib/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`.
+- `tests/` mirrors the source: `tests/utils/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`.
 - `tests/setup/chrome.js` is an in-memory fake of the `chrome.*` APIs, reset before every test. `tests/setup/dom.js` adds what jsdom lacks. `tests/helpers/switcher.js` (`bootSwitcher`) boots the real switcher page.
 - `switcher.js` and `background.js` end with an `export { … }` list so tests can reach their functions. Add new top-level functions to it.
 - **Tests find elements only by `data-testid`**, never by role, id, class or tag. Every element the extension creates carries one: in HTML as an attribute, in `switcher.js` through `h(tag, cls, text, testid)` (and `button(testid, label, cls, fn)` in dialogs), elsewhere via `el.dataset.testid`. Repeated elements share one test id per kind (`card-tab`, `card-closed`, `dd-row-mark`).
@@ -446,7 +455,7 @@ npm run test:watch                       # re-run on change
 
 All the text lives in `dictionaries/` — one JSON file per language (`en.json`, `es.json`, `ru.json`), a flat list of `"key": "message"` pairs. To change a string, edit it there, in every language.
 
-Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `t(key, params)` from `lib/translations.js`:
+Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `t(key, params)` from `utils/translations.js`:
 
 ```json
 "activeTab": "Active tab: {title}",

@@ -7,7 +7,7 @@
   --fill-2: rgba(255,255,255,.14);
   --sel: #fff;
   --danger: #c42b1c;
-  --accent: var(--accent);    /* Settings -> Accent colour sets these three (lib/accent.js) */
+  --accent: var(--accent);    /* Settings -> Accent colour sets these three (utils/accent.js) */
   --on-accent: #1B2A4A; /* text and icons drawn on the accent */
   --on-accent-ink: #000;
   --ring: var(--accent); /* focus rings, the selected card's edge and other accent outlines (html.light darkens it) */

@@ -1,6 +1,6 @@
 // storage.session state: MRU, discarded tabs, tab meta + closed-tab log, launch tokens, overlay, resume, capture notes.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { KEY, LIMITS, tabMetaKey } from '../../lib/constants.js';
+import { KEY, LIMITS, tabMetaKey } from '../../utils/constants.js';
 
 const L = chrome.storage.local;
 const S = chrome.storage.session;
@@ -12,7 +12,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   vi.resetModules(); // fresh queue and tab-meta cache
-  s = await import('../../lib/store.js');
+  s = await import('../../utils/store.js');
 });
 afterEach(() => vi.useRealTimers());
 
@@ -174,7 +174,7 @@ describe('tab meta and the closed-tab log', () => {
     await s.rememberTab(tab({ id: 2, url: '', pendingUrl: 'https://p.com/' }));
     expect(S._data.get(tabMetaKey(2)).u).toBe('https://p.com/');
     for (const bad of [tab({ id: 3, incognito: true }), tab({ id: 4, url: 'chrome://newtab/' }), tab({ id: 5, url: 'javascript:alert(1)' }),
-      tab({ id: 6, url: chrome.runtime.getURL('switcher.html') }), tab({ id: -1 }), null]) await s.rememberTab(bad);
+      tab({ id: 6, url: chrome.runtime.getURL('markup/switcher.html') }), tab({ id: -1 }), null]) await s.rememberTab(bad);
     expect([...S._data.keys()].sort()).toEqual([tabMetaKey(1), tabMetaKey(2)]);
   });
 
@@ -436,7 +436,7 @@ describe('capture notes', () => {
     await expect(s.noteCapture('error', 'cannot access', 'https://a.com/')).resolves.toBeUndefined();
   });
 
-  // BUG: lib/store.js:559 only guards with `|| []`, so a stored non-array NOCAP (e.g. {}) makes `.filter`
+  // BUG: utils/store.js:559 only guards with `|| []`, so a stored non-array NOCAP (e.g. {}) makes `.filter`
   // throw; the error is swallowed and the blocked page is never recorded, for the rest of the session.
   // Every other reader in store.js treats bad stored data as empty.
   it('a bad stored blocked list is treated as empty', async () => {

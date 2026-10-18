@@ -15,7 +15,7 @@ beforeAll(async () => {
 afterAll(async () => { await browser?.close(); await servers?.close(); });
 
 const altKey = async (page, code) => { await page.keyboard.down('Alt'); await page.keyboard.press(code); await page.keyboard.up('Alt'); };
-const switcherFrame = (page) => page.frames().find((f) => f.url().includes('switcher.html'));
+const switcherFrame = (page) => page.frames().find((f) => f.url().includes('markup/switcher.html'));
 // What the switcher page looks like inside the overlay: its document's box, the header's, the palette's.
 const layout = (frame) => frame.evaluate(() => {
   const box = (n) => { const r = n.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };

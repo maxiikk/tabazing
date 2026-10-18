@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MSG } from '../lib/constants.js';
+import { MSG } from '../utils/constants.js';
 
 // hotkey.js is a classic content script (an IIFE, no imports): run its source in the jsdom window.
 const SRC = readFileSync(resolve(process.cwd(), 'hotkey.js'), 'utf8');

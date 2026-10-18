@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { KEY, MSG } from '../lib/constants.js';
+import { KEY, MSG } from '../utils/constants.js';
 
-// The progress window: sweep.js runs at import (top-level await), against sweep.html's own markup.
+// The progress window: sweep.js runs at import (top-level await), against markup/sweep.html's own markup.
 // Elements are found by data-testid only.
-const BODY = readFileSync(resolve(process.cwd(), 'sweep.html'), 'utf8')
+const BODY = readFileSync(resolve(process.cwd(), 'markup/sweep.html'), 'utf8')
   .match(/<body>([\s\S]*)<\/body>/)[1]
   .replace(/<script[\s\S]*?<\/script>/g, '');
 

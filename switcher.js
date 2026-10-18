@@ -18,17 +18,17 @@
 //     action keys close it instead of acting on something you can't see;
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
-import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './lib/constants.js';
-import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent } from './lib/store.js';
-import { reviewPrompt, dayOf } from './lib/review.js';
-import { timeAgo, localizePage, setLang, uiLang } from './lib/i18n.js';
-import { t, getLocale, setLocale } from './lib/translations.js';
-import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
-import { applyAccent, ACCENTS } from './lib/accent.js';
-import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './lib/archive.js';
-import { loadMedia, mediaAction } from './lib/media.js';
-import { asUrl, googleUrl } from './lib/web.js';
-import { quick } from './lib/quick.js';
+import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './utils/constants.js';
+import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent } from './utils/store.js';
+import { reviewPrompt, dayOf } from './utils/review.js';
+import { timeAgo, localizePage, setLang, uiLang } from './utils/i18n.js';
+import { t, getLocale, setLocale } from './utils/translations.js';
+import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/ext.js';
+import { applyAccent, ACCENTS } from './utils/accent.js';
+import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './utils/archive.js';
+import { loadMedia, mediaAction } from './utils/media.js';
+import { asUrl, googleUrl } from './utils/web.js';
+import { quick } from './utils/quick.js';
 
 let CTX = null; // set once the launch token has been verified (see boot)
 
@@ -95,7 +95,7 @@ const state = {
   foundClosed: [], // derived: recently closed tabs matching the search (the dropdown)
   foundQ: '',      // the text `found` and `foundClosed` are for (trimmed, lower case)
   palette: null,   // the command palette, while it shows: { from: 'shortcut' | 'switcher', saved, hi, items }
-  palRecent: [],   // ids of the palette's actions, most recently run first (lib/store.js getPaletteRecent)
+  palRecent: [],   // ids of the palette's actions, most recently run first (utils/store.js getPaletteRecent)
   dd: { items: [], hi: 0, hidden: false }, // the dropdown under the search box: rows, the highlighted one
   collapsed: new Set(), // section keys the user collapsed (kept between opens)
   peek: new Set(),      // collapsed sections opened for this visit only (Alt+Q landed on a tab inside)
@@ -106,20 +106,20 @@ const state = {
   undo: [],             // what can be undone, last at the end: [{ kind: 'close'|'merge'|'move', tabs: undoRecord(...), at }] (Ctrl+Z)
   lastPick: null,       // the last card ticked: where a Shift+click on a tick box, or Shift+arrows, range from
   shiftBase: null,      // the ticks before a run of Shift+arrows began (the run's range is added to them)
-  prefs: null,          // the settings (lib/store.js getPrefs), as load() last read them
-  woken: {},            // tab id -> when a snooze brought it back (lib/store.js getWoken): "Back from snooze"
+  prefs: null,          // the settings (utils/store.js getPrefs), as load() last read them
+  woken: {},            // tab id -> when a snooze brought it back (utils/store.js getWoken): "Back from snooze"
   hits: null,           // derived while searching: keys of the cards that match it (the others are dimmed)
   closedMore: false,    // "Show more" under Recently closed: everything up to the search's limit
   nocap: new Set(),     // pages Chrome refused to screenshot: no "Capture preview" there
   toSleep: new Set(),   // tab ids to unload when the switcher closes
   dupesView: false,     // showing only the duplicate copies, before closing them
   matches: [],          // derived: the open tabs the filters let through
-  archived: null,       // the "Tabs Archive" bookmarks folder: [{ id, url, title, t }] newest first (lib/archive.js)
+  archived: null,       // the "Tabs Archive" bookmarks folder: [{ id, url, title, t }] newest first (utils/archive.js)
   archivePreviews: {},  // normalized URL -> preview, for archived pages
   archSel: 0,           // the selected card in the archive overlay
   urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
   pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
-  media: [],            // what plays in the tabs, playing first (lib/media.js mediaEntries): the player and its list
+  media: [],            // what plays in the tabs, playing first (utils/media.js mediaEntries): the player and its list
   mediaCurrent: null,   // tab id of the media the player shows (chosen in its list, or last used); else the first
   mediaPreviews: {},    // normalized URL -> preview (or null: none), for media tabs the cards don't show
 };
@@ -1873,7 +1873,7 @@ function startSearch(q) {
 
 // ---- open or search from the box: what was typed, when nothing matches it (or Shift+Enter).
 
-// Something that looks like an address opens as one; anything else is searched on Google (lib/web.js).
+// Something that looks like an address opens as one; anything else is searched on Google (utils/web.js).
 async function openFromBox(text) {
   const url = asUrl(text);
   try {
@@ -1903,7 +1903,7 @@ async function loadMarks() {
   try {
     const out = [];
     const tree = await chrome.bookmarks.getTree();
-    // Archived tabs have their own section: leave out the "Tabs Archive" folder in "Other bookmarks" (as lib/archive.js finds it).
+    // Archived tabs have their own section: leave out the "Tabs Archive" folder in "Other bookmarks" (as utils/archive.js finds it).
     const kids = (tree[0] && tree[0].children) || [];
     const other = kids.find((n) => n.folderType === 'other') || kids.find((n) => n.id === '2') || kids[1] || kids[0];
     const arch = other && (other.children || []).find((n) => !n.url && n.title === ARCHIVE_FOLDER);
@@ -2517,7 +2517,7 @@ async function duplicateTab(tab) {
 // ---- the media player, right of the search box: what plays in the tabs (its picture, title and buttons), and
 // the chevron's list of everything playable in every tab. The pages say what they play (media-hook.js), the
 // background keeps it (KEY.MEDIA), and every change of it is read again here (listen(): refreshMedia). The
-// buttons act in the page itself (lib/media.js) and show the change at once; the page's report confirms it.
+// buttons act in the page itself (utils/media.js) and show the change at once; the page's report confirms it.
 const currentMedia = () => state.media.find((m) => m.tabId === state.mediaCurrent) || state.media[0] || null;
 const mediaPreview = (m) => state.previews[m.tabId] || state.mediaPreviews[normalizeUrl(urlOf(m.tab))] || null;
 // The picture (the tab's screenshot, else its icon), made once per tab and capture and reused by every redraw.
@@ -2732,7 +2732,7 @@ function mediaButton(testid, m, action) {
   return b;
 }
 
-// ---- the archive: tabs moved into the "Tabs Archive" bookmarks folder (in "Other bookmarks", lib/archive.js).
+// ---- the archive: tabs moved into the "Tabs Archive" bookmarks folder (in "Other bookmarks", utils/archive.js).
 // Archiving bookmarks a tab there and closes it; opening it from the archive (its overlay, or the search's
 // "Archived" section) takes it out of the folder and opens it in a new tab.
 async function loadArchived() {
@@ -3261,7 +3261,7 @@ function fancySelect(sel, { inPop = false } = {}) {
 // ---------------------------------------------------------------- the command palette
 // Alt+R from any page (background.js: the 'open-palette' command), or inside Tabazing '>' as the
 // first character in the search box, or Ctrl+K (⌘K). A panel at the top centre (html.palette-open: the rest is
-// dimmed and inert) with one box and one list, mixing a quick answer (lib/quick.js: sums, conversions,
+// dimmed and inert) with one box and one list, mixing a quick answer (utils/quick.js: sums, conversions,
 // colours, time zones, dates), actions (Chrome's and Tabazing's, matched like the search: searchScore on
 // their titles and keywords, in this language and in English) and the very results the search dropdown shows
 // for the same text (ddRows / ddRowEl). ↑/↓ move, Enter runs, Shift+Enter runs and stays in the palette, Esc
@@ -3751,7 +3751,7 @@ function endTour() {
   closeDialog();
 }
 
-// ---- "How is Tabazing working for you?": two steps, at most twice (lib/review.js has the timing).
+// ---- "How is Tabazing working for you?": two steps, at most twice (utils/review.js has the timing).
 // Same rules for everyone, and every answer still offers the store review. The answer itself stays
 // on this computer; the buttons only open pages on the site, where people send what they choose.
 const openUrl = async (url) => { try { await chrome.tabs.create({ url, windowId: CTX.srcWin, active: true }); } catch {} finish('switch'); };
@@ -3885,7 +3885,7 @@ function searchPlaceholder() {
 // chosen category's controls, which scroll inside. The last category opened is remembered (view.settingsTab).
 // Esc, ×, a click on the dimmed backdrop or the gear again (openSettings while open) close it; the focus goes back
 // to the gear. Every control saves at once (prefs); a new language redraws it open, on the same category.
-const SETTINGS_CATS = [ // the ids are lib/store.js SETTINGS_TABS
+const SETTINGS_CATS = [ // the ids are utils/store.js SETTINGS_TABS
   { id: 'look', label: 'setGroupLook', icon: 'brush' }, { id: 'cards', label: 'setGroupCards', icon: 'cards' },
   { id: 'search', label: 'setGroupSearch', icon: 'zoom' }, { id: 'behave', label: 'setGroupBehave', icon: 'gear' },
   { id: 'keys', label: 'setGroupKeys', icon: 'keyboard' },

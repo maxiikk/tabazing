@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ARCHIVE_FOLDER, archiveFolder, getArchived, addArchived, removeArchived } from '../../lib/archive.js';
+import { ARCHIVE_FOLDER, archiveFolder, getArchived, addArchived, removeArchived } from '../../utils/archive.js';
 
 const other = () => chrome._findBookmark('2');
 const folderIn = (parent) => parent.children.filter((n) => !n.url && n.title === ARCHIVE_FOLDER);

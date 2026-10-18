@@ -1,5 +1,5 @@
 // Which language the interface is in. The strings themselves live in dictionaries/<lang>.json and are read with
-// t() (lib/translations.js, ICU MessageFormat: named placeholders and plurals); _locales/ (which
+// t() (utils/translations.js, ICU MessageFormat: named placeholders and plurals); _locales/ (which
 // Chrome reads for the manifest's name and shortcuts) is generated from them by `npm run i18n`. Chrome gives
 // extensions no way to switch language, so Tabazing picks its own: "auto" follows Chrome's language, or the
 // user chooses one in Settings. Call loadLang() (or setLang) once before the first t().

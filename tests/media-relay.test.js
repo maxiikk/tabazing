@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MSG, LIMITS } from '../lib/constants.js';
+import { MSG, LIMITS } from '../utils/constants.js';
 
 const SRC = readFileSync(resolve(process.cwd(), 'media-relay.js'), 'utf8');
 const load = () => new Function(SRC)();

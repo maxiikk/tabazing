@@ -1,7 +1,7 @@
-// lib/media.js: the media player's buttons (run in the page's main world) and its list of what plays where.
+// utils/media.js: the media player's buttons (run in the page's main world) and its list of what plays where.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { KEY, LIMITS } from '../../lib/constants.js';
-import { MEDIA_ACTIONS, mediaAction, pageMediaAction, mediaEntries, loadMedia } from '../../lib/media.js';
+import { KEY, LIMITS } from '../../utils/constants.js';
+import { MEDIA_ACTIONS, mediaAction, pageMediaAction, mediaEntries, loadMedia } from '../../utils/media.js';
 
 const HOOK = Symbol.for('tabazing.media');
 const S = chrome.storage.session;

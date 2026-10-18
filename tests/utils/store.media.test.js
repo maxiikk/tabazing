@@ -1,7 +1,7 @@
-// lib/store.js, what each tab plays (storage.session, KEY.MEDIA): reports from untrusted pages, checked when
+// utils/store.js, what each tab plays (storage.session, KEY.MEDIA): reports from untrusted pages, checked when
 // they arrive (parseMedia) and on every read (getMedia).
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { KEY, LIMITS } from '../../lib/constants.js';
+import { KEY, LIMITS } from '../../utils/constants.js';
 
 const S = chrome.storage.session;
 const NOW = 1_800_000_000_000;
@@ -13,7 +13,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   vi.resetModules(); // a fresh write queue
-  s = await import('../../lib/store.js');
+  s = await import('../../utils/store.js');
 });
 afterEach(() => vi.useRealTimers());
 

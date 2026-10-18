@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
-import { t } from '../../lib/translations.js';
+import { t } from '../../utils/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },
@@ -190,11 +190,11 @@ describe('Settings', () => {
     expect(sw.state.tabs).toHaveLength(3);
   });
 
-  it('its tabs are buttons of at least 24 px with a visible focus ring (switcher.css)', async () => {
+  it('its tabs are buttons of at least 24 px with a visible focus ring (styles/switcher.css)', async () => {
     await boot({ tabs: ABC });
     await openSettings();
     for (const id of ['settings-tab-look', 'settings-close']) expect(tid(id).tagName, id).toBe('BUTTON');
-    const css = readFileSync(resolve(process.cwd(), 'switcher.css'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), 'styles/switcher.css'), 'utf8');
     expect(css).toMatch(/\.settab \{[^}]*min-height: 34px/);
     expect(css).toMatch(/\.setx \{[^}]*width: 32px; height: 32px/);
     expect(css).toMatch(/:focus-visible \{ outline: 2px solid var\(--ring\)/);

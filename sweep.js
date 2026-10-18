@@ -1,10 +1,10 @@
 // Progress window for "Capture all previews" (opened and closed by the background worker).
-import { KEY, MSG } from './lib/constants.js';
-import { localizePage, loadLang, uiLang } from './lib/i18n.js';
-import { t } from './lib/translations.js';
-import { ybit } from './lib/ybit.js';
-import { applyAccent } from './lib/accent.js';
-import { getPrefs } from './lib/store.js';
+import { KEY, MSG } from './utils/constants.js';
+import { localizePage, loadLang, uiLang } from './utils/i18n.js';
+import { t } from './utils/translations.js';
+import { ybit } from './utils/ybit.js';
+import { applyAccent } from './utils/accent.js';
+import { getPrefs } from './utils/store.js';
 
 await loadLang();
 applyAccent((await getPrefs().catch(() => ({}))).accent);

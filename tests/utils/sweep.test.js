@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { KEY, LIMITS, PREVIEW_PREFIX, previewKey } from '../../lib/constants.js';
+import { KEY, LIMITS, PREVIEW_PREFIX, previewKey } from '../../utils/constants.js';
 
-// The screenshot itself is capture.js's business (tests/lib/capture.test.js): here we only see who gets captured.
-vi.mock('../../lib/capture.js', () => ({ captureTab: vi.fn(async () => {}) }));
-const { captureTab } = await import('../../lib/capture.js');
-const { runSweep, cancelSweep, isSweeping, sweepJobs } = await import('../../lib/sweep.js');
+// The screenshot itself is capture.js's business (tests/utils/capture.test.js): here we only see who gets captured.
+vi.mock('../../utils/capture.js', () => ({ captureTab: vi.fn(async () => {}) }));
+const { captureTab } = await import('../../utils/capture.js');
+const { runSweep, cancelSweep, isSweeping, sweepJobs } = await import('../../utils/sweep.js');
 
-const SWEEP_URL = chrome.runtime.getURL('sweep.html');
+const SWEEP_URL = chrome.runtime.getURL('markup/sweep.html');
 let progress; // every KEY.SWEEP value written, in order
 
 beforeEach(() => {

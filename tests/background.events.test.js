@@ -1,6 +1,6 @@
 // background.js: start-up work, setup/install/startup, tab and window events (MRU), badge, snoozed tabs.
 import { describe, it, expect, vi } from 'vitest';
-import { MSG, KEY, LIMITS, SNOOZE_ALARM } from '../lib/constants.js';
+import { MSG, KEY, LIMITS, SNOOZE_ALARM } from '../utils/constants.js';
 import { env, flush, freshWorker, seed, launch, patternQuery } from './background.shared.js';
 
 freshWorker();

@@ -2,9 +2,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, toastText, closedMsg } from './quiet-boot.js';
-import { t } from '../../lib/translations.js';
-import { REVIEW_URL } from '../../lib/constants.js';
-import { SETTINGS_TABS } from '../../lib/store.js';
+import { t } from '../../utils/translations.js';
+import { REVIEW_URL } from '../../utils/constants.js';
+import { SETTINGS_TABS } from '../../utils/store.js';
 import MANIFEST from '../../manifest.json';
 import RU from '../../dictionaries/ru.json';
 

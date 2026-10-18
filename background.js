@@ -1,6 +1,6 @@
 // Tabazing background service worker (ES module).
 // Responsibilities:
-//   1. Track tab usage order (MRU) and screenshots  -> lib/store.js, lib/capture.js
+//   1. Track tab usage order (MRU) and screenshots  -> utils/store.js, utils/capture.js
 //   2. Open the switcher when the shortcut is pressed -> openSwitcher()
 //   3. Put focus back where it belongs when the switcher closes
 //
@@ -12,7 +12,7 @@
 // Everything here must be safe to run more than once: the worker can be
 // suspended and restarted at any moment, and install/reload re-runs setup.
 
-import { MSG, KEY, FRAME_MSG, LIMITS, NUDGE, SWITCHER_PAGE, WINDOW_STATES, CLOSE_REASONS, SNOOZE_ALARM } from './lib/constants.js';
+import { MSG, KEY, FRAME_MSG, LIMITS, NUDGE, SWITCHER_PAGE, SWEEP_PAGE, WINDOW_STATES, CLOSE_REASONS, SNOOZE_ALARM } from './utils/constants.js';
 import {
   touchMru, removeFromMru, replaceInMru, seedMru, previewFresh, cleanupPreviews, markBoot,
   markDiscarded, moveDiscarded, ensureBoot,
@@ -20,14 +20,14 @@ import {
   setOverlayTab, clearOverlayTab, createLaunch, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPrefs,
   takeDueSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
-} from './lib/store.js';
-import { dayOf } from './lib/review.js';
-import { loadLang } from './lib/i18n.js';
-import { t } from './lib/translations.js';
-import { runSweep, cancelSweep, isSweeping, sweepJobs } from './lib/sweep.js';
-import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './lib/capture.js';
-import { isOwnUrl } from './lib/ext.js';
-import { overlayHost, removeOverlay } from './lib/overlay-host.js';
+} from './utils/store.js';
+import { dayOf } from './utils/review.js';
+import { loadLang } from './utils/i18n.js';
+import { t } from './utils/translations.js';
+import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
+import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './utils/capture.js';
+import { isOwnUrl } from './utils/ext.js';
+import { overlayHost, removeOverlay } from './utils/overlay-host.js';
 
 // With use_dynamic_url this is a per-session random origin, so pages can't
 // probe for the extension's permanent id.
@@ -727,7 +727,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       captureOne(msg.tabId, Number.isInteger(msg.reopen) ? msg.reopen : null).then(respond, () => respond({ ok: false }));
       return true;
     case MSG.SWEEP_CANCEL:
-      if (isOwnUrl(sender.url, 'sweep.html')) cancelSweep();
+      if (isOwnUrl(sender.url, SWEEP_PAGE)) cancelSweep();
       return;
     case MSG.MEDIA: {
       // What a frame plays (media-relay.js): only about the tab and frame it comes from, checked, kept in

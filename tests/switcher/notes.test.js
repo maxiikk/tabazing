@@ -3,7 +3,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, entryByTitle, toastText, closedMsg } from './quiet-boot.js';
-import { t } from '../../lib/translations.js';
+import { t } from '../../utils/translations.js';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
 const notes = async () => (await chrome.storage.local.get('notes')).notes || {};

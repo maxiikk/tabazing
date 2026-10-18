@@ -1,6 +1,6 @@
 // background.js: runtime.onMessage. Every message is checked for sender and shape; pages may only ask to open.
 import { describe, it, expect, vi } from 'vitest';
-import { MSG, KEY, LIMITS } from '../lib/constants.js';
+import { MSG, KEY, LIMITS } from '../utils/constants.js';
 import { env, flush, freshWorker, seed, launch, fromSwitcherPage, fromPage, send } from './background.shared.js';
 
 freshWorker();
@@ -21,9 +21,9 @@ describe('sender checks', () => {
     const { fromSwitcher } = bg();
     expect(fromSwitcher({ url: bg().SWITCHER_URL })).toBe(true);
     expect(fromSwitcher({ url: bg().SWITCHER_URL + '?t=x' })).toBe(true);
-    expect(fromSwitcher({ url: `chrome-extension://${chrome.runtime.id}/sweep.html` })).toBe(false);
-    expect(fromSwitcher({ url: 'https://evil.com/switcher.html' })).toBe(false);
-    expect(fromSwitcher({ url: 'chrome-extension://otherextensionidxxxxxxxxxxxxxxxxx/switcher.html' })).toBe(false);
+    expect(fromSwitcher({ url: `chrome-extension://${chrome.runtime.id}/markup/sweep.html` })).toBe(false);
+    expect(fromSwitcher({ url: 'https://evil.com/markup/switcher.html' })).toBe(false);
+    expect(fromSwitcher({ url: 'chrome-extension://otherextensionidxxxxxxxxxxxxxxxxx/markup/switcher.html' })).toBe(false);
     expect(fromSwitcher({})).toBe(false);
   });
 
@@ -245,7 +245,7 @@ describe('SWEEP', () => {
     const shown = () => chrome.tabs.update.mock.calls.filter(([, p]) => p.active).map(([id]) => id); // (the sweep also mutes each visit)
     expect(shown()).toEqual([2]);
     send({ type: MSG.SWEEP_CANCEL }, fromSwitcherPage()); // not the sweep window
-    send({ type: MSG.SWEEP_CANCEL }, { id: chrome.runtime.id, url: `chrome-extension://${chrome.runtime.id}/sweep.html` });
+    send({ type: MSG.SWEEP_CANCEL }, { id: chrome.runtime.id, url: `chrome-extension://${chrome.runtime.id}/markup/sweep.html` });
     await vi.advanceTimersByTimeAsync(10000);
     // the first visit, then only putting the window back on its tab
     expect(shown()).toEqual([2, 1]);

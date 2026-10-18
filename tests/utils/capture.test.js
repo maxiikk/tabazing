@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { KEY, LIMITS, PREVIEW_PREFIX, previewKey, sharpKey } from '../../lib/constants.js';
+import { KEY, LIMITS, PREVIEW_PREFIX, previewKey, sharpKey } from '../../utils/constants.js';
 
 // capture.js keeps the time of the last screenshot in module state, so each test imports it afresh.
 let cap;
@@ -33,7 +33,7 @@ beforeEach(async () => {
     }
   });
   vi.resetModules();
-  cap = await import('../../lib/capture.js');
+  cap = await import('../../utils/capture.js');
 });
 
 afterEach(() => {
@@ -72,7 +72,7 @@ describe('captureWindow', () => {
   });
 
   it('skips its own pages, minimized / incognito / popup windows, and tabs under the overlay', async () => {
-    const own = page({ tab: { url: chrome.runtime.getURL('switcher.html') } });
+    const own = page({ tab: { url: chrome.runtime.getURL('markup/switcher.html') } });
     await cap.captureWindow(own.w.id);
     expect(note().msg).toBe('no page to capture');
 
@@ -224,7 +224,7 @@ describe('grabForOpen', () => {
 
   it('is null for own pages, odd windows, a missing window, or a refused capture', async () => {
     expect(await cap.grabForOpen(99)).toBeNull();
-    expect(await cap.grabForOpen(page({ tab: { url: chrome.runtime.getURL('sweep.html') } }).w.id)).toBeNull();
+    expect(await cap.grabForOpen(page({ tab: { url: chrome.runtime.getURL('markup/sweep.html') } }).w.id)).toBeNull();
     expect(await cap.grabForOpen(page({ win: { state: 'minimized' } }).w.id)).toBeNull();
     expect(await cap.grabForOpen(page({ win: { incognito: true } }).w.id)).toBeNull();
     expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();

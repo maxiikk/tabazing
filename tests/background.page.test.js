@@ -1,8 +1,8 @@
 // background.js: the functions it injects into pages (nudge, flyout), run here in jsdom. The overlay host is
-// tests/lib/overlay-host.test.js.
+// tests/utils/overlay-host.test.js.
 // Elements are found by data-testid only.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { MSG } from '../lib/constants.js';
+import { MSG } from '../utils/constants.js';
 import { env, freshWorker } from './background.shared.js';
 
 freshWorker();

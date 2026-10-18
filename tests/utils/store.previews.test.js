@@ -1,6 +1,6 @@
 // Previews: thumbnails + sharp copies, the index, caps, eviction order, 7-day cleanup.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { KEY, LIMITS, PREVIEW_PREFIX, previewKey, sharpKey } from '../../lib/constants.js';
+import { KEY, LIMITS, PREVIEW_PREFIX, previewKey, sharpKey } from '../../utils/constants.js';
 
 const L = chrome.storage.local;
 const S = chrome.storage.session;
@@ -25,7 +25,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   vi.resetModules();
-  s = await import('../../lib/store.js');
+  s = await import('../../utils/store.js');
   L._data.set(KEY.PREVIEW_CLEAN, NOW); // keep the automatic cleanup out of the way unless a test wants it
 });
 afterEach(() => vi.useRealTimers());

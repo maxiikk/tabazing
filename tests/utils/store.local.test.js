@@ -1,7 +1,7 @@
 // storage.local settings and user data: review/onboarding/nudge counters, snoozed tabs, notes, stars, view, prefs.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { KEY, LIMITS, SNOOZE_ALARM } from '../../lib/constants.js';
-import { DEFAULT_ACCENT } from '../../lib/accent.js';
+import { KEY, LIMITS, SNOOZE_ALARM } from '../../utils/constants.js';
+import { DEFAULT_ACCENT } from '../../utils/accent.js';
 
 const L = chrome.storage.local;
 const NOW = 1_800_000_000_000;
@@ -11,7 +11,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
   vi.resetModules();
-  s = await import('../../lib/store.js');
+  s = await import('../../utils/store.js');
 });
 afterEach(() => vi.useRealTimers());
 

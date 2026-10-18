@@ -3,7 +3,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
-import { t } from '../../lib/translations.js';
+import { t } from '../../utils/translations.js';
 
 const ABC = [
   { title: 'A', url: 'https://a.example/' },

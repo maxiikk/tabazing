@@ -2,8 +2,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
 import { boot, tid, tids, toastText, closedMsg } from './quiet-boot.js';
-import { t } from '../../lib/translations.js';
-import { KEY, MSG } from '../../lib/constants.js';
+import { t } from '../../utils/translations.js';
+import { KEY, MSG } from '../../utils/constants.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
 const TABS = [

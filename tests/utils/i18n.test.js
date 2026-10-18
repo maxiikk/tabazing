@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { LANGS, loadLang, setLang, uiLang, timeAgo, localizePage } from '../../lib/i18n.js';
-import { t } from '../../lib/translations.js';
+import { LANGS, loadLang, setLang, uiLang, timeAgo, localizePage } from '../../utils/i18n.js';
+import { t } from '../../utils/translations.js';
 import EN from '../../dictionaries/en.json';
 import RU from '../../dictionaries/ru.json';
 import ES from '../../dictionaries/es.json';
@@ -19,7 +19,7 @@ describe('language choice', () => {
     for (const [ui, want] of [['ru-RU', 'ru'], ['ES', 'es'], ['fr', 'en'], ['', 'en'], [undefined, 'en']]) {
       vi.resetModules();
       chrome.i18n.getUILanguage.mockReturnValue(ui);
-      expect((await import('../../lib/i18n.js')).uiLang(), String(ui)).toBe(want);
+      expect((await import('../../utils/i18n.js')).uiLang(), String(ui)).toBe(want);
     }
   });
   it('setLang switches right away; "auto" and unknown values follow Chrome', () => {
@@ -78,8 +78,8 @@ describe('t, in the language setLang chose', () => {
   it('falls back to English when the language lacks a key', async () => {
     vi.resetModules();
     vi.doMock('../../dictionaries/ru.json', () => ({ default: { newTab: 'Новая' } }));
-    const i18n = await import('../../lib/i18n.js');
-    const { t: get } = await import('../../lib/translations.js');
+    const i18n = await import('../../utils/i18n.js');
+    const { t: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
     expect(get('newTab')).toBe('Новая');
     expect(get('justNow')).toBe(EN.justNow);
@@ -105,8 +105,8 @@ describe('plural messages', () => {
   it('a language lacking the message gets English; nothing at all gives the key', async () => {
     vi.resetModules();
     vi.doMock('../../dictionaries/ru.json', () => ({ default: { onlyOther: '{count, plural, other {# x}}' } }));
-    const i18n = await import('../../lib/i18n.js');
-    const { t: get } = await import('../../lib/translations.js');
+    const i18n = await import('../../utils/i18n.js');
+    const { t: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
     expect(get('onlyOther', { count: 1 })).toBe('1 x');
     expect(get('tabs', { count: 5 })).toBe('5 tabs');

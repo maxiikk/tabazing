@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { emptyReview, dayOf, reviewPrompt } from '../../lib/review.js';
-import { REVIEW } from '../../lib/constants.js';
+import { emptyReview, dayOf, reviewPrompt } from '../../utils/review.js';
+import { REVIEW } from '../../utils/constants.js';
 
-afterEach(() => { vi.useRealTimers(); vi.doUnmock('../../lib/constants.js'); vi.resetModules(); });
+afterEach(() => { vi.useRealTimers(); vi.doUnmock('../../utils/constants.js'); vi.resetModules(); });
 
 describe('emptyReview', () => {
   it('starts all counters at zero, since the given time', () => {
@@ -48,8 +48,8 @@ describe('reviewPrompt (rules)', () => {
   const DAY = 24 * 3600 * 1000;
   async function load() {
     vi.resetModules();
-    vi.doMock('../../lib/constants.js', () => ({ REVIEW: { ASK_AFTER_OPENS: 15, ASK_AFTER_MS: 3 * DAY, ASK_GAP_MS: 14 * DAY, ASK_MAX: 2 } }));
-    return (await import('../../lib/review.js')).reviewPrompt;
+    vi.doMock('../../utils/constants.js', () => ({ REVIEW: { ASK_AFTER_OPENS: 15, ASK_AFTER_MS: 3 * DAY, ASK_GAP_MS: 14 * DAY, ASK_MAX: 2 } }));
+    return (await import('../../utils/review.js')).reviewPrompt;
   }
   const T0 = Date.UTC(2026, 0, 1); // a real install time (lastAsk 0 then means "never asked")
   const ready = () => ({ ...emptyReview(T0), opens: 15 });

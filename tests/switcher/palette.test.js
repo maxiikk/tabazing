@@ -4,8 +4,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
 import { boot, tid, tids, tabByTitle, toastText, closedMsg } from './quiet-boot.js';
-import { MSG, KEY } from '../../lib/constants.js';
-import { t } from '../../lib/translations.js';
+import { MSG, KEY } from '../../utils/constants.js';
+import { t } from '../../utils/translations.js';
 
 const ABC = [
   { title: 'Alpha', url: 'https://alpha.example/' },

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.1] - 2026-10-18
+
+### Changed
+
+- The source is organized into folders: the pages in `markup/`, the stylesheets in `styles/` and the shared modules in `utils/` (was `lib/`).
+
 ## [6.0.0] - 2026-10-18
 
 ### Removed
@@ -291,7 +297,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...HEAD
+[6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...HEAD
+[6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...cce6e44
 [5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...5045321
 [5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...9c671ea
 [5.1.3]: https://github.com/maxiikk/tabazing/compare/d593384...ad37917

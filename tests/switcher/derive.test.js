@@ -140,7 +140,7 @@ describe('load', () => {
     sw = await bootSwitcher({
       tabs: [
         tab('One', 'https://1.com/'), tab('Two', 'https://2.com/'), tab('Three', 'https://3.com/', { active: true }),
-        tab('Four', 'https://4.com/'), tab('Own', chrome.runtime.getURL('switcher.html')), tab('Five', 'https://5.com/'),
+        tab('Four', 'https://4.com/'), tab('Own', chrome.runtime.getURL('markup/switcher.html')), tab('Five', 'https://5.com/'),
       ],
     });
     expect(sw.state.tabs.map((t) => t.title)).toEqual(['Three', 'Two', 'One', 'Four', 'Five']);

@@ -1,4 +1,4 @@
-// Boot the real switcher page (switcher.html + switcher.js) in jsdom, the way the background opens it:
+// Boot the real switcher page (markup/switcher.html + switcher.js) in jsdom, the way the background opens it:
 // a launch token in storage.session and in the page's address (popup-window mode, so no web page and no
 // clickjacking guard are involved). Resolves to the module's exports once the first draw is done.
 //
@@ -11,7 +11,7 @@ import { vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const HTML = readFileSync(resolve(process.cwd(), 'switcher.html'), 'utf8');
+const HTML = readFileSync(resolve(process.cwd(), 'markup/switcher.html'), 'utf8');
 const BODY = HTML.slice(HTML.indexOf('<body>') + 6, HTML.indexOf('</body>')).replace(/<script[\s\S]*?<\/script>/g, '');
 
 // The switcher a test booted keeps timers (the redraw after the opening animation, Chrome's history
