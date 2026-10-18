@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-10-18
+
+### Fixed
+
+- This changelog: the 4.1.0 notes were released under "Unreleased".
+
+## [4.1.0] - 2026-10-18
+
 ### Added
 
 - **Command palette**: press **Ctrl+Shift+Space** (⌘⇧Space) on any page, or type **>** in the search box or press **Ctrl+K** (⌘K) in Tabazing. One box runs Chrome actions (new window, Incognito, reopen closed tab, Chrome's settings, extensions, history, downloads, passwords…), actions on the current tab (reload, duplicate, pin, mute, close, close others, move, zoom, full screen, copy link, bookmark) and Tabazing's own (close duplicates, merge windows, sleep tabs unused for a week, snooze, archive, theme, sort, capture previews, media…), and shows the same results as the search box.
@@ -212,7 +220,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[4.0.0]: https://github.com/maxiikk/tabazing/compare/81d1eae...HEAD
+[4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...HEAD
+[4.1.0]: https://github.com/maxiikk/tabazing/compare/9e8692c...e6117fd
+[4.0.0]: https://github.com/maxiikk/tabazing/compare/81d1eae...9e8692c
 [3.1.2]: https://github.com/maxiikk/tabazing/compare/6223238...81d1eae
 [3.1.1]: https://github.com/maxiikk/tabazing/compare/b6177be...6223238
 [3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...b6177be
