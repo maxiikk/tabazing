@@ -283,18 +283,11 @@ describe('finishCard: the mouse on a card', () => {
     expect(selectedTitle()).toBe('Charlie');
   });
 
-  it('a click on the backdrop around the content cancels', async () => {
-    const sw = await boot({ tabs: ABC() });
-    tid('scroller').click();
-    await waitFor(() => sw.state.done);
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'tabazing:closed', reason: 'cancel' }));
-  });
-
-  it('a click between cards, on a heading, the toolbar, the window list or anywhere in the header does not', async () => {
+  it('a click on empty space anywhere (the backdrop, between cards, a heading, the toolbar, the window list, the header) does not close it', async () => {
     chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 60, tab: { sessionId: 'x1', url: 'https://gone.example/', title: 'Gone' } }];
     const sw = await boot({ tabs: ABC(), prefs: { allWindows: true }, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Delta', url: 'https://delta.example/' }); } });
     for (const id of ['section-grid', 'open-grid', 'open-h', 'closed-h', 'closed-section', 'open-section', 'tools', 'view-toolbar', 'wins', 'qfilters',
-      'header', 'search-box', 'player', 'open-head', 'open-end', 'open-actions']) { // the header's empty space too
+      'header', 'search-box', 'player', 'open-head', 'open-end', 'open-actions', 'scroller', 'body', 'app']) { // the backdrop and the header's empty space too
       tid(id).click();
       expect(sw.state.done, id).toBe(false);
     }

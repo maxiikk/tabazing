@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **5.1.4** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **5.2.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -55,7 +55,7 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Where it appears.** On normal web pages Tabazing opens as an overlay on top of the page. Chrome does not let extensions draw on some pages, such as `chrome://` pages, the New Tab page and the Chrome Web Store. On those, and on pages that block the overlay, it opens in its own small popup window instead. Both versions work the same way. Turn on **Always open in its own window** in Settings to use the popup window everywhere.
 
-**Closing it.** Press **Esc**, click the backdrop around the content (the space below the last section, or around the edges; clicks in the header, between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
+**Closing it.** Press **Esc** or switch to another window. Tabazing also closes after you pick a tab. Clicking empty space (the backdrop, the header, between cards) does not close it, so a missed click never loses your place.
 
 **All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
 
@@ -140,7 +140,6 @@ All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card
 | Middle-click (press the wheel) | Close the tab. |
 | Drag a card | Move the tab in the tab strip. Only works when sorted **By order** (see below). |
 | Alt + mouse wheel | Step through cards while holding Alt after Alt+Q or Alt+W. |
-| Click the backdrop | Close Tabazing (not a click in the header, between cards, on a heading, the toolbar or the window list). |
 
 ### Search
 
@@ -167,7 +166,7 @@ Type anywhere and the text goes into the search box, which says what it searches
 
 One box for doing things, not just finding tabs, like the command palettes of code editors and Spotlight.
 
-**Opening it.** Press **Alt+R** (⌥R on a Mac) on any page: Tabazing opens straight into the palette. (Chrome keeps a shortcut it has already assigned when Tabazing is updated: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.) Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
+**Opening it.** Press **Alt+R** (⌥R on a Mac) on any page: the palette opens on its own, over the same dimmed backdrop as the switcher, without the switcher behind it. (Chrome keeps a shortcut it has already assigned when Tabazing is updated: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.) Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
 
 A panel opens at the top centre with one box and one list; the switcher behind it is dimmed. As you type, the list mixes, best match first:
 

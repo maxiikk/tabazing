@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-10-18
+
+### Changed
+
+- Clicking empty space anywhere in Tabazing (the backdrop, the header, between cards) no longer closes it; Esc does.
+- Alt+R opens the command palette on its own, over the dimmed backdrop, without showing the switcher behind it. Opened from inside the switcher (> or Ctrl+K) it still shows over the dimmed switcher.
+
 ## [5.1.4] - 2026-10-18
 
 ### Changed
@@ -278,7 +285,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...HEAD
+[5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...HEAD
+[5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...9c671ea
 [5.1.3]: https://github.com/maxiikk/tabazing/compare/d593384...ad37917
 [5.1.2]: https://github.com/maxiikk/tabazing/compare/6279c3f...d593384
 [5.1.1]: https://github.com/maxiikk/tabazing/compare/bea73aa...6279c3f

@@ -55,6 +55,7 @@ describe('opening and leaving', () => {
     expect(shown()).toBe(true);
     expect(document.documentElement.classList.contains('palette-open')).toBe(true);
     expect(document.documentElement.classList.contains('palette')).toBe(false); // the panel's class: its rule would size the whole page
+    expect(document.documentElement.classList.contains('palette-solo')).toBe(true); // on its own: the switcher isn't shown behind it
     expect(document.activeElement).toBe(input());
     expect(sw.state.palette.from).toBe('shortcut');
     // Everything else is inert (not the toast or the live regions).
@@ -94,11 +95,13 @@ describe('opening and leaving', () => {
     await typeInSearch('>br');
     expect(shown()).toBe(true);
     expect(sw.state.palette.from).toBe('switcher');
+    expect(document.documentElement.classList.contains('palette-solo')).toBe(false); // over the switcher, dimmed
     expect(input().value).toBe('br');
     expect(tid('palette-foot').textContent).toBe(t('palFootBack'));
     key('Escape');
     expect(shown()).toBe(false);
     expect(document.documentElement.classList.contains('palette-open')).toBe(false);
+    expect(document.documentElement.classList.contains('palette-solo')).toBe(false);
     expect(tid('search').value).toBe('br');
     expect(sw.state.query).toBe('br');
     expect(document.activeElement).toBe(tid('search'));

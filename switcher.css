@@ -822,6 +822,8 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
    The mode class on <html> must not be the panel's own class (.palette): the panel's rule (fixed, 660 px, centred)
    would then lay out the whole page. */
 html.palette-open #app > :not(.palette):not(.toast):not(.live) { opacity: .28; transition: opacity .12s ease; }
+/* opened with Alt+R: on its own, over the overlay's dimmed backdrop (the switcher behind it isn't shown) */
+html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hidden; opacity: 0; transition: none; }
 .palette {
   position: fixed; z-index: 6; top: max(16px, 11vh); left: 50%; transform: translateX(-50%);
   width: min(660px, calc(100vw - 32px)); max-height: calc(100vh - max(32px, 22vh));

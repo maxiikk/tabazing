@@ -25,6 +25,11 @@ const layout = (frame) => frame.evaluate(() => {
     html: box(document.documentElement), header: box(document.querySelector('[data-testid="header"]')),
     palette: pal && !pal.hidden ? box(pal) : null,
     mode: document.documentElement.classList.contains('palette-open'),
+    // Opened with Alt+R it is on its own: the switcher behind it isn't drawn, only the dimmed backdrop.
+    headerShown: getComputedStyle(document.querySelector('[data-testid="header"]')).visibility !== 'hidden',
+    cardsShown: getComputedStyle(document.querySelector('[data-testid="body"]')).visibility !== 'hidden',
+    paletteShown: getComputedStyle(pal).visibility !== 'hidden',
+    backdrop: getComputedStyle(document.body).backgroundColor,
   };
 });
 
@@ -41,6 +46,8 @@ describe('the command palette', () => {
     expect(frame).toBeTruthy();
     const l = await layout(frame);
     expect(l.mode).toBe(true);
+    expect([l.headerShown, l.cardsShown, l.paletteShown]).toEqual([false, false, true]);
+    expect(l.backdrop).toMatch(/^rgba\(10, 12, 16, 0\.7/); // the overlay's dimmed backdrop, as for the switcher
     expect(l.html).toEqual({ x: 0, y: 0, w: l.vw, h: l.vh }); // the switcher's page fills the overlay
     expect(l.header.w).toBe(l.vw); // the header spans the window, not the palette's width
     expect(l.palette.w).toBeLessThanOrEqual(680);

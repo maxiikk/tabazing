@@ -3517,6 +3517,8 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   state.dd.hidden = true;
   renderDropdown();
   document.documentElement.classList.add('palette-open'); // not 'palette': that is the panel's class, and its rule would lay out the whole page
+  // From Alt+R it opens on its own: just the dimmed backdrop and the palette, the switcher isn't shown at all.
+  document.documentElement.classList.toggle('palette-solo', from === 'shortcut');
   el.palette.hidden = false;
   el.palInput.value = text;
   updateInert();
@@ -3534,7 +3536,7 @@ function exitPalette() {
   state.palette = null;
   cancelAnimationFrame(palFrame);
   palFrame = 0;
-  document.documentElement.classList.remove('palette-open');
+  document.documentElement.classList.remove('palette-open', 'palette-solo');
   el.palette.hidden = true;
   el.palList.replaceChildren();
   el.palInput.value = '';
@@ -4582,17 +4584,11 @@ function listen() {
   on(el.playerToggle, () => playerDo('toggle'));
   on(el.playerNext, () => playerDo('nexttrack'));
   on(el.playerMore, openMediaList);
-  el.player.addEventListener('click', (e) => e.stopPropagation()); // its picture and title: not empty space (which closes the switcher)
-  // A click on the backdrop around the content (not on the cards, the gaps between them, a heading, the toolbar,
-  // the window list, or anywhere in the header: its empty space sits between the search box, the player and
-  // the buttons, and is easy to hit) closes Tabazing, like a click outside a dialog.
+  // A click on empty space never closes Tabazing (Esc does): it is too easy to hit between the cards and the
+  // header's controls. Only the palette leaves on a click beside it, as a dialog does: with it up everything
+  // else is inert (or, opened with Alt+R, not shown at all).
   el.app.addEventListener('click', (e) => {
-    // With the palette up everything else is inert: a click beside it leaves it, as Esc does.
-    if (state.palette) {
-      if (!el.palette.contains(e.target) && pointerAllowed()) { if (state.palette.from === 'shortcut') finish('cancel'); else exitPalette(); }
-      return;
-    }
-    if ([el.app, el.body, el.scroller].includes(e.target)) finish('cancel');
+    if (state.palette && !el.palette.contains(e.target) && pointerAllowed()) { if (state.palette.from === 'shortcut') finish('cancel'); else exitPalette(); }
   });
   window.addEventListener('mousemove', (e) => {
     state.mouseReady = true;
