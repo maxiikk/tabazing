@@ -56,4 +56,24 @@ describe('the command palette', () => {
     await page.keyboard.press('Escape');
     await page.close();
   });
+
+  it('the mouse wheel scrolls its list, and only its list (not the page under the overlay)', async () => {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 800 });
+    await page.goto(servers.main + '/long');
+    await sleep(1500);
+    await altKey(page, 'KeyR');
+    await sleep(1000);
+    const frame = switcherFrame(page);
+    const list = () => frame.evaluate(() => { const l = document.querySelector('[data-testid="palette-list"]'); const r = l.getBoundingClientRect(); return { top: l.scrollTop, max: l.scrollHeight - l.clientHeight, x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+    const before = await list();
+    expect(before.max).toBeGreaterThan(0); // the list of actions is longer than the panel: it has to scroll
+    await page.mouse.move(before.x, before.y);
+    await page.mouse.wheel({ deltaY: 300 });
+    await sleep(400);
+    const after = await list();
+    expect(after.top).toBeGreaterThan(before.top);
+    expect(await page.evaluate(() => scrollY)).toBe(0); // the page itself didn't scroll
+    await page.close();
+  });
 });

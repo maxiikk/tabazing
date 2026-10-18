@@ -4626,7 +4626,8 @@ function listen() {
       return;
     }
     // In the overlay, a wheel over anything that can't scroll would scroll the web page underneath.
-    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist, .setbody, .settabs')) e.preventDefault();
+    // Every area that scrolls on its own must be listed here, or the wheel does nothing over it (the palette's list was missing once).
+    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist, .setbody, .settabs, .pallist')) e.preventDefault();
   }, { passive: false });
 
   // Only the background service worker may move the selection (content

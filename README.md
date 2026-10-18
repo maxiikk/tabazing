@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **5.1.2** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **5.1.3** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 

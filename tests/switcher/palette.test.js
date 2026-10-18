@@ -126,6 +126,17 @@ describe('opening and leaving', () => {
     expect(sw.state.done).toBe(false);
   });
 
+  it('the wheel scrolls its list (the overlay blocks the wheel everywhere else, so the page under it stays put)', async () => {
+    await boot({ tabs: ABC });
+    key('k', { code: 'KeyK', ctrlKey: true });
+    const wheel = (target) => { const e = new WheelEvent('wheel', { deltaY: 100, bubbles: true, cancelable: true }); target.dispatchEvent(e); return e; };
+    expect(wheel(tid('palette-list')).defaultPrevented).toBe(false);
+    const row = tids('palette-row-action')[0];
+    expect(row).toBeTruthy();
+    expect(wheel(row).defaultPrevented).toBe(false); // over a row inside it
+    expect(wheel(tid('palette-bar')).defaultPrevented).toBe(true); // the input bar doesn't scroll
+  });
+
   it('Backspace in the empty box goes back to the switcher; with text it only deletes', async () => {
     const sw = await boot({ tabs: ABC });
     key('k', { code: 'KeyK', ctrlKey: true });
