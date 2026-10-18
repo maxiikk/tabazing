@@ -62,8 +62,8 @@ describe.each(Object.keys(BOOKS))('dictionaries/%s.json', (lang) => {
 });
 
 // ---- keys used by the code
-const SOURCES = ['background.js', 'switcher.js', 'sweep.js', 'lib/i18n.js', 'lib/capture.js', 'lib/store.js', 'lib/sweep.js', 'lib/archive.js', 'lib/review.js', 'newtab.js', 'lib/web.js', 'lib/overlay-host.js', 'lib/media.js'];
-const HTML = ['switcher.html', 'sweep.html', 'newtab.html'];
+const SOURCES = ['background.js', 'switcher.js', 'sweep.js', 'lib/i18n.js', 'lib/capture.js', 'lib/store.js', 'lib/sweep.js', 'lib/archive.js', 'lib/review.js', 'lib/web.js', 'lib/overlay-host.js', 'lib/media.js'];
+const HTML = ['switcher.html', 'sweep.html'];
 
 // Every t(...) call: the string literals in its first argument (covers `cond ? 'a' : 'b'`) and the
 // property names of the object in its second, if that is an object literal.

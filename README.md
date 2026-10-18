@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **5.2.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **6.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -166,7 +166,7 @@ Type anywhere and the text goes into the search box, which says what it searches
 
 One box for doing things, not just finding tabs, like the command palettes of code editors and Spotlight.
 
-**Opening it.** Press **Alt+R** (⌥R on a Mac) on any page: the palette opens on its own, over the same dimmed backdrop as the switcher, without the switcher behind it. (Chrome keeps a shortcut it has already assigned when Tabazing is updated: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.) Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
+**Opening it.** Press **Alt+R** (⌥R on a Mac) on any page: the palette opens on its own, over the same dimmed backdrop as the switcher, without the switcher behind it. (Chrome keeps a shortcut it has already assigned when Tabazing is updated: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.) Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages it works even when Chrome left it unassigned.
 
 A panel opens at the top centre with one box and one list; the switcher behind it is dimmed. As you type, the list mixes, best match first:
 
@@ -215,19 +215,6 @@ When a tab is playing a video or music, a small player appears in the header, ri
 - What counts is exactly what Chrome's own media controls list: a video or audio shows up only once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs"), videos without sound and sounds shorter than 5 seconds never show. Once it has played, it stays while paused, muted or finished (also when the site stops it to play something in another tab, as YouTube does), until it is taken off the page, the page loads something else, or it has been paused for an hour.
 - Pages that were already open when Tabazing was installed, updated or reloaded get the player at once, including media that played there before; their **Previous** / **Next** work after the page is reloaded (or once the site sets them up again, as YouTube does for every video).
 - If a page doesn't respond (some players ignore outside play requests), a message says so and the button goes back.
-
-### New Tab page
-
-Tabazing provides Chrome's New Tab page. Chrome doesn't let extensions draw on its own New Tab page, so the switcher used to open there in a separate window; now Alt+Q opens it right over the page, as on any website.
-
-The page itself is quick and private (nothing is loaded from the network):
-
-- **Search box**: type an address and press Enter to open it, or anything else to search Google. Start typing anywhere on the page to jump into it.
-- **Most visited**: your 8 most visited sites from the last 90 days of history. Hover a tile and click × (or press Delete on it) to remove it; Undo brings it back.
-- **Starred**: the pages you starred in the switcher (Alt+S).
-- A reminder of your shortcut, or a link to set one if Chrome left it unassigned (Alt+Q still works on the page itself).
-
-It follows Tabazing's theme, accent colour and language settings. The first time, Chrome asks whether to keep the new New Tab page: choose **Keep it**. If you choose **Change it back**, Chrome turns Tabazing off.
 
 ### Windows
 

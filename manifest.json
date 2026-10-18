@@ -10,9 +10,6 @@
     "service_worker": "background.js",
     "type": "module"
   },
-  "chrome_url_overrides": {
-    "newtab": "newtab.html"
-  },
   "commands": {
     "open-switcher": {
       "description": "__MSG_cmdOpen__",
@@ -111,7 +108,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "5.2.0",
+  "version": "6.0.0",
   "web_accessible_resources": [
     {
       "matches": [

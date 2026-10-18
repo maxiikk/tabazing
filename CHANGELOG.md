@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-10-18
+
+### Removed
+
+- Tabazing's own New Tab page. Chrome's New Tab page is back; Alt+Q there opens Tabazing in its own window, as on other `chrome://` pages. The "New tab" button and the palette's New Tab action still open a new tab.
+
 ## [5.2.0] - 2026-10-18
 
 ### Changed
@@ -285,7 +291,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...HEAD
+[6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...HEAD
+[5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...5045321
 [5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...9c671ea
 [5.1.3]: https://github.com/maxiikk/tabazing/compare/d593384...ad37917
 [5.1.2]: https://github.com/maxiikk/tabazing/compare/6279c3f...d593384

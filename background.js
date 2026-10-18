@@ -8,12 +8,11 @@
 // page context, possibly a compromised renderer) or from our own switcher
 // page. Every message is checked for sender and shape; content scripts can
 // only ask "open the switcher" and say what their own frame plays, nothing else.
-// Tabazing's own New Tab page (newtab.html) may only ask "open the switcher" too.
 //
 // Everything here must be safe to run more than once: the worker can be
 // suspended and restarted at any moment, and install/reload re-runs setup.
 
-import { MSG, KEY, FRAME_MSG, LIMITS, NUDGE, SWITCHER_PAGE, NEWTAB_PAGE, WINDOW_STATES, CLOSE_REASONS, SNOOZE_ALARM } from './lib/constants.js';
+import { MSG, KEY, FRAME_MSG, LIMITS, NUDGE, SWITCHER_PAGE, WINDOW_STATES, CLOSE_REASONS, SNOOZE_ALARM } from './lib/constants.js';
 import {
   touchMru, removeFromMru, replaceInMru, seedMru, previewFresh, cleanupPreviews, markBoot,
   markDiscarded, moveDiscarded, ensureBoot,
@@ -37,12 +36,8 @@ const SWITCHER_URL = chrome.runtime.getURL(SWITCHER_PAGE);
 // postMessage target so the launch token can only ever reach our own frame.
 const EXT_REAL_ORIGIN = `chrome-extension://${chrome.runtime.id}`;
 const INJECTABLE = /^(https?|file):/;
-// A tab showing Tabazing's New Tab page. Chrome may report it by the address the user sees (chrome://newtab/)
-// rather than the page's own; that one may also be Chrome's page (another extension's override won), which
-// then simply doesn't answer MSG.NTP_LAUNCH, and the popup window opens.
-const isNewTab = (tab) => !!tab && (isOwnUrl(tab.url, NEWTAB_PAGE) || isOwnUrl(tab.pendingUrl, NEWTAB_PAGE) || /^chrome:\/\/newtab\/?$/.test(tab.url || ''));
-// Tabazing's own pages (the switcher's window, the sweep window) aren't tabs the user works in; the New Tab page is.
-const ownPage = (url) => isOwnUrl(url) && !isOwnUrl(url, NEWTAB_PAGE);
+// Tabazing's own pages (the switcher's window, the sweep window) aren't tabs the user works in.
+const ownPage = (url) => isOwnUrl(url);
 
 // First worker start of a browser session: remember when it began (see maybeCleanup in store.js).
 ensureBoot().catch(() => {});
@@ -293,6 +288,7 @@ chrome.runtime.onStartup.addListener(async () => {
 });
 chrome.runtime.onInstalled.addListener(async (details) => {
   await setup({ fresh: true });
+  chrome.storage.local.remove('ntpHidden').catch(() => {}); // left by the New Tab page (removed in 6.0.0)
   if (details.reason === 'install') {
     await updateOnboard({ at: Date.now(), flyout: false, tour: false }).catch(() => {});
     const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true }).catch(() => []);
@@ -358,7 +354,7 @@ function injectPageScripts(tabs) {
 // ------------------------------------------------------------ opening the switcher
 let opening = null;   // { t, extra } while a switcher is loading (dedupes rapid presses)
 let watchdog = null;  // { token, timer } for an overlay that hasn't reported READY yet
-let overlayOpen = null; // { tabId, win, ctx, ntp } of the last overlay opened (MSG.FALLBACK reopens it as a popup)
+let overlayOpen = null; // { tabId, win, ctx } of the last overlay opened (MSG.FALLBACK reopens it as a popup)
 let lastTrigger = 0;
 
 // `hold`: opened by Alt+Q / Alt+W, which work like Alt+Tab (letting go of Alt switches to the selected
@@ -409,9 +405,7 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false, palette = f
   };
   // The launch token and overlay note are only storage writes, nothing on screen: made during the grab.
   // Injecting waits for it (step 4), so the screenshot never has the overlay in it.
-  // Tabazing's New Tab page can't be injected into, but hosts the overlay itself (newtab.js).
-  const ntp = isNewTab(tab);
-  const inPage = (INJECTABLE.test(tab.url || '') || ntp) && !prefs.ownWindow; // Settings: "always in its own window"
+  const inPage = INJECTABLE.test(tab.url || '') && !prefs.ownWindow; // Settings: "always in its own window"
   const prep = inPage ? Promise.all([createLaunch({ ...ctx, mode: 'overlay' }), setOverlayTab(tab.id)]) : null;
   if (prep) prep.catch(() => {}); // awaited below; this only keeps an early failure from counting as unhandled
   if (!fresh) {
@@ -428,10 +422,9 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false, palette = f
   if (inPage) {
     try {
       const [token] = await prep;
-      armWatchdog(token, tab.id, win, ctx, 0, ntp); // before injecting: READY can arrive very quickly
-      overlayOpen = { tabId: tab.id, win, ctx, ntp };
-      if (ntp) await launchInNewTab(tab.id, token, hold);
-      else await injectInto(tab.id, token, hold);
+      armWatchdog(token, tab.id, win, ctx); // before injecting: READY can arrive very quickly
+      overlayOpen = { tabId: tab.id, win, ctx };
+      await injectInto(tab.id, token, hold);
       return;
     } catch {
       disarmWatchdog();
@@ -455,16 +448,8 @@ function injectInto(tabId, token, hold) {
   });
 }
 
-// Tabazing's New Tab page hosts the overlay itself: it gets the launch by message. Only extension pages
-// receive runtime messages (content scripts don't), and each New Tab page acts only on its own tab id.
-// No page answered (Chrome's own New Tab, or ours still loading): the caller opens the popup window.
-async function launchInNewTab(tabId, token, hold) {
-  const r = await chrome.runtime.sendMessage({ type: MSG.NTP_LAUNCH, tabId, token, hold: !!hold });
-  if (!r || r.ok !== true) throw new Error('no New Tab page to host the switcher');
-}
-// Take a failed overlay away: injected into a web page, or hosted by the New Tab page.
-function dropOverlay(tabId, ntp) {
-  if (ntp) return chrome.runtime.sendMessage({ type: MSG.NTP_DROP, tabId }).catch(() => {});
+// Take a failed overlay away from the page it was injected into.
+function dropOverlay(tabId) {
   return chrome.scripting.executeScript({ target: { tabId }, func: removeOverlay, injectImmediately: true }).catch(() => {});
 }
 
@@ -515,15 +500,14 @@ wakeSnoozed();
 // No READY in time. A page that was still loading may have replaced the document the overlay went
 // into: then it goes into the new one (a fresh launch token; the old one may have been used). One that
 // is just slow gets one more moment. After that, or if the page can't take it, the popup window.
-// The New Tab page (`ntp`) can't be looked into from here: it gets the longer wait straight away.
 const WATCH_FIRST_MS = 1000;
-function armWatchdog(token, tabId, win, ctx, tries = 0, ntp = false) {
+function armWatchdog(token, tabId, win, ctx, tries = 0) {
   disarmWatchdog();
   watchdog = {
     token,
     timer: setTimeout(async () => {
       if (!watchdog || watchdog.token !== token) return;
-      if (tries < 2 && !ntp) {
+      if (tries < 2) {
         const [r] = await chrome.scripting.executeScript({ target: { tabId }, func: () => !!(window.__tabazingOverlay && window.__tabazingOverlay.active), injectImmediately: true }).catch(() => []);
         if (!watchdog || watchdog.token !== token) return; // READY came meanwhile
         if (r && r.result === false) {
@@ -539,11 +523,11 @@ function armWatchdog(token, tabId, win, ctx, tries = 0, ntp = false) {
       }
       if (!watchdog) return;
       watchdog = null;
-      await dropOverlay(tabId, ntp);
+      await dropOverlay(tabId);
       await clearOverlayTab();
       opening = null;
       await openPopupWindow(win, await createLaunch({ ...ctx, mode: 'window' })).catch(() => {});
-    }, tries || ntp ? LIMITS.OVERLAY_WATCHDOG_MS : WATCH_FIRST_MS),
+    }, tries ? LIMITS.OVERLAY_WATCHDOG_MS : WATCH_FIRST_MS),
   };
 }
 
@@ -695,15 +679,13 @@ async function reopenOver(tabId) {
 
 const fromContentScript = (s) => !!s.tab && Number.isInteger(s.tab.id) && !isOwnUrl(s.url);
 const fromSwitcher = (s) => isOwnUrl(s.url, SWITCHER_PAGE);
-// Tabazing's New Tab page itself, in a tab (not framed: it isn't web-accessible, and frameId 0 is the tab's own document).
-const fromNewTab = (s) => !!s.tab && Number.isInteger(s.tab.id) && s.frameId === 0 && isOwnUrl(s.url, NEWTAB_PAGE);
 
 chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   if (sender.id !== chrome.runtime.id || !msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
   switch (msg.type) {
     case MSG.HOTKEY:
-      // The only thing a page's content script, or the New Tab page (its own Alt+Q listener), may ask for.
-      if (!fromContentScript(sender) && !fromNewTab(sender)) return;
+      // The only thing a page's content script may ask for.
+      if (!fromContentScript(sender)) return;
       if (msg.palette === true) trigger(0, sender.tab, 'key', false, true); // Alt+R: nothing else is taken from it
       else trigger(msg.dir === -1 ? -1 : msg.dir === 0 ? 0 : 1, sender.tab, 'key', msg.hold === true);
       return;
@@ -770,12 +752,12 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
       // The overlay was drawn but Chrome never reported it visible, so it can't take clicks or keys (the
       // page covers it somehow). Take it away and show the switcher in its own window instead.
       if (!fromSwitcher(sender) || !overlayOpen || !sender.tab || sender.tab.id !== overlayOpen.tabId) return;
-      const { tabId, win, ctx, ntp } = overlayOpen;
+      const { tabId, win, ctx } = overlayOpen;
       overlayOpen = null;
       disarmWatchdog();
       opening = null;
       (async () => {
-        await dropOverlay(tabId, ntp);
+        await dropOverlay(tabId);
         await clearOverlayTab();
         await openPopupWindow(win, await createLaunch({ ...ctx, hold: false, mode: 'window' }));
       })().catch(() => {});
@@ -802,7 +784,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
 export {
   SWITCHER_URL, EXT_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
-  trigger, openSwitcher, injectInto, launchInNewTab, dropOverlay, isNewTab, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
+  trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
   WATCH_FIRST_MS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
-  flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MS, captureOne, reopenOver, fromContentScript, fromSwitcher, fromNewTab,
+  flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MS, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

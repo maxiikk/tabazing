@@ -242,8 +242,8 @@ async function load(prefs = null, { previews = true } = {}) {
     state.sort = view.sort;
     state.collapsed = new Set(view.collapsed);
   }
-  // This window, or all of them (Settings); Tabazing's own pages left out, except its New Tab page (a real tab).
-  const tabs = allTabs.filter((t) => !isOwnUrl(urlOf(t)) || isOwnUrl(urlOf(t), 'newtab.html'));
+  // This window, or all of them (Settings); Tabazing's own pages left out.
+  const tabs = allTabs.filter((t) => !isOwnUrl(urlOf(t)));
 
   const rank = new Map(mru.map((id, i) => [id, i]));
   const r = (t) => (t.id === CTX.srcTab ? -1 : rank.has(t.id) ? rank.get(t.id) : Infinity);
@@ -1873,8 +1873,7 @@ function startSearch(q) {
 
 // ---- open or search from the box: what was typed, when nothing matches it (or Shift+Enter).
 
-// Something that looks like an address opens as one; anything else is searched on Google (lib/web.js,
-// shared with the New Tab page).
+// Something that looks like an address opens as one; anything else is searched on Google (lib/web.js).
 async function openFromBox(text) {
   const url = asUrl(text);
   try {
