@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **5.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **5.1.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -29,7 +29,7 @@ Tabazing needs **Chrome 123 or later**.
 
 Right after installing, a small card on the page you are on says "Tabazing is ready – Press Alt+Q and keep holding Alt to see your tabs; let go to switch".
 
-**Changing the shortcuts:** go to `chrome://extensions/shortcuts`, or open Tabazing → **Settings** → **Change the Alt+Q shortcut**. If another app or extension already uses Alt+Q, Chrome leaves it unassigned. Tabazing then shows a warning with a button that takes you to that page. On ordinary web pages Alt+Q still works, because the page itself listens for it.
+**Changing the shortcuts:** go to `chrome://extensions/shortcuts`, or open Tabazing → **Settings** → **Shortcuts**, which shows the key each command has now and a **Change** button that takes you there. If another app or extension already uses Alt+Q, Chrome leaves it unassigned. Tabazing then shows a warning with a button that takes you to that page. On ordinary web pages Alt+Q still works, because the page itself listens for it.
 
 Tabazing does not run in Incognito windows.
 
@@ -57,7 +57,7 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Closing it.** Press **Esc**, click the backdrop around the content (the space below the last section, or around the edges; clicks in the header, between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
 
-**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Keyboard and mouse shortcuts** opens it too.
+**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
 
 **A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px the Settings, New tab and Archive buttons show only their icons. The cards always start right below the header.
 
@@ -372,9 +372,9 @@ The **New tab** button in the header opens a new tab in the current window.
 
 ### Settings
 
-Click **Settings** (the gear at the top left). The settings are in four groups, in two columns; on a short window the card scrolls.
+Click **Settings** (the gear at the top left). Settings opens as a dialog over the dimmed switcher, with its title and a **×** at the top, the categories down the left and the chosen category's settings on the right (they scroll inside on a short window). In a window narrower than about 640 px the categories become a row of tabs above the settings. **↑** / **↓** (and **←** / **→** when they are a row), **Home** and **End** move between the categories; **Tab** goes on into the settings. Tabazing opens Settings on the category you last used. **Esc**, the **×** or a click outside the dialog closes it, and the keyboard focus goes back to the gear. Every change is saved at once; a new language redraws Settings in it straight away.
 
-| Group | Setting | Options |
+| Category | Setting | Options |
 |---|---|---|
 | Appearance | **Language** | Auto (Chrome's language), English, Español, Русский. |
 | | **Theme** | Match system (default), Dark, Light. In the light theme the selected card's edge, focus rings and other outlines use a darkened accent so they stay visible. |
@@ -382,17 +382,17 @@ Click **Settings** (the gear at the top left). The settings are in four groups, 
 | | **Card size** | Default, Small, List (one line per tab, no screenshot). |
 | | **Title lines** | Two lines (default) or one line, on the default-size cards. |
 | Cards | **Pinned tabs first** | On (default): pinned tabs lead every sort order. |
-| | **Show tabs from all windows** | Off: only the window you open Tabazing in. On: every window, with the window list on the left. |
+| | **Show "days ago" tags** | On (default): the "3 days ago" tags on cards. |
 | | **Show Recently closed** | On (default): the Recently closed section below the open tabs. |
 | | **Show Snoozed** | On (default): the Snoozed section. |
-| | **Show "days ago" tags** | On (default): the "3 days ago" tags on cards. |
+| | **Show tabs from all windows** | Off: only the window you open Tabazing in. On: every window, with the window list on the left. |
 | Search | **Include history** | On (default): search your browsing history. |
 | | **Include bookmarks** | On (default): search your bookmarks. |
-| Behaviour | **Open Tabazing when Chrome starts** | Shows all your tabs, where you left off, a few seconds after Chrome opens. |
-| | **Always open in its own window** | Off (default): over the page you are on when Chrome allows it. On: always in its own popup window. |
-| | **Change the Alt+Q shortcut** | Opens `chrome://extensions/shortcuts`. |
-| | **Keyboard and mouse shortcuts** | Opens the ⓘ shortcuts card. |
+| Behaviour | **Always open in its own window** | Off (default): over the page you are on when Chrome allows it. On: always in its own popup window. |
+| | **Open Tabazing when Chrome starts** | Shows all your tabs, where you left off, a few seconds after Chrome opens. |
 | | **Replay the tour** | Shows the first-run tour again. |
+| Shortcuts | **Chrome shortcuts** | Previous card (Alt+Q), Next card (Alt+W), Open and stay (Alt+E) and Command palette (Alt+R), each with the key Chrome has for it now, or **Not set** (then the key works only on web pages). Chrome lets you change them only on its own page: **Change**, or **Change in Chrome**, opens `chrome://extensions/shortcuts`. The list reads the keys again when you come back to Tabazing's window. |
+| | **Inside Tabazing** | The keys that work inside Tabazing, the same list as the ⓘ card. |
 
 Settings, the sort order and your stars, notes and snoozed tabs are remembered between sessions.
 

@@ -2,6 +2,8 @@
 // on a focused button, focus kept in Settings / dialogs / the archive / the big preview and given back, the
 // card's menu (Shift+F10), the search box as a combobox, roles and states, the live regions.
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
 import { t } from '../../lib/translations.js';
@@ -128,17 +130,22 @@ describe('Settings', () => {
   async function openSettings() {
     tid('settings-btn').click();
     await waitFor(() => tid('settings'));
-    await tick(); // its press-outside listener
+    await tick();
     return tid('settings');
   }
 
-  it('takes the focus as it opens and keeps Tab inside', async () => {
+  it('takes the focus (on its selected category) as it opens and keeps Tab inside', async () => {
     const sw = await boot({ tabs: ABC });
-    const pop = await openSettings();
-    expect(pop.getAttribute('aria-modal')).toBe('true');
-    expect(pop.contains(focused())).toBe(true);
-    const list = sw.tabbables(pop);
-    expect(focused()).toBe(list[0]);
+    const dlg = await openSettings();
+    expect(dlg.getAttribute('aria-modal')).toBe('true');
+    expect(focused()).toBe(tid('settings-tab-look'));
+    for (const id of REST) expect(tid(id).hasAttribute('inert'), id).toBe(true);
+    const list = sw.tabbables(dlg);
+    expect(list[0]).toBe(tid('settings-close'));
+    expect(list).toContain(tid('settings-tab-look'));
+    expect(list).not.toContain(tid('settings-tab-cards')); // one tab stop for the tab list
+    expect(list).not.toContain(tid('settings-pinned-first')); // nor the hidden categories' controls
+    list[0].focus();
     expect(key('Tab', { shiftKey: true }).defaultPrevented).toBe(true);
     expect(focused()).toBe(list[list.length - 1]);
     expect(key('Tab').defaultPrevented).toBe(true);
@@ -157,24 +164,40 @@ describe('Settings', () => {
     expect(sw.state.done).toBe(false);
   });
 
-  it('so does the gear again, and a press outside', async () => {
-    await boot({ tabs: ABC });
+  it('so does the gear again, and a click on the backdrop', async () => {
+    const sw = await boot({ tabs: ABC });
     await openSettings();
-    tid('settings-btn').click();
-    await waitFor(() => !tid('settings'));
-    expect(focused()).toBe(tid('settings-btn'));
-    await openSettings();
-    tid('search').blur();
-    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    await sw.openSettings(tid('settings-btn'));
     expect(tid('settings')).toBe(null);
     expect(focused()).toBe(tid('settings-btn'));
+    await openSettings();
+    const back = tid('settings-backdrop');
+    back.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    back.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(tid('settings')).toBe(null);
+    expect(focused()).toBe(tid('settings-btn'));
+    expect(sw.state.done).toBe(false);
   });
 
-  it('typing a letter there stays there (it is modal)', async () => {
-    await boot({ tabs: ABC });
-    const pop = await openSettings();
+  it('typing a letter there stays there, and the switcher\'s keys don\'t reach behind it', async () => {
+    const sw = await boot({ tabs: ABC });
+    const dlg = await openSettings();
     key('x');
-    expect(pop.contains(focused())).toBe(true);
+    expect(dlg.contains(focused())).toBe(true);
+    key('k', { code: 'KeyK', ctrlKey: true }); // the palette's key
+    expect(sw.state.palette).toBeFalsy();
+    key('Delete');
+    expect(sw.state.tabs).toHaveLength(3);
+  });
+
+  it('its tabs are buttons of at least 24 px with a visible focus ring (switcher.css)', async () => {
+    await boot({ tabs: ABC });
+    await openSettings();
+    for (const id of ['settings-tab-look', 'settings-close']) expect(tid(id).tagName, id).toBe('BUTTON');
+    const css = readFileSync(resolve(process.cwd(), 'switcher.css'), 'utf8');
+    expect(css).toMatch(/\.settab \{[^}]*min-height: 34px/);
+    expect(css).toMatch(/\.setx \{[^}]*width: 32px; height: 32px/);
+    expect(css).toMatch(/:focus-visible \{ outline: 2px solid var\(--ring\)/);
   });
 });
 

@@ -172,6 +172,9 @@ const ICON = {
   zoomOut: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14M5 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   expand: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   sun: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="2.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  // Settings' categories
+  brush: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M13.6 2.4c-1.6.4-4.6 3-6.3 5.2l1.1 1.1c2.2-1.7 4.8-4.7 5.2-6.3ZM6.4 8.6c-1.5 0-2.6 1.1-2.6 2.5 0 .9-.6 1.6-1.4 1.9 2.6 1.3 5.5.2 5.4-2.4z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
+  cards: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="2" y="2.5" width="5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="9" y="2.5" width="5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="2" y="9" width="5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="9" y="9" width="5" height="4.5" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>',
   sort: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5 2.5v11M2.8 11.2 5 13.5l2.2-2.3M11 13.5v-11M8.8 4.8 11 2.5l2.2 2.3" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
@@ -3124,14 +3127,16 @@ function closeBig() {
   if (bigEntry) { bigEntry = null; el.search.focus({ preventScroll: true }); }
 }
 
-// While a dialog, the archive, a big preview or the command palette is open, the rest of the switcher is inert:
-// Tab, clicks and screen readers stay in it. Not the toast (its Undo works over the archive) or the live regions.
+// While a dialog, Settings, the archive, a big preview or the command palette is open, the rest of the switcher is
+// inert: Tab, clicks and screen readers stay in it. Not the toast (its Undo works over the archive), the live
+// regions, or a select's list (a menu: Settings opens them over itself).
 function updateInert() {
-  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .arch') || (state.palette && el.palette);
-  for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live'));
+  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .setback')
+    || document.querySelector('#app > .arch') || (state.palette && el.palette);
+  for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu'));
 }
 
-// Tab moves through the controls of the top layer (a big preview, a dialog, a menu, a card like Settings,
+// Tab moves through the controls of the top layer (a big preview, a dialog, a menu, Settings, a card like a note,
 // the archive, else the whole switcher) and wraps around at its ends: past the last one Chrome would move
 // the focus out of the page, and losing the focus closes the switcher.
 const TABBABLE = 'button, input, select, textarea, a[href], [tabindex]';
@@ -3140,7 +3145,7 @@ function tabbables(root) {
 }
 function focusLayer() {
   return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
-    || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .arch') || el.app;
+    || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
   const root = focusLayer();
@@ -3155,11 +3160,11 @@ function keepFocusIn(e) {
   if (next) next.focus();
 }
 
-// Close the open menu or card (a note card saves itself as it closes; Settings gives the focus back to the gear).
+// Close the open menu or card (a note card saves itself as it closes; the ⓘ card gives the focus back to ⓘ).
 function closePops() { document.querySelectorAll('.pop, .menu').forEach((x) => (x.close ? x.close() : x.remove())); }
 
 // A small menu next to a button: [{ label, fn, danger, err }]; `err` is what the note says if `fn` fails.
-// opts: { keepPops } leaves an open card (Settings) open; { width, alignLeft } for a select's list; { at: {x, y} }
+// opts: { keepPops } leaves an open card open; { width, alignLeft } for a select's list; { at: {x, y} }
 // opens it at that point (a right-click) instead of at the anchor.
 // Items may be { on: true } (ticked: the current choice). ↑/↓ move; Esc, or choosing an item, closes it and
 // gives the focus back to `opts.back` || `anchor` (for a card or its buttons, which take no focus: the search
@@ -3657,7 +3662,7 @@ function closeDialog() {
 function whenTapMode(fn) {
   const t0 = performance.now();
   const tick = () => {
-    if (state.done || state.modal || state.palette || el.search.value) return; // closed, or already busy: don't interrupt
+    if (state.done || state.modal || state.palette || settingsOpen() || el.search.value) return; // closed, or already busy: don't interrupt
     if (!state.holding) return fn();
     if (performance.now() - t0 < 10000) setTimeout(tick, 150); // Alt still held from the shortcut: wait for the release
   };
@@ -3825,7 +3830,7 @@ async function healthCheck() {
   // Alt+Q itself can be left unassigned by Chrome (another app or extension owns it): say so, with the fix.
   let shortcut = 'assigned';
   try { const c = (await chrome.commands.getAll()).find((x) => x.name === 'open-switcher'); if (c && !c.shortcut) shortcut = 'missing'; } catch {}
-  if (shortcut === 'missing') return showAlert(t('shortcutMissing'), t('setShortcut'), () => openUrl('chrome://extensions/shortcuts'));
+  if (shortcut === 'missing') return showAlert(t('shortcutMissing'), t('setShortcut'), () => openUrl(SHORTCUTS_URL));
   // Opened with the toolbar icon: the tip about Alt+Q, the first few times only (it has made its point by then).
   if (CTX.via === 'icon' && pref('iconTips') < ICON_TIPS) {
     toast(t('iconTip', { key: IS_MAC ? 'Option+Q' : 'Alt+Q' }));
@@ -3871,30 +3876,182 @@ function searchPlaceholder() {
   el.search.placeholder = t(hist && marks ? 'searchPlaceholder' : hist ? 'searchPhNoMarks' : marks ? 'searchPhNoHistory' : 'searchPhTabs');
 }
 
-// ---- Settings (the gear at the left of the header), in four groups: Appearance (language, theme, accent colour,
-// card size, title lines), Cards (what the card area shows), Search (what it reaches) and Behaviour (opening
-// Tabazing, the shortcut, the tour, the shortcuts card). Two columns; it scrolls inside if the window is short.
-// The gear again while the card is open closes it; `redraw` keeps it open (a new language).
-async function openSettings(anchor, redraw = false) {
-  const open = document.querySelector('.pop.settings');
+// ---- Settings (the gear at the left of the header): a dialog over the switcher, which is inert meanwhile. A header
+// (the title, its ×), the categories as tabs down the left (a row above the content in a narrow window) and the
+// chosen category's controls, which scroll inside. The last category opened is remembered (view.settingsTab).
+// Esc, ×, a click on the dimmed backdrop or the gear again (openSettings while open) close it; the focus goes back
+// to the gear. Every control saves at once (prefs); a new language redraws it open, on the same category.
+const SETTINGS_CATS = [ // the ids are lib/store.js SETTINGS_TABS
+  { id: 'look', label: 'setGroupLook', icon: 'brush' }, { id: 'cards', label: 'setGroupCards', icon: 'cards' },
+  { id: 'search', label: 'setGroupSearch', icon: 'zoom' }, { id: 'behave', label: 'setGroupBehave', icon: 'gear' },
+  { id: 'keys', label: 'setGroupKeys', icon: 'keyboard' },
+];
+// Tabazing's commands (manifest.json), as Settings -> Shortcuts lists them; `key`: the letter the in-page
+// fallback (hotkey.js) answers to with Alt when Chrome has no shortcut for the command.
+const COMMANDS = [
+  { name: 'open-switcher', label: 'setKeyPrev', desc: 'cmdOpen', key: 'Q' },
+  { name: 'open-switcher-reverse', label: 'setKeyNext', desc: 'cmdReverse', key: 'W' },
+  { name: 'open-switcher-stay', label: 'setKeyStay', desc: 'cmdStay', key: 'E' },
+  { name: 'open-palette', label: 'setKeyPalette', desc: 'cmdPalette', key: 'R' },
+];
+const SHORTCUTS_URL = 'chrome://extensions/shortcuts'; // the only place Chrome lets anyone change them
+const SETTINGS_NARROW_W = 640; // below this the categories are a row of tabs above the content
+let settingsTab = 'look';
+let settingsAnchor = null; // what opened Settings: it gets the focus back
+const settingsOpen = () => !!document.querySelector('#app > .setback');
+
+async function openSettings(anchor = $('settings-btn'), redraw = false) {
+  if (settingsOpen() && !redraw) return closeSettings();
   closePops();
-  if (open && !redraw) return;
-  const prefs = { ...PREFS_FALLBACK, startup: false, accent: ACCENTS[0], ...(await getPrefs().catch(() => ({}))) };
-  const pop = h('div', 'pop settings', null, 'settings');
-  pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-modal', 'true'); // Tab stays in it (keepFocusIn) until it closes
-  pop.setAttribute('aria-label', t('settings'));
-  const lang = h('select', '', null, 'settings-language');
-  lang.setAttribute('aria-label', t('setLang'));
-  for (const [v, label] of [['auto', t('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']]) {
-    const o = h('option', '', label, 'settings-language-' + v); o.value = v; if (v === prefs.lang) o.selected = true; lang.append(o);
+  const [stored, view] = await Promise.all([getPrefs().catch(() => ({})), redraw ? null : getView().catch(() => null)]);
+  if (state.done || (settingsOpen() && !redraw)) return; // (a second click while the first was still reading)
+  if (view) settingsTab = view.settingsTab;
+  settingsAnchor = anchor;
+  const prefs = { ...PREFS_FALLBACK, startup: false, accent: ACCENTS[0], ...stored };
+  const panel = h('div', 'setpanel', null, 'settings');
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true'); // Tab stays in it (keepFocusIn) until it closes
+  panel.setAttribute('aria-labelledby', 'set-h');
+  const title = h('h2', '', t('settings'), 'settings-title');
+  title.id = 'set-h';
+  const x = h('button', 'setx', null, 'settings-close');
+  x.type = 'button';
+  x.title = t('setClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('setClose'));
+  x.append(svgOf(ICON.close));
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeSettings(); });
+  const head = h('div', 'sethead', null, 'settings-header');
+  head.append(title, x);
+  const tabs = h('div', 'settabs', null, 'settings-tabs');
+  tabs.setAttribute('role', 'tablist');
+  tabs.setAttribute('aria-label', t('setCatsAria'));
+  tabs.addEventListener('keydown', settingsTabKey);
+  const body = h('div', 'setbody', null, 'settings-body');
+  const panes = settingsPanes(prefs, anchor);
+  for (const { id, label, icon } of SETTINGS_CATS) {
+    const tab = h('button', 'settab', null, 'settings-tab-' + id);
+    tab.type = 'button';
+    tab.id = 'set-tab-' + id;
+    tab.dataset.cat = id;
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('aria-controls', 'set-pane-' + id);
+    const ic = h('span', 'setico', null, 'settings-tab-icon');
+    ic.append(svgOf(ICON[icon]));
+    tab.append(ic, h('span', '', t(label), 'settings-tab-label'));
+    tab.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) settingsSelect(id); });
+    tabs.append(tab);
+    const pane = panes[id];
+    pane.id = 'set-pane-' + id;
+    pane.setAttribute('role', 'tabpanel');
+    pane.setAttribute('aria-labelledby', tab.id);
+    body.append(pane);
   }
+  panel.append(head, tabs, body);
+  const back = h('div', 'setback', null, 'settings-backdrop');
+  back.append(panel);
+  // A click on the backdrop closes it when the press began there too: not a text selection dragged out of the
+  // panel, nor the press that only closed a select's open list (this listener runs before the list's own).
+  let downOnBack = false;
+  back.onDown = (e) => { downOnBack = e.target === back && !document.querySelector('.menu'); };
+  back.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === back && downOnBack && pointerAllowed()) closeSettings(); });
+  // Back from Chrome's shortcuts page (perhaps in another window): show the keys as they are now.
+  back.onFocus = () => { if (back.isConnected) settingsCommands(); };
+  const old = document.querySelector('#app > .setback');
+  if (old) { settingsDetach(old); old.replaceWith(back); } else el.app.append(back);
+  document.addEventListener('mousedown', back.onDown, true);
+  window.addEventListener('focus', back.onFocus);
+  settingsLayout();
+  settingsSelect(settingsTab, { focus: !redraw, save: false });
+  updateInert();
+  settingsCommands();
+  if (redraw) { const lang = $('set-lang'); if (lang && lang._fancy) lang._fancy.button.focus({ preventScroll: true }); } // where the change was made
+}
+function settingsDetach(back) {
+  document.removeEventListener('mousedown', back.onDown, true);
+  window.removeEventListener('focus', back.onFocus);
+}
+function closeSettings() {
+  const back = document.querySelector('#app > .setback');
+  if (!back) return;
+  settingsDetach(back);
+  document.querySelectorAll('.menu').forEach((m) => m.close()); // a select's list
+  back.remove();
+  updateInert();
+  const a = settingsAnchor || $('settings-btn');
+  if (a && a.isConnected) a.focus({ preventScroll: true });
+}
+
+// Show one category: its tab selected (the only one Tab reaches, as in any tab list), its panel shown.
+function settingsSelect(id, { focus = true, save = true } = {}) {
+  if (!SETTINGS_CATS.some((c) => c.id === id)) id = 'look';
+  settingsTab = id;
+  for (const tab of document.querySelectorAll('.setback .settab')) {
+    const on = tab.dataset.cat === id;
+    tab.setAttribute('aria-selected', String(on));
+    tab.tabIndex = on ? 0 : -1;
+    const pane = $(tab.getAttribute('aria-controls'));
+    if (pane) pane.hidden = !on;
+    if (on && focus) tab.focus({ preventScroll: true });
+  }
+  const body = document.querySelector('.setback .setbody');
+  if (body) body.scrollTop = 0;
+  if (save) updateView({ settingsTab: id }).catch(() => {});
+}
+// The tab list's keys: ↑/↓ (and ←/→ when the tabs are a row), Home and End move and show at once.
+function settingsTabKey(e) {
+  const list = e.currentTarget;
+  const tabs = [...list.querySelectorAll('.settab')];
+  const i = tabs.indexOf(document.activeElement);
+  if (i < 0 || e.altKey || e.ctrlKey || e.metaKey) return;
+  const across = list.getAttribute('aria-orientation') === 'horizontal';
+  const k = e.key, n = tabs.length;
+  const j = k === 'ArrowDown' || (across && k === 'ArrowRight') ? (i + 1) % n
+    : k === 'ArrowUp' || (across && k === 'ArrowLeft') ? (i - 1 + n) % n
+    : k === 'Home' ? 0 : k === 'End' ? n - 1 : -1;
+  if (j < 0) return;
+  e.preventDefault();
+  settingsSelect(tabs[j].dataset.cat);
+}
+// A narrow window: the categories become a row of tabs above the content (switcher.css .setpanel.narrow).
+function settingsLayout(width = window.innerWidth) {
+  const panel = document.querySelector('.setback .setpanel');
+  if (!panel) return;
+  const narrow = width < SETTINGS_NARROW_W;
+  panel.classList.toggle('narrow', narrow);
+  panel.querySelector('.settabs').setAttribute('aria-orientation', narrow ? 'horizontal' : 'vertical');
+}
+// While Settings is open it has the keyboard: Esc closes it (an open select list closes itself first), and every
+// other key belongs to the focused control, never to the switcher behind.
+function settingsKey(e) {
+  if (e.target instanceof Element && e.target.closest('.menu')) return;
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSettings(); }
+}
+
+// The categories' contents: { look, cards, search, behave, keys }, each a panel of controls that save themselves.
+function settingsPanes(prefs, anchor) {
+  const pane = (id, ...nodes) => { const p = h('div', 'setpane', null, 'settings-panel-' + id); p.append(...nodes); return p; };
+  const fine = (text, testid) => h('p', 'pfine', text, testid);
+  // A labelled control; a <select> gets its themed list.
+  const field = (label, testid, control) => {
+    const f = h('div', 'sfield', null, 'settings-field');
+    f.append(h('label', '', label, testid), control);
+    if (control.tagName === 'SELECT') fancySelect(control, { inPop: true });
+    return f;
+  };
+  const select = (testid, label, options, chosen) => {
+    const s = h('select', '', null, 'settings-' + testid);
+    s.setAttribute('aria-label', label);
+    for (const [v, text] of options) { const o = h('option', '', text, 'settings-' + testid + '-' + v); o.value = v; if (v === chosen) o.selected = true; s.append(o); }
+    return s;
+  };
+  const lang = select('language', t('setLang'), [['auto', t('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']], prefs.lang);
+  lang.id = 'set-lang';
   lang.addEventListener('change', async () => {
     await updatePrefs({ lang: lang.value }).catch(() => {});
     setLang(lang.value);
     localizePage();
     render();
-    openSettings(anchor, true); // redraw this card in the new language
+    openSettings(anchor, true); // redraw it in the new language, on the same category
   });
   // A switch that saves itself (prefs[key]), then `then` shows the change.
   const check = (key, label, testid, then) => {
@@ -3910,14 +4067,13 @@ async function openSettings(anchor, redraw = false) {
     l.prepend(box);
     return l;
   };
-  const startLabel = check('startup', t('setStartup'), 'startup');
-  const allWinsLabel = check('allWindows', t('setAllWindows'), 'all-windows', async () => { state.scope = 'all'; await reload(); });
   const shows = (key, label, testid) => check(key, label, testid, () => refresh());
   const searches = (key, label, testid) => check(key, label, testid, () => { searchPlaceholder(); if (state.query.trim()) renderDropdown(); });
   // Accent colour: a few ready-made ones, and any colour from Chrome's picker (the last circle).
   const accents = h('div', 'accents', null, 'settings-accents');
   accents.setAttribute('role', 'radiogroup');
   accents.setAttribute('aria-label', t('setAccent'));
+  const custom = h('input', 'custom', null, 'settings-accent-custom');
   const pickAccent = (c, save = true) => {
     const now = applyAccent(c);
     accents.querySelectorAll('.swatch').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.c === now)));
@@ -3934,7 +4090,6 @@ async function openSettings(anchor, redraw = false) {
     b.addEventListener('click', (e) => { e.stopPropagation(); pickAccent(c); });
     accents.append(b);
   }
-  const custom = h('input', 'custom', null, 'settings-accent-custom');
   custom.type = 'color';
   custom.value = prefs.accent.toLowerCase();
   custom.title = t('setAccentCustom');
@@ -3945,27 +4100,15 @@ async function openSettings(anchor, redraw = false) {
   custom.addEventListener('change', () => { asking = false; pickAccent(custom.value); window.focus(); }); // ...keep it when chosen
   accents.append(custom);
   pickAccent(prefs.accent, false);
-  const size = h('select', '', null, 'settings-card-size');
-  size.setAttribute('aria-label', t('setSize'));
-  for (const [v, label] of [['default', t('setSizeDefault')], ['small', t('setSizeSmall')], ['list', t('setSizeList')]]) {
-    const o = h('option', '', label, 'settings-card-size-' + v); o.value = v; if (v === prefs.cardSize) o.selected = true; size.append(o);
-  }
-  const theme = h('select', '', null, 'settings-theme');
-  theme.setAttribute('aria-label', t('setTheme'));
-  for (const [v, label] of [['dark', t('setThemeDark')], ['light', t('setThemeLight')], ['system', t('setThemeSystem')]]) {
-    const o = h('option', '', label, 'settings-theme-' + v); o.value = v; if (v === prefs.theme) o.selected = true; theme.append(o);
-  }
+  const theme = select('theme', t('setTheme'), [['dark', t('setThemeDark')], ['light', t('setThemeLight')], ['system', t('setThemeSystem')]], prefs.theme);
   theme.addEventListener('change', () => setTheme(theme.value));
+  const size = select('card-size', t('setSize'), [['default', t('setSizeDefault')], ['small', t('setSizeSmall')], ['list', t('setSizeList')]], prefs.cardSize);
   size.addEventListener('change', () => {
     state.cardSize = size.value;
     updatePrefs({ cardSize: size.value }).catch(() => {});
     refresh();
   });
-  const lines = h('select', '', null, 'settings-title-lines');
-  lines.setAttribute('aria-label', t('setLines'));
-  for (const [v, label] of [['2', t('setLines2')], ['1', t('setLines1')]]) {
-    const o = h('option', '', label, 'settings-title-lines-' + v); o.value = v; if (Number(v) === prefs.titleLines) o.selected = true; lines.append(o);
-  }
+  const lines = select('title-lines', t('setLines'), [['2', t('setLines2')], ['1', t('setLines1')]], String(prefs.titleLines));
   lines.addEventListener('change', () => {
     const titleLines = Number(lines.value);
     state.prefs = { ...(state.prefs || PREFS_FALLBACK), titleLines };
@@ -3973,66 +4116,66 @@ async function openSettings(anchor, redraw = false) {
     applyLines();
     relayout();
   });
-  const link = (testid, label, fn) => {
-    const b = h('button', 'lnk', label, testid);
-    b.type = 'button';
-    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); });
-    return b;
+  // Shortcuts: Chrome's (filled in by settingsCommands), then the keys inside Tabazing, as the ⓘ card has them.
+  const chromeH = h('h3', '', t('setKeysChrome'), 'settings-keys-chrome-title');
+  chromeH.id = 'sk-chrome';
+  const chromeHead = h('div', 'ssechead', null, 'settings-keys-chrome-header');
+  chromeHead.append(chromeH, button('settings-keys-change-all', t('setKeysChangeAll'), 'small', () => openUrl(SHORTCUTS_URL)));
+  const cmds = h('ul', 'cmdlist', null, 'settings-command-list');
+  cmds.setAttribute('aria-labelledby', 'sk-chrome');
+  const chromeSec = h('section', 'ssec', null, 'settings-keys-chrome');
+  chromeSec.setAttribute('aria-labelledby', 'sk-chrome');
+  chromeSec.append(chromeHead, fine(t('setKeysChromeNote'), 'settings-keys-chrome-note'), cmds);
+  const insideH = h('h3', '', t('setKeysInside'), 'settings-keys-inside-title');
+  insideH.id = 'sk-inside';
+  const inside = h('section', 'ssec', null, 'settings-keys-inside');
+  inside.setAttribute('aria-labelledby', 'sk-inside');
+  inside.append(insideH, ...shortcutSections('skg-'));
+  return {
+    look: pane('look', field(t('setLang'), 'settings-language-label', lang), field(t('setTheme'), 'settings-theme-label', theme),
+      field(t('setAccent'), 'settings-accent-label', accents), field(t('setSize'), 'settings-card-size-label', size),
+      field(t('setLines'), 'settings-title-lines-label', lines)),
+    cards: pane('cards', check('pinnedFirst', t('setPinnedFirst'), 'pinned-first', () => refresh()), shows('showAge', t('setShowAge'), 'show-age'),
+      shows('showClosed', t('setShowClosed'), 'show-closed'), shows('showSnoozed', t('setShowSnoozed'), 'show-snoozed'),
+      check('allWindows', t('setAllWindows'), 'all-windows', async () => { state.scope = 'all'; await reload(); }), fine(t('setAllWindowsNote'), 'settings-all-windows-note')),
+    search: pane('search', searches('searchHistory', t('setSearchHistory'), 'search-history'), searches('searchBookmarks', t('setSearchBookmarks'), 'search-bookmarks')),
+    behave: pane('behave', check('ownWindow', t('setOwnWindow'), 'own-window'), fine(t('setOwnWindowNote'), 'settings-own-window-note'),
+      check('startup', t('setStartup'), 'startup'), fine(t('setStartupNote'), 'settings-startup-note'),
+      button('settings-tour', t('setTour'), 'setbtn', () => { closeSettings(); tourStep(0); })),
+    keys: pane('keys', chromeSec, inside),
   };
-  const sc = link('settings-shortcut', t('setShortcut'), () => openUrl('chrome://extensions/shortcuts'));
-  const keys = link('settings-keys', t('keysTitle'), () => { pop.close(); openShortcuts(); });
-  const tour = link('settings-tour', t('setTour'), () => { pop.close(); tourStep(0); });
-  const group = (id, title, ...nodes) => {
-    const g = h('section', 'sgroup', null, 'settings-group-' + id);
-    const head = h('h5', '', title, 'settings-group-title');
-    head.id = 'sg-' + id;
-    g.setAttribute('aria-labelledby', head.id);
-    g.append(head, ...nodes);
-    return g;
-  };
-  const cols = h('div', 'scols', null, 'settings-columns');
-  const left = h('div', 'scol', null, 'settings-column');
-  const right = h('div', 'scol', null, 'settings-column');
-  left.append(group('look', t('setGroupLook'),
-    h('label', '', t('setLang'), 'settings-language-label'), lang, h('label', '', t('setTheme'), 'settings-theme-label'), theme,
-    h('label', '', t('setAccent'), 'settings-accent-label'), accents, h('label', '', t('setSize'), 'settings-card-size-label'), size,
-    h('label', '', t('setLines'), 'settings-title-lines-label'), lines));
-  right.append(
-    group('cards', t('setGroupCards'), check('pinnedFirst', t('setPinnedFirst'), 'pinned-first', () => refresh()), allWinsLabel, h('p', 'pfine', t('setAllWindowsNote'), 'settings-all-windows-note'),
-      shows('showClosed', t('setShowClosed'), 'show-closed'), shows('showSnoozed', t('setShowSnoozed'), 'show-snoozed'), shows('showAge', t('setShowAge'), 'show-age')),
-    group('search', t('setGroupSearch'), searches('searchHistory', t('setSearchHistory'), 'search-history'), searches('searchBookmarks', t('setSearchBookmarks'), 'search-bookmarks')),
-    group('behave', t('setGroupBehave'), startLabel, h('p', 'pfine', t('setStartupNote'), 'settings-startup-note'),
-      check('ownWindow', t('setOwnWindow'), 'own-window'), h('p', 'pfine', t('setOwnWindowNote'), 'settings-own-window-note'), sc, keys, tour));
-  cols.append(left, right);
-  pop.append(h('h4', '', t('settings'), 'settings-title'), cols);
-  pop.addEventListener('click', (e) => e.stopPropagation());
-  pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pop.close(); } });
-  // A press outside closes it; on the gear the click that follows does (above), or it would reopen at once.
-  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target) && !e.target.closest('.menu')) pop.close(); };
-  // However it closes (Esc, the gear, a press outside), the focus goes back to the gear.
-  pop.close = () => {
-    if (!pop.isConnected) return;
-    pop.remove();
-    document.removeEventListener('mousedown', outside, true);
-    anchor.focus({ preventScroll: true });
-  };
-  el.app.append(pop);
-  const r = anchor.getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.left)) + 'px';
-  pop.style.top = (r.bottom + 8) + 'px'; // opens below the gear...
-  pop.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 20) + 'px'; // ...and scrolls inside when the window is short
-  fancySelect(lang, { inPop: true });
-  fancySelect(size, { inPop: true });
-  fancySelect(theme, { inPop: true });
-  fancySelect(lines, { inPop: true });
-  setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
-  const first = tabbables(pop)[0];
-  if (first) first.focus({ preventScroll: true });
 }
 
-// ---- the shortcuts card (ⓘ in the header, or Settings -> Keyboard shortcuts): every key and mouse action, in
-// groups. Like Settings it takes the focus, keeps Tab inside, and closes with Esc, a press outside, its × or
-// ⓘ again; the focus goes back to ⓘ.
+// Settings -> Shortcuts: each command with the key Chrome has for it now, or "Not set" (then only the in-page
+// fallback answers, on web pages). Read anew each time, as the keys change on Chrome's page, not here.
+async function settingsCommands() {
+  const list = document.querySelector('.setback .cmdlist');
+  if (!list) return;
+  let cmds = [];
+  try { cmds = await chrome.commands.getAll(); } catch {}
+  if (!list.isConnected) return;
+  list.replaceChildren(...COMMANDS.map((c) => commandRow(c, (cmds.find((x) => x.name === c.name) || {}).shortcut || '')));
+}
+// "Alt+Q" (Windows, Linux) or "⌥Q" (Chrome's Mac form): one keycap per key.
+const keyCaps = (shortcut) => (shortcut.includes('+') ? shortcut.split('+') : [...shortcut]).filter(Boolean);
+function commandRow(c, shortcut) {
+  const name = t(c.label);
+  const row = h('li', 'cmdrow' + (shortcut ? '' : ' unset'), null, 'settings-command');
+  const text = h('div', 'cmdtext', null, 'settings-command-text');
+  text.append(h('span', 'cmdname', name, 'settings-command-name'), h('span', 'cmddesc', t(c.desc), 'settings-command-desc'));
+  if (!shortcut) text.append(h('span', 'cmdnote', t('setKeysUnsetNote', { key: ALT + c.key }), 'settings-command-unset-note'));
+  const keys = h('span', 'cmdkeys', null, 'settings-command-keys');
+  if (shortcut) keys.append(...keyCaps(shortcut).map((k) => h('kbd', '', k, 'settings-command-key')));
+  else keys.append(h('span', 'cmdunset', t('setKeysUnset'), 'settings-command-unset'));
+  const change = button('settings-command-change', t('setKeysChange'), 'small', () => openUrl(SHORTCUTS_URL));
+  change.setAttribute('aria-label', t('setKeysChangeAria', { name }));
+  row.append(text, keys, change);
+  return row;
+}
+
+// ---- the shortcuts card (ⓘ in the header): every key and mouse action, in groups (Settings -> Shortcuts lists
+// them too). It takes the focus, keeps Tab inside, and closes with Esc, a press outside, its × or ⓘ again; the
+// focus goes back to ⓘ.
 function shortcutGroups() {
   const A = IS_MAC ? '⌥' : 'Alt+', C = IS_MAC ? '⌘' : 'Ctrl+', ALT_KEY = IS_MAC ? '⌥' : 'Alt', CTRL_KEY = IS_MAC ? '⌘' : 'Ctrl';
   return [
@@ -4057,6 +4200,24 @@ function shortcutGroups() {
     ['esc', t('keysGroupEsc'), [[['Esc'], t('keyEsc')]]],
   ];
 }
+// shortcutGroups() as sections of keys and what they do: the ⓘ card's body, and Settings -> Shortcuts.
+// `idPrefix` keeps the headings' ids apart.
+function shortcutSections(idPrefix) {
+  return shortcutGroups().map(([id, name, rows]) => {
+    const g = h('section', 'kgroup', null, 'keys-group');
+    const gh = h('h5', '', name, 'keys-group-title');
+    gh.id = idPrefix + id;
+    g.setAttribute('aria-labelledby', gh.id);
+    const dl = h('dl', '', null, 'keys-list');
+    for (const [keys, what] of rows) {
+      const dt = h('dt', '', null, 'keys-combo');
+      keys.forEach((k, i) => { if (i) dt.append(h('span', 'kor', ' / ', 'keys-or')); dt.append(h('kbd', '', k, 'keys-key')); });
+      dl.append(dt, h('dd', '', what, 'keys-action'));
+    }
+    g.append(gh, dl);
+    return g;
+  });
+}
 function openShortcuts(anchor = el.keysBtn) {
   const open = document.querySelector('.pop.keyspop');
   closePops();
@@ -4075,20 +4236,7 @@ function openShortcuts(anchor = el.keysBtn) {
   x.append(svgOf(ICON.close));
   x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); });
   const body = h('div', 'keysbody', null, 'keys-body');
-  for (const [id, name, rows] of shortcutGroups()) {
-    const g = h('section', 'kgroup', null, 'keys-group');
-    const gh = h('h5', '', name, 'keys-group-title');
-    gh.id = 'kg-' + id;
-    g.setAttribute('aria-labelledby', gh.id);
-    const dl = h('dl', '', null, 'keys-list');
-    for (const [keys, what] of rows) {
-      const dt = h('dt', '', null, 'keys-combo');
-      keys.forEach((k, i) => { if (i) dt.append(h('span', 'kor', ' / ', 'keys-or')); dt.append(h('kbd', '', k, 'keys-key')); });
-      dl.append(dt, h('dd', '', what, 'keys-action'));
-    }
-    g.append(gh, dl);
-    body.append(g);
-  }
+  body.append(...shortcutSections('kg-'), h('p', 'pfine', t('keysInSettings'), 'keys-settings-note'));
   const head = h('div', 'keyshead', null, 'keys-header');
   head.append(title, x);
   pop.append(head, body);
@@ -4171,20 +4319,20 @@ function onKeyDown(e) {
   }
   if (state.modal) return dialogKey(e);
   if (archiveOpen()) return archiveKey(e);
-  // Typing in any field other than the search box (Settings, the Sort list), or pressing a button
+  if (settingsOpen()) return settingsKey(e);
+  // Typing in any field other than the search box (a note, the Sort list), or pressing a button
   // in a card or a menu: the key belongs to that field or button, not to the switcher.
   const target = e.target instanceof Element ? e.target : null;
   const own = target && target.closest('.pop, .menu');
   if (target && target !== el.search && target.matches('input, select, textarea')) {
     if (e.key === 'Escape') {
       e.preventDefault(); e.stopPropagation();
-      const inSettings = !!target.closest('.pop.settings'); // closing it gives the gear the focus
       closePops();
-      if (!inSettings) el.search.focus({ preventScroll: true });
+      el.search.focus({ preventScroll: true });
     }
     return;
   }
-  // In a menu or a card (Settings, a note) every plain key stays there: Esc closes it, Enter/Space press, typing
+  // In a menu or a card (a note, the ⓘ card) every plain key stays there: Esc closes it, Enter/Space press, typing
   // doesn't jump to the search box behind it.
   if (own && !e.altKey && !e.ctrlKey && !e.metaKey) return;
   // A button, link, checkbox... focused from the keyboard (Tab reaches them): Enter and Space press it, they
@@ -4304,7 +4452,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || archiveOpen() || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -4457,7 +4605,7 @@ function listen() {
   }, 80));
   // Dragging a window's edge sends a resize event per mouse move: one redraw per frame is enough.
   window.addEventListener('resize', () => {
-    if (!resizeFrame) resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; if (!state.done) relayout(); });
+    if (!resizeFrame) resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; if (!state.done) { relayout(); settingsLayout(); } });
   });
   window.addEventListener('contextmenu', (e) => { if (menuKeyAt && performance.now() - menuKeyAt < 1000) e.preventDefault(); }); // the card's menu took that key
   el.scroller.addEventListener('scroll', hideTip, { passive: true });
@@ -4477,7 +4625,7 @@ function listen() {
       return;
     }
     // In the overlay, a wheel over anything that can't scroll would scroll the web page underneath.
-    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist')) e.preventDefault();
+    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist, .setbody, .settabs')) e.preventDefault();
   }, { passive: false });
 
   // Only the background service worker may move the selection (content
@@ -4635,7 +4783,8 @@ export {
   openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,
   goReview, askStep1, askStep2, askLater, showAlert, requestHostAccess, missingPreviews, updateSweepButton,
-  plainCaptureError, healthCheck, lightMq, themePref, applyTheme, openSettings, firstRun, dialogKey, MODIFIERS,
+  plainCaptureError, healthCheck, lightMq, themePref, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
+  settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_W, SETTINGS_CATS, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, qPress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
   watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAct, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,

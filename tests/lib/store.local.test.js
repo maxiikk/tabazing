@@ -229,18 +229,25 @@ describe('view', () => {
     expect(Object.isFrozen(s.SORTS)).toBe(true);
   });
 
+  it('SETTINGS_TABS lists the categories of Settings', () => {
+    expect(s.SETTINGS_TABS).toEqual(['look', 'cards', 'search', 'behave', 'keys']);
+    expect(Object.isFrozen(s.SETTINGS_TABS)).toBe(true);
+  });
+
   it('getView validates', async () => {
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [] });
-    L._data.set(KEY.VIEW, { sort: 'name', collapsed: ['a', 3, 'x'.repeat(301), 'b'] });
-    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'] });
-    L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a' });
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [] });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look' });
+    L._data.set(KEY.VIEW, { sort: 'name', collapsed: ['a', 3, 'x'.repeat(301), 'b'], settingsTab: 'keys' });
+    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'], settingsTab: 'keys' });
+    L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a', settingsTab: 'colours' });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look' });
+    L._data.set(KEY.VIEW, { settingsTab: ['keys'] });
+    expect((await s.getView()).settingsTab).toBe('look');
     L._data.set(KEY.VIEW, { collapsed: Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i) });
     expect((await s.getView()).collapsed).toHaveLength(LIMITS.MAX_COLLAPSED);
   });
 
   it('updateView merges and keeps the newest MAX_COLLAPSED', async () => {
-    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [] });
+    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [], settingsTab: 'look' });
     const collapsed = Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i);
     const next = await s.updateView({ collapsed });
     expect(next.sort).toBe('order');

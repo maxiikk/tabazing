@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-10-18
+
+### Added
+
+- **Settings → Shortcuts**: the Chrome shortcuts that open Tabazing (previous card, next card, open and stay, command palette), each with the key Chrome has for it now or **Not set**, and a **Change** button that opens Chrome's shortcuts page; below them, the keys that work inside Tabazing.
+- Settings opens on the category you used last.
+
+### Changed
+
+- **Settings is a dialog** in the middle of the screen, with a title, a **×**, its categories (Appearance, Cards, Search, Behaviour, Shortcuts) down the left and the chosen one's settings on the right; in a narrow window the categories are a row of tabs. The arrow keys, Home and End move between the categories; Esc, the × or a click outside closes it.
+- "Change the Alt+Q shortcut" and "Keyboard and mouse shortcuts" left Settings: the Shortcuts category does both. The ⓘ card stays, and points to Settings → Shortcuts.
+
 ## [5.0.0] - 2026-10-18
 
 ### Changed
@@ -238,7 +250,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.0.0]: https://github.com/maxiikk/tabazing/compare/dcf07fc...HEAD
+[5.1.0]: https://github.com/maxiikk/tabazing/compare/b7f4bda...HEAD
+[5.0.0]: https://github.com/maxiikk/tabazing/compare/dcf07fc...b7f4bda
 [4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...dcf07fc
 [4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...341c5d8
 [4.1.0]: https://github.com/maxiikk/tabazing/compare/9e8692c...e6117fd

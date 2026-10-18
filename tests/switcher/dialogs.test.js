@@ -1,9 +1,11 @@
-// Dialogs (the first-run tour, the review prompt), the alert bar and its health checks, and Settings.
+// Dialogs (the first-run tour, the review prompt), the alert bar and its health checks, Settings and the ⓘ card.
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, toastText, closedMsg } from './quiet-boot.js';
 import { t } from '../../lib/translations.js';
 import { REVIEW_URL } from '../../lib/constants.js';
+import { SETTINGS_TABS } from '../../lib/store.js';
+import MANIFEST from '../../manifest.json';
 import RU from '../../dictionaries/ru.json';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
@@ -332,17 +334,147 @@ describe('alerts and health checks', () => {
 });
 
 describe('Settings', () => {
-  const open = async () => { tid('settings-btn').click(); return waitFor(() => tid('settings')); };
+  const open = async () => { tid('settings-btn').click(); await waitFor(() => tid('settings')); await tick(); return tid('settings'); };
+  const tab = (id) => tid('settings-tab-' + id);
+  const panel = (id) => tid('settings-panel-' + id);
+  const shownPanels = () => SETTINGS_TABS.filter((id) => !panel(id).hidden);
+  const view = () => local('view');
+  const backdropClick = () => {
+    const back = tid('settings-backdrop');
+    back.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    back.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  };
 
-  it('the gear opens it, and the gear again closes it', async () => {
-    await boot({ tabs: AB });
-    const pop = await open();
-    expect(tid('settings-title', pop).textContent).toBe(t('settings'));
-    tid('settings-btn').click();
-    await tick(20);
-    expect(tid('settings')).toBe(null);
+  it('is a modal dialog: a title, its ×, the categories as tabs and the chosen one\'s panel; the rest is inert', async () => {
+    const sw = await boot({ tabs: AB });
+    expect(sw.SETTINGS_CATS.map((c) => c.id)).toEqual(SETTINGS_TABS); // what the store accepts
+    const dlg = await open();
+    expect(dlg.getAttribute('role')).toBe('dialog');
+    expect(dlg.getAttribute('aria-modal')).toBe('true');
+    expect(document.getElementById(dlg.getAttribute('aria-labelledby'))).toBe(tid('settings-title'));
+    expect(tid('settings-title').textContent).toBe(t('settings'));
+    expect(tid('settings-close').getAttribute('aria-label')).toBe(t('setClose'));
+    const list = tid('settings-tabs');
+    expect(list.getAttribute('role')).toBe('tablist');
+    expect(list.getAttribute('aria-orientation')).toBe('vertical');
+    expect(tids('settings-tab-label').map((x) => x.textContent)).toEqual([t('setGroupLook'), t('setGroupCards'), t('setGroupSearch'), t('setGroupBehave'), t('setGroupKeys')]);
+    expect(tids('settings-tab-icon')).toHaveLength(5);
+    for (const id of SETTINGS_TABS) {
+      expect(tab(id).getAttribute('role')).toBe('tab');
+      expect(document.getElementById(tab(id).getAttribute('aria-controls'))).toBe(panel(id));
+      expect(panel(id).getAttribute('role')).toBe('tabpanel');
+      expect(document.getElementById(panel(id).getAttribute('aria-labelledby'))).toBe(tab(id));
+    }
+    expect(shownPanels()).toEqual(['look']);
+    expect(tab('look').getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tab('look'));
+    expect(tid('header').hasAttribute('inert')).toBe(true);
+    expect(tid('scroller').closest('[inert]')).not.toBe(null);
+    expect(tid('settings-backdrop').hasAttribute('inert')).toBe(false);
+  });
+
+  it('closes with ×, Esc, a click on the backdrop or the gear again, giving the focus back to the gear', async () => {
+    const sw = await boot({ tabs: AB });
+    const closed = () => {
+      expect(tid('settings')).toBe(null);
+      expect(document.activeElement).toBe(tid('settings-btn'));
+      expect(tid('header').hasAttribute('inert')).toBe(false);
+    };
     await open();
+    tid('settings-close').click();
+    closed();
+    await open();
+    key('Escape');
+    closed();
+    await open();
+    tid('settings').dispatchEvent(new MouseEvent('click', { bubbles: true })); // inside: stays
     expect(tid('settings')).not.toBe(null);
+    backdropClick();
+    closed();
+    await open();
+    await sw.openSettings(tid('settings-btn')); // what the gear does (behind the backdrop, it can't be clicked)
+    closed();
+    expect(sw.state.done).toBe(false);
+  });
+
+  it('a press on the backdrop that only closes a select\'s list leaves Settings open', async () => {
+    await boot({ tabs: AB });
+    await open();
+    tid('select-settings-theme').click();
+    expect(tid('menu')).not.toBe(null);
+    expect(tid('menu').hasAttribute('inert')).toBe(false);
+    await tick(); // the list's press-outside listener
+    backdropClick();
+    expect(tid('menu')).toBe(null);
+    expect(tid('settings')).not.toBe(null);
+  });
+
+  it('↑/↓, Home and End move between the categories and show each at once; the last one is remembered', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    expect(key('ArrowDown').defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(tab('cards'));
+    expect(shownPanels()).toEqual(['cards']);
+    expect(tab('look').tabIndex).toBe(-1);
+    expect(tab('cards').tabIndex).toBe(0);
+    key('ArrowUp');
+    expect(document.activeElement).toBe(tab('look'));
+    key('ArrowUp'); // wraps around
+    expect(document.activeElement).toBe(tab('keys'));
+    key('Home');
+    expect(shownPanels()).toEqual(['look']);
+    key('ArrowRight'); // ←/→ only when the tabs are a row
+    expect(shownPanels()).toEqual(['look']);
+    key('End');
+    expect(shownPanels()).toEqual(['keys']);
+    await vi.waitFor(async () => expect((await view()).settingsTab).toBe('keys'));
+    tab('search').click();
+    expect(shownPanels()).toEqual(['search']);
+    await vi.waitFor(async () => expect((await view()).settingsTab).toBe('search'));
+    key('Escape');
+    await open();
+    expect(shownPanels()).toEqual(['search']);
+    expect(document.activeElement).toBe(tab('search'));
+    expect(sw.state.done).toBe(false);
+  });
+
+  it('opens on the stored category, or on Appearance when that is not one', async () => {
+    await boot({ tabs: AB, beforeImport: () => chrome.storage.local.set({ view: { settingsTab: 'behave' } }) });
+    await open();
+    expect(shownPanels()).toEqual(['behave']);
+    await boot({ tabs: AB, beforeImport: () => chrome.storage.local.set({ view: { settingsTab: 'nope' } }) });
+    await open();
+    expect(shownPanels()).toEqual(['look']);
+  });
+
+  it('in a narrow window the categories are a row of tabs (horizontal: ←/→ move too)', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    sw.settingsLayout(sw.SETTINGS_NARROW_W - 1);
+    expect(tid('settings').classList.contains('narrow')).toBe(true);
+    expect(tid('settings-tabs').getAttribute('aria-orientation')).toBe('horizontal');
+    key('ArrowRight');
+    expect(document.activeElement).toBe(tab('cards'));
+    key('ArrowLeft');
+    expect(document.activeElement).toBe(tab('look'));
+    key('ArrowDown');
+    expect(document.activeElement).toBe(tab('cards'));
+    sw.settingsLayout(1280);
+    expect(tid('settings').classList.contains('narrow')).toBe(false);
+    expect(tid('settings-tabs').getAttribute('aria-orientation')).toBe('vertical');
+  });
+
+  it('every control is in its category', async () => {
+    await boot({ tabs: AB });
+    await open();
+    const has = (id, ...testids) => { for (const x of testids) expect(panel(id).contains(tid(x)), x).toBe(true); };
+    has('look', 'settings-language', 'settings-theme', 'settings-accents', 'settings-card-size', 'settings-title-lines');
+    has('cards', 'settings-pinned-first', 'settings-show-age', 'settings-show-closed', 'settings-show-snoozed', 'settings-all-windows');
+    has('search', 'settings-search-history', 'settings-search-bookmarks');
+    has('behave', 'settings-own-window', 'settings-startup', 'settings-tour');
+    has('keys', 'settings-keys-chrome', 'settings-keys-inside', 'settings-keys-change-all');
+    expect(tid('settings-shortcut')).toBe(null); // the old links are gone: Shortcuts replaces them
+    expect(tid('settings-keys')).toBe(null);
   });
 
   it('shows the stored settings', async () => {
@@ -394,6 +526,7 @@ describe('Settings', () => {
     items[2].click();
     await waitFor(() => sw.state.cardSize === 'list');
     expect(tid('settings-card-size').value).toBe('list');
+    expect(document.activeElement).toBe(tid('select-settings-card-size'));
     expect(tid('card-thumb', cardOf('B'))).toBe(null); // list cards have no screenshot
     await vi.waitFor(async () => expect((await prefs()).cardSize).toBe('list'));
   });
@@ -411,6 +544,12 @@ describe('Settings', () => {
     expect(document.documentElement.classList.contains('light')).toBe(false);
   });
 
+  it('with no theme saved, "Match system" is the one chosen', async () => {
+    await boot({ tabs: AB });
+    await open();
+    expect(tid('settings-theme').value).toBe('system');
+  });
+
   it('"all windows" persists and shows the other windows\' tabs', async () => {
     const sw = await boot({ tabs: AB, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Far', url: 'https://far.example/' }); } });
     expect(sw.state.tabs.map((x) => x.title)).not.toContain('Far');
@@ -421,120 +560,6 @@ describe('Settings', () => {
     await waitFor(() => sw.state.tabs.some((x) => x.title === 'Far'));
     expect((await prefs()).allWindows).toBe(true);
     expect(sw.state.scope).toBe('all');
-  });
-
-  it('a new language persists and redraws Settings, still open, in it', async () => {
-    await boot({ tabs: AB });
-    await open();
-    const lang = tid('settings-language');
-    lang.value = 'ru';
-    lang.dispatchEvent(new Event('change'));
-    await waitFor(() => tid('settings-title')?.textContent === RU.settings);
-    expect(tids('settings')).toHaveLength(1);
-    expect(document.documentElement.lang).toBe('ru');
-    expect(tid('newtab-label').textContent).toBe(RU.newTab); // the page too
-    expect((await prefs()).lang).toBe('ru');
-  });
-
-  it('"Change the Alt+Q shortcut" opens Chrome\'s shortcuts page', async () => {
-    await boot({ tabs: AB });
-    await open();
-    tid('settings-shortcut').click();
-    await waitFor(() => closedMsg());
-    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts', windowId: 1, active: true });
-  });
-
-  it('Esc or a press outside closes it', async () => {
-    await boot({ tabs: AB });
-    let pop = await open();
-    pop.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    expect(tid('settings')).toBe(null);
-    pop = await open();
-    await tick();
-    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(tid('settings')).toBe(null);
-  });
-});
-
-describe('the toolbar-icon tip', () => {
-  it('shows at most three times, counting in prefs.iconTips', async () => {
-    let sw = await boot({ tabs: AB, ctx: { via: 'icon' }, prefs: { iconTips: 2 } });
-    await sw.healthCheck();
-    expect(toastText()).toBe(t('iconTip', { key: 'Alt+Q' }));
-    await vi.waitFor(async () => expect((await prefs()).iconTips).toBe(3));
-    sw = await boot({ tabs: AB, ctx: { via: 'icon' } });
-    sw.toast('');
-    await sw.healthCheck();
-    expect(toastText()).not.toBe(t('iconTip', { key: 'Alt+Q' }));
-  });
-});
-
-describe('the shortcuts card (ⓘ)', () => {
-  const openKeys = async () => { tid('keys-btn').click(); return waitFor(() => tid('keys-popover')); };
-
-  it('opens below ⓘ with the focus in it, lists every shortcut in groups, and closes with ⓘ again', async () => {
-    await boot({ tabs: AB });
-    const pop = await openKeys();
-    expect(pop.getAttribute('role')).toBe('dialog');
-    expect(pop.getAttribute('aria-modal')).toBe('true');
-    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('true');
-    expect(document.activeElement).toBe(tid('keys-close'));
-    expect(tids('keys-group-title').map((x) => x.textContent)).toEqual([t('keysGroupOpen'), t('keysGroupMove'), t('keysGroupAct'), t('keysGroupSearch'), t('keysGroupPalette'), t('keysGroupEsc')]);
-    const keys = tids('keys-key').map((x) => x.textContent);
-    for (const k of ['Alt+Q', 'Alt+W', 'Alt+E', 'Alt+Tab', 'Alt+1', 'Ctrl+←', 'Enter', 'Shift+Enter', 'Space', 'Del', 'Ctrl+Z', 'Alt+S', 'Alt+P', 'Shift+F10', 'Ctrl+Space', 'Ctrl+F', 'Esc']) expect(keys, k).toContain(k);
-    for (const k of [t('kbdClick', { key: 'Shift' }), t('kbdClick', { key: 'Ctrl' }), t('kbdClickBox', { key: 'Shift' }), t('kbdRight'), t('kbdMiddle'), t('kbdLetGo', { key: 'Alt' }), t('kbdWheel', { key: 'Alt' })]) expect(keys, k).toContain(k);
-    const actions = tids('keys-action').map((x) => x.textContent);
-    expect(actions).toContain(t('keyPrevTab'));
-    expect(actions).toContain(t('keyNextTab'));
-    expect(actions).toContain(t('keyEsc'));
-    tid('keys-btn').click();
-    await tick(20);
-    expect(tid('keys-popover')).toBe(null);
-    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('false');
-  });
-
-  it('keeps Tab inside, and Esc, its × or a press outside close it, with the focus back on ⓘ', async () => {
-    const sw = await boot({ tabs: AB });
-    await openKeys();
-    expect(key('Tab').defaultPrevented).toBe(true); // its only control: Tab stays on it
-    expect(document.activeElement).toBe(tid('keys-close'));
-    key('Escape');
-    expect(tid('keys-popover')).toBe(null);
-    expect(document.activeElement).toBe(tid('keys-btn'));
-    expect(sw.state.done).toBe(false);
-    await openKeys();
-    tid('keys-close').click();
-    expect(tid('keys-popover')).toBe(null);
-    await openKeys();
-    await tick();
-    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    expect(tid('keys-popover')).toBe(null);
-    expect(document.activeElement).toBe(tid('keys-btn'));
-  });
-
-  it('names the keys as on this keyboard (not a Mac here: Alt, Ctrl)', async () => {
-    const sw = await boot({ tabs: AB });
-    expect(sw.IS_MAC).toBe(false);
-    const keys = sw.shortcutGroups().flatMap(([, , rows]) => rows.flatMap(([k]) => k));
-    expect(keys).toContain('Alt+Q');
-    expect(keys).not.toContain('⌥Q');
-  });
-});
-
-describe('Settings: the new groups and switches', () => {
-  const open = async () => { tid('settings-btn').click(); return waitFor(() => tid('settings')); };
-
-  it('is grouped: Appearance, Cards, Search, Behaviour', async () => {
-    await boot({ tabs: AB });
-    await open();
-    expect(tids('settings-group-title').map((x) => x.textContent)).toEqual([t('setGroupLook'), t('setGroupCards'), t('setGroupSearch'), t('setGroupBehave')]);
-    expect(tid('settings').style.maxHeight).not.toBe(''); // scrolls inside on a short window
-  });
-
-  it('with no theme saved, "Match system" is the one chosen', async () => {
-    await boot({ tabs: AB });
-    await open();
-    expect(tid('settings-theme').value).toBe('system');
   });
 
   it('every switch shows its stored value and saves', async () => {
@@ -582,6 +607,25 @@ describe('Settings: the new groups and switches', () => {
     await waitFor(() => tid('search').placeholder === t('searchPhNoHistory'));
   });
 
+  it('a new language persists and redraws Settings, still open, on the same category, the focus on the language', async () => {
+    await boot({ tabs: AB });
+    await open();
+    tab('cards').click();
+    tab('look').click();
+    tid('select-settings-language').click();
+    tids('menu-item').find((x) => x.textContent === 'Русский').click();
+    await waitFor(() => tid('settings-title')?.textContent === RU.settings);
+    expect(tids('settings')).toHaveLength(1);
+    expect(tids('settings-backdrop')).toHaveLength(1);
+    expect(shownPanels()).toEqual(['look']);
+    expect(tid('settings-tab-label', tab('keys')).textContent).toBe(RU.setGroupKeys);
+    expect(document.activeElement).toBe(tid('select-settings-language'));
+    expect(document.documentElement.lang).toBe('ru');
+    expect(tid('newtab-label').textContent).toBe(RU.newTab); // the page too
+    expect((await prefs()).lang).toBe('ru');
+    expect(tid('header').hasAttribute('inert')).toBe(true);
+  });
+
   it('"Replay the tour" closes Settings and starts the tour', async () => {
     const sw = await boot({ tabs: AB });
     await open();
@@ -590,13 +634,154 @@ describe('Settings: the new groups and switches', () => {
     expect(sw.state.modal).toBe('tour');
     expect(tid('tour-step-number').textContent).toBe('1');
   });
+});
 
-  it('"Keyboard and mouse shortcuts" opens the shortcuts card', async () => {
-    await boot({ tabs: AB });
+describe('Settings -> Shortcuts', () => {
+  const open = async () => {
+    tid('settings-btn').click();
+    await waitFor(() => tid('settings'));
+    tid('settings-tab-keys').click();
+    await waitFor(() => tids('settings-command').length);
+    return tid('settings-panel-keys');
+  };
+  const rows = () => tids('settings-command');
+  const keysOf = (row) => tids('settings-command-key', row).map((k) => k.textContent);
+  const cmds = (shortcuts) => Object.entries(shortcuts).map(([name, shortcut]) => ({ name, description: '', shortcut }));
+
+  it('lists every command of manifest.json with the key Chrome has for it; an unassigned one says "Not set"', async () => {
+    const sw = await boot({ tabs: AB });
+    expect(sw.COMMANDS.map((c) => c.name)).toEqual(Object.keys(MANIFEST.commands));
+    chrome.commands.getAll.mockImplementation(async () => cmds({ 'open-switcher': 'Alt+Q', 'open-switcher-reverse': '', 'open-switcher-stay': 'Alt+E', 'open-palette': 'Ctrl+Shift+Y' }));
+    const pane = await open();
+    expect(tid('settings-keys-chrome-title', pane).textContent).toBe(t('setKeysChrome'));
+    expect(tid('settings-keys-chrome-note', pane).textContent).toBe(t('setKeysChromeNote'));
+    expect(tids('settings-command-name').map((x) => x.textContent)).toEqual([t('setKeyPrev'), t('setKeyNext'), t('setKeyStay'), t('setKeyPalette')]);
+    expect(tids('settings-command-desc').map((x) => x.textContent)).toEqual([t('cmdOpen'), t('cmdReverse'), t('cmdStay'), t('cmdPalette')]);
+    const [prev, next, stay, palette] = rows();
+    expect(keysOf(prev)).toEqual(['Alt', 'Q']);
+    expect(keysOf(stay)).toEqual(['Alt', 'E']);
+    expect(keysOf(palette)).toEqual(['Ctrl', 'Shift', 'Y']);
+    expect(keysOf(next)).toEqual([]);
+    expect(tid('settings-command-unset', next).textContent).toBe(t('setKeysUnset'));
+    expect(tid('settings-command-unset-note', next).textContent).toBe(t('setKeysUnsetNote', { key: 'Alt+W' }));
+    expect(tid('settings-command-unset', prev)).toBe(null);
+    expect(tids('settings-command-change').map((b) => b.getAttribute('aria-label'))).toEqual(
+      [t('setKeyPrev'), t('setKeyNext'), t('setKeyStay'), t('setKeyPalette')].map((name) => t('setKeysChangeAria', { name })));
+  });
+
+  it('Chrome\'s Mac form ("⌥Q") gets one keycap per key; a failed read shows them all as not set', async () => {
+    const sw = await boot({ tabs: AB });
+    expect(sw.keyCaps('⌥Q')).toEqual(['⌥', 'Q']);
+    expect(sw.keyCaps('Ctrl+Shift+Y')).toEqual(['Ctrl', 'Shift', 'Y']);
+    chrome.commands.getAll.mockImplementation(async () => { throw new Error('no'); });
     await open();
-    tid('settings-keys').click();
-    expect(tid('settings')).toBe(null);
-    expect(tid('keys-popover')).not.toBe(null);
+    expect(tids('settings-command-unset')).toHaveLength(4);
+  });
+
+  it('"Change" on a row and "Change in Chrome" open Chrome\'s shortcuts page', async () => {
+    for (const testid of ['settings-command-change', 'settings-keys-change-all']) {
+      await boot({ tabs: AB });
+      await open();
+      tid(testid).click();
+      await waitFor(() => closedMsg());
+      expect(chrome.tabs.create, testid).toHaveBeenCalledWith({ url: 'chrome://extensions/shortcuts', windowId: 1, active: true });
+      chrome.runtime.sendMessage.mockClear();
+      chrome.tabs.create.mockClear();
+    }
+  });
+
+  it('reads the keys again when the window gets the focus back (from Chrome\'s page), only while open', async () => {
+    await boot({ tabs: AB });
+    chrome.commands.getAll.mockImplementation(async () => cmds({ 'open-switcher': '', 'open-switcher-reverse': 'Alt+W', 'open-switcher-stay': 'Alt+E', 'open-palette': 'Alt+R' }));
+    await open();
+    expect(tid('settings-command-unset', rows()[0])).not.toBe(null);
+    chrome.commands.getAll.mockImplementation(async () => cmds({ 'open-switcher': 'Alt+Z', 'open-switcher-reverse': 'Alt+W', 'open-switcher-stay': 'Alt+E', 'open-palette': 'Alt+R' }));
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => keysOf(rows()[0]).join('+') === 'Alt+Z');
+    expect(tids('settings-command-unset')).toHaveLength(0);
+    key('Escape');
+    const calls = chrome.commands.getAll.mock.calls.length;
+    window.dispatchEvent(new Event('focus'));
+    await tick(10);
+    expect(chrome.commands.getAll.mock.calls.length).toBe(calls);
+  });
+
+  it('"Inside Tabazing" lists the keys inside the switcher, as the ⓘ card does', async () => {
+    const sw = await boot({ tabs: AB });
+    const pane = await open();
+    const inside = tid('settings-keys-inside', pane);
+    expect(tid('settings-keys-inside-title', inside).textContent).toBe(t('setKeysInside'));
+    expect(tids('keys-group-title', inside).map((x) => x.textContent)).toEqual(sw.shortcutGroups().map(([, name]) => name));
+    const keys = tids('keys-key', inside).map((x) => x.textContent);
+    for (const k of ['Alt+Q', 'Enter', 'Ctrl+Z', 'Esc']) expect(keys, k).toContain(k);
+    expect(new Set(tids('keys-group-title', inside).map((x) => x.id)).size).toBe(sw.shortcutGroups().length);
+    expect(tids('keys-group-title', inside).every((x) => x.id.startsWith('skg-'))).toBe(true);
+  });
+});
+
+describe('the toolbar-icon tip', () => {
+  it('shows at most three times, counting in prefs.iconTips', async () => {
+    let sw = await boot({ tabs: AB, ctx: { via: 'icon' }, prefs: { iconTips: 2 } });
+    await sw.healthCheck();
+    expect(toastText()).toBe(t('iconTip', { key: 'Alt+Q' }));
+    await vi.waitFor(async () => expect((await prefs()).iconTips).toBe(3));
+    sw = await boot({ tabs: AB, ctx: { via: 'icon' } });
+    sw.toast('');
+    await sw.healthCheck();
+    expect(toastText()).not.toBe(t('iconTip', { key: 'Alt+Q' }));
+  });
+});
+
+describe('the shortcuts card (ⓘ)', () => {
+  const openKeys = async () => { tid('keys-btn').click(); return waitFor(() => tid('keys-popover')); };
+
+  it('opens below ⓘ with the focus in it, lists every shortcut in groups, and closes with ⓘ again', async () => {
+    await boot({ tabs: AB });
+    const pop = await openKeys();
+    expect(pop.getAttribute('role')).toBe('dialog');
+    expect(pop.getAttribute('aria-modal')).toBe('true');
+    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(tid('keys-close'));
+    expect(tids('keys-group-title').map((x) => x.textContent)).toEqual([t('keysGroupOpen'), t('keysGroupMove'), t('keysGroupAct'), t('keysGroupSearch'), t('keysGroupPalette'), t('keysGroupEsc')]);
+    const keys = tids('keys-key').map((x) => x.textContent);
+    for (const k of ['Alt+Q', 'Alt+W', 'Alt+E', 'Alt+Tab', 'Alt+1', 'Ctrl+←', 'Enter', 'Shift+Enter', 'Space', 'Del', 'Ctrl+Z', 'Alt+S', 'Alt+P', 'Shift+F10', 'Ctrl+Space', 'Ctrl+F', 'Esc']) expect(keys, k).toContain(k);
+    for (const k of [t('kbdClick', { key: 'Shift' }), t('kbdClick', { key: 'Ctrl' }), t('kbdClickBox', { key: 'Shift' }), t('kbdRight'), t('kbdMiddle'), t('kbdLetGo', { key: 'Alt' }), t('kbdWheel', { key: 'Alt' })]) expect(keys, k).toContain(k);
+    const actions = tids('keys-action').map((x) => x.textContent);
+    expect(actions).toContain(t('keyPrevTab'));
+    expect(actions).toContain(t('keyNextTab'));
+    expect(actions).toContain(t('keyEsc'));
+    expect(tid('keys-settings-note', pop).textContent).toBe(t('keysInSettings')); // where the keys that open Tabazing change
+    tid('keys-btn').click();
+    await tick(20);
+    expect(tid('keys-popover')).toBe(null);
+    expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('keeps Tab inside, and Esc, its × or a press outside close it, with the focus back on ⓘ', async () => {
+    const sw = await boot({ tabs: AB });
+    await openKeys();
+    expect(key('Tab').defaultPrevented).toBe(true); // its only control: Tab stays on it
+    expect(document.activeElement).toBe(tid('keys-close'));
+    key('Escape');
+    expect(tid('keys-popover')).toBe(null);
+    expect(document.activeElement).toBe(tid('keys-btn'));
+    expect(sw.state.done).toBe(false);
+    await openKeys();
+    tid('keys-close').click();
+    expect(tid('keys-popover')).toBe(null);
+    await openKeys();
+    await tick();
+    tid('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(tid('keys-popover')).toBe(null);
+    expect(document.activeElement).toBe(tid('keys-btn'));
+  });
+
+  it('names the keys as on this keyboard (not a Mac here: Alt, Ctrl)', async () => {
+    const sw = await boot({ tabs: AB });
+    expect(sw.IS_MAC).toBe(false);
+    const keys = sw.shortcutGroups().flatMap(([, , rows]) => rows.flatMap(([k]) => k));
+    expect(keys).toContain('Alt+Q');
+    expect(keys).not.toContain('⌥Q');
   });
 });
 

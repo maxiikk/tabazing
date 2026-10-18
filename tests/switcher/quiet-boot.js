@@ -48,7 +48,7 @@ afterEach(() => {
   if (cur) cur.state.done = true;
   cur = null;
   if (parentDesc) { Object.defineProperty(window, 'parent', parentDesc); parentDesc = null; frameParent = null; }
-  for (const id of ['archive-overlay', 'note-popover', 'settings', 'menu', 'big-preview', 'note-tooltip']) tids(id).forEach((n) => n.remove());
+  for (const id of ['archive-overlay', 'note-popover', 'settings-backdrop', 'settings', 'menu', 'big-preview', 'note-tooltip']) tids(id).forEach((n) => n.remove());
   if (window.close.mockClear) window.close.mockClear();
 });
 
