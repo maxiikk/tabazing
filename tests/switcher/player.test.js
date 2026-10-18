@@ -13,6 +13,7 @@ const TABS = [
 ];
 const S = chrome.storage.session;
 const idOf = (title) => chrome._data.tabs.find((x) => x.title === title).id;
+const T0 = Date.now(); // reports are recent (media paused for an hour leaves the list); small offsets order them
 const st = (p = {}) => ({ media: true, playing: false, kind: 'video', title: 'Clip', artist: '', canPrev: false, canNext: false, muted: false, t: Date.now(), ...p });
 // What the pages reported, by tab title: { 'Tube video': { 0: st(...) } }.
 const stored = (byTitle) => Object.fromEntries(Object.entries(byTitle).map(([title, frames]) => [idOf(title), frames]));
@@ -145,7 +146,7 @@ describe('the player', () => {
   });
 
   it('shows what plays first, then the most recent', async () => {
-    await bootWith({ Alpha: { 0: st({ title: 'Paused one', t: Date.now() + 5 }) }, Radio: { 0: st({ kind: 'audio', title: 'Live', playing: true, t: 1 }) } });
+    await bootWith({ Alpha: { 0: st({ title: 'Paused one', t: Date.now() + 5 }) }, Radio: { 0: st({ kind: 'audio', title: 'Live', playing: true, t: T0 + 1 }) } });
     expect(tid('player-title').textContent).toBe('Live');
   });
 });
@@ -165,7 +166,7 @@ describe('live updates', () => {
   });
 
   it('a button pressed in the player keeps showing that media, even once another plays first', async () => {
-    await bootWith({ 'Tube video': { 0: st({ playing: true, title: 'Cats' }) }, Radio: { 0: st({ playing: false, title: 'Live', t: 1 }) } });
+    await bootWith({ 'Tube video': { 0: st({ playing: true, title: 'Cats' }) }, Radio: { 0: st({ playing: false, title: 'Live', t: T0 + 1 }) } });
     chrome.scripting.executeScript.mockResolvedValue([{ result: true }]);
     tid('player-toggle').click(); // pause the cats
     await tick();
@@ -193,9 +194,9 @@ describe('live updates', () => {
 
 describe('the list (chevron)', () => {
   const ALL = {
-    'Tube video': { 0: st({ playing: true, title: 'Cats', canNext: true, t: 3 }) },
-    Radio: { 0: st({ kind: 'audio', title: 'Live', t: 2 }) },
-    Alpha: { 4: st({ title: 'Embedded', canPrev: true, t: 1 }) },
+    'Tube video': { 0: st({ playing: true, title: 'Cats', canNext: true, t: T0 + 3 }) },
+    Radio: { 0: st({ kind: 'audio', title: 'Live', t: T0 + 2 }) },
+    Alpha: { 4: st({ title: 'Embedded', canPrev: true, t: T0 + 1 }) },
   };
 
   it('opens as a dialog that takes the focus, and keeps Tab inside', async () => {
@@ -312,7 +313,7 @@ describe('the list (chevron)', () => {
     await openList();
     tid('media-row-toggle', rows()[1]).focus();
     // The radio starts and the video stops: sorted afresh, the radio would come first.
-    await seedMedia({ ...ALL, 'Tube video': { 0: st({ title: 'Cats', t: 3 }) }, Radio: { 0: st({ kind: 'audio', title: 'Live', playing: true, t: 9 }) } });
+    await seedMedia({ ...ALL, 'Tube video': { 0: st({ title: 'Cats', t: T0 + 3 }) }, Radio: { 0: st({ kind: 'audio', title: 'Live', playing: true, t: T0 + 9 }) } });
     await waitFor(() => tid('media-row-state', rows()[1]).textContent === t('mediaPlaying'));
     expect(rowTitles()).toEqual(['Cats', 'Live', 'Embedded']);
     expect(focused()).toBe(tid('media-row-toggle', rows()[1])); // the same button of the same row
@@ -329,7 +330,7 @@ describe('the list (chevron)', () => {
       beforeImport: async () => {
         const other = chrome._addTab({ windowId: 2, title: 'Elsewhere', url: 'https://else.example/', active: true });
         const cur = (await S.get(KEY.MEDIA))[KEY.MEDIA];
-        await S.set({ [KEY.MEDIA]: { ...cur, [other.id]: { 0: st({ title: 'Far away', t: 1 }) } } });
+        await S.set({ [KEY.MEDIA]: { ...cur, [other.id]: { 0: st({ title: 'Far away', t: T0 + 1 }) } } });
       },
     });
     await openList();

@@ -98,25 +98,25 @@ describe('reports', () => {
 
   it('a burst of events is one report, 150 ms after the last; an unchanged state is not sent again', () => {
     const a = media('audio');
-    fire(a, 'loadedmetadata');
+    a.play(); // play + playing
     vi.advanceTimersByTime(100);
     fire(a, 'durationchange');
     vi.advanceTimersByTime(100);
     expect(reports).toEqual([]);
     vi.advanceTimersByTime(50);
     expect(reports).toHaveLength(1);
-    expect(last()).toMatchObject({ media: true, playing: false, kind: 'audio' });
+    expect(last()).toMatchObject({ media: true, playing: true, kind: 'audio' });
     fire(a, 'volumechange');
     settle();
     expect(reports).toHaveLength(1);
-    a.play();
+    a.pause();
     settle();
     expect(reports).toHaveLength(2);
-    expect(last().playing).toBe(true);
+    expect(last().playing).toBe(false);
     a.muted = true;
     fire(a, 'volumechange');
     settle();
-    expect(last()).toMatchObject({ playing: true, muted: true });
+    expect(last()).toMatchObject({ playing: false, muted: true }); // muted later: it stays, as in Chrome
   });
 
   it('says { media: false } once the media is gone (taken out of the page: Chrome pauses it)', () => {
@@ -181,19 +181,122 @@ describe('the Media Session', () => {
   });
 });
 
-describe('which media', () => {
-  it('the playing one, else the one played last, else the longest', () => {
-    const v = media('video', { duration: 60 });
-    media('audio', { duration: 600 });
+describe('which media: Chrome\'s own rule (only media that played with sound)', () => {
+  it('nothing for media that is there but never played', () => {
+    const v = media('video', { duration: 600 });
     fire(v, 'loadedmetadata');
+    fire(v, 'durationchange');
     settle();
-    expect(last()).toMatchObject({ kind: 'audio', playing: false }); // the longest
+    expect(reports).toEqual([]);
+  });
+
+  it('joins once it plays with sound, and stays when paused, muted or finished', () => {
+    const v = media('video');
+    v.play();
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: true });
+    v.pause();
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: false });
+    v.muted = true;
+    fire(v, 'volumechange');
+    states.get(v).ended = true;
+    fire(v, 'ended');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: false, muted: true });
+  });
+
+  it.each([
+    ['muted (autoplay in a feed)', { muted: true }],
+    ['a muted loop (a background video)', { muted: true, loop: true }],
+    ['at zero volume', { volume: 0 }],
+    ['shorter than 5 s (a sound)', { duration: 4 }],
+    ['nothing loaded', { src: '' }],
+  ])('never joins while %s', (_, opts) => {
+    const v = media('video', opts);
+    if ('volume' in opts) Object.defineProperty(v, 'volume', { value: opts.volume, configurable: true });
+    v.play();
+    settle();
+    expect(reports).toEqual([]);
+  });
+
+  it('a video whose sound Chrome has not decoded (no audio track) does not join until it has', () => {
+    const v = media('video');
+    let bytes = 0;
+    Object.defineProperty(v, 'webkitAudioDecodedByteCount', { get: () => bytes, configurable: true });
+    v.play();
+    settle();
+    expect(reports).toEqual([]);
+    bytes = 4096; // the sound arrives a moment after it starts
+    fire(v, 'timeupdate');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: true });
+  });
+
+  it('a muted video joins when it is unmuted while playing', () => {
+    const v = media('video', { muted: true });
+    v.play();
+    settle();
+    expect(reports).toEqual([]);
+    v.muted = false;
+    fire(v, 'volumechange');
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: true, muted: false });
+  });
+
+  it('an unknown duration waits until it is known; live streams count', () => {
+    const v = media('video', { duration: NaN });
+    v.play();
+    settle();
+    expect(reports).toEqual([]);
+    states.get(v).duration = 300;
+    fire(v, 'durationchange');
+    settle();
+    expect(last().media).toBe(true);
+    const live = media('audio', { duration: Infinity });
+    live.play();
+    settle();
+    expect(last()).toMatchObject({ kind: 'audio', playing: true });
+  });
+
+  it('5 s exactly is enough', () => {
+    media('audio', { duration: 5 }).play();
+    settle();
+    expect(last().media).toBe(true);
+  });
+
+  it('Media Session metadata alone adds nothing (it only names media that played)', () => {
+    navigator.mediaSession.metadata = { title: 'Clip', artist: 'Band' };
+    media('audio', { duration: 8 });
+    settle();
+    expect(reports).toEqual([]);
+  });
+
+  it('a new source (emptied) has to play with sound again to count', () => {
+    const v = media('video');
+    v.play();
+    v.pause();
+    settle();
+    expect(last().media).toBe(true);
+    fire(v, 'emptied');
+    settle();
+    expect(last()).toEqual({ media: false });
+  });
+
+  it('the playing one, else the one played last, else the one that joined last', () => {
+    const a = media('audio', { duration: 600 });
+    const v = media('video', { duration: 60 });
+    a.play();
+    a.pause();
     v.play();
     settle();
     expect(last()).toMatchObject({ kind: 'video', playing: true });
     v.pause();
     settle();
-    expect(last()).toMatchObject({ kind: 'video', playing: false }); // played last, though shorter
+    expect(last()).toMatchObject({ kind: 'video', playing: false }); // played last
+    a.play();
+    settle();
+    expect(last()).toMatchObject({ kind: 'audio', playing: true });
   });
 
   it('the one started last when two play', () => {
@@ -203,40 +306,6 @@ describe('which media', () => {
     v.play();
     settle();
     expect(last()).toMatchObject({ kind: 'video' });
-  });
-
-  it.each([
-    ['shorter than 30 s', { duration: 12 }],
-    ['a muted loop (a background video)', { muted: true, loop: true }],
-    ['nothing loaded', { src: '' }],
-    ['no duration yet', { duration: NaN }],
-  ])('leaves out %s', (_, opts) => {
-    const v = media('video', opts);
-    fire(v, 'loadedmetadata');
-    settle();
-    expect(reports).toEqual([]);
-  });
-
-  it.each([
-    ['live (an endless stream)', { duration: Infinity }],
-    ['muted, but not looping', { muted: true }],
-    ['looping, but not muted', { loop: true }],
-    ['exactly 30 s', { duration: 30 }],
-  ])('counts %s', (_, opts) => {
-    const v = media('video', opts);
-    fire(v, 'loadedmetadata');
-    settle();
-    expect(last().media).toBe(true);
-  });
-
-  it('a short clip counts when the page describes it in its Media Session', () => {
-    const v = media('audio', { duration: 8 });
-    fire(v, 'loadedmetadata');
-    settle();
-    expect(reports).toEqual([]);
-    navigator.mediaSession.metadata = { title: 'Clip', artist: '' };
-    settle();
-    expect(last()).toMatchObject({ media: true, title: 'Clip' });
   });
 
   it('finds media in a shadow root and media never added to the page (new Audio()) once they play', () => {
@@ -257,11 +326,14 @@ describe('which media', () => {
     expect(last()).toMatchObject({ kind: 'audio', playing: true });
   });
 
-  it('an element never added nor played is not this page\'s media', () => {
-    const a = media('audio', { root: null });
-    fire(a, 'loadedmetadata');
+  it('timeupdate after joining sends nothing new (it fires several times a second)', () => {
+    const v = media('video');
+    v.play();
     settle();
-    expect(reports).toEqual([]);
+    const n = reports.length;
+    for (let i = 0; i < 10; i++) fire(v, 'timeupdate');
+    settle();
+    expect(reports).toHaveLength(n);
   });
 });
 
@@ -275,10 +347,11 @@ describe('window[Symbol.for("tabazing.media")]', () => {
 
   it('plays and pauses the media itself when the page has no handler', () => {
     const v = media('video');
-    expect(act('play')).toBe(true);
-    expect(v.paused).toBe(false);
+    v.play();
     expect(act('pause')).toBe(true);
     expect(v.paused).toBe(true);
+    expect(act('play')).toBe(true);
+    expect(v.paused).toBe(false);
   });
 
   it('uses the page\'s own handler when it has one', () => {
@@ -299,7 +372,9 @@ describe('window[Symbol.for("tabazing.media")]', () => {
 
   it('no previous / next without the page\'s handler; nothing without media; nothing for other actions; a throwing handler is a failure', () => {
     expect(act('play')).toBe(false); // no media
-    media('video');
+    const v = media('video');
+    expect(act('play')).toBe(false); // there, but never played with sound: not this frame's media
+    v.play();
     expect(act('nexttrack')).toBe(false);
     expect(act('previoustrack')).toBe(false);
     expect(act('seekto')).toBe(false);
@@ -309,14 +384,17 @@ describe('window[Symbol.for("tabazing.media")]', () => {
   });
 
   it('reports the change that follows', () => {
-    media('video');
-    act('play');
+    media('video').play();
     settle();
-    expect(last()).toMatchObject({ playing: true });
+    act('pause');
+    settle();
+    expect(last()).toMatchObject({ playing: false });
   });
 
   it('a play() the page refuses (autoplay rules) is not an unhandled rejection', async () => {
-    media('video');
+    const v = media('video');
+    v.play();
+    v.pause();
     nativePlay.mockImplementationOnce(() => Promise.reject(new Error('NotAllowedError')));
     expect(act('play')).toBe(true);
     await Promise.resolve();

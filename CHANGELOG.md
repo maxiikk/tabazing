@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-10-18
+
+### Fixed
+
+- The media player listed tabs whose video or audio had never played. It now follows Chrome's own media controls exactly: media shows up only once it has played with sound (never muted autoplay, videos without sound or sounds under 5 seconds), stays while paused, muted or finished, and leaves when it is taken off the page, the page loads something else, its source is reset, or it has been paused for an hour.
+
 ## [3.1.0] - 2026-10-18
 
 ### Added
@@ -144,7 +150,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...HEAD
+[3.1.1]: https://github.com/maxiikk/tabazing/compare/b6177be...HEAD
+[3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...b6177be
 [3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...9e19aa0
 [3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...868f87a
 [3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...6d950ea

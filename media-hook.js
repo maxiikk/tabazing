@@ -13,12 +13,16 @@
   if (window[KEY]) return;
   const EVENT = 'tabazing:media'; // media-relay.js listens for this
   const ACTIONS = ['previoustrack', 'nexttrack', 'play', 'pause'];
-  const EVENTS = ['play', 'playing', 'pause', 'ended', 'emptied', 'loadedmetadata', 'durationchange', 'volumechange'];
-  const MIN_SECONDS = 30; // shorter clips (sounds, previews, looping GIF-like videos) aren't "media" unless the page says so
+  const EVENTS = ['play', 'playing', 'pause', 'ended', 'emptied', 'durationchange', 'volumechange', 'timeupdate'];
+  // Which media count is Chrome's own rule (its media controls, MediaSessionImpl): only media that has PLAYED
+  // WITH SOUND joins, and then stays, paused or not, until it is taken out of the page or its source is reset.
+  // Media that never played, muted autoplay (feeds, backgrounds, GIF stand-ins) and sounds shorter than
+  // 5 s ("transient" in Chrome) never show; nor does a page that only sets Media Session metadata.
+  const MIN_SECONDS = 5;
   const MAX_KNOWN = 32;
 
   const handlers = new Map(); // action -> the page's Media Session handler
-  const known = new Set();    // elements seen through play(): also those in shadow roots or never in the document (new Audio())
+  const active = new Set();   // elements that have played with sound: this frame's media, oldest first
   const watched = new WeakSet(); // elements with listeners of their own (see watch())
   const inDoc = new WeakSet();   // elements seen in the document: taken out of it, they are gone
   let lastPlayed = null;
@@ -47,13 +51,7 @@
     });
   }
 
-  // ---- media elements: the document's are found when needed; play() tells us about the others
-  function remember(el) {
-    watch(el);
-    if (known.has(el)) return;
-    known.add(el);
-    if (known.size > MAX_KNOWN) known.delete(known.values().next().value);
-  }
+  // ---- media elements: the document's events reach the window; play() tells us about the others
   // Events of an element outside the document (in a shadow root, never added, or just removed: Chrome
   // pauses it then) don't reach the window: so every element heard from gets listeners of its own.
   function watch(el) {
@@ -65,7 +63,7 @@
   if (P && typeof P.play === 'function') {
     const play = P.play;
     P.play = function () {
-      remember(this);
+      watch(this);
       lastPlayed = this;
       schedule();
       return play.apply(this, arguments);
@@ -75,28 +73,46 @@
     const el = e.target;
     if (!(el instanceof HTMLMediaElement)) return;
     watch(el);
+    // timeupdate (a few times a second while playing) only matters until the element has joined: its sound
+    // may be decoded, or its duration known, only a moment after it starts.
+    if (e.type === 'timeupdate') { if (join(el)) schedule(); return; }
+    if (e.type === 'emptied') active.delete(el); // a new source: it joins again once that plays with sound
     if (e.type === 'play' || e.type === 'playing') lastPlayed = el;
+    join(el);
     schedule();
   }
   for (const e of EVENTS) window.addEventListener(e, onMedia, true);
 
   const hasSource = (el) => !!(el.currentSrc || el.src || el.srcObject);
   const playing = (el) => !el.paused && !el.ended;
-  const seconds = (el) => (el.duration === Infinity ? Infinity : Number.isFinite(el.duration) ? el.duration : 0);
-  // Worth a player: in the page (or started by it), with something loaded, not a muted loop (a background
-  // video, a GIF stand-in), and long enough (or live) unless the page described it in its Media Session.
-  function qualifies(el) {
-    if (el.isConnected) inDoc.add(el);
-    else if (!known.has(el) || inDoc.has(el)) return false; // removed from the page, or never in it nor played
-    if (!hasSource(el) || (el.muted && el.loop)) return false;
-    return seconds(el) >= MIN_SECONDS || !!metadata();
+  // Sound: not muted, not at zero volume, and an audio track: an <audio>, or a video whose sound Chrome has
+  // decoded (webkitAudioDecodedByteCount; a video without sound never joins). Where that counter doesn't
+  // exist, a video is taken to have sound.
+  function withSound(el) {
+    if (el.muted || el.volume === 0) return false;
+    if (el instanceof HTMLAudioElement) return true;
+    const n = el.webkitAudioDecodedByteCount;
+    return typeof n !== 'number' || n > 0;
   }
-  // This frame's one media: the playing one, else the one played last, else the longest.
+  // Long enough: 5 s or more, or live (endless). An unknown duration waits until it is known.
+  const longEnough = (el) => el.duration === Infinity || (Number.isFinite(el.duration) && el.duration >= MIN_SECONDS);
+  const gone = (el) => !el.isConnected && inDoc.has(el); // was in the page, taken out of it
+  // Playing with sound right now: it joins this frame's media (and stays). Returns whether it just joined.
+  function join(el) {
+    if (el.isConnected) inDoc.add(el);
+    if (active.has(el) || gone(el) || !playing(el) || !hasSource(el) || !withSound(el) || !longEnough(el)) return false;
+    active.add(el);
+    if (active.size > MAX_KNOWN) active.delete(active.values().next().value);
+    return true;
+  }
+  // This frame's one media: the playing one (the one started last, if several), else the one played last,
+  // else the one that joined last.
   function primary() {
-    const all = [...new Set([...document.querySelectorAll('video, audio'), ...known])].filter(qualifies);
-    if (!all.length) return null;
-    if (lastPlayed && playing(lastPlayed) && all.includes(lastPlayed)) return lastPlayed;
-    return all.find(playing) || (all.includes(lastPlayed) ? lastPlayed : null) || all.sort((a, b) => seconds(b) - seconds(a))[0];
+    for (const el of [...active]) if (gone(el)) active.delete(el);
+    if (!active.size) return null;
+    if (lastPlayed && playing(lastPlayed) && active.has(lastPlayed)) return lastPlayed;
+    const newestFirst = [...active].reverse();
+    return newestFirst.find(playing) || (active.has(lastPlayed) ? lastPlayed : null) || newestFirst[0];
   }
   const text = (v) => (typeof v === 'string' ? v : '');
   function current() {
@@ -156,6 +172,7 @@
     return true;
   }
   Object.defineProperty(window, KEY, { value: act, configurable: true, enumerable: false, writable: false });
-  // Injected into a page that is already open (install, update): say what it plays now, not at the next event.
+  // Injected into a page that is already open (install, update): what plays there now joins at once.
+  for (const el of document.querySelectorAll('video, audio')) { watch(el); join(el); }
   schedule();
 })();

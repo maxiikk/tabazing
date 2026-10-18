@@ -1,6 +1,6 @@
 // lib/media.js: the media player's buttons (run in the page's main world) and its list of what plays where.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { KEY } from '../../lib/constants.js';
+import { KEY, LIMITS } from '../../lib/constants.js';
 import { MEDIA_ACTIONS, mediaAction, pageMediaAction, mediaEntries, loadMedia } from '../../lib/media.js';
 
 const HOOK = Symbol.for('tabazing.media');
@@ -109,6 +109,26 @@ describe('pageMediaAction (in the page)', () => {
 describe('mediaEntries', () => {
   const tab = (id, p = {}) => ({ id, windowId: 1, title: 'Tab ' + id, url: `https://www.site${id}.example/watch`, audible: false, incognito: false, lastAccessed: 100, ...p });
   const st = (p = {}) => ({ media: true, playing: false, kind: 'video', title: 'T', artist: '', canPrev: false, canNext: false, muted: false, t: 1000, ...p });
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(20000); }); // the reports above are a few seconds old
+  afterEach(() => vi.useRealTimers());
+
+  it('media paused for an hour drops out (as in Chrome); playing media stays however old its report', () => {
+    const HOUR = LIMITS.MEDIA_PAUSED_MS;
+    const now = 10 * HOUR;
+    const list = mediaEntries({
+      1: { 0: st({ t: now - HOUR }) },                  // paused an hour ago: gone
+      2: { 0: st({ t: now - HOUR + 1000 }) },           // paused just under an hour ago: still there
+      3: { 0: st({ playing: true, t: now - 5 * HOUR }) }, // playing all along
+      4: { 0: st({ t: now - 2 * HOUR }), 3: st({ title: 'embed', t: now - 60000 }) }, // an old frame and a recent one
+    }, [tab(1), tab(2), tab(3), tab(4)], now);
+    expect(list.map((e) => [e.tabId, e.frameId])).toEqual([[3, 0], [4, 3], [2, 0]]);
+  });
+
+  it('a tab whose media was dismissed is listed again while it makes sound', () => {
+    const now = 10 * LIMITS.MEDIA_PAUSED_MS;
+    const list = mediaEntries({ 1: { 0: st({ t: 0 }) } }, [tab(1, { audible: true })], now);
+    expect(list.map((e) => [e.tabId, e.playing])).toEqual([[1, true]]);
+  });
 
   it('one entry per tab, with what the switcher shows', () => {
     const t1 = tab(1);
@@ -154,7 +174,7 @@ describe('loadMedia', () => {
     chrome._addWindow({ id: 2 });
     const a = chrome._addTab({ windowId: 1, title: 'A', url: 'https://a.example/' });
     const b = chrome._addTab({ windowId: 2, title: 'B', url: 'https://b.example/', audible: true });
-    await S.set({ [KEY.MEDIA]: { [a.id]: { 0: { media: true, playing: false, kind: 'audio', title: 'Song', artist: '', canPrev: true, canNext: true, muted: false, t: 5 } } } });
+    await S.set({ [KEY.MEDIA]: { [a.id]: { 0: { media: true, playing: false, kind: 'audio', title: 'Song', artist: '', canPrev: true, canNext: true, muted: false, t: Date.now() } } } });
     const list = await loadMedia();
     expect(chrome.tabs.query).toHaveBeenCalledWith({ windowType: 'normal' });
     expect(list.map((e) => [e.tabId, e.title, e.playing])).toEqual([[b.id, 'B', true], [a.id, 'Song', false]]);
