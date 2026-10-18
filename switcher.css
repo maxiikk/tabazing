@@ -101,11 +101,16 @@ kbd {
 }
 kbd + kbd { margin-left: 2px; }
 
-/* ---------- toolbar: windows · star filter + sort · setup ---------- */
-.tools { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; padding: 4px 44px 6px; }
-.view { display: flex; align-items: center; gap: 10px; flex: none; margin-left: auto; }
+/* ---------- toolbar: the setup actions (merge, duplicates, capture all); it takes no room while none shows ---------- */
+.tools { display: flex; align-items: center; justify-content: flex-end; gap: 10px 18px; flex-wrap: wrap; padding: 4px 44px 6px; }
+.tools:not(:has(> .setup > :not([hidden]))) { display: none; }
 .setup { display: flex; align-items: center; gap: 10px; flex: none; }
 .setup:empty, .setup:not(:has(> :not([hidden]))) { display: none; }
+/* The Open tabs row: the title at the start, Sort and the filter chips at the end (they sort and filter only the open
+   tabs); on a narrow window they wrap under the title, still at the end. */
+.open-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 10px 8px 10px; min-width: 0; }
+.open-head .section-h { margin: 0; }
+.view { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; flex: 0 1 auto; min-width: 0; margin-left: auto; }
 .sortbox { display: inline-flex; align-items: center; gap: 8px; color: var(--fg-3); font-size: 12.5px; }
 #star-filter svg { color: var(--accent); }
 #star-filter[aria-pressed="true"] svg { color: color-mix(in srgb, var(--accent) 55%, black); }
@@ -119,9 +124,9 @@ kbd + kbd { margin-left: 2px; }
 /* "Capture all": a camera and a number; the tooltip says the rest */
 .act.compact { padding: 0 10px; gap: 6px; font-variant-numeric: tabular-nums; }
 .chip {
-  display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px;
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; min-width: 30px; padding: 0 9px 0 10px; /* an icon and a count */
   border-radius: 15px; border: 1px solid var(--line); background: transparent; cursor: pointer;
-  color: var(--fg-2); font-size: 12.5px; max-width: 260px;
+  color: var(--fg-2); font-size: 12.5px; font-variant-numeric: tabular-nums;
 }
 .chip:hover { background: var(--fill); color: var(--fg); }
 .chip[aria-pressed="true"] { background: var(--fg); color: #15171c; border-color: var(--fg); }
@@ -129,7 +134,6 @@ kbd + kbd { margin-left: 2px; }
   font-size: 11px; padding: 0 6px; border-radius: 8px; background: var(--fill-2); line-height: 17px;
 }
 .chip[aria-pressed="true"] .n { background: rgba(0,0,0,.12); }
-.chip .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chip svg { flex: none; }
 
 /* ---------- content ---------- */
@@ -748,6 +752,42 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
 /* the search's words, marked in the dropdown */
 .dd mark.ddm { background: color-mix(in srgb, var(--accent) 38%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
 .ddnote2 { color: var(--fg-2); font-style: italic; }
+
+/* ---------- the command palette (html.palette): a panel at the top centre, everything else dimmed and inert ---------- */
+html.palette #app > :not(.palette):not(.toast):not(.live) { opacity: .28; transition: opacity .12s ease; }
+.palette {
+  position: fixed; z-index: 6; top: max(16px, 11vh); left: 50%; transform: translateX(-50%);
+  width: min(660px, calc(100vw - 32px)); max-height: calc(100vh - max(32px, 22vh));
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 14px; background: #1d2027; border: 1px solid rgba(255,255,255,.22); box-shadow: 0 24px 60px rgba(0,0,0,.6);
+  animation: fadein .1s ease both;
+}
+.palbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; height: 54px; color: var(--fg-2); border-bottom: 1px solid var(--line); }
+/* The box itself has no outline of its own: the bar shows where the focus is. */
+.palbar:focus-within { box-shadow: inset 0 -2px 0 var(--ring); }
+.palbar input { flex: 1; min-width: 0; height: 100%; background: none; border: 0; outline: 0; color: var(--fg); font: inherit; font-size: 17px; }
+.palbar input::placeholder { color: var(--fg-3); }
+.pallist { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.25) transparent; }
+.palr { min-height: 44px; }
+.palico { flex: none; width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--fill-2); color: var(--fg-2); margin: 0 4px; }
+.ddr.on .palico { color: var(--accent); }
+.palswatch { border: 1px solid var(--line); }
+.palval { font-size: 20px; font-weight: 650; }
+.palq { padding-top: 8px; padding-bottom: 8px; }
+.palcopy {
+  flex: none; min-width: 28px; min-height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 6px; background: none; color: var(--fg-2); cursor: pointer;
+}
+.palcopy:hover { color: var(--fg); background: var(--fill-2); }
+.paloff { cursor: default; }
+.paloff .ddtitle { color: var(--fg-2); white-space: normal; }
+.paloff .ddsub { white-space: normal; }
+.palnone { margin: 14px 12px; color: var(--fg-3); font-size: 13px; }
+.palfoot { flex: none; padding: 7px 16px; font-size: 11.5px; color: var(--fg-3); border-top: 1px solid var(--line); }
+.palette mark.ddm { background: color-mix(in srgb, var(--accent) 38%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
+html.light .palette { background: #fff; border-color: rgba(0,0,0,.12); box-shadow: 0 18px 46px rgba(20,30,50,.24); }
+html.light .pallist { scrollbar-color: rgba(0,0,0,.25) transparent; }
+html.light .ddr.on .palico { color: var(--accent-ink); }
 
 /* ---------- themed selects (fancySelect): a pill tinted with the accent; its list is a menu ---------- */
 .fs-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

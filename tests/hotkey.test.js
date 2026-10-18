@@ -85,6 +85,29 @@ describe('hotkey.js', () => {
     document.body.removeEventListener('keydown', seen);
   });
 
+  it('Ctrl+Shift+Space (Cmd+Shift+Space on a Mac) asks for the command palette', () => {
+    const space = (mods) => key('keydown', { code: 'Space', key: ' ', shiftKey: true, ...mods });
+    const e = space({ ctrlKey: true });
+    space({ metaKey: true });
+    expect(sent()).toEqual([
+      { type: MSG.HOTKEY, dir: 0, hold: false, palette: true },
+      { type: MSG.HOTKEY, dir: 0, hold: false, palette: true },
+    ]);
+    expect(e.defaultPrevented).toBe(true);
+  });
+
+  it('but not Space with other modifiers, repeats, or a page’s own (untrusted) events', () => {
+    const space = (mods, trusted) => key('keydown', { code: 'Space', key: ' ', ...mods }, trusted);
+    space({ ctrlKey: true }); // no Shift
+    space({ shiftKey: true }); // no Ctrl
+    space({ ctrlKey: true, metaKey: true, shiftKey: true }); // both
+    space({ ctrlKey: true, shiftKey: true, altKey: true });
+    space({ ctrlKey: true, shiftKey: true, repeat: true });
+    const e = space({ ctrlKey: true, shiftKey: true }, false);
+    expect(sent()).toEqual([]);
+    expect(e.defaultPrevented).toBe(false);
+  });
+
   it('ignores events the page dispatches itself (untrusted)', () => {
     const e = press('KeyQ', {}, false);
     expect(e.isTrusted).toBe(false);

@@ -61,7 +61,7 @@ describe('the tour', () => {
     const sw = await boot({ tabs: AB });
     sw.tourStep(0);
     const n = sw.TOUR.length; // the steps for what is on screen (one window, nothing playing: no windows or media step)
-    expect(sw.TOUR.map((s) => s.id)).toEqual(['switch', 'move', 'search', 'cards', 'later', 'many', 'sort', 'settings']);
+    expect(sw.TOUR.map((s) => s.id)).toEqual(['switch', 'move', 'search', 'palette', 'cards', 'later', 'many', 'sort', 'settings']);
     expect(sw.state.modal).toBe('tour');
     expect(tid('dialog-title').textContent).toBe(t('tourSwitchTitle'));
     expect(tid('tour-step-number').textContent).toBe('1');
@@ -479,7 +479,7 @@ describe('the shortcuts card (ⓘ)', () => {
     expect(pop.getAttribute('aria-modal')).toBe('true');
     expect(tid('keys-btn').getAttribute('aria-expanded')).toBe('true');
     expect(document.activeElement).toBe(tid('keys-close'));
-    expect(tids('keys-group-title').map((x) => x.textContent)).toEqual([t('keysGroupOpen'), t('keysGroupMove'), t('keysGroupAct'), t('keysGroupSearch'), t('keysGroupEsc')]);
+    expect(tids('keys-group-title').map((x) => x.textContent)).toEqual([t('keysGroupOpen'), t('keysGroupMove'), t('keysGroupAct'), t('keysGroupSearch'), t('keysGroupPalette'), t('keysGroupEsc')]);
     const keys = tids('keys-key').map((x) => x.textContent);
     for (const k of ['Alt+Q', 'Alt+W', 'Alt+E', 'Alt+Tab', 'Alt+1', 'Ctrl+←', 'Enter', 'Shift+Enter', 'Space', 'Del', 'Ctrl+Z', 'Alt+S', 'Alt+P', 'Shift+F10', 'Ctrl+Space', 'Ctrl+F', 'Esc']) expect(keys, k).toContain(k);
     for (const k of [t('kbdClick', { key: 'Shift' }), t('kbdClick', { key: 'Ctrl' }), t('kbdClickBox', { key: 'Shift' }), t('kbdRight'), t('kbdMiddle'), t('kbdLetGo', { key: 'Alt' }), t('kbdWheel', { key: 'Alt' })]) expect(keys, k).toContain(k);

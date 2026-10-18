@@ -298,3 +298,20 @@ describe('prefs', () => {
     expect(await s.getPrefs()).toEqual({ ...defaults, theme: 'light', startup: true, lang: 'ru' });
   });
 });
+
+describe('the command palette’s recent actions', () => {
+  it('getPaletteRecent: valid ids only, no repeats, capped', async () => {
+    expect(await s.getPaletteRecent()).toEqual([]);
+    L._data.set(KEY.PALETTE_RECENT, 'zoom-in');
+    expect(await s.getPaletteRecent()).toEqual([]);
+    L._data.set(KEY.PALETTE_RECENT, ['zoom-in', 'zoom-in', 5, 'Bad Id', '<x>', 'new-tab', 'a', 'b', 'c', 'd', 'e', 'f']);
+    expect(await s.getPaletteRecent()).toEqual(['zoom-in', 'new-tab', 'a', 'b', 'c', 'd'].slice(0, LIMITS.PALETTE_RECENT));
+  });
+
+  it('notePaletteRecent puts an id first, once, and keeps at most PALETTE_RECENT', async () => {
+    for (const id of ['a', 'b', 'c', 'd', 'e', 'f', 'g']) await s.notePaletteRecent(id);
+    expect(await s.notePaletteRecent('c')).toEqual(['c', 'g', 'f', 'e', 'd', 'b'].slice(0, LIMITS.PALETTE_RECENT));
+    expect(L._data.get(KEY.PALETTE_RECENT)[0]).toBe('c');
+    expect(await s.notePaletteRecent('Not valid!')).toEqual(L._data.get(KEY.PALETTE_RECENT)); // nothing written
+  });
+});

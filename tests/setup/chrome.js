@@ -67,7 +67,7 @@ function area(name) {
 }
 
 // ---- tabs, windows, bookmarks, history, sessions: plain arrays tests can seed
-const D = { tabs: [], windows: [], nextTab: 1, nextWin: 1, bookmarks: null, nextMark: 100, history: [], closed: [], alarms: new Map(), lang: 'en' };
+const D = { tabs: [], windows: [], nextTab: 1, nextWin: 1, bookmarks: null, nextMark: 100, history: [], closed: [], alarms: new Map(), zoom: new Map(), lang: 'en' };
 
 function freshBookmarks() {
   return {
@@ -202,6 +202,8 @@ const chrome = {
       return Array.isArray(ids) ? out : out[0];
     }),
     reload: vi.fn(async () => {}),
+    getZoom: vi.fn(async (id) => { needTab(id); return D.zoom.get(id) ?? 1; }),
+    setZoom: vi.fn(async (id, z) => { needTab(id); D.zoom.set(id, z); }),
     discard: vi.fn(async (id) => { const t = needTab(id); t.discarded = true; return tabOut(t); }),
     captureVisibleTab: vi.fn(async () => 'data:image/jpeg;base64,AAAA'),
     sendMessage: vi.fn(async () => undefined),
@@ -316,6 +318,7 @@ chrome._reset = () => {
   for (const a of [chrome.storage.local, chrome.storage.session, chrome.storage.sync]) a._data.clear();
   Object.assign(D, { tabs: [], windows: [], nextTab: 1, nextWin: 1, bookmarks: freshBookmarks(), nextMark: 100, history: [], closed: [], lang: 'en' });
   D.alarms.clear();
+  D.zoom.clear();
   chrome.runtime.lastError = undefined;
   // mockReset also undoes a test's mockImplementation (vitest 3+: back to the original implementation)
   const walk = (o) => { for (const v of Object.values(o)) { if (typeof v === 'function' && v.mock) v.mockReset(); else if (v && typeof v === 'object' && !(v instanceof Map) && v !== D) walk(v); } };

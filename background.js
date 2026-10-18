@@ -363,18 +363,21 @@ let lastTrigger = 0;
 
 // `hold`: opened by Alt+Q / Alt+W, which work like Alt+Tab (letting go of Alt switches to the selected
 // tab). Alt+E, the toolbar icon and the rest open it to stay. dir 0 (Alt+E) moves nothing.
-function trigger(dir, tab, via = 'key', hold = false) {
+// `palette`: Ctrl+Shift+Space, straight into the command palette (dir 0, never held).
+function trigger(dir, tab, via = 'key', hold = false, palette = false) {
   // Both Chrome's shortcut and the in-page listener may see the same press;
   // this also rate-limits a misbehaving sender.
   if (Date.now() - lastTrigger < 120) return;
   lastTrigger = Date.now();
-  openSwitcher(dir, tab, via, hold).catch((e) => console.warn('[Tabazing] could not open the switcher:', e && e.message));
+  openSwitcher(dir, tab, via, hold, palette).catch((e) => console.warn('[Tabazing] could not open the switcher:', e && e.message));
 }
 
-async function openSwitcher(dir, fromTab, via = 'key', hold = false) {
-  // 1. Already open anywhere? Just move its selection.
+async function openSwitcher(dir, fromTab, via = 'key', hold = false, palette = false) {
+  // 1. Already open anywhere? Just move its selection (or show its palette).
+  // `palette` is only added when set, so every other message and launch stays exactly as it was.
+  const pal = palette ? { palette: true } : {};
   try {
-    const r = await chrome.runtime.sendMessage({ type: MSG.CYCLE, dir, hold });
+    const r = await chrome.runtime.sendMessage({ type: MSG.CYCLE, dir, hold, ...pal });
     if (r && r.ok) return;
   } catch { /* no switcher open */ }
 
@@ -402,7 +405,7 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false) {
   ]);
   const ctx = {
     src: tab.id, win: tab.windowId, dir, via, hold,
-    state: WINDOW_STATES.includes(win.state) ? win.state : 'normal',
+    state: WINDOW_STATES.includes(win.state) ? win.state : 'normal', ...pal,
   };
   // The launch token and overlay note are only storage writes, nothing on screen: made during the grab.
   // Injecting waits for it (step 4), so the screenshot never has the overlay in it.
@@ -665,6 +668,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'open-switcher') trigger(-1, tab, 'key', true);              // Alt+Q: the card before the current one
   else if (command === 'open-switcher-reverse') trigger(1, tab, 'key', true);  // Alt+W: the card after it
   else if (command === 'open-switcher-stay') trigger(0, tab);                // Alt+E: open and stay open
+  else if (command === 'open-palette') trigger(0, tab, 'key', false, true);  // Ctrl+Shift+Space: the command palette
 });
 
 chrome.action.onClicked.addListener((tab) => trigger(1, tab, 'icon'));
@@ -694,7 +698,9 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   switch (msg.type) {
     case MSG.HOTKEY:
       // The only thing a page's content script, or the New Tab page (its own Alt+Q listener), may ask for.
-      if (fromContentScript(sender) || fromNewTab(sender)) trigger(msg.dir === -1 ? -1 : msg.dir === 0 ? 0 : 1, sender.tab, 'key', msg.hold === true);
+      if (!fromContentScript(sender) && !fromNewTab(sender)) return;
+      if (msg.palette === true) trigger(0, sender.tab, 'key', false, true); // Ctrl+Shift+Space: nothing else is taken from it
+      else trigger(msg.dir === -1 ? -1 : msg.dir === 0 ? 0 : 1, sender.tab, 'key', msg.hold === true);
       return;
     case MSG.READY:
       if (!fromSwitcher(sender)) return;

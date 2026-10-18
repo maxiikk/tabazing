@@ -5,6 +5,9 @@
    "cmdOpen": {
       "message": "Abrir Tabazing en la tarjeta anterior de la lista (da la vuelta); suelta Alt para cambiar"
    },
+   "cmdPalette": {
+      "message": "Abrir la paleta de comandos de Tabazing: acciones, cálculos, conversiones y búsqueda"
+   },
    "cmdReverse": {
       "message": "Abrir Tabazing en la tarjeta siguiente de la lista (da la vuelta); suelta Alt para cambiar"
    },

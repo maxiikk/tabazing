@@ -288,7 +288,7 @@ describe('launch tokens', () => {
     expect(token).toMatch(/^[0-9a-f-]{36}$/);
     expect(S._data.get(KEY.LAUNCH)).toEqual({ token, t: NOW, ctx });
     const l = await s.consumeLaunch(token);
-    expect(l).toEqual({ srcTab: 4, srcWin: 2, srcState: 'maximized', dir: -1, hold: true, mode: 'overlay', via: 'icon' });
+    expect(l).toEqual({ srcTab: 4, srcWin: 2, srcState: 'maximized', dir: -1, hold: true, mode: 'overlay', via: 'icon', palette: false });
     expect(Object.isFrozen(l)).toBe(true);
     expect(await s.consumeLaunch(token)).toBeNull();
   });
@@ -322,7 +322,7 @@ describe('launch tokens', () => {
 
   it('defaults bad optional fields', async () => {
     const token = await s.createLaunch({ src: 0, win: 0, state: 'minimized', dir: 7, hold: 'yes', mode: 'popup', via: 'evil' });
-    expect(await s.consumeLaunch(token)).toEqual({ srcTab: 0, srcWin: 0, srcState: 'normal', dir: 1, hold: false, mode: 'window', via: 'key' });
+    expect(await s.consumeLaunch(token)).toEqual({ srcTab: 0, srcWin: 0, srcState: 'normal', dir: 1, hold: false, mode: 'window', via: 'key', palette: false });
     const t2 = await s.createLaunch({ src: 1, win: 1, dir: 0, via: 'startup' });
     expect(await s.consumeLaunch(t2)).toMatchObject({ dir: 0, via: 'startup' });
   });

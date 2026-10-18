@@ -34,6 +34,13 @@
         "default": "Alt+E",
         "mac": "Alt+E"
       }
+    },
+    "open-palette": {
+      "description": "__MSG_cmdPalette__",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
+      }
     }
   },
   "content_scripts": [
@@ -104,7 +111,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "web_accessible_resources": [
     {
       "matches": [

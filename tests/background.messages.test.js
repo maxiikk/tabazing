@@ -63,6 +63,29 @@ describe('HOTKEY', () => {
     expect(cycleCalls()[0].hold).toBe(false);
   });
 
+  it('palette: true (Ctrl+Shift+Space in a page) opens the palette; the rest of the message is ignored', async () => {
+    const { tab } = seed();
+    send({ type: MSG.HOTKEY, dir: -1, hold: true, palette: true }, fromPage(tab));
+    await flush();
+    expect(cycleCalls()).toEqual([{ type: MSG.CYCLE, dir: 0, hold: false, palette: true }]);
+    expect(launch().ctx).toMatchObject({ src: tab.id, dir: 0, hold: false, palette: true });
+  });
+
+  it('palette only when it is exactly true', async () => {
+    const { tab } = seed();
+    send({ type: MSG.HOTKEY, dir: 1, hold: false, palette: 'yes' }, fromPage(tab));
+    await flush();
+    expect(cycleCalls()).toEqual([{ type: MSG.CYCLE, dir: 1, hold: false }]);
+    expect(launch().ctx.palette).toBeUndefined();
+  });
+
+  it('palette from the switcher page is ignored too', async () => {
+    const { tab } = seed();
+    send({ type: MSG.HOTKEY, palette: true }, fromSwitcherPage(tab));
+    await flush();
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+  });
+
   it('is ignored from the switcher page or a sender without a tab', async () => {
     const { tab } = seed();
     send({ type: MSG.HOTKEY, dir: 1 }, fromSwitcherPage(tab));

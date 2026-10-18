@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Command palette**: press **Ctrl+Shift+Space** (⌘⇧Space) on any page, or type **>** in the search box or press **Ctrl+K** (⌘K) in Tabazing. One box runs Chrome actions (new window, Incognito, reopen closed tab, Chrome's settings, extensions, history, downloads, passwords…), actions on the current tab (reload, duplicate, pin, mute, close, close others, move, zoom, full screen, copy link, bookmark) and Tabazing's own (close duplicates, merge windows, sleep tabs unused for a week, snooze, archive, theme, sort, capture previews, media…), and shows the same results as the search box.
+- Quick answers in the palette: sums and percentages, unit conversions (length, weight, temperature, volume, area, speed, data, time), number bases, colours (with a swatch), time zones and date arithmetic. Enter copies the result; worked out on your computer. Currency isn't offered, as it would need the internet.
+- The palette remembers the actions you ran recently, and finds actions by their English names in every language.
+- The shortcuts card (ⓘ) and the tour cover the command palette.
+
+### Changed
+
+- Sort and the filter chips moved from the toolbar to the end of the **Open tabs** heading, which they apply to; the toolbar row takes no room when it has nothing to show.
+- The Starred, Audio, Pinned, Asleep and Notes chips show only their icon and count; their name is in the tooltip and is what screen readers say, with the count.
+
 ## [4.0.0] - 2026-10-18
 
 ### Added

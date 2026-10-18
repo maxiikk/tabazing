@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **4.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **4.1.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -42,6 +42,7 @@ Tabazing does not run in Incognito windows.
 | **Alt+Q** | Option+Q | **Hold Alt and press Q** to see your tabs, with the **previous card in the list** selected (the card before the current tab, in the order the cards are shown). From the first card it wraps around to the last. Keep holding Alt and press Q again to go further back. **Let go of Alt to switch** to the selected tab, just like Alt+Tab. |
 | **Alt+W** | Option+W | The same, but selects the **next card in the list** (wrapping around from the last card to the first). |
 | **Alt+E** | Option+E | Opens Tabazing with the current tab selected and **keeps it open**, so you can search, use the arrow keys or the mouse. |
+| **Ctrl+Shift+Space** | ⌘⇧Space | Opens Tabazing straight into the [command palette](#command-palette): commands, sums, conversions and search in one box. |
 | Toolbar icon | Toolbar icon | Opens Tabazing and keeps it open. The first three times, a note reminds you that Alt+Q does this from anywhere. |
 
 While you hold Alt after Alt+Q or Alt+W:
@@ -56,7 +57,7 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Closing it.** Press **Esc**, click the backdrop around the content (the top strip, or the space below the last section; clicks between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
 
-**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Keyboard and mouse shortcuts** opens it too.
+**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Keyboard and mouse shortcuts** opens it too.
 
 **A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px the Settings, New tab and Archive buttons show only their icons. The cards always start right below the header.
 
@@ -64,7 +65,7 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **"Looking for a tab?"** If you often click through tabs one by one (Ctrl+Tab, Ctrl+PgDn), a small note may suggest Alt+Q instead. It appears at most once a day and three times in total. It stops once you are using Tabazing, and **Don't show again** turns it off for good.
 
-**First-run tour.** The first time you open Tabazing, a short tour walks through switching (hold Alt and press Q; let go to switch), moving around, search, the buttons on each card (notes among them), snooze and archive, selecting many tabs (every card shows its tick box for that step), sorting, the window list and the media player (when they are on screen) and settings. Use **Next**, **Back** or **Skip**, or the ← → arrow keys. Esc closes it. **Settings → Replay the tour** shows it again.
+**First-run tour.** The first time you open Tabazing, a short tour walks through switching (hold Alt and press Q; let go to switch), moving around, search, the command palette, the buttons on each card (notes among them), snooze and archive, selecting many tabs (every card shows its tick box for that step), sorting, the window list and the media player (when they are on screen) and settings. Use **Next**, **Back** or **Skip**, or the ← → arrow keys. Esc closes it. **Settings → Replay the tour** shows it again.
 
 ---
 
@@ -162,6 +163,50 @@ Type anywhere and the text goes into the search box, which says what it searches
 - The cards behind the dropdown keep their places while you search, but the ones that don't match are dimmed (and a dimmed selected card loses its glow). Press Esc to clear the search.
 - With **Include history** or **Include bookmarks** turned off in Settings, Tabazing doesn't read that source at all.
 
+### Command palette
+
+One box for doing things, not just finding tabs, like the command palettes of code editors and Spotlight.
+
+**Opening it.** Press **Ctrl+Shift+Space** (⌘⇧Space on a Mac) on any page: Tabazing opens straight into the palette. Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
+
+A panel opens at the top centre with one box and one list; the switcher behind it is dimmed. As you type, the list mixes, best match first:
+
+- **A quick answer** (a calculator icon): a sum or a conversion, shown big. **Enter** copies the result, **Shift+Enter** (or the copy button on the row) the whole expression, such as `10 km = 6.21371 mi`.
+- **Actions**, found by their name and other words for them ("refresh" finds Reload) in your language and in English, so "new tab" works in Spanish and Russian too. Typos are fine, as in the search. An action comes before a search result that matches as well.
+- **Search results**: exactly what the search dropdown shows for the same text (open tabs, recently closed, archived, bookmarks, history), with the same icons and pictures.
+
+With nothing typed it lists the most useful actions first, then the ones you ran recently (tagged **Recent**), then all the others. Only what can be done right now is listed (no "Merge windows" with one window, no media controls when nothing plays).
+
+**Keys.** **↑ / ↓** choose, **Enter** runs, **Shift+Enter** runs and stays in the palette (to zoom in a few steps, say), **Esc** goes back to your tabs with the search box as it was, or closes Tabazing when you opened the palette with the shortcut. **Backspace** in the empty box also goes back. The mouse works too.
+
+After an action, Tabazing gives you the page back when the action was about the page or Chrome (reload, zoom, full screen, media, opening Chrome's pages), shows the switcher when the result (or its **Undo**) is there (closing tabs, pinning, theme, sort…), and stays in the palette after copying, with a note.
+
+**Actions**
+
+| Group | Actions |
+|---|---|
+| Chrome | New tab · New window · New Incognito window · Reopen the last closed tab · Chrome settings · Tabazing in Chrome's extension settings · Extensions · Extension keyboard shortcuts · Chrome history · Downloads · Bookmarks manager · Clear browsing data · Passwords |
+| This tab (the one Tabazing was opened over) | Reload · Duplicate · Pin / Unpin · Mute / Unmute · Close tab · Close the other tabs in this window (not pinned ones) · Move this tab to a new window · Zoom in / Zoom out / Reset zoom (Chrome's own steps, 25 % to 500 %) · Full screen / Exit full screen · Copy link · Copy title and link (Markdown) · Bookmark this page |
+| Tabazing | Close duplicate tabs · Merge all into this window · Put tabs not used for a week to sleep · Snooze this tab… · Archive this tab · Open the archive · Tabazing settings · Keyboard and mouse shortcuts · Theme: dark / light / match system · Sort by recently used / order / name · Capture all previews · Replay the tour · Media: play, pause, next, previous |
+
+Closing, moving and archiving tabs keep their usual **Undo**.
+
+**Quick answers** (worked out on your computer):
+
+| Type | Examples |
+|---|---|
+| Sums | `2+2`, `(1 + 2) * 3`, `2^10`, `10 % 3` (remainder), `1,234.5 * 2`, `sqrt(16)`, `abs(-3)`, `round(2.5)`, `floor`, `ceil`, `cbrt`, `ln`, `log`, `sin(30)` (sin, cos and tan use **degrees**), `pi`, `2pi`, `e` |
+| Percentages | `15% of 80` = 12, `80 + 15%` = 92, `80 - 15%` = 68 |
+| Units | `10 km in mi`, `10km to miles`, `70f in c`, `5 lb kg`, `2 GB in MB`, `1 GiB in MB`, `1.5 h in min`, `100 km/h in mph`, `100 sq ft in m2`, `1 gal in l`; lengths, weights, temperatures, volumes, areas, speeds, data sizes (KB, MB… in 1000s; KiB, MiB… in 1024s; bits as "bit", "Mbit"…) and times. A unit alone converts to its usual counterpart (`10 km` → miles). |
+| Number bases | `255 in hex`, `0xff`, `0b1010 in dec`, `hex 255`, `bin 5` |
+| Colours | `#ff8800` → `rgb(255, 136, 0)` and `hsl(32, 100%, 50%)`; `rgb(255, 0, 0)` → `#FF0000`; `hsl(…)`; add `in hsl` to choose. The row shows a swatch. |
+| Time zones | `time in Tokyo`, `Tokyo time`, `now in UTC`, `3pm London in New York`, `15:30 in Tokyo` (from your time zone), `time in UTC+3`; city names in English, Spanish or Russian, abbreviations like PST or CET, and every time zone Chrome knows (`Europe/Paris`, or just `Paris`) |
+| Dates | `days until 2027-01-01`, `days since 2026-01-01`, `days between 2026-01-01 and 2026-12-25`, `2026-10-18 + 30 days`, `today - 1 month` (a month later than Jan 31 is the end of February) |
+
+Numbers show in your language's format; calculations are rounded to 12 significant digits (so `0.1 + 0.2` is 0.3) and conversions to 6. Enter copies plain digits (`1234.5`, no thousands separator), a unit result with its unit, and a date as `YYYY-MM-DD`. A comma alone is the decimal mark (`1,5` = 1.5), except in English, where `1,234` is a thousand.
+
+**Currency** needs today's exchange rates from the internet, and Tabazing never connects to it: typing something like `10 usd in eur` shows one row that says so, instead of a made-up rate.
+
 ### Media player
 
 When a tab is playing a video or music, a small player appears in the header, right of the search box and the same height (in a window narrower than 1100 px, on its own row under the search box). It shows the preview of that tab (or its icon), the title of what is playing (and the artist or the site under it), and **Previous**, **Play / Pause** and **Next** buttons. It is hidden while nothing plays, and while you hold Alt after Alt+Q or Alt+W.
@@ -198,7 +243,9 @@ It follows Tabazing's theme, accent colour and language settings. The first time
 
 ### Sort and filters
 
-**Sort** (the dropdown on the toolbar; your choice is remembered):
+Sort and the filter chips sit at the right end of the **Open tabs** heading, since they only sort and filter the open tabs (on a narrow window they wrap under it).
+
+**Sort** (the dropdown; your choice is remembered):
 
 | Option | Order |
 |---|---|
@@ -208,7 +255,7 @@ It follows Tabazing's theme, accent colour and language settings. The first time
 
 Pinned tabs come first in every order (unless Settings → **Pinned tabs first** is off).
 
-**Filters** (chips next to Sort): pick one at a time, and click it again to turn it off. A chip only appears when some tab matches it, and it shows how many do.
+**Filters** (chips next to Sort): pick one at a time, and click it again to turn it off. A chip only appears when some tab matches it. Each chip shows just its icon and how many tabs it applies to; point at it for its name (screen readers hear the name and the count, such as "Pinned: 2").
 
 | Chip | Shows |
 |---|---|
@@ -236,7 +283,7 @@ The card header also has a **☆ star** and an **× close** button.
 
 - Click **☆** on a card, or press **Alt+S** (⌥S), to star a page. Click or press again to remove the star.
 - Stars belong to the page's address, not to the tab. A starred page stays starred after you close it, and it is kept by Tabazing, not in Chrome's bookmarks.
-- The **Starred** chip shows how many pages are starred. Click it to see only starred tabs, plus starred pages that are **not open**, which you can reopen with one click. Pressing Del on one of those removes its star.
+- The **Starred** chip (a star and a number, at the end of the Open tabs heading) shows how many pages are starred. Click it to see only starred tabs, plus starred pages that are **not open**, which you can reopen with one click. Pressing Del on one of those removes its star.
 
 ### Notes
 
@@ -366,7 +413,9 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
   - **Closed-tabs log:** address, title and icon of tabs you closed, kept **7 days** (up to 200 entries), for search.
   - **Stars, notes and snoozed tabs** (address, title, time) until you remove them.
-  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters.
+  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, and the ids of the last few command-palette actions you ran.
+  - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
+
   - **Tab usage order**, kept only in memory and cleared when Chrome closes.
   - **What each tab is playing** (title, artist, playing or paused, which buttons the site offers) for the media player, kept only in memory and forgotten when the tab closes or loads another page.
 - **Archived tabs** are ordinary Chrome bookmarks, so they sync with your Chrome account if you have bookmark sync turned on.

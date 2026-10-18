@@ -151,13 +151,13 @@ describe('localizePage', () => {
     setLang('es');
     document.body.innerHTML = `
       <span data-testid="a" data-i18n="newTab">x</span>
-      <button data-testid="b" data-i18n-title="starFilterTitle" data-i18n-aria="searchAria"></button>
+      <button data-testid="b" data-i18n-title="archiveBtnTitle" data-i18n-aria="searchAria"></button>
       <input data-testid="c" data-i18n-placeholder="searchPlaceholder">
       <span data-testid="d" data-i18n="missingKey"></span>`;
     localizePage();
     expect(document.documentElement.lang).toBe('es');
     expect(byTestId('a').textContent).toBe(ES.newTab);
-    expect(byTestId('b').title).toBe(ES.starFilterTitle);
+    expect(byTestId('b').title).toBe(ES.archiveBtnTitle);
     expect(byTestId('b').getAttribute('aria-label')).toBe(ES.searchAria);
     expect(byTestId('c').placeholder).toBe(ES.searchPlaceholder);
     expect(byTestId('d').textContent).toBe('missingKey');

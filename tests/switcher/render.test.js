@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
 import { boot, ABC, cards, openCards, titles, titleOf, selectedTitle, tid, tids } from './_ui.js';
+import { t } from '../../lib/translations.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
 const preview = (url) => ({ ['pv:' + url]: { img: IMG, t: Date.now() } });
@@ -463,7 +464,12 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     expect([...tid('qfilters').children].map((c) => c.dataset.testid)).toEqual(['filter-audio', 'filter-pinned']);
     const pinned = tid('filter-pinned');
     expect(tid('filter-count', pinned).textContent).toBe('1');
-    expect(tid('filter-label', pinned).textContent).toBe('Pinned');
+    // only the icon and the count show: the name is the tooltip and, with the count, the accessible name
+    expect(pinned.textContent).toBe('1');
+    expect(pinned.getAttribute('aria-label')).toBe(t('chipAria', { name: t('fPinned'), count: 1 }));
+    expect(pinned.getAttribute('aria-label')).toBe('Pinned: 1');
+    expect(pinned.title).toBe('Pinned');
+    expect(pinned.querySelector('svg').getAttribute('aria-hidden')).toBe('true');
     pinned.click();
     expect(sw.state.filter).toBe('pinned');
     expect(titles()).toEqual(['Bravo']);
@@ -482,6 +488,38 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     expect(titles()).toEqual(['Charlie']);
     expect(sw.state.sel).toBe(0);
     expect(tid('scroller').scrollTop).toBe(0);
+  });
+
+  it('the Starred chip shows only its icon and count; its name is the tooltip and, with the count, the accessible name', async () => {
+    await chrome.storage.local.set({ stars: { 'https://charlie.example/': { u: 'https://charlie.example/', ti: 'Charlie', t: Date.now() } } });
+    await boot({ tabs: ABC() });
+    const chip = tid('star-filter');
+    expect(chip.textContent.trim()).toBe('1');
+    expect(chip.getAttribute('aria-label')).toBe('Starred: 1');
+    expect(chip.title).toBe('Starred');
+  });
+
+  it('Sort and the filter chips sit at the end of the Open tabs row, as a toolbar beside its heading', async () => {
+    await boot({ tabs: ABC() });
+    const head = tid('open-head');
+    const bar = tid('view-toolbar');
+    expect(head.contains(tid('open-h'))).toBe(true);
+    expect(bar.parentElement).toBe(head);
+    expect([...head.children]).toEqual([tid('open-h'), bar]); // the title first, the controls after it
+    expect(tid('open-h').tagName).toBe('H2');
+    expect(bar.getAttribute('role')).toBe('toolbar');
+    expect(bar.getAttribute('aria-label')).toBe(t('viewAria'));
+    for (const id of ['sort', 'select-sort', 'star-filter', 'qfilters']) expect(bar.contains(tid(id)), id).toBe(true);
+    expect(tid('tools').contains(bar)).toBe(false);
+    expect(tid('tools').contains(tid('setup-actions'))).toBe(true); // merge, duplicates, capture stay up there
+  });
+
+  it('the toolbar row takes no room while none of its buttons shows; the row of the Open tabs title spreads its ends apart', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('switcher.css', 'utf8');
+    expect(css).toMatch(/\.tools:not\(:has\(> \.setup > :not\(\[hidden\]\)\)\) \{ display: none; \}/);
+    expect(css).toMatch(/\.open-head \{[^}]*justify-content: space-between;[^}]*flex-wrap: wrap;/);
+    expect(css).toMatch(/\.chip \{[^}]*height: 30px; min-width: 30px;/); // a target of 24 px or more
   });
 
   it('Starred filter: pressed state and only starred tabs', async () => {
@@ -889,7 +927,7 @@ describe('small pieces', () => {
 
   it('tipTruncated: text cut short gets a tooltip, which goes when it fits again', async () => {
     const sw = await boot();
-    const label = tid('star-filter-label');
+    const label = tids('window-label')[0] || document.body.appendChild(Object.assign(document.createElement('span'), { className: 'wlabel', textContent: 'A long window name' }));
     Object.defineProperty(label, 'clientWidth', { value: 20, configurable: true });
     Object.defineProperty(label, 'scrollWidth', { value: 60, configurable: true });
     sw.tipTruncated();

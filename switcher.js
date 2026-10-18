@@ -19,15 +19,16 @@
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
 import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './lib/constants.js';
-import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs } from './lib/store.js';
+import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent } from './lib/store.js';
 import { reviewPrompt, dayOf } from './lib/review.js';
 import { timeAgo, localizePage, setLang, uiLang } from './lib/i18n.js';
-import { t } from './lib/translations.js';
+import { t, getLocale, setLocale } from './lib/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
 import { applyAccent, ACCENTS } from './lib/accent.js';
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './lib/archive.js';
 import { loadMedia, mediaAction } from './lib/media.js';
 import { asUrl, googleUrl } from './lib/web.js';
+import { quick } from './lib/quick.js';
 
 let CTX = null; // set once the launch token has been verified (see boot)
 
@@ -49,6 +50,7 @@ const el = {
   live: $('live-status'), liveAlert: $('live-alert'), archiveBtn: $('archive-btn'),
   player: $('player'), playerPic: $('player-pic'), playerTitle: $('player-title'), playerSub: $('player-sub'),
   playerPrev: $('player-prev'), playerToggle: $('player-toggle'), playerNext: $('player-next'), playerMore: $('player-more'),
+  palette: $('palette'), palInput: $('palette-input'), palList: $('palette-list'), palFoot: $('palette-foot'),
 };
 
 // Mac keyboards: Option instead of Alt, and the "delete" key is Backspace.
@@ -91,6 +93,9 @@ const state = {
   history: null,   // recent history (90 days), read on the first search: [{ url, title, t, n }]
   histQ: { q: '', items: [] }, // Chrome's own history search for the current text (reaches further back)
   foundClosed: [], // derived: recently closed tabs matching the search (the dropdown)
+  foundQ: '',      // the text `found` and `foundClosed` are for (trimmed, lower case)
+  palette: null,   // the command palette, while it shows: { from: 'shortcut' | 'switcher', saved, hi, items }
+  palRecent: [],   // ids of the palette's actions, most recently run first (lib/store.js getPaletteRecent)
   dd: { items: [], hi: 0, hidden: false }, // the dropdown under the search box: rows, the highlighted one
   collapsed: new Set(), // section keys the user collapsed (kept between opens)
   peek: new Set(),      // collapsed sections opened for this visit only (Alt+Q landed on a tab inside)
@@ -150,6 +155,24 @@ const ICON = {
   play: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.5 2.9v10.2a.6.6 0 0 0 .9.5l8-5.1a.6.6 0 0 0 0-1L5.4 2.4a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>',
   pause: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="3.8" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/></svg>',
   goto: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  // the command palette's
+  plus: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  globe: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M2.2 8h11.6M8 2.2c1.8 1.7 2.6 3.6 2.6 5.8S9.8 12.1 8 13.8C6.2 12.1 5.4 10.2 5.4 8S6.2 3.9 8 2.2Z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>',
+  bolt: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M9 1.8 3.5 9h4l-1 5.2L12.5 7h-4z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
+  calc: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="3" y="1.8" width="10" height="12.4" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M5.3 4.5h5.4M5.5 8h1M9.5 8h1M5.5 11h1M9.5 11h1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  incognito: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2 7.5h12M4 7.5l1.3-4.3h5.4L12 7.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/><circle cx="5" cy="11" r="1.9" stroke="currentColor" stroke-width="1.3" fill="none"/><circle cx="11" cy="11" r="1.9" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M6.9 11h2.2" stroke="currentColor" stroke-width="1.3"/></svg>',
+  gear: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="2.3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M3.6 12.4 5 11M11 5l1.4-1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  puzzle: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M3 5.5h2.2a1.6 1.6 0 1 1 3 0H10.5v2.3a1.6 1.6 0 1 1 0 3V13H3z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
+  keyboard: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8.5" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4 6.8h.5M6.5 6.8h.5M9 6.8h.5M11.5 6.8h.5M5 10h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  download: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.2h10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  eraser: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M9.6 2.8 13.2 6.4 7.4 12.2H4.6L2.8 10.4zM6.2 6.2l3.6 3.6M7.4 13.2h6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  key: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="5" cy="8" r="2.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M7.8 8H14M11.5 8v2.2M13.5 8v1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  zoom: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  zoomIn: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14M7 5v4M5 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  zoomOut: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14M5 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  expand: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  sun: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="8" cy="8" r="2.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  sort: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M5 2.5v11M2.8 11.2 5 13.5l2.2-2.3M11 13.5v-11M8.8 4.8 11 2.5l2.2 2.3" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
 // ---------------------------------------------------------------- helpers
@@ -551,18 +574,30 @@ function sectionsFor(open) {
 }
 
 // The search's results, for the dropdown: open tabs that match (where they matched first: note, title,
-// address; then how well; then recent use), and recently closed ones (the last 7 days).
-function deriveSearch() {
-  const q = state.query.trim().toLowerCase();
-  state.found = [];
-  state.foundClosed = [];
-  if (!q) return;
+// address; then how well; then recent use), and recently closed ones (the last 7 days). `q`: trimmed, lower case.
+function searchFor(q) {
+  if (!q) return { found: [], foundClosed: [] };
   const score = new Map(), tier = new Map();
-  state.found = state.tabs
+  const found = state.tabs
     .filter((x) => { const s = searchScore(q, x.title, urlOf(x), noteOf(urlOf(x))); if (s > 0) { score.set(x.id, s); tier.set(x.id, matchTier(q, x)); } return s > 0; })
     .sort((a, b) => tier.get(b.id) - tier.get(a.id) || score.get(b.id) - score.get(a.id)) // stable: recent use within
     .map((tab) => ({ kind: 'tab', key: 't' + tab.id, tab, preview: state.previews[tab.id] || null }));
-  state.foundClosed = closedFor(q);
+  return { found, foundClosed: closedFor(q) };
+}
+function deriveSearch() {
+  const q = state.query.trim().toLowerCase();
+  const r = searchFor(q);
+  state.found = r.found;
+  state.foundClosed = r.foundClosed;
+  state.foundQ = q;
+}
+// The same for any text (the command palette's): the search box's own when it is that text, else worked out
+// once per text and list of tabs.
+let foundMemo = { q: null, tabs: null, closed: null, r: null };
+function foundFor(q) {
+  if (q === state.foundQ) return { found: state.found, foundClosed: state.foundClosed };
+  if (foundMemo.q !== q || foundMemo.tabs !== state.tabs || foundMemo.closed !== state.closed) foundMemo = { q, tabs: state.tabs, closed: state.closed, r: searchFor(q) };
+  return foundMemo.r;
 }
 // While searching, the cards that don't match are dimmed (they keep their places): which ones do.
 function deriveHits() {
@@ -1014,11 +1049,14 @@ function renderTools() {
   el.qfilters.replaceChildren(...Object.entries(FILTERS).map(([id, f]) => {
     const n = inScope.filter(f.test).length;
     if (!n && state.filter !== id) return null;
+    // Just the icon and how many: the name is the tooltip, and with the count what screen readers say.
     const b = h('button', 'chip', null, 'filter-' + id);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(state.filter === id));
+    b.setAttribute('aria-label', t('chipAria', { name: t(f.label), count: n }));
+    b.title = t(f.label);
     b.append(svgOf(ICON[f.icon]));
-    b.append(h('span', 'label', t(f.label), 'filter-label'), h('span', 'n', String(n), 'filter-count'));
+    b.append(h('span', 'n', String(n), 'filter-count'));
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) setFilter(state.filter === id ? null : id); });
     return b;
   }).filter(Boolean));
@@ -1029,7 +1067,10 @@ function renderTools() {
   el.sort.value = state.sort;
   if (el.sort._fancy) el.sort._fancy.sync();
   el.starFilter.setAttribute('aria-pressed', String(state.starOnly));
-  el.starN.textContent = String(Object.keys(state.stars).length);
+  const stars = Object.keys(state.stars).length;
+  el.starN.textContent = String(stars);
+  el.starFilter.setAttribute('aria-label', t('chipAria', { name: t('starred'), count: stars }));
+  el.starFilter.title = t('starred');
   const d = duplicates().length;
   el.dupesBtn.hidden = d === 0;
   el.dupesText.textContent = t('dupesBtn', { count: d });
@@ -1090,6 +1131,7 @@ function render(only) {
   markHits();
   searchPlaceholder();
   select(state.sel, { scroll: true });
+  if (state.palette) renderPalette(); // what it offers follows the tabs (the current one, duplicates, windows...)
   refocus(f);
   requestAnimationFrame(tipTruncated);
 }
@@ -1143,7 +1185,7 @@ function renderCount() {
 
 // Text cut short with "…" gets its full wording as a tooltip.
 function tipTruncated() {
-  for (const n of document.querySelectorAll('.ltitle, .gname, .host, .lname .n, .mname .n, .litem span, .chip .label, .wlabel')) {
+  for (const n of document.querySelectorAll('.ltitle, .gname, .host, .lname .n, .mname .n, .litem span, .wlabel')) {
     if (n.scrollWidth > n.clientWidth + 1) n.title = n.textContent; else if (n.title === n.textContent) n.removeAttribute('title');
   }
 }
@@ -1768,12 +1810,13 @@ async function closeMany(tabs) {
 async function copyText(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch {}
   // Inside a web page's frame the page may not allow the clipboard API: the old way still works.
+  const back = state.palette ? el.palInput : el.search; // where the focus goes back to
   el.clip.value = text;
   el.clip.select();
   let ok = false;
   try { ok = document.execCommand('copy'); } catch {}
   el.clip.value = '';
-  el.search.focus({ preventScroll: true });
+  back.focus({ preventScroll: true });
   return ok;
 }
 async function copyLinks(tabs, fmt) {
@@ -1800,7 +1843,33 @@ async function moveToWindow(tabs) {
   pushUndo(undo, 'move');
 }
 
+// The header's "New tab" (and the palette's): a new tab in the window Tabazing was opened from.
+async function openNewTab() {
+  try {
+    if (CTX.mode === 'window') await chrome.windows.update(CTX.srcWin, { focused: true }).catch(() => {});
+    await chrome.tabs.create({ windowId: CTX.srcWin, active: true });
+  } catch {}
+  finish('switch');
+}
+// "Capture all previews" (the camera in the toolbar, or the palette): the background shows each tab without a
+// preview for a moment, then opens Tabazing again; with nothing to capture, a note says so.
+function captureAll() {
+  const tabIds = missingPreviews().map((x) => x.id).slice(0, LIMITS.SWEEP_MAX_TABS);
+  asking = true; // the progress window takes focus: that is not the user leaving
+  return chrome.runtime.sendMessage({ type: MSG.SWEEP, tabIds, reopen: CTX.mode === 'overlay' ? CTX.srcTab : null })
+    .then((r) => { asking = false; if (r && r.n) finish('switch'); else toast(t('sweepNothing')); })
+    .catch(() => { asking = false; toast(t('errCapture')); });
+}
+// A search began or changed (the box's or the palette's): the first one reads the bookmarks and recent history
+// (once, unless Settings -> Search leaves them out); Chrome's history search reaches older pages a moment later.
+function startSearch(q) {
+  if (q && state.marks === null && pref('searchBookmarks')) loadMarks();
+  if (q && state.history === null && pref('searchHistory')) loadHistory();
+  searchHistory(q);
+}
+
 // ---- open or search from the box: what was typed, when nothing matches it (or Shift+Enter).
+
 // Something that looks like an address opens as one; anything else is searched on Google (lib/web.js,
 // shared with the New Tab page).
 async function openFromBox(text) {
@@ -1844,7 +1913,7 @@ async function loadMarks() {
     tree.forEach((root) => walk(root, []));
     state.marks = out;
   } catch { state.marks = []; }
-  if (!state.done && state.query.trim()) renderDropdown();
+  if (!state.done && searchText()) renderSearch();
 }
 // History (needs the history permission): the last 90 days read once and matched like everything else
 // (typos and all), plus Chrome's own history search for what was typed, which reaches further back.
@@ -1856,7 +1925,7 @@ async function loadHistory() {
     const items = await chrome.history.search({ text: '', startTime: Date.now() - 90 * 864e5, maxResults: 5000 });
     state.history = items.filter((x) => /^(https?|file|ftp):/i.test(x.url || '')).map(hist);
   } catch { state.history = []; }
-  if (!state.done && state.query.trim()) renderDropdown();
+  if (!state.done && searchText()) renderSearch();
 }
 let histTimer = null;
 function searchHistory(q) {
@@ -1865,17 +1934,21 @@ function searchHistory(q) {
   histTimer = setTimeout(async () => {
     try {
       const items = await chrome.history.search({ text: q, startTime: 0, maxResults: 60 });
-      if (state.query.trim() !== q || state.done) return;
+      if (searchText() !== q || state.done) return;
       state.histQ = { q, items: items.filter((x) => /^(https?|file|ftp):/i.test(x.url || '')).map(hist) };
-      renderDropdown();
+      renderSearch();
     } catch {}
   }, 120);
 }
+// What is being searched for: the palette's text while it shows, else the search box's (trimmed).
+const searchText = () => (state.palette ? el.palInput.value : state.query).trim();
+// Draw the results again (a source finished loading): in the palette while it shows, else the dropdown.
+const renderSearch = () => (state.palette ? renderPalette() : renderDropdown());
 // Every history entry (the last 90 days, and Chrome's own search for the text), once per page, newest first.
-// Built again only when one of the two lists changes.
+// Built again only when one of the two lists changes. `text`: the text searched for (trimmed).
 let histMemo = { h: undefined, hq: undefined, items: [] };
-function historyItems() {
-  const hq = state.histQ.q === state.query.trim() ? state.histQ : null;
+function historyItems(text = state.query.trim()) {
+  const hq = state.histQ.q === text ? state.histQ : null;
   if (histMemo.h === state.history && histMemo.hq === hq) return histMemo.items;
   const byUrl = new Map();
   for (const x of [...(state.history || []), ...(hq ? hq.items : [])]) {
@@ -1914,16 +1987,19 @@ function scoreBig(name, items, q, score) {
 function fullPass() {
   if (state.done) return;
   for (const c of Object.values(bigHits)) c.q = ''; // the next scoring reads every page
-  renderDropdown();
+  renderSearch();
 }
 const NONE = [];
 
 // All the sources in one list, scored the same way (searchScore: more and better word matches, more points).
 // A page found in several places is listed once, as the most useful of them (an open tab before its
 // bookmark, ...), with the best score any of them got. Ties: that order, then each source's own order.
-function ddRows() {
-  const q = state.query.trim().toLowerCase();
+// `text`: what was typed (the search box's, or the command palette's: both show the same results).
+function ddRows(text = state.query) {
+  const typed = text.trim();
+  const q = typed.toLowerCase();
   if (!q) return [];
+  const { found, foundClosed } = foundFor(q);
   const best = new Map();
   let order = 0;
   const add = (key, s, row) => {
@@ -1934,8 +2010,8 @@ function ddRows() {
     if (x.rank < cur.rank) best.set(key, { ...x, s: Math.max(s, cur.s) });
     else cur.s = Math.max(s, cur.s);
   };
-  for (const e of state.found) add(urlKey(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
-  for (const c of state.foundClosed) {
+  for (const e of found) add(urlKey(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
+  for (const c of foundClosed) {
     const s = Math.max(0, ...c.fields.map(([title, url]) => searchScore(q, title, url, noteOf(url))));
     add(c.kind === 'window' ? 'w:' + c.id : urlKey(c.url), s, { kind: 'closed', c });
   }
@@ -1943,10 +2019,10 @@ function ddRows() {
   // Bookmarks and history only while Settings -> Search includes them.
   const marks = pref('searchBookmarks'), hist = pref('searchHistory');
   if (marks) for (const { it: b, s } of scoreBig('marks', state.marks || NONE, q, (b) => searchScore(q, b.title, b.url, b.path))) add(urlKey(b.url), s, { kind: 'mark', b });
-  if (hist) for (const { it: x, s } of scoreBig('history', historyItems(), q, (x) => searchScore(q, x.title, x.url))) add(urlKey(x.url), s, { kind: 'visit', x });
+  if (hist) for (const { it: x, s } of scoreBig('history', historyItems(typed), q, (x) => searchScore(q, x.title, x.url))) add(urlKey(x.url), s, { kind: 'visit', x });
   const rows = [...best.values()].sort((a, b) => b.s - a.s || a.rank - b.rank || a.order - b.order).slice(0, DD_MAX);
   if (!rows.length) {
-    const url = asUrl(state.query.trim());
+    const url = asUrl(typed);
     if (url) rows.push({ kind: 'url', url });
     rows.push({ kind: 'google' });
   }
@@ -1970,7 +2046,8 @@ function flushSearch() {
   renderCount();
   renderActs();
 }
-const ddShown = () => !state.dd.hidden && state.dd.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
+const ddShown = () => !state.palette && !state.dd.hidden && state.dd.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
+
 function ddMove(d) {
   const n = state.dd.items.length;
   state.dd.hi = (((state.dd.hi + d) % n) + n) % n;
@@ -2003,6 +2080,74 @@ function ddPic(key, url, preview, cls = 'ddpic') {
   }
   return pic;
 }
+// A result's title row: the title, then any tags, then (at the far right) the icon of where it comes from
+// (`src`: { icon, label }, DD_SOURCES or the palette's own). `ql`: the search's words, marked in the title.
+function ddTitleRow(title, src, ql, testid, ...tags) {
+  const line = h('span', 'ddtrow', null, 'dd-title-row');
+  line.append(typeof title === 'string' ? hlSpan('ddtitle', title, ql) : title, ...tags.filter(Boolean)); // (or a node of its own)
+  const icon = h('span', 'ddsrc', null, testid);
+  icon.append(svgOf(ICON[src.icon]));
+  icon.title = t(src.label);
+  icon.setAttribute('role', 'img');
+  icon.setAttribute('aria-label', t(src.label));
+  line.append(icon);
+  return line;
+}
+// One search result (a ddRows() row) as an option: the dropdown's and the command palette's are the same.
+// `q`: the text searched for; `on`: highlighted; `id`: the option's id (aria-activedescendant points at it).
+function ddRowEl(r, q, on, id) {
+  const ql = q.toLowerCase();
+  const titleRow = (title, kind, ...tags) => ddTitleRow(title, DD_SOURCES[kind], ql, 'dd-source-' + kind, ...tags);
+  const row = h('div', 'ddr' + (on ? ' on' : ''), null, 'dd-row-' + r.kind);
+  row.id = id;
+  row.setAttribute('role', 'option');
+  row.setAttribute('aria-selected', String(on));
+  if (r.kind === 'tab') {
+    const tab = r.entry.tab;
+    const pic = ddPic('t' + tab.id, urlOf(tab), r.entry.preview);
+    const txt = h('span', 'ddtxt', null, 'dd-text');
+    const note = noteOf(urlOf(tab));
+    const noteHit = fieldHit(ql, note);
+    const w = tab.windowId !== CTX.srcWin && state.windows.find((x) => x.id === tab.windowId);
+    txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle'), 'dd-note-tag'), w && h('span', 'ddtag', w.label, 'dd-window-tag')),
+      hlSpan('ddsub', siteOf(urlOf(tab)), ql));
+    if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
+    row.append(pic, txt);
+  } else if (r.kind === 'mark') {
+    const icon = ddPic(r.b.url, r.b.url, null, 'ddicon');
+    const txt = h('span', 'ddtxt', null, 'dd-text');
+    txt.append(titleRow(r.b.title || siteOf(r.b.url), 'mark'), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), ql));
+    row.append(icon, txt);
+  } else if (r.kind === 'archived') {
+    const pic = ddPic('a' + r.a.id, r.a.url, state.archivePreviews[urlKey(r.a.url)]);
+    const txt = h('span', 'ddtxt', null, 'dd-text');
+    const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
+    txt.append(titleRow(r.a.title || siteOf(r.a.url), 'archived'), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), ql));
+    row.append(pic, txt);
+  } else if (r.kind === 'closed') {
+    const pic = ddPic('c' + r.c.id, r.c.url, r.c.preview);
+    const txt = h('span', 'ddtxt', null, 'dd-text');
+    const ago = r.c.ts ? timeAgo(r.c.ts / 1000) : '';
+    txt.append(titleRow(r.c.title || siteOf(r.c.url), 'closed'), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), ql));
+    row.append(pic, txt);
+  } else if (r.kind === 'visit') {
+    const icon = ddPic(r.x.url, r.x.url, null, 'ddicon');
+    const txt = h('span', 'ddtxt', null, 'dd-text');
+    const when = r.x.t ? t('visitedAgo', { when: timeAgo(r.x.t / 1000) }) : '';
+    txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
+    row.append(icon, txt);
+  } else if (r.kind === 'url') {
+    const icon = h('img', 'ddicon', null, 'dd-favicon');
+    icon.src = favicon(r.url);
+    icon.alt = '';
+    row.append(icon, h('span', 'ddtxt ddone', t('ddOpen', { address: q }), 'dd-text'));
+  } else {
+    const icon = h('span', 'ddicon ddg', 'G', 'dd-google-icon');
+    icon.setAttribute('aria-hidden', 'true');
+    row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', { text: q }), 'dd-text'));
+  }
+  return row;
+}
 function renderDropdown() {
   let dd = document.querySelector('.dd');
   const rows = state.query.trim() ? ddRows() : [];
@@ -2018,71 +2163,10 @@ function renderDropdown() {
   }
   const q = state.query.trim();
   let n = -1;
-  const ql = q.toLowerCase();
-  // The title, then any tags, then (at the far right) the icon of where it comes from.
-  const titleRow = (title, kind, ...tags) => {
-    const line = h('span', 'ddtrow', null, 'dd-title-row');
-    line.append(hlSpan('ddtitle', title, ql), ...tags.filter(Boolean));
-    const src = DD_SOURCES[kind];
-    const icon = h('span', 'ddsrc', null, 'dd-source-' + kind);
-    icon.append(svgOf(ICON[src.icon]));
-    icon.title = t(src.label);
-    icon.setAttribute('role', 'img');
-    icon.setAttribute('aria-label', t(src.label));
-    line.append(icon);
-    return line;
-  };
   dd.replaceChildren(...rows.map((r) => {
     if (r.note) return h('div', 'ddnote', r.note, 'dd-notice');
     const i = ++n;
-    const row = h('div', 'ddr' + (i === state.dd.hi ? ' on' : ''), null, 'dd-row-' + r.kind);
-    row.id = 'dd-' + i;
-    row.setAttribute('role', 'option');
-    row.setAttribute('aria-selected', String(i === state.dd.hi));
-    if (r.kind === 'tab') {
-      const tab = r.entry.tab;
-      const pic = ddPic('t' + tab.id, urlOf(tab), r.entry.preview);
-      const txt = h('span', 'ddtxt', null, 'dd-text');
-      const note = noteOf(urlOf(tab));
-      const noteHit = fieldHit(ql, note);
-      const w = tab.windowId !== CTX.srcWin && state.windows.find((x) => x.id === tab.windowId);
-      txt.append(titleRow(tab.title || siteOf(urlOf(tab)) || t('untitled'), 'tab', note && !noteHit && h('span', 'ddtag', t('noteTitle'), 'dd-note-tag'), w && h('span', 'ddtag', w.label, 'dd-window-tag')),
-        hlSpan('ddsub', siteOf(urlOf(tab)), ql));
-      if (noteHit) txt.append(hlSpan('ddsub ddnote2', note, ql)); // why it came up: its note
-      row.append(pic, txt);
-    } else if (r.kind === 'mark') {
-      const icon = ddPic(r.b.url, r.b.url, null, 'ddicon');
-      const txt = h('span', 'ddtxt', null, 'dd-text');
-      txt.append(titleRow(r.b.title || siteOf(r.b.url), 'mark'), hlSpan('ddsub', [siteOf(r.b.url), r.b.path].filter(Boolean).join(' · '), ql));
-      row.append(icon, txt);
-    } else if (r.kind === 'archived') {
-      const pic = ddPic('a' + r.a.id, r.a.url, state.archivePreviews[urlKey(r.a.url)]);
-      const txt = h('span', 'ddtxt', null, 'dd-text');
-      const ago = r.a.t ? timeAgo(r.a.t / 1000) : '';
-      txt.append(titleRow(r.a.title || siteOf(r.a.url), 'archived'), hlSpan('ddsub', [siteOf(r.a.url), ago].filter(Boolean).join(' · '), ql));
-      row.append(pic, txt);
-    } else if (r.kind === 'closed') {
-      const pic = ddPic('c' + r.c.id, r.c.url, r.c.preview);
-      const txt = h('span', 'ddtxt', null, 'dd-text');
-      const ago = r.c.ts ? timeAgo(r.c.ts / 1000) : '';
-      txt.append(titleRow(r.c.title || siteOf(r.c.url), 'closed'), hlSpan('ddsub', [r.c.kind === 'window' ? '' : siteOf(r.c.url), ago].filter(Boolean).join(' · '), ql));
-      row.append(pic, txt);
-    } else if (r.kind === 'visit') {
-      const icon = ddPic(r.x.url, r.x.url, null, 'ddicon');
-      const txt = h('span', 'ddtxt', null, 'dd-text');
-      const when = r.x.t ? t('visitedAgo', { when: timeAgo(r.x.t / 1000) }) : '';
-      txt.append(titleRow(r.x.title || siteOf(r.x.url), 'visit'), hlSpan('ddsub', [siteOf(r.x.url), when].filter(Boolean).join(' · '), ql));
-      row.append(icon, txt);
-    } else if (r.kind === 'url') {
-      const icon = h('img', 'ddicon', null, 'dd-favicon');
-      icon.src = favicon(r.url);
-      icon.alt = '';
-      row.append(icon, h('span', 'ddtxt ddone', t('ddOpen', { address: q }), 'dd-text'));
-    } else {
-      const icon = h('span', 'ddicon ddg', 'G', 'dd-google-icon');
-      icon.setAttribute('aria-hidden', 'true');
-      row.append(icon, h('span', 'ddtxt ddone', t('ddGoogle', { text: q }), 'dd-text'));
-    }
+    const row = ddRowEl(r, q, i === state.dd.hi, 'dd-' + i);
     row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; ddHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
     return row;
@@ -2098,7 +2182,8 @@ function renderDropdown() {
   const on = dd.querySelector('.ddr.on');
   if (on) on.scrollIntoView({ block: 'nearest' });
 }
-async function ddActivate(r) {
+// `text`: what was typed (the search box's, or the palette's), for "Open …" and "Search Google for …".
+async function ddActivate(r, text = state.query.trim()) {
   if (!r || state.done) return;
   if (r.kind === 'closed') return restoreClosed(r.c);
   if (r.kind === 'archived') return openArchived(r.a);
@@ -2110,7 +2195,8 @@ async function ddActivate(r) {
   }
   if (r.kind === 'mark') return openPage(r.b.url);
   if (r.kind === 'visit') return openPage(r.x.url);
-  return openFromBox(state.query.trim()); // 'url' and 'google'
+  return openFromBox(text); // 'url' and 'google'
+
 }
 // Reopen a recently closed tab (or window), into the window Tabazing was opened from; Chrome's own
 // entries come back with their history.
@@ -3038,10 +3124,10 @@ function closeBig() {
   if (bigEntry) { bigEntry = null; el.search.focus({ preventScroll: true }); }
 }
 
-// While a dialog, the archive or a big preview is open, the rest of the switcher is inert: Tab, clicks and
-// screen readers stay in it. Not the toast (its Undo works over the archive) or the live regions.
+// While a dialog, the archive, a big preview or the command palette is open, the rest of the switcher is inert:
+// Tab, clicks and screen readers stay in it. Not the toast (its Undo works over the archive) or the live regions.
 function updateInert() {
-  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .arch');
+  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .arch') || (state.palette && el.palette);
   for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live'));
 }
 
@@ -3054,7 +3140,7 @@ function tabbables(root) {
 }
 function focusLayer() {
   return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
-    || document.querySelector('#app > .pop') || document.querySelector('#app > .arch') || el.app;
+    || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
   const root = focusLayer();
@@ -3165,6 +3251,376 @@ function fancySelect(sel, { inPop = false } = {}) {
   return sel._fancy;
 }
 
+// ---------------------------------------------------------------- the command palette
+// Ctrl+Shift+Space from any page (background.js: the 'open-palette' command), or inside Tabazing '>' as the
+// first character in the search box, or Ctrl+K (⌘K). A panel at the top centre (html.palette: the rest is
+// dimmed and inert) with one box and one list, mixing a quick answer (lib/quick.js: sums, conversions,
+// colours, time zones, dates), actions (Chrome's and Tabazing's, matched like the search: searchScore on
+// their titles and keywords, in this language and in English) and the very results the search dropdown shows
+// for the same text (ddRows / ddRowEl). ↑/↓ move, Enter runs, Shift+Enter runs and stays in the palette, Esc
+// goes back to the switcher (or closes Tabazing when the palette was opened straight from the shortcut).
+//
+// What an action does afterwards (`after`): 'close' gives the page back (it acts on the page or Chrome: reload,
+// zoom, media...), 'switcher' shows the switcher (its result, and the Undo of closing tabs, are there), 'stay'
+// keeps the palette (copying: the note says it worked). `ui`: it opens something of Tabazing's (Settings, the
+// archive...), so the palette goes first. A failure keeps the palette, with a note saying so.
+const PAL_SOURCES = {
+  chrome: { icon: 'globe', label: 'palSrcChrome' },
+  tab: { icon: 'tab', label: 'palSrcTab' },
+  tabazing: { icon: 'bolt', label: 'palSrcTabazing' },
+  quick: { icon: 'calc', label: 'palSrcQuick' },
+};
+const PAL_TYPED_MAX = 8; // actions shown while typing (the search results and the quick answer come with them)
+const PAL_USEFUL = ['new-tab', 'new-window', 'incognito', 'reopen', 'dupes', 'settings']; // first with nothing typed
+// Chrome's own zoom steps (its menu's − and +).
+const ZOOMS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5];
+let srcTabInfo = null; // the tab Tabazing was opened over, read when the palette opens before the tabs are
+const srcTab = () => state.tabs.find((x) => x.id === CTX.srcTab) || srcTabInfo;
+const srcEntry = (tab) => state.entries.find((e) => e.kind === 'tab' && e.tab.id === tab.id) || { kind: 'tab', key: 't' + tab.id, tab };
+const tabName = (tab) => tab.title || siteOf(urlOf(tab)) || t('untitled');
+const isWeb = (tab) => /^(https?|file):/i.test(urlOf(tab));
+// Tabs not looked at for a week (Chrome's tab.lastAccessed), that can sleep: "Sleep tabs not used for a week".
+const staleTabs = () => state.tabs.filter((x) => !x.active && !x.discarded && x.lastAccessed > 0 && Date.now() - x.lastAccessed >= 7 * DAY_MS && !state.toSleep.has(x.id));
+const otherTabs = () => state.tabs.filter((x) => x.windowId === CTX.srcWin && x.id !== CTX.srcTab && !x.pinned);
+const chromePage = (url) => () => openPage(url);
+const isFullscreen = () => CTX.srcState === 'fullscreen'; // the window Tabazing was opened from, as it opened
+
+// Every action. `title` and `kw` (words it is also found by) are messages; `when`: offered only then;
+// `sub`: a second line (which tab, which page). Each one calls the function its button or menu item calls.
+const PAL_ACTIONS = [
+  // Chrome
+  { id: 'new-tab', group: 'chrome', icon: 'plus', after: 'close', title: () => t('newTab'), kw: () => t('palKwNewTab'), run: openNewTab },
+  { id: 'new-window', group: 'chrome', icon: 'window', after: 'close', title: () => t('palNewWindow'), kw: () => t('palKwNewWindow'),
+    run: async () => { await chrome.windows.create({ focused: true }); finish('switch'); } },
+  { id: 'incognito', group: 'chrome', icon: 'incognito', after: 'close', title: () => t('palIncognito'), kw: () => t('palKwIncognito'), err: () => t('palErrIncognito'),
+    run: async () => { await chrome.windows.create({ incognito: true, focused: true }); finish('switch'); } },
+  { id: 'reopen', group: 'chrome', icon: 'history', after: 'close', title: () => t('palReopen'), kw: () => t('palKwReopen'), err: () => t('palErrReopen'),
+    run: async () => {
+      if (CTX.mode === 'window') await chrome.windows.update(CTX.srcWin, { focused: true }).catch(() => {});
+      await chrome.sessions.restore(); // the most recently closed tab or window, with its history
+      finish('restore');
+    } },
+  { id: 'chrome-settings', group: 'chrome', icon: 'gear', after: 'close', title: () => t('palChromeSettings'), kw: () => t('palKwChromeSettings'), sub: () => 'chrome://settings', run: chromePage('chrome://settings') },
+  { id: 'ext-page', group: 'chrome', icon: 'puzzle', after: 'close', title: () => t('palExtPage'), kw: () => t('palKwExtPage'), sub: () => 'chrome://extensions/?id=' + chrome.runtime.id,
+    run: () => openPage('chrome://extensions/?id=' + chrome.runtime.id) },
+  { id: 'extensions', group: 'chrome', icon: 'puzzle', after: 'close', title: () => t('palExtensions'), kw: () => t('palKwExtensions'), sub: () => 'chrome://extensions', run: chromePage('chrome://extensions') },
+  { id: 'chrome-shortcuts', group: 'chrome', icon: 'keyboard', after: 'close', title: () => t('palChromeShortcuts'), kw: () => t('palKwChromeShortcuts'), sub: () => 'chrome://extensions/shortcuts', run: chromePage('chrome://extensions/shortcuts') },
+  { id: 'history', group: 'chrome', icon: 'visited', after: 'close', title: () => t('palHistory'), kw: () => t('palKwHistory'), sub: () => 'chrome://history', run: chromePage('chrome://history') },
+  { id: 'downloads', group: 'chrome', icon: 'download', after: 'close', title: () => t('palDownloads'), kw: () => t('palKwDownloads'), sub: () => 'chrome://downloads', run: chromePage('chrome://downloads') },
+  { id: 'bookmarks', group: 'chrome', icon: 'bookmark', after: 'close', title: () => t('palBookmarks'), kw: () => t('palKwBookmarks'), sub: () => 'chrome://bookmarks', run: chromePage('chrome://bookmarks') },
+  { id: 'clear-data', group: 'chrome', icon: 'eraser', after: 'close', title: () => t('palClearData'), kw: () => t('palKwClearData'), sub: () => 'chrome://settings/clearBrowserData', run: chromePage('chrome://settings/clearBrowserData') },
+  { id: 'passwords', group: 'chrome', icon: 'key', after: 'close', title: () => t('palPasswords'), kw: () => t('palKwPasswords'), sub: () => 'chrome://password-manager/passwords', run: chromePage('chrome://password-manager/passwords') },
+  // The tab Tabazing was opened over
+  { id: 'reload', group: 'tab', icon: 'reload', after: 'close', tab: true, title: () => t('reloadThis'), kw: () => t('palKwReload'), err: () => t('errReload'), run: (tab) => reloadTab(tab) },
+  { id: 'duplicate', group: 'tab', icon: 'dupe', after: 'switcher', tab: true, title: () => t('duplicateThis'), kw: () => t('palKwDuplicate'), err: () => t('errDuplicate'), run: (tab) => duplicateTab(tab) },
+  { id: 'pin', group: 'tab', icon: 'pin', after: 'switcher', tab: true, title: () => t(srcTab().pinned ? 'unpinThis' : 'pinThis'), kw: () => t('palKwPin'), err: () => t('errPin'), run: (tab) => togglePin(tab) },
+  { id: 'mute', group: 'tab', icon: 'muted', after: 'switcher', tab: true, title: () => t(isMuted(srcTab()) ? 'unmuteThis' : 'muteThis'), kw: () => t('palKwMute'), err: () => t('errMute'),
+    run: async (tab) => { const mute = !isMuted(tab); await toggleMute(tab); toast(t(mute ? 'mutedN' : 'unmutedN', { count: 1 })); } },
+  { id: 'close-tab', group: 'tab', icon: 'close', after: 'switcher', tab: true, title: () => t('closeTab'), kw: () => t('palKwCloseTab'), err: () => t('errClose'), run: (tab) => closeTab(srcEntry(tab)) },
+  { id: 'close-others', group: 'tab', icon: 'close', after: 'switcher', tab: true, when: () => otherTabs().length > 0, title: () => t('palCloseOthers'), kw: () => t('palKwCloseOthers'),
+    sub: () => t('tabs', { count: otherTabs().length }), err: () => t('errClose'), run: () => closeMany(otherTabs()) },
+  { id: 'move-window', group: 'tab', icon: 'window', after: 'switcher', tab: true, title: () => t('palMoveWindow'), kw: () => t('palKwMoveWindow'), err: () => t('errMove'), run: (tab) => moveToWindow([tab]) },
+  { id: 'zoom-in', group: 'tab', icon: 'zoomIn', after: 'close', tab: true, title: () => t('palZoomIn'), kw: () => t('palKwZoom'), err: () => t('palErrZoom'), run: (tab) => zoomTab(tab, 1) },
+  { id: 'zoom-out', group: 'tab', icon: 'zoomOut', after: 'close', tab: true, title: () => t('palZoomOut'), kw: () => t('palKwZoom'), err: () => t('palErrZoom'), run: (tab) => zoomTab(tab, -1) },
+  { id: 'zoom-reset', group: 'tab', icon: 'zoom', after: 'close', tab: true, title: () => t('palZoomReset'), kw: () => t('palKwZoom'), err: () => t('palErrZoom'), run: (tab) => zoomTab(tab, 0) },
+  { id: 'fullscreen', group: 'tab', icon: 'expand', after: 'close', tab: true, title: () => t(isFullscreen() ? 'palFullscreenOff' : 'palFullscreenOn'), kw: () => t('palKwFullscreen'), err: () => t('palErrFullscreen'), run: toggleFullscreen },
+  { id: 'copy-link', group: 'tab', icon: 'link', after: 'stay', tab: true, title: () => t('copyLink'), kw: () => t('palKwCopyLink'), err: () => t('copyFailed'), run: (tab) => copyLinks([tab], 'plain') },
+  { id: 'copy-md', group: 'tab', icon: 'md', after: 'stay', tab: true, title: () => t('palCopyMd'), kw: () => t('palKwCopyMd'), err: () => t('copyFailed'), run: (tab) => copyLinks([tab], 'md') },
+  { id: 'bookmark', group: 'tab', icon: 'bookmark', after: 'stay', tab: true, when: () => isWeb(srcTab()), title: () => t('palBookmarkThis'), kw: () => t('palKwBookmark'), err: () => t('palErrBookmark'), run: (tab) => bookmarkTab(tab) },
+  // Tabazing
+  { id: 'dupes', group: 'tabazing', icon: 'dupe', after: 'switcher', when: () => duplicates().length > 0, title: () => t('palDupes'), kw: () => t('palKwDupes'), sub: () => t('dupesBtn', { count: duplicates().length }), err: () => t('errClose'), run: () => closeDupes() },
+  { id: 'merge', group: 'tabazing', icon: 'merge', after: 'switcher', when: () => state.otherWindows.length > 0, title: () => t('mergeAll'), kw: () => t('palKwMerge'), sub: () => t('mergeN', { count: state.otherWindows.length }), err: () => t('errMerge'), run: () => mergeWindows(state.otherWindows) },
+  { id: 'sleep-old', group: 'tabazing', icon: 'moon', after: 'switcher', when: () => staleTabs().length > 0, title: () => t('palSleepOld'), kw: () => t('palKwSleepOld'), sub: () => t('tabs', { count: staleTabs().length }), err: () => t('errSleep'), run: () => sleepTabs(staleTabs()) },
+  { id: 'snooze', group: 'tabazing', icon: 'clock', ui: true, tab: true, when: () => isWorthReopening(urlOf(srcTab())), title: () => t('palSnooze'), kw: () => t('palKwSnooze'), err: () => t('errSnooze'),
+    run: (tab) => { const i = state.entries.findIndex((e) => e.kind === 'tab' && e.tab.id === tab.id); snoozeMenu([tab], (i >= 0 && cardAt(i)) || el.search); } },
+  { id: 'archive', group: 'tabazing', icon: 'archive', after: 'switcher', tab: true, when: () => isWorthReopening(urlOf(srcTab())), title: () => t('palArchive'), kw: () => t('palKwArchive'), err: () => t('errArchive'), run: (tab) => archiveTabs([tab]) },
+  { id: 'open-archive', group: 'tabazing', icon: 'archive', ui: true, title: () => t('palOpenArchive'), kw: () => t('palKwOpenArchive'), err: () => t('errArchiveOpen'), run: () => openArchive() },
+  { id: 'settings', group: 'tabazing', icon: 'gear', ui: true, title: () => t('palSettings'), kw: () => t('palKwSettings'), run: () => openSettings($('settings-btn')) },
+  { id: 'keys', group: 'tabazing', icon: 'keyboard', ui: true, title: () => t('keysTitle'), kw: () => t('palKwKeys'), run: () => openShortcuts() },
+  { id: 'theme-dark', group: 'tabazing', icon: 'moon', after: 'switcher', when: () => pref('theme') !== 'dark', title: () => t('palThemeDark'), kw: () => t('palKwTheme'), run: () => setTheme('dark') },
+  { id: 'theme-light', group: 'tabazing', icon: 'sun', after: 'switcher', when: () => pref('theme') !== 'light', title: () => t('palThemeLight'), kw: () => t('palKwTheme'), run: () => setTheme('light') },
+  { id: 'theme-system', group: 'tabazing', icon: 'sun', after: 'switcher', when: () => pref('theme') !== 'system', title: () => t('palThemeSystem'), kw: () => t('palKwTheme'), run: () => setTheme('system') },
+  { id: 'sort-recent', group: 'tabazing', icon: 'sort', after: 'switcher', when: () => state.sort !== 'recent', title: () => t('palSortRecent'), kw: () => t('palKwSort'), run: () => setSort('recent') },
+  { id: 'sort-order', group: 'tabazing', icon: 'sort', after: 'switcher', when: () => state.sort !== 'order', title: () => t('palSortOrder'), kw: () => t('palKwSort'), run: () => setSort('order') },
+  { id: 'sort-name', group: 'tabazing', icon: 'sort', after: 'switcher', when: () => state.sort !== 'name', title: () => t('palSortName'), kw: () => t('palKwSort'), run: () => setSort('name') },
+  { id: 'capture-all', group: 'tabazing', icon: 'camera', after: 'switcher', when: () => state.hostOk && missingPreviews().length > 0, title: () => t('palCaptureAll'), kw: () => t('palKwCapture'),
+    sub: () => t('tabs', { count: missingPreviews().length }), err: () => t('errCapture'), run: () => captureAll() },
+  { id: 'tour', group: 'tabazing', icon: 'bolt', ui: true, title: () => t('setTour'), kw: () => t('palKwTour'), run: () => tourStep(0) },
+  { id: 'media-toggle', group: 'tabazing', icon: 'play', after: 'close', when: () => !!currentMedia(), title: () => t(currentMedia().playing ? 'palMediaPause' : 'palMediaPlay'), kw: () => t('palKwMedia'),
+    sub: () => [currentMedia().title, currentMedia().site].filter(Boolean).join(' · '), err: () => t('mediaFailed'), run: () => playerDo('toggle') },
+  { id: 'media-next', group: 'tabazing', icon: 'next', after: 'close', when: () => !!currentMedia() && currentMedia().canNext, title: () => t('palMediaNext'), kw: () => t('palKwMedia'),
+    sub: () => currentMedia().title, err: () => t('mediaFailed'), run: () => playerDo('nexttrack') },
+  { id: 'media-prev', group: 'tabazing', icon: 'prev', after: 'close', when: () => !!currentMedia() && currentMedia().canPrev, title: () => t('palMediaPrev'), kw: () => t('palKwMedia'),
+    sub: () => currentMedia().title, err: () => t('mediaFailed'), run: () => playerDo('previoustrack') },
+];
+const PAL_BY_ID = new Map(PAL_ACTIONS.map((a) => [a.id, a]));
+// The actions that can run now: one about the current tab needs that tab (it may still be loading).
+const paletteActions = () => PAL_ACTIONS.filter((a) => (!a.tab || !!srcTab()) && (!a.when || a.when()));
+// What an action is found by: its title and keywords in the interface language, and in English (so "new tab"
+// finds it in every language). The words are scored like the search (searchScore, remembered per field).
+function inEnglish(fn) {
+  const cur = getLocale();
+  if (cur === 'en') return fn();
+  setLocale('en');
+  try { return fn(); } finally { setLocale(cur); }
+}
+function actionFields(a) {
+  const [title, kw] = [a.title(), a.kw()];
+  return [title, kw, ...inEnglish(() => [a.title(), a.kw()])];
+}
+// Every row the palette shows for `text`, best first: the quick answer, then actions and search results by
+// score (an action first when they score the same), then "Open …" / "Search Google for …" as the dropdown has
+// them. With nothing typed: the most useful actions, the recently run ones, then all the rest.
+function paletteItems(text) {
+  const typed = String(text || '').trim();
+  const q = typed.toLowerCase();
+  const acts = paletteActions();
+  if (!q) {
+    const rank = (a) => { const u = PAL_USEFUL.indexOf(a.id); if (u >= 0) return u; const r = state.palRecent.indexOf(a.id); return r >= 0 ? 100 + r : 1000; };
+    return acts.map((a, i) => ({ kind: 'action', a, recent: !PAL_USEFUL.includes(a.id) && state.palRecent.includes(a.id), i }))
+      .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i);
+  }
+  const out = [];
+  const res = quick(typed, { lang: uiLang() });
+  if (res) out.push(res.kind === 'currency' ? { kind: 'currency' } : { kind: 'quick', res });
+  const actions = acts.map((a) => ({ kind: 'action', a, s: searchScore(q, ...actionFields(a)) })).filter((x) => x.s > 0)
+    .sort((x, y) => y.s - x.s).slice(0, PAL_TYPED_MAX);
+  const rows = ddRows(typed);
+  const scored = rows.filter((r) => r.kind && r.s > 0);
+  const rest = rows.filter((r) => !(r.kind && r.s > 0)); // "Open …", "Search Google for …", and notes
+  out.push(...[...actions, ...scored].sort((x, y) => y.s - x.s || (x.kind === 'action' ? 0 : 1) - (y.kind === 'action' ? 0 : 1)), ...rest);
+  return out;
+}
+
+const PAL_ICON = (name, testid) => { const s = h('span', 'palico', null, testid); s.append(svgOf(ICON[name])); return s; };
+// An action's row: its icon, title (with "Recent"), where it acts (the source icon), and which tab or page.
+function paletteActionRow(it, ql, on, id) {
+  const a = it.a;
+  const row = h('div', 'ddr palr' + (on ? ' on' : ''), null, 'palette-row-action');
+  row.id = id;
+  row.dataset.action = a.id;
+  row.setAttribute('role', 'option');
+  row.setAttribute('aria-selected', String(on));
+  const txt = h('span', 'ddtxt', null, 'dd-text');
+  txt.append(ddTitleRow(a.title(), PAL_SOURCES[a.group], ql, 'palette-source-' + a.group, it.recent && h('span', 'ddtag', t('palRecent'), 'palette-recent-tag')));
+  const sub = a.sub ? a.sub() : a.tab ? tabName(srcTab()) : '';
+  if (sub) txt.append(hlSpan('ddsub', sub, ql));
+  row.append(PAL_ICON(a.icon, 'palette-action-icon'), txt);
+  return row;
+}
+// A quick answer: the result big (a colour's swatch beside it), what it is and the whole expression below,
+// and a button that copies the whole expression (the keyboard has Shift+Enter for that).
+function paletteQuickRow(res, on, id) {
+  const row = h('div', 'ddr palr palq' + (on ? ' on' : ''), null, 'palette-row-quick');
+  row.id = id;
+  row.setAttribute('role', 'option');
+  row.setAttribute('aria-selected', String(on));
+  let pic;
+  if (res.swatch) { pic = h('span', 'palico palswatch', null, 'palette-swatch'); pic.style.background = res.swatch; }
+  else pic = PAL_ICON('calc', 'palette-quick-icon');
+  const value = res.kind === 'days' ? t('palDays', { count: res.count }) : res.value;
+  const caption = res.kind === 'calc' ? t('palQCalc') : res.kind === 'unit' ? t('palQUnit') : res.kind === 'base' ? t('palQBase')
+    : res.kind === 'color' ? t('palQColor') : res.kind === 'time' ? t('palQTime', { place: res.place }) : t('palQDate');
+  const txt = h('span', 'ddtxt', null, 'dd-text');
+  const big = h('span', 'ddtitle palval', value, 'palette-quick-value');
+  const detail = [caption, res.expr, ...(res.alts || []), res.offset].filter(Boolean).join(' · ');
+  txt.append(ddTitleRow(big, PAL_SOURCES.quick, '', 'palette-source-quick'), h('span', 'ddsub', detail, 'palette-quick-expr'));
+  const copy = h('button', 'palcopy', null, 'palette-copy-expr');
+  copy.type = 'button';
+  copy.title = t('palCopyExpr') + ' (Shift+Enter)';
+  copy.setAttribute('aria-label', t('palCopyExpr'));
+  copy.append(svgOf(ICON.dupe));
+  copy.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) copyQuick(res, true); });
+  row.append(pic, txt, copy);
+  mouseOnly(row); // an option holds no buttons for the keyboard: Shift+Enter does the same
+  row.setAttribute('aria-description', t('palCopyHint'));
+  return row;
+}
+function paletteCurrencyRow(on, id) {
+  const row = h('div', 'ddr palr paloff' + (on ? ' on' : ''), null, 'palette-row-currency');
+  row.id = id;
+  row.setAttribute('role', 'option');
+  row.setAttribute('aria-selected', String(on));
+  row.setAttribute('aria-disabled', 'true');
+  const txt = h('span', 'ddtxt', null, 'dd-text');
+  txt.append(h('span', 'ddtitle', t('palCurrency'), 'palette-currency-text'), h('span', 'ddsub', t('palCurrencyWhy'), 'palette-currency-why'));
+  row.append(PAL_ICON('calc', 'palette-quick-icon'), txt);
+  return row;
+}
+
+let palFrame = 0;
+function renderPalette() {
+  const p = state.palette;
+  if (!p || state.done) return;
+  cancelAnimationFrame(palFrame);
+  palFrame = 0;
+  const text = el.palInput.value;
+  const ql = text.trim().toLowerCase();
+  const rows = paletteItems(text);
+  p.items = rows.filter((r) => r.kind);
+  if (p.hi >= p.items.length) p.hi = 0;
+  let n = -1;
+  const nodes = rows.map((r) => {
+    if (!r.kind) return h('div', 'ddnote', r.note, 'dd-notice');
+    const i = ++n, on = i === p.hi, id = 'pal-' + i;
+    const row = r.kind === 'action' ? paletteActionRow(r, ql, on, id) : r.kind === 'quick' ? paletteQuickRow(r.res, on, id)
+      : r.kind === 'currency' ? paletteCurrencyRow(on, id) : ddRowEl(r, text.trim(), on, id);
+    row.addEventListener('mousemove', () => { if (state.palette && state.palette.hi !== i) { state.palette.hi = i; palHighlight(false); } });
+    row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) palRun(r, { shift: e.shiftKey }); });
+    return row;
+  });
+  if (!p.items.length) nodes.push(h('p', 'palnone', t('palNothing'), 'palette-empty'));
+  el.palList.replaceChildren(...nodes);
+  const direct = p.from === 'shortcut'; // Esc closes Tabazing (else it goes back to the switcher)
+  el.palFoot.textContent = t(direct ? 'palFootClose' : 'palFootBack');
+  palHighlight();
+}
+// Move the highlight without building the list again; the box points screen readers at it.
+function palHighlight(scroll = true) {
+  const p = state.palette;
+  if (!p) return;
+  const rows = [...el.palList.querySelectorAll('.palr, .ddr')];
+  rows.forEach((x, k) => { x.classList.toggle('on', k === p.hi); x.setAttribute('aria-selected', String(k === p.hi)); });
+  const on = rows[p.hi];
+  el.palInput.setAttribute('aria-expanded', String(rows.length > 0));
+  if (on) el.palInput.setAttribute('aria-activedescendant', on.id); else el.palInput.removeAttribute('aria-activedescendant');
+  if (on && scroll) on.scrollIntoView({ block: 'nearest' });
+}
+function palMove(d) {
+  const p = state.palette;
+  const n = p.items.length;
+  if (!n) return;
+  p.hi = (((p.hi + d) % n) + n) % n;
+  palHighlight();
+}
+
+// Open it. `from`: 'shortcut' (Ctrl+Shift+Space: Esc then closes Tabazing) or 'switcher' (Esc goes back to it);
+// `text`: what the box starts with; `saved`: the search box's text, put back on the way out.
+function openPalette({ from = 'switcher', text = '', saved = el.search.value } = {}) {
+  if (state.done) return;
+  if (state.palette) { el.palInput.focus({ preventScroll: true }); el.palInput.select(); return; }
+  closePops();
+  closeBig();
+  hideTip();
+  if (archiveOpen()) closeArchive();
+  if (state.modal) closeDialog();
+  stopHolding();
+  state.palette = { from, saved, hi: 0, items: [] };
+  state.dd.hidden = true;
+  renderDropdown();
+  document.documentElement.classList.add('palette');
+  el.palette.hidden = false;
+  el.palInput.value = text;
+  updateInert();
+  el.palInput.focus({ preventScroll: true });
+  el.palInput.setSelectionRange(text.length, text.length);
+  if (text.trim()) startSearch(text.trim());
+  renderPalette();
+  getPaletteRecent().then((r) => { state.palRecent = r; if (state.palette && !el.palInput.value.trim()) renderPalette(); }).catch(() => {});
+  if (!srcTab() && Number.isInteger(CTX.srcTab)) chrome.tabs.get(CTX.srcTab).then((tab) => { srcTabInfo = tab; renderPalette(); }).catch(() => {});
+}
+// Back to the switcher, with the search box as it was.
+function exitPalette() {
+  const p = state.palette;
+  if (!p) return;
+  state.palette = null;
+  cancelAnimationFrame(palFrame);
+  palFrame = 0;
+  document.documentElement.classList.remove('palette');
+  el.palette.hidden = true;
+  el.palList.replaceChildren();
+  el.palInput.value = '';
+  el.palInput.removeAttribute('aria-activedescendant');
+  updateInert();
+  el.search.value = state.query = p.saved;
+  state.dd.hidden = !p.saved.trim();
+  state.dd.hi = 0;
+  flushSearch();
+  el.search.focus({ preventScroll: true });
+}
+// What a row does: a quick answer is copied, the currency row does nothing, an action runs, a search result
+// opens as it would from the dropdown.
+async function palRun(it, { shift = false } = {}) {
+  if (!it || state.done) return;
+  if (it.kind === 'currency') return;
+  if (it.kind === 'quick') return copyQuick(it.res, shift);
+  if (it.kind === 'action') return runAction(it.a, { keep: shift });
+  return ddActivate(it, el.palInput.value.trim());
+}
+// Enter: the result; Shift+Enter (or the row's button): the whole expression.
+async function copyQuick(res, whole = false) {
+  const text = whole ? res.expr : res.copy;
+  toast((await copyText(text)) ? t('palCopied', { text }) : t('copyFailed'));
+}
+async function runAction(a, { keep = false } = {}) {
+  if (state.done) return;
+  notePaletteRecent(a.id).then((r) => { state.palRecent = r; }).catch(() => {});
+  const tab = a.tab ? srcTab() : null;
+  if (a.tab && !tab) return;
+  if (a.ui) exitPalette(); // what it opens takes the focus and the top layer
+  try { await a.run(tab); } catch (err) { if (!state.done) toast(a.err ? a.err() : t('actFailed'), err); return; }
+  if (state.done) return;
+  const after = a.ui ? 'switcher' : keep ? 'stay' : a.after;
+  if (after === 'close') return finish('cancel');
+  if (after === 'switcher') return exitPalette();
+  renderPalette(); // stays: titles may have changed (Pin -> Unpin)
+}
+function paletteKey(e) {
+  const k = e.key;
+  const p = state.palette;
+  if (MODIFIERS.has(k) || k === 'Shift') return;
+  if (palFrame && (k === 'Enter' || k.startsWith('Arrow'))) renderPalette(); // act on what was just typed
+  if (k === 'Escape') { e.preventDefault(); e.stopPropagation(); return p.from === 'shortcut' ? finish('cancel') : exitPalette(); }
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK') {
+    e.preventDefault();
+    if (p.from === 'shortcut') { el.palInput.focus({ preventScroll: true }); el.palInput.select(); } else exitPalette();
+    return;
+  }
+  if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); return palMove(k === 'ArrowDown' ? 1 : -1); }
+  if (k === 'Enter') {
+    e.preventDefault();
+    if (e.repeat || e.isComposing) return;
+    if (!keysAllowed()) return finish('cancel');
+    return palRun(p.items[p.hi], { shift: e.shiftKey });
+  }
+  if (k === 'Backspace' && !el.palInput.value && p.from === 'switcher' && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); return exitPalette(); }
+  if (e.target !== el.palInput && k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) el.palInput.focus({ preventScroll: true });
+}
+function onPaletteInput() {
+  if (!state.palette) return;
+  state.palette.hi = 0;
+  startSearch(el.palInput.value.trim());
+  if (!palFrame) palFrame = requestAnimationFrame(() => { palFrame = 0; renderPalette(); });
+}
+
+// ---- what the palette's actions call that had no function of their own
+// Zoom the tab in or out one of Chrome's steps (d = 1 / -1), or back to 100 % (d = 0).
+function nextZoom(z, d) {
+  if (!d) return 1;
+  const list = d > 0 ? ZOOMS : [...ZOOMS].reverse();
+  return list.find((x) => (d > 0 ? x > z + 0.001 : x < z - 0.001)) ?? list[list.length - 1];
+}
+async function zoomTab(tab, d) {
+  const next = nextZoom(await chrome.tabs.getZoom(tab.id), d);
+  await chrome.tabs.setZoom(tab.id, next);
+  toast(t('palZoomed', { level: new Intl.NumberFormat(uiLang(), { style: 'percent' }).format(next) }));
+}
+// Full screen on or off for the window Tabazing was opened from.
+async function toggleFullscreen() {
+  const w = await chrome.windows.get(CTX.srcWin);
+  await chrome.windows.update(CTX.srcWin, { state: w.state === 'fullscreen' ? 'normal' : 'fullscreen' });
+}
+// Bookmark the page in Chrome (in "Other bookmarks", as Chrome's star does without a folder chosen); once only.
+async function bookmarkTab(tab) {
+  if (!chrome.bookmarks) return toast(t('ddNoMarks'));
+  const url = urlOf(tab);
+  const have = await chrome.bookmarks.search({ url }).catch(() => []);
+  if (have.length) return toast(t('palMarkedAlready'));
+  await chrome.bookmarks.create({ title: tab.title || siteOf(url), url });
+  if (state.marks) state.marks = null; // the search reads them again
+  toast(t('palMarked', { title: tabName(tab) }));
+}
+
 // ---------------------------------------------------------------- dialogs
 // Two dialogs live in the switcher: the first-run tour and the review prompt. While one is
 // open it owns the keyboard (Esc closes it, not the switcher). Neither is shown while Alt is
@@ -3201,7 +3657,7 @@ function closeDialog() {
 function whenTapMode(fn) {
   const t0 = performance.now();
   const tick = () => {
-    if (state.done || state.modal || el.search.value) return; // closed, or already busy: don't interrupt
+    if (state.done || state.modal || state.palette || el.search.value) return; // closed, or already busy: don't interrupt
     if (!state.holding) return fn();
     if (performance.now() - t0 < 10000) setTimeout(tick, 150); // Alt still held from the shortcut: wait for the release
   };
@@ -3211,6 +3667,8 @@ function whenTapMode(fn) {
 // ---- first-run tour: short cards in the accent colour, each pointing at what it explains.
 const keyRows = (...rows) => { const d = h('div', 'keys', null, 'dialog-keys'); rows.forEach(([keys, word]) => { const k = h('span', '', null, 'dialog-keys-combo'); k.append(...keys); d.append(k, h('span', '', word, 'dialog-keys-action')); }); return d; };
 const ALT = IS_MAC ? '⌥' : 'Alt+';
+const PALETTE_KEY = IS_MAC ? '⌘⇧Space' : 'Ctrl+Shift+Space'; // the 'open-palette' command's suggested key (manifest.json)
+
 // `when`: shown only if that is on screen. `picking`: the step shows every card's tick box.
 const TOUR_ALL = [
   { id: 'switch', title: () => t('tourSwitchTitle'), hl: '.card[aria-selected="true"]', body: () => [
@@ -3221,6 +3679,7 @@ const TOUR_ALL = [
       [[K('Del', '⌘⌫')], t('keyClose')], [[K('Ctrl+Z', '⌘Z')], t('keyUndo')], [[K('Shift+F10')], t('keyActions')], [[K('Esc')], t('keyLeave')]),
     para(t('tourKeysMore'))] },
   { id: 'search', title: () => t('tour3Title'), hl: '.search', body: () => [para(t('tour3Body')), keyRows([[K('Ctrl+F', '⌘F')], t('keySearch')])] },
+  { id: 'palette', title: () => t('tourPaletteTitle'), hl: '.search', body: () => [para(t('tourPaletteBody', { key: PALETTE_KEY })), keyRows([[K('>'), K('Ctrl+K', '⌘K')], t('keyPaletteIn')])] },
   { id: 'cards', title: () => t('tourCardsTitle'), hl: '.card[aria-selected="true"]', body: () => [para(t('tourCardsBody')), para(t('tourCardsMouse', { key: IS_MAC ? '⌘' : 'Ctrl' }))] },
   { id: 'later', title: () => t('tourLaterTitle'), hl: '#archive-btn', body: () => [para(t('tourLaterBody'))] },
   { id: 'many', title: () => t('tourManyTitle'), hl: '.card[aria-selected="true"] .pick', picking: true, body: () => [para(t('tourManyBody', { key: IS_MAC ? '⌘' : 'Ctrl' }))] },
@@ -3395,6 +3854,13 @@ function applyTheme(v) {
   document.documentElement.classList.toggle('light', themePref === 'light' || (themePref === 'system' && lightMq.matches));
 }
 lightMq.addEventListener('change', () => applyTheme(themePref));
+// Settings -> Theme (or the palette): apply, keep, and tell the page hosting the overlay, whose shade follows it.
+function setTheme(v) {
+  applyTheme(v);
+  state.prefs = { ...(state.prefs || PREFS_FALLBACK), theme: themePref };
+  updatePrefs({ theme: themePref }).catch(() => {});
+  if (CTX.mode === 'overlay') parent.postMessage({ tabazing: FRAME_MSG.READY, light: document.documentElement.classList.contains('light') }, '*'); // the page's shade
+}
 // Settings -> Title lines: two lines of title on the default-size cards (html.lines2), else one.
 function applyLines() {
   document.documentElement.classList.toggle('lines2', pref('titleLines') === 2);
@@ -3489,11 +3955,7 @@ async function openSettings(anchor, redraw = false) {
   for (const [v, label] of [['dark', t('setThemeDark')], ['light', t('setThemeLight')], ['system', t('setThemeSystem')]]) {
     const o = h('option', '', label, 'settings-theme-' + v); o.value = v; if (v === prefs.theme) o.selected = true; theme.append(o);
   }
-  theme.addEventListener('change', () => {
-    applyTheme(theme.value);
-    updatePrefs({ theme: theme.value }).catch(() => {});
-    if (CTX.mode === 'overlay') parent.postMessage({ tabazing: FRAME_MSG.READY, light: document.documentElement.classList.contains('light') }, '*'); // the page's shade
-  });
+  theme.addEventListener('change', () => setTheme(theme.value));
   size.addEventListener('change', () => {
     state.cardSize = size.value;
     updatePrefs({ cardSize: size.value }).catch(() => {});
@@ -3591,6 +4053,7 @@ function shortcutGroups() {
       [[t('kbdDrag')], t('keyDrag')],
     ]],
     ['search', t('keysGroupSearch'), [[[C + 'F'], t('keySearch')], [[t('kbdType')], t('keyType')], [['↑', '↓'], t('keyResults')]]],
+    ['palette', t('keysGroupPalette'), [[[PALETTE_KEY], t('keyPalette')], [['>', C + 'K'], t('keyPaletteIn')], [['Shift+Enter'], t('keyPaletteStay')]]],
     ['esc', t('keysGroupEsc'), [[['Esc'], t('keyEsc')]]],
   ];
 }
@@ -3691,6 +4154,7 @@ function onKeyDown(e) {
   // Tab moves the focus through the page's controls, within the top layer; only while Alt is still held
   // from Alt+Q / Alt+W does it step through the cards, like Alt+Tab (below).
   if (e.key === 'Tab' && !state.holding) return keepFocusIn(e);
+  if (state.palette) return paletteKey(e); // the command palette has the keyboard
   if (!(e.shiftKey && e.key.startsWith('Arrow')) && !MODIFIERS.has(e.key) && e.key !== 'Shift') state.shiftBase = null; // a run of Shift+arrows ends
   if (e.key === 'Escape' && document.querySelector('.tip')) { e.preventDefault(); e.stopPropagation(); return hideTip(); } // the note tooltip first
   if (document.querySelector('.bigback')) { // the big preview has the keyboard: Esc closes it, Enter opens that tab
@@ -3764,6 +4228,8 @@ function onKeyDown(e) {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') { e.preventDefault(); el.search.focus(); el.search.select(); return; }
+  // Ctrl+K (⌘K): the command palette (Esc comes back here).
+  if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.code === 'KeyK') { e.preventDefault(); if (!e.repeat) openPalette({ from: 'switcher' }); return; }
   // Ctrl+Z undoes what was last done here: a close, a merge, a move (in a search box with text, it stays the box's own undo).
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ' && !el.search.value) { e.preventDefault(); if (!e.repeat) undoLast(); return; }
   // Ctrl+Space (⌘Space) ticks or unticks the selected card; Space alone is its big preview.
@@ -3850,7 +4316,7 @@ function stopHolding() {
     if (state.done || state.holding) return;
     document.documentElement.classList.remove('alttab');
     relayout();
-    el.search.focus({ preventScroll: true });
+    if (!state.palette) el.search.focus({ preventScroll: true });
   }, 60);
 }
 
@@ -3917,32 +4383,30 @@ function listen() {
   el.search.addEventListener('beforeinput', (e) => { if (altDown) e.preventDefault(); });
   el.search.addEventListener('input', () => {
     if (altDown && el.search.value !== state.query) { el.search.value = state.query; return; } // slipped through anyway
+    // '>' first: the command palette, with whatever followed it; the box keeps what it had.
+    if (el.search.value.startsWith('>')) {
+      const rest = el.search.value.slice(1).trimStart();
+      el.search.value = state.query;
+      return openPalette({ from: 'switcher', text: rest, saved: state.query });
+    }
     state.query = el.search.value; state.dd.hidden = false; state.dd.hi = 0;
-    // First search: read the bookmarks and recent history (once), unless Settings -> Search leaves them out.
-    if (state.query.trim() && state.marks === null && pref('searchBookmarks')) loadMarks();
-    if (state.query.trim() && state.history === null && pref('searchHistory')) loadHistory();
-    searchHistory(state.query.trim()); // Chrome's history search for older pages (a moment after typing stops)
+    startSearch(state.query.trim());
     if (!searchFrame) searchFrame = requestAnimationFrame(flushSearch); // once per frame, however fast the typing
   });
+  el.palInput.addEventListener('input', onPaletteInput);
+  el.palList.addEventListener('mousedown', (e) => e.preventDefault()); // keep the focus (and the caret) in the palette's box
   // A click anywhere but the search box or its dropdown closes the dropdown (typing brings it back).
   document.addEventListener('mousedown', (e) => {
     if (!(e.target instanceof Element) || e.target.closest('.search, .dd')) return;
     if (!state.dd.hidden && state.dd.items.length) { state.dd.hidden = true; renderDropdown(); }
   }, true);
-  el.newtab.addEventListener('click', async (e) => {
+  el.newtab.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!pointerAllowed()) return;
-    try { await chrome.tabs.create({ windowId: CTX.srcWin, active: true }); } catch {}
-    finish('switch');
+    if (pointerAllowed()) openNewTab();
   });
   el.sweepBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!pointerAllowed()) return;
-    const tabIds = missingPreviews().map((x) => x.id).slice(0, LIMITS.SWEEP_MAX_TABS);
-    asking = true; // the progress window takes focus: that is not the user leaving
-    chrome.runtime.sendMessage({ type: MSG.SWEEP, tabIds, reopen: CTX.mode === 'overlay' ? CTX.srcTab : null })
-      .then((r) => { asking = false; if (r && r.n) finish('switch'); else toast(t('sweepNothing')); })
-      .catch(() => { asking = false; toast(t('errCapture')); });
+    if (pointerAllowed()) captureAll();
   });
   el.starFilter.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleStarFilter(); });
   el.sort.addEventListener('click', (e) => e.stopPropagation());
@@ -3969,6 +4433,11 @@ function listen() {
   // A click on the backdrop around the content (not on the cards, the gaps between them, a heading, the toolbar
   // or the window list) closes Tabazing, like a click outside a dialog.
   el.app.addEventListener('click', (e) => {
+    // With the palette up everything else is inert: a click beside it leaves it, as Esc does.
+    if (state.palette) {
+      if (!el.palette.contains(e.target) && pointerAllowed()) { if (state.palette.from === 'shortcut') finish('cancel'); else exitPalette(); }
+      return;
+    }
     if ([el.app, el.bar, el.body, el.scroller].includes(e.target)) finish('cancel');
   });
   window.addEventListener('mousemove', (e) => {
@@ -4013,7 +4482,8 @@ function listen() {
   chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     if (state.done || sender.id !== chrome.runtime.id || sender.tab) return;
     if (msg && msg.type === MSG.CYCLE) {
-      if (msg.dir === 0) stopHolding(); // Alt+E: stay open
+      if (msg.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' }); // Ctrl+Shift+Space
+      else if (msg.dir === 0) stopHolding(); // Alt+E: stay open
       else qPress(msg.dir === -1 ? -1 : 1, msg.hold === true);
       respond({ ok: true });
     }
@@ -4081,6 +4551,16 @@ function getLaunch() {
   fancySelect(el.sort);
   listen();
   watchVisibility();
+  // Ctrl+Shift+Space: the palette shows at once, before any tab is read (they fill it in as they come).
+  if (CTX.palette) {
+    el.app.hidden = false;
+    openPalette({ from: 'shortcut' });
+    if (CTX.mode === 'overlay') {
+      parent.postMessage({ tabazing: FRAME_MSG.READY, light: document.documentElement.classList.contains('light') }, '*');
+      readyAt = performance.now();
+    }
+    window.focus();
+  }
   const mediaRead = loadMedia().catch(() => []); // the player's list, read alongside the tabs
   chrome.runtime.sendMessage({ type: MSG.MEDIA_CHECK }).catch(() => {}); // ...and checked with the pages (the list follows)
   await load(bootPrefs, { previews: false });
@@ -4116,7 +4596,7 @@ function getLaunch() {
     readyAt = performance.now();
   }
   window.focus();
-  el.search.focus({ preventScroll: true });
+  (state.palette ? el.palInput : el.search).focus({ preventScroll: true });
   // Then "Recently closed" and starred pages that aren't open; drawn once the opening animation is over,
   // so it doesn't restart on the cards.
   loadExtras().then(() => drawLater()).catch(() => {});
@@ -4164,4 +4644,9 @@ export {
   previewBatch, gridColumns, deriveHits, markHits, pref, wokenTag, pinnedBadge, headButtons, layoutHeader, NARROW_W, TIGHT_W,
   toastRun, toastPause, toastResume, placeToast, toastLeft, moveBack, UNDO_SESSION_MS, localInput, snoozePicker, extendPick,
   applyLines, searchPlaceholder, shortcutGroups, openShortcuts, ICON_TIPS,
+  searchFor, foundFor, foundMemo, searchText, renderSearch, ddTitleRow, ddRowEl, openNewTab, captureAll, startSearch, setTheme,
+  PAL_SOURCES, PAL_TYPED_MAX, PAL_USEFUL, ZOOMS, srcTabInfo, srcTab, srcEntry, tabName, isWeb, staleTabs, otherTabs, chromePage,
+  PAL_ACTIONS, PAL_BY_ID, paletteActions, inEnglish, actionFields, paletteItems, PAL_ICON, paletteActionRow, paletteQuickRow,
+  paletteCurrencyRow, palFrame, renderPalette, palHighlight, palMove, openPalette, exitPalette, palRun, copyQuick, runAction,
+  paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, bookmarkTab, PALETTE_KEY,
 };

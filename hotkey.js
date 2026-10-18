@@ -1,4 +1,4 @@
-// In-page fallback for Alt+Q / Alt+W / Alt+E (classic content script, can't use imports), and the
+// In-page fallback for Alt+Q / Alt+W / Alt+E and Ctrl+Shift+Space (classic content script, can't use imports), and the
 // state of the Alt key, which the overlay reads when it opens (a quick Alt+Q tap may be over by then).
 // Chrome's shortcut system can leave a key unassigned when another extension
 // or app already owns it; this makes Alt+Q work on web pages anyway.
@@ -37,21 +37,25 @@
   // Alt+Q: open, card before the current tab; Alt+W: the card after it (both: letting go of Alt switches);
   // Alt+E: open and stay. Shift turns the direction around.
   const KEYS = { KeyQ: [-1, true], KeyW: [1, true], KeyE: [0, false] };
+  // Ctrl+Shift+Space (Cmd+Shift+Space on a Mac): the command palette.
+  const isPalette = (e) => e.code === 'Space' && e.shiftKey && !e.altKey && e.ctrlKey !== e.metaKey;
   function onKey(e) {
-    if (!e.isTrusted || !KEYS[e.code] || !e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
+    if (!e.isTrusted || e.repeat) return;
+    const palette = isPalette(e);
+    if (!palette && (!KEYS[e.code] || !e.altKey || e.ctrlKey || e.metaKey)) return;
     if (!alive()) { window.removeEventListener('keydown', onKey, true); return; }
     e.preventDefault();
     e.stopImmediatePropagation();
+    if (palette) return send({ type: HOTKEY, dir: 0, hold: false, palette: true });
     const [dir, hold] = KEYS[e.code];
-    send(e.shiftKey && dir ? -dir : dir, hold);
+    send({ type: HOTKEY, dir: e.shiftKey && dir ? -dir : dir, hold });
   }
 
   // The service worker can be asleep or still starting when the key is pressed. Sending a
   // message normally wakes it, but if it isn't listening yet the call is rejected, and a
   // silently swallowed rejection looks like "Alt+Q does nothing". So retry once after a
   // moment, by which time the worker has woken.
-  function send(dir, hold) {
-    const msg = { type: HOTKEY, dir, hold };
+  function send(msg) {
     chrome.runtime.sendMessage(msg).catch(() => new Promise((r) => setTimeout(r, 50))
       .then(() => { if (alive()) return chrome.runtime.sendMessage(msg); })
       .catch(() => {}));

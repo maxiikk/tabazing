@@ -32,6 +32,37 @@ describe('commands and the toolbar icon', () => {
     expect(launch().ctx).toEqual({ src: tab.id, win: w.id, dir, via: 'key', hold, state: 'normal', mode: 'overlay' });
   });
 
+  it('open-palette (Ctrl+Shift+Space) opens on the current tab, to stay, straight into the command palette', async () => {
+    const { tab, w } = seed();
+    chrome.commands.onCommand._emit('open-palette', tab);
+    await flush();
+    expect(cycleCalls()).toEqual([{ type: MSG.CYCLE, dir: 0, hold: false, palette: true }]);
+    expect(launch().ctx).toEqual({ src: tab.id, win: w.id, dir: 0, via: 'key', hold: false, state: 'normal', mode: 'overlay', palette: true });
+  });
+
+  it('a switcher already open is asked to show its palette', async () => {
+    const { tab } = seed();
+    chrome.runtime.sendMessage.mockResolvedValue({ ok: true });
+    chrome.commands.onCommand._emit('open-palette', tab);
+    await flush();
+    expect(cycleCalls()).toEqual([{ type: MSG.CYCLE, dir: 0, hold: false, palette: true }]);
+    expect(launch()).toBeUndefined();
+  });
+
+  it('the palette opens in the popup window too, where the page can’t host it', async () => {
+    const { tab } = seed('chrome://settings/');
+    chrome.commands.onCommand._emit('open-palette', tab);
+    await flush();
+    expect(launch().ctx).toMatchObject({ mode: 'window', palette: true });
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'popup' }));
+  });
+
+  it('the manifest declares the command with Ctrl+Shift+Space (⌘⇧Space on a Mac), four commands in all', () => {
+    const { commands } = chrome.runtime.getManifest();
+    expect(Object.keys(commands)).toHaveLength(4);
+    expect(commands['open-palette']).toEqual({ description: '__MSG_cmdPalette__', suggested_key: { default: 'Ctrl+Shift+Space', mac: 'Command+Shift+Space' } });
+  });
+
   it('ignores unknown commands', async () => {
     chrome.commands.onCommand._emit('something-else', seed().tab);
     await flush();
