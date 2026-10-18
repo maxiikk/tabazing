@@ -18,6 +18,15 @@
         <input id="search" type="search" data-i18n-placeholder="searchPlaceholder" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="open-grid snoozed-grid closed-grid" data-testid="search">
         <span id="count" class="count" aria-live="polite" data-testid="count"></span>
       </label>
+      <!-- The media player: what plays in the tabs (switcher.js renderPlayer). Hidden when nothing does. -->
+      <div id="player" class="player" role="group" data-i18n-aria="mediaPlayer" hidden data-testid="player">
+        <span id="player-pic" class="ppic" data-testid="player-pic"></span>
+        <span class="ptext" data-testid="player-text"><span id="player-title" class="ptitle" data-testid="player-title"></span><span id="player-sub" class="psub" data-testid="player-sub"></span></span>
+        <button id="player-prev" class="pbtn" type="button" data-i18n-title="mediaPrev" data-i18n-aria="mediaPrev" data-testid="player-prev"></button>
+        <button id="player-toggle" class="pbtn main" type="button" data-testid="player-toggle"></button>
+        <button id="player-next" class="pbtn" type="button" data-i18n-title="mediaNext" data-i18n-aria="mediaNext" data-testid="player-next"></button>
+        <button id="player-more" class="pbtn more" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-title="mediaList" data-i18n-aria="mediaList" data-testid="player-more"></button>
+      </div>
       <div class="hint" aria-hidden="true" data-testid="hint">
         <kbd data-testid="hint-key">←</kbd><kbd data-testid="hint-key">→</kbd> <span data-i18n="hintMove" data-testid="hint-move">move</span> · <kbd data-testid="hint-key">Enter</kbd> <span data-i18n="hintOpen" data-testid="hint-open">open</span> · <kbd data-mac="⌘⌫" data-testid="hint-key">Del</kbd> <span data-i18n="hintClose" data-testid="hint-close">close tab</span> · <kbd data-mac="⌥S" data-testid="hint-key">Alt+S</kbd> <span data-i18n="hintStar" data-testid="hint-star">star</span> · <kbd data-testid="hint-key">Esc</kbd> <span data-i18n="hintExit" data-testid="hint-exit">exit</span> · <kbd data-testid="hint-key">Shift+F10</kbd> <span data-i18n="hintActions" data-testid="hint-actions">actions</span><span id="hint-win" hidden data-testid="hint-win"> · <kbd data-mac="⌃←" data-testid="hint-key">Ctrl+←</kbd><kbd data-mac="⌃→" data-testid="hint-key">Ctrl+→</kbd> <span data-i18n="hintWindow" data-testid="hint-window">window</span></span>
       </div>

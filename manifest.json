@@ -44,6 +44,29 @@
         "<all_urls>"
       ],
       "run_at": "document_start"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "media-hook.js"
+      ],
+      "match_about_blank": true,
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "media-relay.js"
+      ],
+      "match_about_blank": true,
+      "matches": [
+        "<all_urls>"
+      ],
+      "run_at": "document_start"
     }
   ],
   "content_security_policy": {
@@ -76,7 +99,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "3.0.3",
+  "version": "3.1.0",
   "web_accessible_resources": [
     {
       "matches": [

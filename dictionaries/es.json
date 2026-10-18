@@ -274,5 +274,15 @@
   "hintActions": "acciones",
   "keyActions": "acciones de la tarjeta (seleccionar, fijar, posponer…)",
   "menuSelect": "Seleccionar",
-  "menuUnselect": "Deseleccionar"
+  "menuUnselect": "Deseleccionar",
+  "mediaPlayer": "Contenido que se reproduce en tus pestañas",
+  "mediaPrev": "Anterior",
+  "mediaNext": "Siguiente",
+  "mediaPlay": "Reproducir",
+  "mediaPause": "Pausar",
+  "mediaList": "Todo el contenido multimedia de tus pestañas",
+  "mediaGoTo": "Ir a la pestaña",
+  "mediaPlaying": "Reproduciendo",
+  "mediaPaused": "En pausa",
+  "mediaFailed": "El contenido de esa pestaña no respondió."
 }

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-18
+
+### Added
+
+- A media player in the header, beside the search box: the preview and title of what a tab is playing, with Previous, Play / Pause and Next. Its ⌄ button lists everything playable in all your tabs, each with its own buttons and Go to tab.
+- Previous and Next work on sites that offer them to the browser (YouTube, Spotify, SoundCloud and others); play / pause works on any page with audio or video. Tabs already open when Tabazing is installed or updated get the player right away.
+
 ## [3.0.3] - 2026-10-17
 
 ### Removed
@@ -137,7 +144,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...HEAD
+[3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...HEAD
+[3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...9e19aa0
 [3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...868f87a
 [3.0.1]: https://github.com/maxiikk/tabazing/compare/ef9a3f9...6d950ea
 [3.0.0]: https://github.com/maxiikk/tabazing/compare/84ab029...ef9a3f9

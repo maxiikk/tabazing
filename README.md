@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **3.0.3** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **3.1.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -144,6 +144,16 @@ Type anywhere and the text goes into the search box. As you type, a dropdown und
 - The count in the search box shows how many open and closed tabs matched.
 - While searching, the bar at the bottom offers **Select all N matching tabs**, so you can act on every match at once (see [Selecting many tabs](#selecting-many-tabs-and-the-actions-bar)).
 - The cards behind the dropdown do not change while you search. Press Esc to clear the search.
+
+### Media player
+
+When a tab is playing a video or music, a small player appears in the header, right of the search box and the same height. It shows the preview of that tab (or its icon), the title of what is playing (and the artist or the site under it), and **Previous**, **Play / Pause** and **Next** buttons. It is hidden while nothing plays, and while you hold Alt after Alt+Q or Alt+W.
+
+- **Play / Pause** works on any video or audio. **Previous** and **Next** work where the site has its own previous / next track buttons (the ones Chrome's own media controls show, as on YouTube, Spotify or SoundCloud); elsewhere they are greyed out.
+- The **⌄** button at the end opens **All media in your tabs**: one row per tab that has something to play, in every window, playing first. Each row has its preview, title, site, a moving-bars sign while it plays, and its own **Previous**, **Play / Pause**, **Next** and **Go to tab** buttons. Click a row to show it in the header player. **Go to tab** switches to that tab, like picking its card. **Tab** moves through the list, **Esc**, a click outside or the ⌄ again closes it.
+- Short clips (under 30 seconds), muted looping videos (background videos, animated "GIFs") and media that has nothing loaded are left out, unless the site describes them as media to Chrome.
+- Pages that were already open when Tabazing was installed or updated only show up once they play sound, with their tab's title, and only Play / Pause works there until they are reloaded.
+- If a page doesn't respond (some players ignore outside play requests), a message says so and the button goes back.
 
 ### Windows
 
@@ -310,13 +320,14 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
   - **Stars, notes and snoozed tabs** (address, title, time) until you remove them.
   - **Settings and sort order**, the first-run, nudge and feedback-prompt counters.
   - **Tab usage order**, kept only in memory and cleared when Chrome closes.
+  - **What each tab is playing** (title, artist, playing or paused, which buttons the site offers) for the media player, kept only in memory and forgotten when the tab closes or loads another page.
 - **Archived tabs** are ordinary Chrome bookmarks, so they sync with your Chrome account if you have bookmark sync turned on.
 
 | Permission | Why Tabazing needs it |
 |---|---|
 | `tabs` | List your tabs and their titles and addresses, and switch, close, move, pin, mute, reload, duplicate and unload them. |
-| Host access to all sites (`<all_urls>`) | Take a screenshot of the visible tab for its preview, show the switcher as an overlay on the page, and catch Alt+Q on web pages when Chrome's shortcut is unavailable. |
-| `scripting` | Put the overlay, the Alt+Q listener, the "Tabazing is ready" card and the "Looking for a tab?" note into pages. |
+| Host access to all sites (`<all_urls>`) | Take a screenshot of the visible tab for its preview, show the switcher as an overlay on the page, catch Alt+Q on web pages when Chrome's shortcut is unavailable, and see what a page is playing for the media player. |
+| `scripting` | Put the overlay, the Alt+Q listener, the "Tabazing is ready" card and the "Looking for a tab?" note into pages, and press play, pause, previous or next in a page from the media player. |
 | `storage` | Save previews, stars, notes, snoozed tabs, settings and the closed-tabs log on this device. |
 | `unlimitedStorage` | Lift Chrome's 10 MB storage limit so the sharp copies used by the big preview fit. Previews are still capped and expire. |
 | `favicon` | Show each site's icon on its card and in search results. |
@@ -342,7 +353,7 @@ npx vitest run tests/switcher/archive    # run part of it
 npm run test:watch                       # re-run on change
 ```
 
-- `tests/` mirrors the source: `tests/lib/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/sweep-page.test.js`.
+- `tests/` mirrors the source: `tests/lib/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`.
 - `tests/setup/chrome.js` is an in-memory fake of the `chrome.*` APIs, reset before every test. `tests/setup/dom.js` adds what jsdom lacks. `tests/helpers/switcher.js` (`bootSwitcher`) boots the real switcher page.
 - `switcher.js` and `background.js` end with an `export { … }` list so tests can reach their functions. Add new top-level functions to it.
 - **Tests find elements only by `data-testid`**, never by role, id, class or tag. Every element the extension creates carries one: in HTML as an attribute, in `switcher.js` through `h(tag, cls, text, testid)` (and `button(testid, label, cls, fn)` in dialogs), elsewhere via `el.dataset.testid`. Repeated elements share one test id per kind (`card-tab`, `card-closed`, `dd-row-mark`).

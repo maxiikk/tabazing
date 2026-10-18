@@ -274,5 +274,15 @@
   "hintActions": "действия",
   "keyActions": "действия с карточкой (выбрать, закрепить, отложить…)",
   "menuSelect": "Выбрать",
-  "menuUnselect": "Снять выбор"
+  "menuUnselect": "Снять выбор",
+  "mediaPlayer": "Что играет во вкладках",
+  "mediaPrev": "Предыдущий",
+  "mediaNext": "Следующий",
+  "mediaPlay": "Воспроизвести",
+  "mediaPause": "Пауза",
+  "mediaList": "Всё, что играет во вкладках",
+  "mediaGoTo": "Перейти на вкладку",
+  "mediaPlaying": "Играет",
+  "mediaPaused": "На паузе",
+  "mediaFailed": "Вкладка не ответила на команду."
 }

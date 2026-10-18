@@ -7,7 +7,7 @@
 // Trust: messages can come from the content script on any page (untrusted
 // page context, possibly a compromised renderer) or from our own switcher
 // page. Every message is checked for sender and shape; content scripts can
-// only ask "open the switcher", nothing else.
+// only ask "open the switcher" and say what their own frame plays, nothing else.
 //
 // Everything here must be safe to run more than once: the worker can be
 // suspended and restarted at any moment, and install/reload re-runs setup.
@@ -19,7 +19,7 @@ import {
   rememberTab, rememberTabs, forgetTabMeta, logClosedTab, flushClosedTabs, cleanupClosedLog,
   setOverlayTab, clearOverlayTab, createLaunch, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPrefs,
-  takeDueSnoozed,
+  takeDueSnoozed, parseMedia, setMedia, forgetMedia,
 } from './lib/store.js';
 import { dayOf } from './lib/review.js';
 import { loadLang } from './lib/i18n.js';
@@ -63,8 +63,7 @@ chrome.permissions.onAdded.addListener((p) => {
   // The user just allowed site access they had withheld ("On click" in chrome://extensions):
   // put the shortcut listener into the tabs that are already open, and take a first preview.
   if (p.origins && p.origins.length) {
-    chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] }).then((tabs) => Promise.allSettled(tabs.map((t) =>
-      chrome.scripting.executeScript({ target: { tabId: t.id, allFrames: true }, files: ['hotkey.js'] })))).catch(() => {});
+    chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] }).then(injectPageScripts).catch(() => {});
     chrome.tabs.query({ active: true, lastFocusedWindow: true }).then(([t]) => t && scheduleCapture(t.windowId, 300)).catch(() => {});
   }
 });
@@ -92,6 +91,9 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   else if (tab.active && info.status === 'complete') prepareSwitcher(tab);
   // Chrome unloaded (or reloaded) this tab while we were running: that's a real "Sleeping" tab.
   if (typeof info.discarded === 'boolean') markDiscarded(tabId, info.discarded).catch(() => {});
+  // A new page (or a reload): what the old one played is gone; the new one reports for itself. A page
+  // that changes its address itself (history.pushState) doesn't start loading, and keeps its media.
+  if (info.status === 'loading') forgetMedia(tabId).catch(() => {});
   if (info.status === 'complete' && tab.active && !isSweeping()) {
     scheduleCapture(tab.windowId, 450);
     offerFlyout(tab);
@@ -110,6 +112,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   removeFromMru(tabId);
   markDiscarded(tabId, false).catch(() => {});
   logClosedTab(tabId).catch(() => {});
+  forgetMedia(tabId).catch(() => {});
 });
 // Closes are logged in batches a moment later (logClosedTab): write a waiting one before Chrome stops the worker.
 if (chrome.runtime.onSuspend) chrome.runtime.onSuspend.addListener(() => { flushClosedTabs().catch(() => {}); });
@@ -271,12 +274,20 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     const [t] = await chrome.tabs.query({ active: true, lastFocusedWindow: true }).catch(() => []);
     if (t) offerFlyout(t);
   }
-  // Tabs that were open before install/reload don't have the content script
-  // yet. hotkey.js guards itself, so injecting twice is harmless.
-  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] });
-  await Promise.allSettled(tabs.map((t) =>
-    chrome.scripting.executeScript({ target: { tabId: t.id, allFrames: true }, files: ['hotkey.js'] })));
+  await injectPageScripts(await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] }));
 });
+
+// Tabs that were open before install/reload (or before site access was allowed) don't have the content
+// scripts yet: put them in. Each guards itself, so injecting twice is harmless. The media relay goes in before
+// the media hook, so it is listening when the hook says what the page already plays.
+function injectPageScripts(tabs) {
+  return Promise.allSettled(tabs.map(async (t) => {
+    const target = { tabId: t.id, allFrames: true };
+    await chrome.scripting.executeScript({ target, files: ['hotkey.js'] }).catch(() => {});
+    await chrome.scripting.executeScript({ target, files: ['media-relay.js'] }).catch(() => {});
+    await chrome.scripting.executeScript({ target, files: ['media-hook.js'], world: 'MAIN' }).catch(() => {});
+  }));
+}
 
 // ------------------------------------------------------------ opening the switcher
 let opening = null;   // { t, extra } while a switcher is loading (dedupes rapid presses)
@@ -773,6 +784,14 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     case MSG.SWEEP_CANCEL:
       if (isOwnUrl(sender.url, 'sweep.html')) cancelSweep();
       return;
+    case MSG.MEDIA: {
+      // What a frame plays (media-relay.js): only about the tab and frame it comes from, checked, kept in
+      // memory for the switcher's player. A page can claim anything here, but only for itself.
+      if (!fromContentScript(sender) || !Number.isInteger(sender.frameId) || sender.frameId < 0 || sender.tab.incognito) return;
+      const state = parseMedia(msg.state);
+      if (state) setMedia(sender.tab.id, sender.frameId, state).catch(() => {});
+      return;
+    }
     case MSG.FLYOUT_DONE:
       if (fromContentScript(sender)) updateOnboard({ flyout: true }).catch(() => {});
       return;
@@ -819,5 +838,5 @@ export {
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
   trigger, openSwitcher, injectInto, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
   WATCH_FIRST_MS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
-  flyoutOver, offerFlyout, injectFlyout, captureOne, reopenOver, fromContentScript, fromSwitcher,
+  flyoutOver, offerFlyout, injectFlyout, injectPageScripts, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

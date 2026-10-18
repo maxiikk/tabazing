@@ -175,6 +175,15 @@ describe('onInstalled', () => {
     expect(L().get(KEY.PREVIEW_CLEAN)).toBe(Date.now()); // setup({ fresh: true })
   });
 
+  it('puts the media scripts into open tabs too: the relay first, then the hook in the page world', async () => {
+    patternQuery();
+    const { tab } = seed('https://a.com/');
+    await chrome.runtime.onInstalled._emit({ reason: 'update' })[0];
+    await flush();
+    const files = chrome.scripting.executeScript.mock.calls.filter(([o]) => o.files && o.target.tabId === tab.id).map(([o]) => [o.files[0], o.world || 'ISOLATED', o.target.allFrames]);
+    expect(files).toEqual([['hotkey.js', 'ISOLATED', true], ['media-relay.js', 'ISOLATED', true], ['media-hook.js', 'MAIN', true]]);
+  });
+
   it('update: no first-run flags or flyout, but the content script all the same', async () => {
     patternQuery();
     const { tab } = seed('https://a.com/');

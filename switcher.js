@@ -26,6 +26,7 @@ import { t } from './lib/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './lib/ext.js';
 import { applyAccent, ACCENTS } from './lib/accent.js';
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './lib/archive.js';
+import { loadMedia, mediaAction } from './lib/media.js';
 
 let CTX = null; // set once the launch token has been verified (see boot)
 
@@ -45,6 +46,8 @@ const el = {
   body: $('body'),
   toast: $('toast'), clip: $('clip'), modal: $('modal'), dialog: $('dialog'),
   live: $('live-status'), liveAlert: $('live-alert'), archiveBtn: $('archive-btn'),
+  player: $('player'), playerPic: $('player-pic'), playerTitle: $('player-title'), playerSub: $('player-sub'),
+  playerPrev: $('player-prev'), playerToggle: $('player-toggle'), playerNext: $('player-next'), playerMore: $('player-more'),
 };
 
 // Mac keyboards: Option instead of Alt, and the "delete" key is Backspace.
@@ -106,6 +109,9 @@ const state = {
   archSel: 0,           // the selected card in the archive overlay
   urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
   pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
+  media: [],            // what plays in the tabs, playing first (lib/media.js mediaEntries): the player and its list
+  mediaCurrent: null,   // tab id of the media the player shows (chosen in its list, or last used); else the first
+  mediaPreviews: {},    // normalized URL -> preview (or null: none), for media tabs the cards don't show
 };
 
 // ---------------------------------------------------------------- icons
@@ -134,6 +140,11 @@ const ICON = {
   bookmark: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M4 2.2h8v11.6L8 10.9l-4 2.9z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
   visited: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 4.8V8l2.3 1.5" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   archive: '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  prev: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3.5 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 3.6v8.8a.5.5 0 0 1-.8.4L5.9 8.4a.5.5 0 0 1 0-.8l6.3-4.4a.5.5 0 0 1 .8.4Z" fill="currentColor"/></svg>',
+  next: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M12.5 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3 3.6v8.8a.5.5 0 0 0 .8.4l6.3-4.4a.5.5 0 0 0 0-.8L3.8 3.2a.5.5 0 0 0-.8.4Z" fill="currentColor"/></svg>',
+  play: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.5 2.9v10.2a.6.6 0 0 0 .9.5l8-5.1a.6.6 0 0 0 0-1L5.4 2.4a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>',
+  pause: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="3.8" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/></svg>',
+  goto: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 };
 
 // ---------------------------------------------------------------- helpers
@@ -261,7 +272,7 @@ function firstShown() {
 
 async function loadExtras() {
   const arch = loadArchived(); // archived pages are left out of "Recently closed": loadClosed waits for it
-  await Promise.all([arch, loadClosed(arch), loadStarPreviews(), loadSnoozePreviews()]);
+  await Promise.all([arch, loadClosed(arch), loadStarPreviews(), loadSnoozePreviews(), loadMediaPreviews()]);
 }
 async function loadSnoozePreviews() {
   state.snoozePreviews = await getPreviews(state.snoozed.map((x) => x.url)).catch(() => ({}));
@@ -942,6 +953,7 @@ function render(only) {
   renderCount();
   renderTools();
   renderActs();
+  renderPlayer();
   if (!only) state.cardW = Math.floor(cardWidth(state.matchCount));
   el.body.style.setProperty('--top', topOf() + 'px');
   if (only) redrawCards(only);
@@ -1261,15 +1273,7 @@ async function choose(i) {
       await chrome.tabs.create({ url: entry.item.url, windowId: CTX.srcWin, active: true });
       return finish('switch');
     }
-    if (entry.kind === 'tab') {
-      const tab = entry.tab;
-      if (tab.id === CTX.srcTab && CTX.mode === 'overlay') return finish('cancel');
-      await chrome.tabs.update(tab.id, { active: true });
-      if (CTX.mode === 'window' || tab.windowId !== CTX.srcWin) {
-        await chrome.windows.update(tab.windowId, { focused: true });
-      }
-      return finish('switch');
-    }
+    if (entry.kind === 'tab') return await switchToTab(entry.tab);
     // Recently closed: restore into the window the user came from.
     if (CTX.mode === 'window') await chrome.windows.update(CTX.srcWin, { focused: true }).catch(() => {});
     const c = entry.item;
@@ -1280,6 +1284,16 @@ async function choose(i) {
     console.warn('[Tabazing] could not open entry:', e && e.message);
     finish('cancel');
   }
+}
+
+// Show an open tab and close the switcher (a card, or "Go to tab" in the media list). Rejects when Chrome can't.
+async function switchToTab(tab) {
+  if (tab.id === CTX.srcTab && CTX.mode === 'overlay') return finish('cancel');
+  await chrome.tabs.update(tab.id, { active: true });
+  if (CTX.mode === 'window' || tab.windowId !== CTX.srcWin) {
+    await chrome.windows.update(tab.windowId, { focused: true });
+  }
+  return finish('switch');
 }
 
 // Anything destructive takes two presses: the first arms it (the button asks "sure?"), the second acts.
@@ -2148,6 +2162,213 @@ async function duplicateTab(tab) {
   await chrome.tabs.create({ url: urlOf(tab), windowId: tab.windowId, index: tab.index + 1, active: false, pinned: !!tab.pinned, openerTabId: tab.id });
   await reload();
   toast(t('duplicatedOne', { title: tab.title || siteOf(urlOf(tab)) }));
+}
+
+// ---- the media player, right of the search box: what plays in the tabs (its picture, title and buttons), and
+// the chevron's list of everything playable in every tab. The pages say what they play (media-hook.js), the
+// background keeps it (KEY.MEDIA), and every change of it is read again here (listen(): refreshMedia). The
+// buttons act in the page itself (lib/media.js) and show the change at once; the page's report confirms it.
+const currentMedia = () => state.media.find((m) => m.tabId === state.mediaCurrent) || state.media[0] || null;
+const mediaPreview = (m) => state.previews[m.tabId] || state.mediaPreviews[normalizeUrl(urlOf(m.tab))] || null;
+// The picture (the tab's screenshot, else its icon), made once per tab and capture and reused by every redraw.
+const mediaPics = new Map();
+function mediaPic(m, testid) {
+  const p = mediaPreview(m);
+  const k = testid + '|' + m.tabId + '|' + (p && p.img ? (p.t || 0) + ':' + p.img.length : urlOf(m.tab));
+  let pic = mediaPics.get(k);
+  if (!pic) {
+    if (p && p.img) { pic = h('img', 'mshot', null, testid + '-preview'); pic.decoding = 'async'; pic.src = p.img; }
+    else { pic = h('img', 'mfav', null, testid + '-favicon'); pic.src = favicon(urlOf(m.tab)); }
+    pic.alt = '';
+    if (mediaPics.size > 100) mediaPics.clear();
+    mediaPics.set(k, pic);
+  }
+  return pic;
+}
+// Previews of media tabs the cards don't show (other windows): read once each.
+async function loadMediaPreviews() {
+  const want = state.media.filter((m) => !state.previews[m.tabId] && !state.pvPending.has(m.tabId) && !(normalizeUrl(urlOf(m.tab)) in state.mediaPreviews));
+  if (!want.length) return;
+  const got = await getPreviews(want.map((m) => urlOf(m.tab))).catch(() => ({}));
+  for (const m of want) { const k = normalizeUrl(urlOf(m.tab)); state.mediaPreviews[k] = got[k] || null; }
+}
+function paintToggle(b, playing) {
+  b.replaceChildren(svgOf(playing ? ICON.pause : ICON.play));
+  b.title = t(playing ? 'mediaPause' : 'mediaPlay'); // the label says what a press does
+  b.setAttribute('aria-label', b.title);
+}
+// Drawn with every render(), so only a change touches the page.
+let playerSig = '';
+function renderPlayer() {
+  const m = currentMedia();
+  if (!m) {
+    if (el.player.contains(document.activeElement)) el.search.focus({ preventScroll: true });
+    el.player.hidden = true;
+    playerSig = '';
+    return;
+  }
+  el.player.hidden = false;
+  const p = mediaPreview(m);
+  const sig = [m.tabId, m.frameId, m.title, m.artist, m.site, m.playing, m.canPrev, m.canNext, p ? p.t : 0, uiLang()].join('\n');
+  if (sig === playerSig) return;
+  playerSig = sig;
+  if (!el.playerPrev.firstChild) { el.playerPrev.append(svgOf(ICON.prev)); el.playerNext.append(svgOf(ICON.next)); el.playerMore.append(svgOf(ICON.chevron)); }
+  el.playerPic.replaceChildren(mediaPic(m, 'player'));
+  el.playerTitle.textContent = m.title || m.site || t('untitled');
+  el.playerSub.textContent = m.artist || m.site;
+  el.playerTitle.parentElement.title = m.title;
+  el.playerPrev.disabled = !m.canPrev;
+  el.playerNext.disabled = !m.canNext;
+  paintToggle(el.playerToggle, m.playing);
+}
+const renderMedia = () => { renderPlayer(); renderMediaList(); };
+
+// Read what plays again (a page reported a change). Changes during a read are read once more after it.
+let mediaLoading = null, mediaAgain = false;
+function refreshMedia() {
+  if (mediaLoading) { mediaAgain = true; return mediaLoading; }
+  mediaLoading = (async () => {
+    do {
+      mediaAgain = false;
+      const list = await loadMedia().catch(() => null);
+      if (state.done) return;
+      if (list) state.media = list;
+      await loadMediaPreviews();
+      if (!state.done) renderMedia();
+    } while (mediaAgain && !state.done);
+  })().finally(() => { mediaLoading = null; });
+  return mediaLoading;
+}
+
+// A button: play / pause ('toggle'), previous or next. The player and the list show the new state at once;
+// if the page doesn't act, they go back and a note says so.
+async function mediaDo(m, action) {
+  if (action === 'toggle') action = m.playing ? 'pause' : 'play';
+  const was = m.playing;
+  if (action === 'play' || action === 'pause') { m.playing = action === 'play'; renderMedia(); }
+  let ok = false, err = null;
+  try { ok = await mediaAction(m.tabId, m.frameId, action); } catch (e) { err = e; }
+  if (ok || state.done) return;
+  m.playing = was;
+  renderMedia();
+  toast(t('mediaFailed'), err);
+}
+// The player's own buttons act on what it shows, and keep showing it (the list puts what plays first,
+// which would otherwise swap it for another tab's media the moment it is paused).
+function playerDo(action) {
+  const m = currentMedia();
+  if (!m) return;
+  state.mediaCurrent = m.tabId;
+  mediaDo(m, action);
+}
+function pickMedia(m) {
+  state.mediaCurrent = m.tabId;
+  renderMedia();
+}
+async function goToMedia(m) {
+  if (state.done) return;
+  try { await switchToTab(m.tab); } catch (e) { console.warn('[Tabazing] could not open the tab:', e && e.message); finish('cancel'); }
+}
+
+// The chevron's list: like Settings, a card that takes the focus, keeps Tab inside, and closes with Esc,
+// a press outside or the chevron again, giving the focus back to the chevron.
+let mediaOrder = []; // tab ids in the order the open list shows them: rows don't jump while you use them
+function openMediaList() {
+  const open = document.querySelector('.pop.mediapop');
+  closePops();
+  if (open || !state.media.length) return;
+  const anchor = el.playerMore;
+  const pop = h('div', 'pop mediapop', null, 'media-list');
+  pop.id = 'media-list';
+  pop.setAttribute('role', 'dialog');
+  pop.setAttribute('aria-modal', 'true'); // Tab stays in it (keepFocusIn) until it closes
+  pop.setAttribute('aria-label', t('mediaList'));
+  const rows = h('div', 'mlist', null, 'media-rows');
+  pop.append(h('h4', '', t('mediaList'), 'media-list-title'), rows);
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); pop.close(); } });
+  const outside = (e) => { if (!pop.contains(e.target) && !anchor.contains(e.target)) pop.close(); };
+  pop.close = () => {
+    if (!pop.isConnected) return;
+    pop.remove();
+    mediaOrder = [];
+    document.removeEventListener('mousedown', outside, true);
+    anchor.setAttribute('aria-expanded', 'false');
+    anchor.removeAttribute('aria-controls');
+    (el.player.hidden ? el.search : anchor).focus({ preventScroll: true });
+  };
+  el.app.append(pop);
+  anchor.setAttribute('aria-expanded', 'true');
+  anchor.setAttribute('aria-controls', pop.id);
+  renderMediaList();
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.right - pop.offsetWidth)) + 'px';
+  pop.style.top = (r.bottom + 8) + 'px'; // opens below the player
+  setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
+  const cur = pop.querySelector('.mrow.on .mpick') || tabbables(pop)[0];
+  if (cur) cur.focus({ preventScroll: true });
+}
+function renderMediaList() {
+  const pop = document.querySelector('.pop.mediapop');
+  if (!pop) return;
+  if (!state.media.length) return pop.close();
+  const rank = new Map(mediaOrder.map((id, i) => [id, i]));
+  const at = (m) => (rank.has(m.tabId) ? rank.get(m.tabId) : rank.size); // new ones go last, in their own order
+  const list = [...state.media].sort((a, b) => at(a) - at(b));
+  mediaOrder = list.map((m) => m.tabId);
+  // The rows are built again: the focus goes back to the same button of the same row.
+  const f = document.activeElement;
+  const row0 = f && pop.contains(f) ? f.closest('.mrow') : null;
+  const back = row0 ? { tab: row0.dataset.tab, id: f.dataset.testid } : null;
+  const rows = pop.querySelector('.mlist');
+  const current = currentMedia();
+  rows.replaceChildren(...list.map((m) => mediaRow(m, m === current)));
+  if (!back) return;
+  const row = [...rows.children].find((x) => x.dataset.tab === back.tab);
+  const n = row && row.querySelector(`[data-testid="${back.id}"]`);
+  (n && !n.disabled ? n : row ? row.querySelector('.mpick') : tabbables(pop)[0] || pop).focus({ preventScroll: true });
+}
+// One row: picture, title, site and whether it plays (one button: show it in the player), then its own
+// previous / play-pause / next, and "Go to tab".
+function mediaRow(m, current) {
+  const row = h('div', 'mrow' + (current ? ' on' : ''), null, 'media-row');
+  row.dataset.tab = String(m.tabId);
+  const pick = h('button', 'mpick', null, 'media-row-pick');
+  pick.type = 'button';
+  pick.setAttribute('aria-pressed', String(current)); // the one the player shows
+  const pic = h('span', 'mpic', null, 'media-row-pic');
+  pic.append(mediaPic(m, 'media-row'));
+  const text = h('span', 'mtext', null, 'media-row-text');
+  text.append(h('span', 'mtitle', m.title || m.site || t('untitled'), 'media-row-title'), h('span', 'msite', m.site, 'media-row-site'));
+  const eq = h('span', 'meq' + (m.playing ? ' on' : ''), null, 'media-row-eq');
+  eq.setAttribute('aria-hidden', 'true');
+  for (let i = 0; i < 3; i++) eq.append(h('i', '', null, 'media-row-eq-bar'));
+  pick.append(pic, text, eq, h('span', 'sr-only', t(m.playing ? 'mediaPlaying' : 'mediaPaused'), 'media-row-state'));
+  pick.title = m.title;
+  const go = h('button', 'pbtn', null, 'media-row-goto');
+  go.type = 'button';
+  go.title = t('mediaGoTo');
+  go.setAttribute('aria-label', go.title);
+  go.append(svgOf(ICON.goto));
+  go.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) goToMedia(m); });
+  row.append(pick, mediaButton('media-row-prev', m, 'previoustrack'), mediaButton('media-row-toggle', m, 'toggle'), mediaButton('media-row-next', m, 'nexttrack'), go);
+  // A press on the row (its button, or around the others): show it in the player.
+  row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) pickMedia(m); });
+  return row;
+}
+function mediaButton(testid, m, action) {
+  const b = h('button', 'pbtn' + (action === 'toggle' ? ' main' : ''), null, testid);
+  b.type = 'button';
+  if (action === 'toggle') paintToggle(b, m.playing);
+  else {
+    const prev = action === 'previoustrack';
+    b.title = t(prev ? 'mediaPrev' : 'mediaNext');
+    b.setAttribute('aria-label', b.title);
+    b.append(svgOf(prev ? ICON.prev : ICON.next));
+    b.disabled = !(prev ? m.canPrev : m.canNext); // the page offers no previous / next
+  }
+  b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) mediaDo(m, action); });
+  return b;
 }
 
 // ---- the archive: tabs moved into the "Tabs Archive" bookmarks folder (in "Other bookmarks", lib/archive.js).
@@ -3290,6 +3511,11 @@ function listen() {
   on(el.mergeBtn, () => mergeWindows(state.otherWindows, 'act:merge'));
   on(el.selAll, selectAll);
   on(el.selNone, clearPicks);
+  on(el.playerPrev, () => playerDo('previoustrack'));
+  on(el.playerToggle, () => playerDo('toggle'));
+  on(el.playerNext, () => playerDo('nexttrack'));
+  on(el.playerMore, openMediaList);
+  el.player.addEventListener('click', (e) => e.stopPropagation()); // its picture and title: not empty space (which closes the switcher)
   // Clicking empty space (not a card, chip, button, dialog or the search box) cancels.
   el.app.addEventListener('click', (e) => {
     if (!e.target.closest('.card, .chip, button, .search, .modal-back, .tools, .acts, .toast, .wins, .dd')) finish('cancel');
@@ -3328,7 +3554,7 @@ function listen() {
       return;
     }
     // In the overlay, a wheel over anything that can't scroll would scroll the web page underneath.
-    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody')) e.preventDefault();
+    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist')) e.preventDefault();
   }, { passive: false });
 
   // Only the background service worker may move the selection (content
@@ -3345,6 +3571,7 @@ function listen() {
   // A preview saved while we are open (the current tab's, grabbed just before we opened, is stored as we
   // load): show it on its cards.
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'session' && changes[KEY.MEDIA] && !state.done) refreshMedia(); // a page started, stopped or changed its media
     if (area !== 'local' || state.done) return;
     const hit = [];
     if (changes[KEY.SNOOZED]) { getSnoozed().then((list) => { state.snoozed = list; drawLater(); }).catch(() => {}); }
@@ -3406,6 +3633,7 @@ function getLaunch() {
   }
   listen();
   watchVisibility();
+  const mediaRead = loadMedia().catch(() => []); // the player's list, read alongside the tabs
   await load(bootPrefs, { previews: false });
   if (resume) { // back after capturing one tab's preview: show what was there before
     state.query = el.search.value = typeof resume.query === 'string' ? resume.query : '';
@@ -3427,6 +3655,7 @@ function getLaunch() {
   // right after it.
   await loadPreviews(firstShown());
   derive(); // (the cards' entries carry their previews)
+  state.media = await mediaRead;
   el.app.hidden = false;
   document.documentElement.classList.add('intro'); // the opening animation, on the first draw only, not on every redraw
   setTimeout(() => { if (!state.done) document.documentElement.classList.remove('intro'); }, 320); // once it has popped in
@@ -3479,5 +3708,7 @@ export {
   refocus, mouseOnly, toastAct, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTpl, svgOf, PREFS_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImg, redrawCards, redraw, topOf, cardList, selCard, cardAt, drawWait,
-  drawLater, dupeMemo, dupeIds, resizeFrame, relayout,
+  drawLater, dupeMemo, dupeIds, resizeFrame, relayout, switchToTab, currentMedia, mediaPreview, mediaPics, mediaPic,
+  loadMediaPreviews, paintToggle, playerSig, renderPlayer, renderMedia, mediaLoading, refreshMedia, mediaDo, playerDo,
+  pickMedia, goToMedia, mediaOrder, openMediaList, renderMediaList, mediaRow, mediaButton,
 };

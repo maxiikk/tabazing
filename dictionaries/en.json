@@ -274,5 +274,15 @@
   "hintActions": "actions",
   "keyActions": "the card’s actions (select, pin, snooze…)",
   "menuSelect": "Select",
-  "menuUnselect": "Unselect"
+  "menuUnselect": "Unselect",
+  "mediaPlayer": "Media playing in your tabs",
+  "mediaPrev": "Previous",
+  "mediaNext": "Next",
+  "mediaPlay": "Play",
+  "mediaPause": "Pause",
+  "mediaList": "All media in your tabs",
+  "mediaGoTo": "Go to tab",
+  "mediaPlaying": "Playing",
+  "mediaPaused": "Paused",
+  "mediaFailed": "That tab’s media didn’t respond."
 }
