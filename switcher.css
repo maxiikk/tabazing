@@ -108,9 +108,12 @@ kbd + kbd { margin-left: 2px; }
 .setup:empty, .setup:not(:has(> :not([hidden]))) { display: none; }
 /* The Open tabs row: the title at the start, Sort and the filter chips at the end (they sort and filter only the open
    tabs); on a narrow window they wrap under the title, still at the end. */
-.open-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 10px 8px 10px; min-width: 0; }
+/* Room below: a hovered or selected card lifts (4 px, 3% bigger, a glow) and would touch the buttons above it. */
+.open-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; margin: 10px 8px 22px; min-width: 0; }
 .open-head .section-h { margin: 0; }
-.view { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; flex: 0 1 auto; min-width: 0; margin-left: auto; }
+/* the end of the Open tabs row: merge / duplicates, then sort and the filter chips */
+.open-end { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 14px; flex: 0 1 auto; min-width: 0; margin-left: auto; }
+.view { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px 10px; flex: 0 1 auto; min-width: 0; }
 .sortbox { display: inline-flex; align-items: center; gap: 8px; color: var(--fg-3); font-size: 12.5px; }
 #star-filter svg { color: var(--accent); }
 #star-filter[aria-pressed="true"] svg { color: color-mix(in srgb, var(--accent) 55%, black); }

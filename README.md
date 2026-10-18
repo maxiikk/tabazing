@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **4.1.1** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **4.1.2** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -55,7 +55,7 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Where it appears.** On normal web pages Tabazing opens as an overlay on top of the page. Chrome does not let extensions draw on some pages, such as `chrome://` pages, the New Tab page and the Chrome Web Store. On those, and on pages that block the overlay, it opens in its own small popup window instead. Both versions work the same way. Turn on **Always open in its own window** in Settings to use the popup window everywhere.
 
-**Closing it.** Press **Esc**, click the backdrop around the content (the top strip, or the space below the last section; clicks between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
+**Closing it.** Press **Esc**, click the backdrop around the content (the space below the last section, or around the edges; clicks in the header, between cards, on a heading, on the toolbar or in the window list don't count), or switch to another window. Tabazing also closes after you pick a tab.
 
 **All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Keyboard and mouse shortcuts** opens it too.
 
@@ -140,7 +140,7 @@ All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card
 | Middle-click (press the wheel) | Close the tab. |
 | Drag a card | Move the tab in the tab strip. Only works when sorted **By order** (see below). |
 | Alt + mouse wheel | Step through cards while holding Alt after Alt+Q or Alt+W. |
-| Click the backdrop | Close Tabazing (not a click between cards, on a heading, the toolbar or the window list). |
+| Click the backdrop | Close Tabazing (not a click in the header, between cards, on a heading, the toolbar or the window list). |
 
 ### Search
 
@@ -237,7 +237,7 @@ It follows Tabazing's theme, accent colour and language settings. The first time
 
 #### Merge windows
 
-- **Everything into this window:** click **Merge all into this window** at the top of the window list. All the other windows' tabs move into the current window, after the tabs it already has, at once. Pinned tabs stay pinned and the emptied windows close. (When **Show tabs from all windows** is on but the window list isn't shown, the toolbar has a **Merge N windows into this one** button instead; with that setting off, there is no merge button, since the other windows aren't in view.)
+- **Everything into this window:** click **Merge all into this window** at the top of the window list. All the other windows' tabs move into the current window, after the tabs it already has, at once. Pinned tabs stay pinned and the emptied windows close. (When **Show tabs from all windows** is on but the window list isn't shown, the **Open tabs** row has a **Merge N windows into this one** button instead, next to Sort; with that setting off, there is no merge button, since the other windows aren't in view.)
 - **One window:** hover a window in the window list and click its **merge** icon to pull just that window's tabs in.
 - A message offers **Undo** (or press Ctrl+Z / ⌘Z): every tab goes back to its window and place, and a window the merge closed is made again, behind Tabazing.
 
@@ -352,7 +352,7 @@ Closing tabs in Tabazing (the × button, Del, middle-click, the **Close** action
 
 ### Duplicates
 
-When the same page is open in more than one tab, the toolbar shows **N duplicates**. Tabazing compares addresses and ignores the `#…` part and a trailing slash.
+When the same page is open in more than one tab, the **Open tabs** row shows **N duplicates**, next to Sort. Tabazing compares addresses and ignores the `#…` part and a trailing slash.
 
 1. Click it. Tabazing shows only the duplicated pages, grouped by page. Each card is marked **Stays** or **Closes**. The copy that stays is the pinned one if any, otherwise the one you used most recently.
 2. Click **Close N copies**. They close at once; Undo is offered.

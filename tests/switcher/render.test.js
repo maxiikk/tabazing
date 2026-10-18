@@ -288,10 +288,11 @@ describe('finishCard: the mouse on a card', () => {
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'tabazing:closed', reason: 'cancel' }));
   });
 
-  it('a click between cards, on a heading, the toolbar or the window list does not', async () => {
+  it('a click between cards, on a heading, the toolbar, the window list or anywhere in the header does not', async () => {
     chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 60, tab: { sessionId: 'x1', url: 'https://gone.example/', title: 'Gone' } }];
     const sw = await boot({ tabs: ABC(), prefs: { allWindows: true }, beforeImport: () => { chrome._addTab({ windowId: 2, title: 'Delta', url: 'https://delta.example/' }); } });
-    for (const id of ['section-grid', 'open-grid', 'open-h', 'closed-h', 'closed-section', 'open-section', 'tools', 'view-toolbar', 'wins', 'qfilters']) {
+    for (const id of ['section-grid', 'open-grid', 'open-h', 'closed-h', 'closed-section', 'open-section', 'tools', 'view-toolbar', 'wins', 'qfilters',
+      'header', 'search-box', 'player', 'open-head', 'open-end', 'open-actions']) { // the header's empty space too
       tid(id).click();
       expect(sw.state.done, id).toBe(false);
     }
@@ -504,14 +505,17 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     const head = tid('open-head');
     const bar = tid('view-toolbar');
     expect(head.contains(tid('open-h'))).toBe(true);
-    expect(bar.parentElement).toBe(head);
-    expect([...head.children]).toEqual([tid('open-h'), bar]); // the title first, the controls after it
+    expect([...head.children]).toEqual([tid('open-h'), tid('open-end')]); // the title first, then (at the other end) what acts on the open tabs
+    expect(bar.parentElement).toBe(tid('open-end'));
+    expect([...tid('open-end').children]).toEqual([tid('open-actions'), bar]); // merge / duplicates, then sort and the chips
+    for (const id of ['merge-btn', 'dupes-btn']) expect(tid('open-actions').contains(tid(id)), id).toBe(true);
     expect(tid('open-h').tagName).toBe('H2');
     expect(bar.getAttribute('role')).toBe('toolbar');
     expect(bar.getAttribute('aria-label')).toBe(t('viewAria'));
     for (const id of ['sort', 'select-sort', 'star-filter', 'qfilters']) expect(bar.contains(tid(id)), id).toBe(true);
     expect(tid('tools').contains(bar)).toBe(false);
-    expect(tid('tools').contains(tid('setup-actions'))).toBe(true); // merge, duplicates, capture stay up there
+    expect(tid('tools').contains(tid('setup-actions'))).toBe(true); // "Capture all" stays up there
+    expect([...tid('setup-actions').children]).toEqual([tid('sweep-btn')]);
   });
 
   it('the toolbar row takes no room while none of its buttons shows; the row of the Open tabs title spreads its ends apart', async () => {

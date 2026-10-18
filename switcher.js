@@ -4430,15 +4430,16 @@ function listen() {
   on(el.playerNext, () => playerDo('nexttrack'));
   on(el.playerMore, openMediaList);
   el.player.addEventListener('click', (e) => e.stopPropagation()); // its picture and title: not empty space (which closes the switcher)
-  // A click on the backdrop around the content (not on the cards, the gaps between them, a heading, the toolbar
-  // or the window list) closes Tabazing, like a click outside a dialog.
+  // A click on the backdrop around the content (not on the cards, the gaps between them, a heading, the toolbar,
+  // the window list, or anywhere in the header: its empty space sits between the search box, the player and
+  // the buttons, and is easy to hit) closes Tabazing, like a click outside a dialog.
   el.app.addEventListener('click', (e) => {
     // With the palette up everything else is inert: a click beside it leaves it, as Esc does.
     if (state.palette) {
       if (!el.palette.contains(e.target) && pointerAllowed()) { if (state.palette.from === 'shortcut') finish('cancel'); else exitPalette(); }
       return;
     }
-    if ([el.app, el.bar, el.body, el.scroller].includes(e.target)) finish('cancel');
+    if ([el.app, el.body, el.scroller].includes(e.target)) finish('cancel');
   });
   window.addEventListener('mousemove', (e) => {
     state.mouseReady = true;

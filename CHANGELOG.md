@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.2] - 2026-10-18
+
+### Changed
+
+- The **Merge windows** and **N duplicates** buttons moved to the **Open tabs** row too, before Sort and the filter chips; the toolbar above keeps only "Capture all previews".
+- More room under the **Open tabs** row, so a hovered card no longer touches its buttons.
+
+### Fixed
+
+- Clicking an empty part of the header (around the search box or the media player) closed Tabazing.
+
 ## [4.1.1] - 2026-10-18
 
 ### Fixed
@@ -220,7 +231,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...HEAD
+[4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...HEAD
+[4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...341c5d8
 [4.1.0]: https://github.com/maxiikk/tabazing/compare/9e8692c...e6117fd
 [4.0.0]: https://github.com/maxiikk/tabazing/compare/81d1eae...9e8692c
 [3.1.2]: https://github.com/maxiikk/tabazing/compare/6223238...81d1eae
