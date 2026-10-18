@@ -32,7 +32,7 @@ describe('commands and the toolbar icon', () => {
     expect(launch().ctx).toEqual({ src: tab.id, win: w.id, dir, via: 'key', hold, state: 'normal', mode: 'overlay' });
   });
 
-  it('open-palette (Ctrl+Shift+Space) opens on the current tab, to stay, straight into the command palette', async () => {
+  it('open-palette (Alt+R) opens on the current tab, to stay, straight into the command palette', async () => {
     const { tab, w } = seed();
     chrome.commands.onCommand._emit('open-palette', tab);
     await flush();
@@ -57,10 +57,10 @@ describe('commands and the toolbar icon', () => {
     expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ type: 'popup' }));
   });
 
-  it('the manifest declares the command with Ctrl+Shift+Space (⌘⇧Space on a Mac), four commands in all', () => {
+  it('the manifest declares the command with Alt+R (Option+R on a Mac), four commands in all', () => {
     const { commands } = chrome.runtime.getManifest();
     expect(Object.keys(commands)).toHaveLength(4);
-    expect(commands['open-palette']).toEqual({ description: '__MSG_cmdPalette__', suggested_key: { default: 'Ctrl+Shift+Space', mac: 'Command+Shift+Space' } });
+    expect(commands['open-palette']).toEqual({ description: '__MSG_cmdPalette__', suggested_key: { default: 'Alt+R', mac: 'Alt+R' } });
   });
 
   it('ignores unknown commands', async () => {

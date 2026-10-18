@@ -1,4 +1,4 @@
-// In-page fallback for Alt+Q / Alt+W / Alt+E and Ctrl+Shift+Space (classic content script, can't use imports), and the
+// In-page fallback for Alt+Q / Alt+W / Alt+E and Alt+R (classic content script, can't use imports), and the
 // state of the Alt key, which the overlay reads when it opens (a quick Alt+Q tap may be over by then).
 // Chrome's shortcut system can leave a key unassigned when another extension
 // or app already owns it; this makes Alt+Q work on web pages anyway.
@@ -37,8 +37,8 @@
   // Alt+Q: open, card before the current tab; Alt+W: the card after it (both: letting go of Alt switches);
   // Alt+E: open and stay. Shift turns the direction around.
   const KEYS = { KeyQ: [-1, true], KeyW: [1, true], KeyE: [0, false] };
-  // Ctrl+Shift+Space (Cmd+Shift+Space on a Mac): the command palette.
-  const isPalette = (e) => e.code === 'Space' && e.shiftKey && !e.altKey && e.ctrlKey !== e.metaKey;
+  // Alt+R (Option+R on a Mac): the command palette.
+  const isPalette = (e) => e.code === 'KeyR' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey;
   function onKey(e) {
     if (!e.isTrusted || e.repeat) return;
     const palette = isPalette(e);

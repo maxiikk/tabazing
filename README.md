@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **4.1.2** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **5.0.0** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -42,7 +42,7 @@ Tabazing does not run in Incognito windows.
 | **Alt+Q** | Option+Q | **Hold Alt and press Q** to see your tabs, with the **previous card in the list** selected (the card before the current tab, in the order the cards are shown). From the first card it wraps around to the last. Keep holding Alt and press Q again to go further back. **Let go of Alt to switch** to the selected tab, just like Alt+Tab. |
 | **Alt+W** | Option+W | The same, but selects the **next card in the list** (wrapping around from the last card to the first). |
 | **Alt+E** | Option+E | Opens Tabazing with the current tab selected and **keeps it open**, so you can search, use the arrow keys or the mouse. |
-| **Ctrl+Shift+Space** | ⌘⇧Space | Opens Tabazing straight into the [command palette](#command-palette): commands, sums, conversions and search in one box. |
+| **Alt+R** | ⌥R | Opens Tabazing straight into the [command palette](#command-palette): commands, sums, conversions and search in one box. |
 | Toolbar icon | Toolbar icon | Opens Tabazing and keeps it open. The first three times, a note reminds you that Alt+Q does this from anywhere. |
 
 While you hold Alt after Alt+Q or Alt+W:
@@ -167,7 +167,7 @@ Type anywhere and the text goes into the search box, which says what it searches
 
 One box for doing things, not just finding tabs, like the command palettes of code editors and Spotlight.
 
-**Opening it.** Press **Ctrl+Shift+Space** (⌘⇧Space on a Mac) on any page: Tabazing opens straight into the palette. Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
+**Opening it.** Press **Alt+R** (⌥R on a Mac) on any page: Tabazing opens straight into the palette. (Chrome keeps a shortcut it has already assigned when Tabazing is updated: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.) Inside Tabazing, type **>** as the first character in the search box, or press **Ctrl+K** (⌘K). Like Alt+Q, the shortcut can be changed at `chrome://extensions/shortcuts`; on web pages and on Tabazing's New Tab page it works even when Chrome left it unassigned.
 
 A panel opens at the top centre with one box and one list; the switcher behind it is dimmed. As you type, the list mixes, best match first:
 

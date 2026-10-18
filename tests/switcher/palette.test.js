@@ -50,7 +50,7 @@ beforeEach(() => {
 });
 
 describe('opening and leaving', () => {
-  it('Ctrl+Shift+Space (a palette launch) opens straight into it; Esc then closes Tabazing', async () => {
+  it('Alt+R (a palette launch) opens straight into it; Esc then closes Tabazing', async () => {
     const sw = await boot({ tabs: ABC, ctx: { palette: true, dir: 0 } });
     expect(shown()).toBe(true);
     expect(document.documentElement.classList.contains('palette')).toBe(true);
@@ -113,6 +113,15 @@ describe('opening and leaving', () => {
     expect(shown()).toBe(false);
     key('k', { code: 'KeyK', metaKey: true });
     expect(shown()).toBe(true);
+    expect(sw.state.done).toBe(false);
+  });
+
+  it('Alt+R inside Tabazing opens it too (when Chrome left the shortcut unassigned), without typing an r', async () => {
+    const sw = await boot({ tabs: ABC });
+    const e = key('r', { code: 'KeyR', altKey: true });
+    expect(e.defaultPrevented).toBe(true);
+    expect(shown()).toBe(true);
+    expect(tid('search').value).toBe('');
     expect(sw.state.done).toBe(false);
   });
 

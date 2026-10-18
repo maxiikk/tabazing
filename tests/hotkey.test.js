@@ -85,25 +85,20 @@ describe('hotkey.js', () => {
     document.body.removeEventListener('keydown', seen);
   });
 
-  it('Ctrl+Shift+Space (Cmd+Shift+Space on a Mac) asks for the command palette', () => {
-    const space = (mods) => key('keydown', { code: 'Space', key: ' ', shiftKey: true, ...mods });
-    const e = space({ ctrlKey: true });
-    space({ metaKey: true });
-    expect(sent()).toEqual([
-      { type: MSG.HOTKEY, dir: 0, hold: false, palette: true },
-      { type: MSG.HOTKEY, dir: 0, hold: false, palette: true },
-    ]);
+  it('Alt+R (Option+R on a Mac) asks for the command palette', () => {
+    const e = press('KeyR');
+    expect(sent()).toEqual([{ type: MSG.HOTKEY, dir: 0, hold: false, palette: true }]);
     expect(e.defaultPrevented).toBe(true);
   });
 
-  it('but not Space with other modifiers, repeats, or a page’s own (untrusted) events', () => {
-    const space = (mods, trusted) => key('keydown', { code: 'Space', key: ' ', ...mods }, trusted);
-    space({ ctrlKey: true }); // no Shift
-    space({ shiftKey: true }); // no Ctrl
-    space({ ctrlKey: true, metaKey: true, shiftKey: true }); // both
-    space({ ctrlKey: true, shiftKey: true, altKey: true });
-    space({ ctrlKey: true, shiftKey: true, repeat: true });
-    const e = space({ ctrlKey: true, shiftKey: true }, false);
+  it('but not R without Alt, with other modifiers, repeats, or a page’s own (untrusted) events', () => {
+    const r = (mods, trusted) => key('keydown', { code: 'KeyR', key: 'r', altKey: true, ...mods }, trusted);
+    r({ altKey: false }); // plain R: typing
+    r({ shiftKey: true });
+    r({ ctrlKey: true });
+    r({ metaKey: true });
+    r({ repeat: true });
+    const e = r({}, false);
     expect(sent()).toEqual([]);
     expect(e.defaultPrevented).toBe(false);
   });
@@ -116,7 +111,7 @@ describe('hotkey.js', () => {
   });
 
   it('ignores other keys, Ctrl/Meta combos, no Alt, and auto-repeat', () => {
-    press('KeyR');
+    press('KeyT');
     press('KeyQ', { altKey: false });
     press('KeyQ', { ctrlKey: true });
     press('KeyQ', { metaKey: true });

@@ -63,7 +63,7 @@ describe('HOTKEY', () => {
     expect(cycleCalls()[0].hold).toBe(false);
   });
 
-  it('palette: true (Ctrl+Shift+Space in a page) opens the palette; the rest of the message is ignored', async () => {
+  it('palette: true (Alt+R in a page) opens the palette; the rest of the message is ignored', async () => {
     const { tab } = seed();
     send({ type: MSG.HOTKEY, dir: -1, hold: true, palette: true }, fromPage(tab));
     await flush();

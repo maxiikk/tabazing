@@ -38,8 +38,8 @@
     "open-palette": {
       "description": "__MSG_cmdPalette__",
       "suggested_key": {
-        "default": "Ctrl+Shift+Space",
-        "mac": "Command+Shift+Space"
+        "default": "Alt+R",
+        "mac": "Alt+R"
       }
     }
   },
@@ -111,7 +111,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "4.1.2",
+  "version": "5.0.0",
   "web_accessible_resources": [
     {
       "matches": [

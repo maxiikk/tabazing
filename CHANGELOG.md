@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-10-18
+
+### Changed
+
+- **The command palette opens with Alt+R** (⌥R on a Mac) instead of Ctrl+Shift+Space, next to Tabazing's other keys; Alt+R inside Tabazing opens it too. Chrome keeps a shortcut it has already assigned when Tabazing updates: if yours still says Ctrl+Shift+Space, change it at `chrome://extensions/shortcuts`.
+- "Show more" under Recently closed is a quiet text button that fills with the accent colour when you point at it.
+
 ## [4.1.2] - 2026-10-18
 
 ### Changed
@@ -231,7 +238,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...HEAD
+[5.0.0]: https://github.com/maxiikk/tabazing/compare/dcf07fc...HEAD
+[4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...dcf07fc
 [4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...341c5d8
 [4.1.0]: https://github.com/maxiikk/tabazing/compare/9e8692c...e6117fd
 [4.0.0]: https://github.com/maxiikk/tabazing/compare/81d1eae...9e8692c

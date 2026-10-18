@@ -3252,7 +3252,7 @@ function fancySelect(sel, { inPop = false } = {}) {
 }
 
 // ---------------------------------------------------------------- the command palette
-// Ctrl+Shift+Space from any page (background.js: the 'open-palette' command), or inside Tabazing '>' as the
+// Alt+R from any page (background.js: the 'open-palette' command), or inside Tabazing '>' as the
 // first character in the search box, or Ctrl+K (⌘K). A panel at the top centre (html.palette: the rest is
 // dimmed and inert) with one box and one list, mixing a quick answer (lib/quick.js: sums, conversions,
 // colours, time zones, dates), actions (Chrome's and Tabazing's, matched like the search: searchScore on
@@ -3494,7 +3494,7 @@ function palMove(d) {
   palHighlight();
 }
 
-// Open it. `from`: 'shortcut' (Ctrl+Shift+Space: Esc then closes Tabazing) or 'switcher' (Esc goes back to it);
+// Open it. `from`: 'shortcut' (Alt+R: Esc then closes Tabazing) or 'switcher' (Esc goes back to it);
 // `text`: what the box starts with; `saved`: the search box's text, put back on the way out.
 function openPalette({ from = 'switcher', text = '', saved = el.search.value } = {}) {
   if (state.done) return;
@@ -3667,7 +3667,7 @@ function whenTapMode(fn) {
 // ---- first-run tour: short cards in the accent colour, each pointing at what it explains.
 const keyRows = (...rows) => { const d = h('div', 'keys', null, 'dialog-keys'); rows.forEach(([keys, word]) => { const k = h('span', '', null, 'dialog-keys-combo'); k.append(...keys); d.append(k, h('span', '', word, 'dialog-keys-action')); }); return d; };
 const ALT = IS_MAC ? '⌥' : 'Alt+';
-const PALETTE_KEY = IS_MAC ? '⌘⇧Space' : 'Ctrl+Shift+Space'; // the 'open-palette' command's suggested key (manifest.json)
+const PALETTE_KEY = IS_MAC ? '⌥R' : 'Alt+R'; // the 'open-palette' command's suggested key (manifest.json)
 
 // `when`: shown only if that is on screen. `picking`: the step shows every card's tick box.
 const TOUR_ALL = [
@@ -4198,7 +4198,7 @@ function onKeyDown(e) {
   if (searchFrame && (k === 'Enter' || k === 'Tab' || k.startsWith('Arrow'))) flushSearch(); // act on what was just typed
   const altOnly = e.altKey && !e.ctrlKey && !e.metaKey;
   // Our Alt shortcuts must work even if the text system thinks it's composing.
-  if (e.isComposing && !(altOnly && ['KeyQ', 'KeyW', 'KeyE', 'KeyS', 'KeyP'].includes(e.code))) return;
+  if (e.isComposing && !(altOnly && ['KeyQ', 'KeyW', 'KeyE', 'KeyS', 'KeyP', 'KeyR'].includes(e.code))) return;
   // A fresh modifier press, or any key without a modifier, means the user
   // had already let go of the shortcut: from now on it's "tap" mode.
   if ((MODIFIERS.has(k) && !e.repeat) || (!e.altKey && !e.ctrlKey && !e.metaKey)) stopHolding();
@@ -4209,7 +4209,7 @@ function onKeyDown(e) {
 
   // Hidden or covered by the page: don't act on keys the user can't see the
   // effect of - just get out of the way.
-  const acts = k === 'Enter' || closeKey || (altOnly && ['KeyQ', 'KeyW', 'KeyE', 'KeyS', 'KeyP'].includes(e.code));
+  const acts = k === 'Enter' || closeKey || (altOnly && ['KeyQ', 'KeyW', 'KeyE', 'KeyS', 'KeyP', 'KeyR'].includes(e.code));
   if (acts && !keysAllowed()) { e.preventDefault(); finish('cancel'); return; }
 
   // Holding the key sends repeats: close one tab per press, not one per repeat.
@@ -4217,6 +4217,8 @@ function onKeyDown(e) {
   if (altOnly && e.code === 'KeyQ') { e.preventDefault(); return qPress(e.shiftKey ? 1 : -1); } // back a card
   if (altOnly && e.code === 'KeyW') { e.preventDefault(); return qPress(e.shiftKey ? -1 : 1); } // forward a card
   if (altOnly && e.code === 'KeyE') { e.preventDefault(); stopHolding(); return; } // stay open
+  // Alt+R: the command palette (Chrome's shortcut opens it from pages; this is for when it is unassigned).
+  if (altOnly && !e.shiftKey && e.code === 'KeyR') { e.preventDefault(); if (!e.repeat) openPalette({ from: 'switcher' }); return; }
   if (altOnly && e.code === 'KeyS') { e.preventDefault(); if (!e.repeat) star(state.entries[state.sel]); return; }
   if (altOnly && e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) captureOne(state.entries[state.sel]); return; }
   if (e.ctrlKey && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return cycleScope(k === 'ArrowRight' ? 1 : -1); }
@@ -4483,7 +4485,7 @@ function listen() {
   chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     if (state.done || sender.id !== chrome.runtime.id || sender.tab) return;
     if (msg && msg.type === MSG.CYCLE) {
-      if (msg.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' }); // Ctrl+Shift+Space
+      if (msg.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' }); // Alt+R
       else if (msg.dir === 0) stopHolding(); // Alt+E: stay open
       else qPress(msg.dir === -1 ? -1 : 1, msg.hold === true);
       respond({ ok: true });
@@ -4552,7 +4554,7 @@ function getLaunch() {
   fancySelect(el.sort);
   listen();
   watchVisibility();
-  // Ctrl+Shift+Space: the palette shows at once, before any tab is read (they fill it in as they come).
+  // Alt+R: the palette shows at once, before any tab is read (they fill it in as they come).
   if (CTX.palette) {
     el.app.hidden = false;
     openPalette({ from: 'shortcut' });

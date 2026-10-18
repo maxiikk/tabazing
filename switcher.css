@@ -544,7 +544,13 @@ html.light .pop.snoozepop input { color-scheme: light; }
 .pop.snoozepop .row { margin-top: 0; }
 .pop .btn { padding: 6px 12px; font-size: 12.5px; }
 /* "Show more" under Recently closed */
-#closed-more { display: block; min-height: 24px; margin: 12px 8px 0; }
+/* "Show more" / "Show fewer": a ghost button, plain text until pointed at (or focused), then on the accent */
+#closed-more {
+  display: block; min-height: 28px; margin: 12px 4px 0; padding: 4px 10px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--fg-2); font-size: 12.5px; text-decoration: none; cursor: pointer;
+  transition: background .12s ease, color .12s ease;
+}
+#closed-more:hover, #closed-more:focus-visible { background: var(--accent); color: var(--on-accent); }
 /* the narrower tour card: keep its buttons on one line */
 .dialog.manual .row { flex-wrap: nowrap; gap: 6px; }
 .dialog.manual .row .btn { padding: 6px 10px; font-size: 13px; }

@@ -1059,3 +1059,17 @@ describe('menu / closePops', () => {
     expect(pop.close).toHaveBeenCalledOnce();
   });
 });
+
+describe('"Show more" under Recently closed', () => {
+  it('is a ghost button: plain text until pointed at or focused, then on the accent', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('switcher.css', 'utf8').replace(/\r\n/g, '\n');
+    const rule = (sel) => { const i = css.indexOf(sel + ' {'); return i < 0 ? '' : css.slice(i + sel.length + 2, css.indexOf('}', i)); };
+    const rest = rule('#closed-more');
+    expect(rest).toMatch(/background:\s*transparent/);
+    expect(rest).toMatch(/text-decoration:\s*none/);
+    const hover = rule('#closed-more:hover, #closed-more:focus-visible');
+    expect(hover).toMatch(/background:\s*var\(--accent\)/);
+    expect(hover).toMatch(/color:\s*var\(--on-accent\)/);
+  });
+});

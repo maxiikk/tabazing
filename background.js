@@ -363,7 +363,7 @@ let lastTrigger = 0;
 
 // `hold`: opened by Alt+Q / Alt+W, which work like Alt+Tab (letting go of Alt switches to the selected
 // tab). Alt+E, the toolbar icon and the rest open it to stay. dir 0 (Alt+E) moves nothing.
-// `palette`: Ctrl+Shift+Space, straight into the command palette (dir 0, never held).
+// `palette`: Alt+R, straight into the command palette (dir 0, never held).
 function trigger(dir, tab, via = 'key', hold = false, palette = false) {
   // Both Chrome's shortcut and the in-page listener may see the same press;
   // this also rate-limits a misbehaving sender.
@@ -668,7 +668,7 @@ chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'open-switcher') trigger(-1, tab, 'key', true);              // Alt+Q: the card before the current one
   else if (command === 'open-switcher-reverse') trigger(1, tab, 'key', true);  // Alt+W: the card after it
   else if (command === 'open-switcher-stay') trigger(0, tab);                // Alt+E: open and stay open
-  else if (command === 'open-palette') trigger(0, tab, 'key', false, true);  // Ctrl+Shift+Space: the command palette
+  else if (command === 'open-palette') trigger(0, tab, 'key', false, true);  // Alt+R: the command palette
 });
 
 chrome.action.onClicked.addListener((tab) => trigger(1, tab, 'icon'));
@@ -699,7 +699,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     case MSG.HOTKEY:
       // The only thing a page's content script, or the New Tab page (its own Alt+Q listener), may ask for.
       if (!fromContentScript(sender) && !fromNewTab(sender)) return;
-      if (msg.palette === true) trigger(0, sender.tab, 'key', false, true); // Ctrl+Shift+Space: nothing else is taken from it
+      if (msg.palette === true) trigger(0, sender.tab, 'key', false, true); // Alt+R: nothing else is taken from it
       else trigger(msg.dir === -1 ? -1 : msg.dir === 0 ? 0 : 1, sender.tab, 'key', msg.hold === true);
       return;
     case MSG.READY:

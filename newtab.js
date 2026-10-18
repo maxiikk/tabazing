@@ -264,7 +264,7 @@ document.addEventListener('click', (e) => {
   if (e.button === 0 && !e.target.closest('a, button, input, [role="status"]')) el.search.focus({ preventScroll: true });
 });
 
-// ---- Alt+Q / Alt+W / Alt+E and Ctrl+Shift+Space (the command palette) on this page, when Chrome's shortcut is not assigned (on web pages hotkey.js does
+// ---- Alt+Q / Alt+W / Alt+E and Alt+R (the command palette) on this page, when Chrome's shortcut is not assigned (on web pages hotkey.js does
 // this; no content script runs on extension pages). The same message, and the same "is Alt held?" the overlay
 // host reads (window.__tabazingHotkey.altState) to tell a quick tap from a hold.
 const HOTKEYS = { KeyQ: [-1, true], KeyW: [1, true], KeyE: [0, false] };
@@ -278,7 +278,7 @@ function onAlt(e) {
 }
 function onHotkey(e) {
   if (!e.isTrusted || e.repeat) return;
-  const palette = e.code === 'Space' && e.shiftKey && !e.altKey && e.ctrlKey !== e.metaKey; // Ctrl+Shift+Space (⌘⇧Space)
+  const palette = e.code === 'KeyR' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey; // Alt+R (⌥R)
   if (!palette && (!HOTKEYS[e.code] || !e.altKey || e.ctrlKey || e.metaKey)) return;
   e.preventDefault();
   e.stopImmediatePropagation();

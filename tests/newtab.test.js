@@ -334,17 +334,15 @@ describe('Alt+Q on this page (no content script runs here)', () => {
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('Ctrl+Shift+Space (⌘⇧Space) asks for the command palette, like hotkey.js; not untrusted, repeated or with other keys', async () => {
+  it('Alt+R (⌥R) asks for the command palette, like hotkey.js; not untrusted, repeated or with other keys', async () => {
     const page = await open();
-    const sp = (more) => ev('Space', { altKey: false, shiftKey: true, ...more });
-    const e = sp({ ctrlKey: true });
+    const r = (more) => ev('KeyR', { altKey: true, ...more });
+    const e = r({});
     page.onHotkey(e);
     expect(chrome.runtime.sendMessage).toHaveBeenLastCalledWith({ type: MSG.HOTKEY, dir: 0, hold: false, palette: true });
     expect(e.preventDefault).toHaveBeenCalled();
-    page.onHotkey(sp({ metaKey: true }));
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
-    for (const bad of [sp({ ctrlKey: true, isTrusted: false }), sp({ ctrlKey: true, repeat: true }), sp({}), sp({ ctrlKey: true, altKey: true }), sp({ ctrlKey: true, shiftKey: false })]) page.onHotkey(bad);
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(2);
+    for (const bad of [r({ isTrusted: false }), r({ repeat: true }), r({ altKey: false }), r({ shiftKey: true }), r({ ctrlKey: true }), r({ metaKey: true })]) page.onHotkey(bad);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
   });
 
   it('retries once when the worker was asleep', async () => {
