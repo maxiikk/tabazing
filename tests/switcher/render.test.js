@@ -258,7 +258,9 @@ describe('finishCard: the mouse on a card', () => {
     expect(selectedTitle()).toBe('Charlie');
     expect(tid('menu')).not.toBe(null);
     expect(tid('menu').style.left).toBe('150px');
-    expect(tids('menu-item').map((b) => b.textContent)).toContain('Close tab');
+    const labels = tids('menu-item').map((b) => b.textContent);
+    expect(labels).toContain('Close'); // the menu is about this tab: no "this tab" / "tab" in its items
+    expect(labels.filter((l) => /\b(this )?tab\b/i.test(l))).toEqual([]);
   });
 
   it('middle-click closes the tab', async () => {

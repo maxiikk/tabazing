@@ -417,9 +417,19 @@ describe('openPopupWindow', () => {
     });
   });
 
-  it('is never smaller than 640x480', async () => {
-    await bg().openPopupWindow({ left: -8, top: 20.4, width: 300, height: 200 }, 'tok');
-    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 640, height: 480, left: -8, top: 20 }));
+  it('a small source window gives at least 1000x680, centred on it (not a window barely wider than the palette)', async () => {
+    await bg().openPopupWindow({ left: 400, top: 300.4, width: 600, height: 400 }, 'tok');
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 1000, height: 680, left: 200, top: 160 }));
+  });
+
+  it('grown near the top of the screen, it never starts above it', async () => {
+    await bg().openPopupWindow({ left: 0, top: 10, width: 700, height: 300 }, 'tok');
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 1000, height: 680, left: -150, top: 0 }));
+  });
+
+  it('a window wide enough but short only grows in height', async () => {
+    await bg().openPopupWindow({ left: 100, top: 400, width: 1400, height: 500 }, 'tok');
+    expect(chrome.windows.create).toHaveBeenCalledWith(expect.objectContaining({ width: 1400, height: 680, left: 100, top: 310 }));
   });
 
   it('assumes 1280x800 at the corner when the window is unknown', async () => {

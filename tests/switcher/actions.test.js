@@ -752,8 +752,8 @@ describe('sleep, pin, mute', () => {
     const b = tabByTitle(sw, 'B');
     const badge = sw.audioBadge(b);
     expect(badge.className).toBe('badge audio on');
-    expect(badge.title).toBe(t('muteThis'));
-    expect(sw.audioBadge({ mutedInfo: { muted: true } }).title).toBe(t('unmuteThis'));
+    expect(badge.title).toBe(t('tabMute'));
+    expect(sw.audioBadge({ mutedInfo: { muted: true } }).title).toBe(t('tabUnmute'));
     expect(tid('card-audio', cardOf('B'))).not.toBe(null); // drawn on playing tabs
     badge.click();
     await waitFor(() => live(b.id).mutedInfo.muted);
@@ -823,7 +823,7 @@ describe('one-tab quick buttons', () => {
     expect(labels(bEntry)).toEqual(['quick-pin', 'quick-clock', 'quick-archive', 'quick-note', 'quick-more']);
     expect(labels(entryByTitle(sw, 'C'))).toEqual(labels(bEntry)); // a playing tab mutes with its speaker, in the header
     const box = sw.quickActions(bEntry);
-    expect(tid('quick-pin', box).title).toBe(t('unpinThis'));
+    expect(tid('quick-pin', box).title).toBe(t('tabUnpin'));
     expect(tid('quick-pin', box).classList.contains('on')).toBe(true);
     expect(tid('quick-more', box).title).toBe(t('cardMenu'));
     expect(tid('quick-more', box).getAttribute('aria-haspopup')).toBe('menu');
@@ -836,8 +836,8 @@ describe('one-tab quick buttons', () => {
     expect(tid('menu').anchor).toBe(tid('quick-more', cardOf('B')));
     const items = tids('menu-item').map((b) => b.textContent);
     expect(items).toContain(t('copyLink'));
-    expect(items).toContain(t('reloadThis'));
-    expect(items).toContain(t('closeTab'));
+    expect(items).toContain(t('tabReload'));
+    expect(items).toContain(t('tabClose'));
     tids('menu-item').find((b) => b.textContent === t('copyLink')).click();
     await waitFor(() => clipboard.writeText.mock.calls.length);
     expect(clipboard.writeText).toHaveBeenCalledWith('https://b.example/');
@@ -856,7 +856,7 @@ describe('one-tab quick buttons', () => {
     chrome.tabs.reload.mockRejectedValueOnce(new Error('nope'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     sw.cardMenu(entryByTitle(sw, 'B'));
-    tids('menu-item').find((b) => b.textContent === t('reloadThis')).click();
+    tids('menu-item').find((b) => b.textContent === t('tabReload')).click();
     await waitFor(() => toastText() === t('errReload'));
   });
 });

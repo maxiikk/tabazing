@@ -247,7 +247,6 @@
   "actMore": "Ещё",
   "archiveBtn": "Архив",
   "archiveBtnTitle": "Показать архивированные вкладки",
-  "archiveThis": "В архив (переносит вкладку в папку закладок «Tabs Archive»)",
   "actArchive": "В архив",
   "archiveTitle": "Архив вкладок",
   "archiveWhere": "Закладки › Другие закладки › Tabs Archive",
@@ -504,5 +503,14 @@
   "setKeyStay": "Открыть и не закрывать",
   "setKeyPalette": "Палитра команд",
   "setKeysInside": "Внутри Tabazing",
-  "keysInSettings": "Клавиши, открывающие Tabazing, меняются в разделе «Настройки → Сочетания клавиш»."
+  "keysInSettings": "Клавиши, открывающие Tabazing, меняются в разделе «Настройки → Сочетания клавиш».",
+  "tabReload": "Перезагрузить",
+  "tabDuplicate": "Дублировать",
+  "tabMute": "Выключить звук",
+  "tabUnmute": "Включить звук",
+  "tabPin": "Закрепить",
+  "tabUnpin": "Открепить",
+  "tabArchive": "В архив",
+  "tabArchiveTip": "В архив (переносит вкладку в папку закладок «Tabs Archive»)",
+  "tabClose": "Закрыть"
 }

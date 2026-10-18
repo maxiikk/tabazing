@@ -2473,7 +2473,7 @@ function audioBadge(tab) {
   const b = h('button', 'badge audio' + (muted ? '' : ' on'), null, 'card-audio');
   b.type = 'button';
   b.append(svgOf(muted ? ICON.muted : ICON.speaker));
-  b.title = t(muted ? 'unmuteThis' : 'muteThis');
+  b.title = t(muted ? 'tabUnmute' : 'tabMute');
   b.setAttribute('aria-label', b.title);
   b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) toggleMute(tab).catch((err) => toast(t('errMute'), err)); });
   return b;
@@ -2910,9 +2910,9 @@ function quickActions(entry) {
     b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn().catch((x) => toast(err, x)); });
     return b;
   };
-  const pin = mk('pin', t(tab.pinned ? 'unpinThis' : 'pinThis'), () => togglePin(tab), t('errPin'));
+  const pin = mk('pin', t(tab.pinned ? 'tabUnpin' : 'tabPin'), () => togglePin(tab), t('errPin'));
   const snooze = mk('clock', t('snoozeThis'), async () => snoozeMenu([tab], snooze), t('errSnooze'));
-  const archive = mk('archive', t('archiveThis'), () => archiveTabs([tab]), t('errArchive'));
+  const archive = mk('archive', t('tabArchiveTip'), () => archiveTabs([tab]), t('errArchive'));
   const more = mk('more', t('cardMenu'), async () => cardMenu(entry, { anchor: more }), t('actFailed'));
   more.setAttribute('aria-haspopup', 'menu');
   if (tab.pinned) pin.classList.add('on'); // on: like a note button with a note
@@ -2937,16 +2937,17 @@ function cardMenu(entry = state.entries[state.sel], { anchor = null, at = null }
     items.push({ label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
     items.push({ label: t('copyLink'), err: t('copyFailed'), fn: () => copyLinks([tab], 'plain') });
     if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ label: t('capturePreview'), err: t('captureFailed'), fn: () => captureOne(entry) });
-    items.push({ label: t('reloadThis'), err: t('errReload'), fn: () => reloadTab(tab) }, { label: t('duplicateThis'), err: t('errDuplicate'), fn: () => duplicateTab(tab) });
+    // The menu is about this card's tab: its items say what they do, not to which tab ("Reload", not "Reload this tab").
+    items.push({ label: t('tabReload'), err: t('errReload'), fn: () => reloadTab(tab) }, { label: t('tabDuplicate'), err: t('errDuplicate'), fn: () => duplicateTab(tab) });
     if (!tab.active && !tab.discarded) items.push({ label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), err: t('errSleep'), fn: () => sleepTabs([tab]) });
     items.push(
-      { label: t(isMuted(tab) ? 'unmuteThis' : 'muteThis'), err: t('errMute'), fn: () => toggleMute(tab) },
-      { label: t(tab.pinned ? 'unpinThis' : 'pinThis'), err: t('errPin'), fn: () => togglePin(tab) },
+      { label: t(isMuted(tab) ? 'tabUnmute' : 'tabMute'), err: t('errMute'), fn: () => toggleMute(tab) },
+      { label: t(tab.pinned ? 'tabUnpin' : 'tabPin'), err: t('errPin'), fn: () => togglePin(tab) },
       { label: t('snoozeThis'), err: t('errSnooze'), fn: () => snoozeMenu([tab], anchor || card) },
-      { label: t('archiveThis'), err: t('errArchive'), fn: () => archiveTabs([tab]) },
+      { label: t('tabArchive'), err: t('errArchive'), fn: () => archiveTabs([tab]) },
     );
     if (note) items.push({ label: t(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
-    items.push(null, { label: t('closeTab'), danger: true, err: t('errClose'), fn: () => closeTab(entry) });
+    items.push(null, { label: t('tabClose'), danger: true, err: t('errClose'), fn: () => closeTab(entry) });
   } else {
     if (!(entry.item && entry.item.kind === 'window')) items.push(starItem());
     if (entry.kind === 'snoozed') items.push({ label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });

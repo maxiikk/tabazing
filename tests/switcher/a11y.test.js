@@ -209,8 +209,8 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     expect(e.defaultPrevented).toBe(true);
     expect(tid('menu')).not.toBe(null);
     expect(menuLabels()).toEqual([
-      t('menuSelect'), t('star'), t('copyLink'), t('capturePreview'), t('reloadThis'), t('duplicateThis'), t('sleepThis'),
-      t('muteThis'), t('pinThis'), t('snoozeThis'), t('archiveThis'), t('noteAdd'), t('closeTab'),
+      t('menuSelect'), t('star'), t('copyLink'), t('capturePreview'), t('tabReload'), t('tabDuplicate'), t('sleepThis'),
+      t('tabMute'), t('tabPin'), t('snoozeThis'), t('tabArchive'), t('noteAdd'), t('tabClose'),
     ]);
     expect(focused()).toBe(tids('menu-item')[0]);
   });
@@ -241,11 +241,11 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     sw.selectKey('t' + tabByTitle(sw, 'B').id);
     key('F10', { shiftKey: true });
     expect(menuItem(t('unstar'))).not.toBe(undefined);
-    menuItem(t('pinThis')).click();
+    menuItem(t('tabPin')).click();
     await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === tabByTitle(sw, 'B').id && p.pinned === true));
     sw.selectKey('t' + tabByTitle(sw, 'B').id);
     key('F10', { shiftKey: true });
-    menuItem(t('closeTab')).click();
+    menuItem(t('tabClose')).click();
     await waitFor(() => chrome.tabs.remove.mock.calls.length > 0);
   });
 

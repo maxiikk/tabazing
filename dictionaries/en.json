@@ -247,7 +247,6 @@
   "actMore": "More",
   "archiveBtn": "Archive",
   "archiveBtnTitle": "Show archived tabs",
-  "archiveThis": "Archive this tab (moves it to the “Tabs Archive” bookmarks folder)",
   "actArchive": "Archive",
   "archiveTitle": "Archived tabs",
   "archiveWhere": "Bookmarks › Other bookmarks › Tabs Archive",
@@ -504,5 +503,14 @@
   "setKeyStay": "Open and stay",
   "setKeyPalette": "Command palette",
   "setKeysInside": "Inside Tabazing",
-  "keysInSettings": "Change the keys that open Tabazing in Settings → Shortcuts."
+  "keysInSettings": "Change the keys that open Tabazing in Settings → Shortcuts.",
+  "tabReload": "Reload",
+  "tabDuplicate": "Duplicate",
+  "tabMute": "Mute",
+  "tabUnmute": "Unmute",
+  "tabPin": "Pin",
+  "tabUnpin": "Unpin",
+  "tabArchive": "Archive",
+  "tabArchiveTip": "Archive (moves it to the “Tabs Archive” bookmarks folder)",
+  "tabClose": "Close"
 }

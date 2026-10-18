@@ -247,7 +247,6 @@
   "actMore": "Más",
   "archiveBtn": "Archivo",
   "archiveBtnTitle": "Ver las pestañas archivadas",
-  "archiveThis": "Archivar esta pestaña (la mueve a la carpeta de marcadores “Tabs Archive”)",
   "actArchive": "Archivar",
   "archiveTitle": "Pestañas archivadas",
   "archiveWhere": "Marcadores › Otros marcadores › Tabs Archive",
@@ -504,5 +503,14 @@
   "setKeyStay": "Abrir y dejar abierto",
   "setKeyPalette": "Paleta de comandos",
   "setKeysInside": "Dentro de Tabazing",
-  "keysInSettings": "Cambia las teclas que abren Tabazing en Ajustes → Atajos."
+  "keysInSettings": "Cambia las teclas que abren Tabazing en Ajustes → Atajos.",
+  "tabReload": "Recargar",
+  "tabDuplicate": "Duplicar",
+  "tabMute": "Silenciar",
+  "tabUnmute": "Activar el sonido",
+  "tabPin": "Fijar",
+  "tabUnpin": "Dejar de fijar",
+  "tabArchive": "Archivar",
+  "tabArchiveTip": "Archivar (la mueve a la carpeta de marcadores “Tabs Archive”)",
+  "tabClose": "Cerrar"
 }

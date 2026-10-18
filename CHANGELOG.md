@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.1] - 2026-10-18
+
+### Changed
+
+- A tab's menu (⋯, right-click, Shift+F10), its buttons and its speaker say just what they do: "Reload", "Duplicate", "Pin", "Mute", "Archive", "Close" instead of "… this tab" (the command palette, which acts on the tab you came from, keeps "this tab").
+
+### Fixed
+
+- Opened from a small browser window (where Tabazing can't draw over the page), Tabazing's own window came out barely wider than the command palette; it is now at least 1000×680, centred on that window.
+
 ## [5.1.0] - 2026-10-18
 
 ### Added
@@ -250,7 +260,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.1.0]: https://github.com/maxiikk/tabazing/compare/b7f4bda...HEAD
+[5.1.1]: https://github.com/maxiikk/tabazing/compare/bea73aa...HEAD
+[5.1.0]: https://github.com/maxiikk/tabazing/compare/b7f4bda...bea73aa
 [5.0.0]: https://github.com/maxiikk/tabazing/compare/dcf07fc...b7f4bda
 [4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...dcf07fc
 [4.1.1]: https://github.com/maxiikk/tabazing/compare/e6117fd...341c5d8

@@ -553,8 +553,10 @@ function disarmWatchdog() {
 }
 
 // The popup covers the window it was opened from, as the overlay would: same bounds, or maximized
-// when that one is maximized or fullscreen (Chrome takes no bounds together with a state).
-const POPUP_MIN_W = 640, POPUP_MIN_H = 480;
+// when that one is maximized or fullscreen (Chrome takes no bounds together with a state). A small source
+// window (a narrow, snapped or app window) would give a cramped Tabazing, barely wider than the command
+// palette: the popup is then at least POPUP_MIN_W x POPUP_MIN_H, centred on that window.
+const POPUP_MIN_W = 1000, POPUP_MIN_H = 680;
 async function openPopupWindow(win, token) {
   const url = SWITCHER_URL + '?t=' + token;
   try {
@@ -562,10 +564,13 @@ async function openPopupWindow(win, token) {
       await chrome.windows.create({ url, type: 'popup', focused: true, state: 'maximized' });
       return;
     }
+    const w = win.width || 1280, h = win.height || 800;
+    const width = Math.max(POPUP_MIN_W, w), height = Math.max(POPUP_MIN_H, h);
     await chrome.windows.create({
       url, type: 'popup', focused: true,
-      width: Math.round(Math.max(POPUP_MIN_W, win.width || 1280)), height: Math.round(Math.max(POPUP_MIN_H, win.height || 800)),
-      left: Math.round(win.left || 0), top: Math.round(win.top || 0),
+      width: Math.round(width), height: Math.round(height),
+      // Grown past the source window: centred on it (Chrome refuses bounds far off-screen: see below).
+      left: Math.round((win.left || 0) - (width - w) / 2), top: Math.round(Math.max(0, (win.top || 0) - (height - h) / 2)),
     });
   } catch {
     // Bounds rejected (window partly off-screen, odd multi-monitor layout):
