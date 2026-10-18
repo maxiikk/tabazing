@@ -43,7 +43,7 @@ When a change set spans several levels, use the highest one that applies.
 
 Vitest + jsdom (`npm install` once, then `npm test` for everything, `npx vitest run <path>` for part of it).
 
-Real-browser tests: `npm run test:e2e` (Puppeteer + Chrome for Testing, `tests/e2e/*.e2e.js`, ~1 min; `npx puppeteer browsers install chrome` once on a new machine). Run them after changing the media detection (media-hook.js, media-relay.js, lib/media.js) or how pages host the switcher.
+Real-browser tests: `npm run test:e2e` (Puppeteer + Chrome for Testing, `tests/e2e/*.e2e.js`, ~1 min; `npx puppeteer browsers install chrome` once on a new machine). Run them after changing the media detection (media-hook.js, media-relay.js, lib/media.js), how pages host the switcher, or layout that jsdom can't check (it applies no CSS): `tests/e2e/palette.e2e.js` checks the switcher's layout in real Chrome. Never give `<html>` a class that elements also use (tests/switcher/html-classes.test.js).
 
 - `tests/` mirrors the source: `tests/lib/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/sweep-page.test.js`.
 - `tests/setup/chrome.js` is an in-memory fake of the `chrome.*` APIs (reset before every test); `tests/setup/dom.js` adds what jsdom lacks; `tests/helpers/switcher.js` (`bootSwitcher`) boots the real switcher page through its launch token.

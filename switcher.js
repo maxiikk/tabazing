@@ -3259,7 +3259,7 @@ function fancySelect(sel, { inPop = false } = {}) {
 
 // ---------------------------------------------------------------- the command palette
 // Alt+R from any page (background.js: the 'open-palette' command), or inside Tabazing '>' as the
-// first character in the search box, or Ctrl+K (⌘K). A panel at the top centre (html.palette: the rest is
+// first character in the search box, or Ctrl+K (⌘K). A panel at the top centre (html.palette-open: the rest is
 // dimmed and inert) with one box and one list, mixing a quick answer (lib/quick.js: sums, conversions,
 // colours, time zones, dates), actions (Chrome's and Tabazing's, matched like the search: searchScore on
 // their titles and keywords, in this language and in English) and the very results the search dropdown shows
@@ -3514,7 +3514,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   state.palette = { from, saved, hi: 0, items: [] };
   state.dd.hidden = true;
   renderDropdown();
-  document.documentElement.classList.add('palette');
+  document.documentElement.classList.add('palette-open'); // not 'palette': that is the panel's class, and its rule would lay out the whole page
   el.palette.hidden = false;
   el.palInput.value = text;
   updateInert();
@@ -3532,7 +3532,7 @@ function exitPalette() {
   state.palette = null;
   cancelAnimationFrame(palFrame);
   palFrame = 0;
-  document.documentElement.classList.remove('palette');
+  document.documentElement.classList.remove('palette-open');
   el.palette.hidden = true;
   el.palList.replaceChildren();
   el.palInput.value = '';

@@ -53,7 +53,8 @@ describe('opening and leaving', () => {
   it('Alt+R (a palette launch) opens straight into it; Esc then closes Tabazing', async () => {
     const sw = await boot({ tabs: ABC, ctx: { palette: true, dir: 0 } });
     expect(shown()).toBe(true);
-    expect(document.documentElement.classList.contains('palette')).toBe(true);
+    expect(document.documentElement.classList.contains('palette-open')).toBe(true);
+    expect(document.documentElement.classList.contains('palette')).toBe(false); // the panel's class: its rule would size the whole page
     expect(document.activeElement).toBe(input());
     expect(sw.state.palette.from).toBe('shortcut');
     // Everything else is inert (not the toast or the live regions).
@@ -97,7 +98,7 @@ describe('opening and leaving', () => {
     expect(tid('palette-foot').textContent).toBe(t('palFootBack'));
     key('Escape');
     expect(shown()).toBe(false);
-    expect(document.documentElement.classList.contains('palette')).toBe(false);
+    expect(document.documentElement.classList.contains('palette-open')).toBe(false);
     expect(tid('search').value).toBe('br');
     expect(sw.state.query).toBe('br');
     expect(document.activeElement).toBe(tid('search'));

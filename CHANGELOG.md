@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.2] - 2026-10-18
+
+### Fixed
+
+- Opening the command palette shrank the whole switcher into a column as wide as the palette, which looked like the window resizing and broke the overlay. The palette now opens over the full switcher at the top of the screen.
+
 ## [5.1.1] - 2026-10-18
 
 ### Changed
@@ -260,7 +266,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.1.1]: https://github.com/maxiikk/tabazing/compare/bea73aa...HEAD
+[5.1.2]: https://github.com/maxiikk/tabazing/compare/6279c3f...HEAD
+[5.1.1]: https://github.com/maxiikk/tabazing/compare/bea73aa...6279c3f
 [5.1.0]: https://github.com/maxiikk/tabazing/compare/b7f4bda...bea73aa
 [5.0.0]: https://github.com/maxiikk/tabazing/compare/dcf07fc...b7f4bda
 [4.1.2]: https://github.com/maxiikk/tabazing/compare/341c5d8...dcf07fc

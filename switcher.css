@@ -818,8 +818,10 @@ html.light .ddr.on .ddsrc { color: var(--accent-ink); }
 .dd mark.ddm { background: color-mix(in srgb, var(--accent) 38%, transparent); color: var(--fg); border-radius: 3px; padding: 0 1px; }
 .ddnote2 { color: var(--fg-2); font-style: italic; }
 
-/* ---------- the command palette (html.palette): a panel at the top centre, everything else dimmed and inert ---------- */
-html.palette #app > :not(.palette):not(.toast):not(.live) { opacity: .28; transition: opacity .12s ease; }
+/* ---------- the command palette (html.palette-open): a panel at the top centre, everything else dimmed and inert ----------
+   The mode class on <html> must not be the panel's own class (.palette): the panel's rule (fixed, 660 px, centred)
+   would then lay out the whole page. */
+html.palette-open #app > :not(.palette):not(.toast):not(.live) { opacity: .28; transition: opacity .12s ease; }
 .palette {
   position: fixed; z-index: 6; top: max(16px, 11vh); left: 50%; transform: translateX(-50%);
   width: min(660px, calc(100vw - 32px)); max-height: calc(100vh - max(32px, 22vh));
