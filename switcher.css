@@ -878,6 +878,13 @@ html.light .ddr.on .palico { color: var(--accent-ink); }
 .mi.on { color: var(--accent); font-weight: 650; }
 .mi.on svg { flex: none; color: var(--accent); }
 .mi.danger:hover, .mi.danger:focus-visible { background: var(--fill-2); }
+/* menu items with an icon before the label (the tab's ⋯ menu): a fixed-width slot, so the labels line up */
+.mi.iconed { justify-content: flex-start; }
+.mi .mic { flex: none; width: 16px; display: grid; place-items: center; color: var(--fg-2); }
+.mi .mic svg { width: 14px; height: 14px; }
+.mi .mil { flex: 1; min-width: 0; }
+.mi:hover .mic, .mi:focus-visible .mic { color: inherit; }
+.mi.danger .mic { color: inherit; }
 
 /* ---------- checkboxes: rounded squares, filled with the accent (tick in the colour that reads on it) ---------- */
 :is(.pop, .setpanel) .check input[type="checkbox"] {

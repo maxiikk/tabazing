@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.4] - 2026-10-18
+
+### Changed
+
+- Every action in a tab's menu (⋯, right-click, Shift+F10) has an icon before its name, the same as on the tab's buttons.
+
 ## [5.1.3] - 2026-10-18
 
 ### Fixed
@@ -272,7 +278,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[5.1.3]: https://github.com/maxiikk/tabazing/compare/d593384...HEAD
+[5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...HEAD
+[5.1.3]: https://github.com/maxiikk/tabazing/compare/d593384...ad37917
 [5.1.2]: https://github.com/maxiikk/tabazing/compare/6279c3f...d593384
 [5.1.1]: https://github.com/maxiikk/tabazing/compare/bea73aa...6279c3f
 [5.1.0]: https://github.com/maxiikk/tabazing/compare/b7f4bda...bea73aa

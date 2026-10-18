@@ -843,6 +843,20 @@ describe('one-tab quick buttons', () => {
     expect(clipboard.writeText).toHaveBeenCalledWith('https://b.example/');
   });
 
+  it('every item of the card menu has an icon before its label', async () => {
+    const sw = await boot({ tabs: ABC });
+    sw.cardMenu(entryByTitle(sw, 'B'));
+    const items = tids('menu-item');
+    expect(items.length).toBeGreaterThan(8);
+    for (const b of items) {
+      const icon = tid('menu-item-icon', b);
+      expect(icon, b.textContent).toBeTruthy();
+      expect(icon.querySelector('svg')).toBeTruthy();
+      expect(b.firstElementChild).toBe(icon);
+      expect(tid('menu-item-label', b).textContent).toBe(b.textContent); // the icon adds no text
+    }
+  });
+
   it('a failing quick button says what failed', async () => {
     const sw = await boot({ tabs: ABC });
     chrome.tabs.update.mockRejectedValue(new Error('nope'));

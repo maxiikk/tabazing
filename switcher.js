@@ -2930,27 +2930,27 @@ function cardMenu(entry = state.entries[state.sel], { anchor = null, at = null }
   const card = i >= 0 ? cardAt(i) : null;
   if (!entry || !card) return;
   const items = [];
-  const starItem = () => ({ label: t(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
+  const starItem = () => ({ icon: 'star', label: t(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
   if (entry.kind === 'tab') {
     const tab = entry.tab;
     const note = card.querySelector('.qbtn.note'); // the note card opens at its button, which shows the note too
-    items.push({ label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
-    items.push({ label: t('copyLink'), err: t('copyFailed'), fn: () => copyLinks([tab], 'plain') });
-    if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ label: t('capturePreview'), err: t('captureFailed'), fn: () => captureOne(entry) });
+    items.push({ icon: 'check', label: t(state.picked.has(tab.id) ? 'menuUnselect' : 'menuSelect'), fn: () => pick(entry) }, starItem(), null);
+    items.push({ icon: 'link', label: t('copyLink'), err: t('copyFailed'), fn: () => copyLinks([tab], 'plain') });
+    if (!entry.preview && canCapture(tab) && !state.pvPending.has(tab.id)) items.push({ icon: 'camera', label: t('capturePreview'), err: t('captureFailed'), fn: () => captureOne(entry) });
     // The menu is about this card's tab: its items say what they do, not to which tab ("Reload", not "Reload this tab").
-    items.push({ label: t('tabReload'), err: t('errReload'), fn: () => reloadTab(tab) }, { label: t('tabDuplicate'), err: t('errDuplicate'), fn: () => duplicateTab(tab) });
-    if (!tab.active && !tab.discarded) items.push({ label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), err: t('errSleep'), fn: () => sleepTabs([tab]) });
+    items.push({ icon: 'reload', label: t('tabReload'), err: t('errReload'), fn: () => reloadTab(tab) }, { icon: 'dupe', label: t('tabDuplicate'), err: t('errDuplicate'), fn: () => duplicateTab(tab) });
+    if (!tab.active && !tab.discarded) items.push({ icon: 'moon', label: t(state.toSleep.has(tab.id) ? 'sleepUndo' : 'sleepThis'), err: t('errSleep'), fn: () => sleepTabs([tab]) });
     items.push(
-      { label: t(isMuted(tab) ? 'tabUnmute' : 'tabMute'), err: t('errMute'), fn: () => toggleMute(tab) },
-      { label: t(tab.pinned ? 'tabUnpin' : 'tabPin'), err: t('errPin'), fn: () => togglePin(tab) },
-      { label: t('snoozeThis'), err: t('errSnooze'), fn: () => snoozeMenu([tab], anchor || card) },
-      { label: t('tabArchive'), err: t('errArchive'), fn: () => archiveTabs([tab]) },
+      { icon: isMuted(tab) ? 'speaker' : 'muted', label: t(isMuted(tab) ? 'tabUnmute' : 'tabMute'), err: t('errMute'), fn: () => toggleMute(tab) },
+      { icon: 'pin', label: t(tab.pinned ? 'tabUnpin' : 'tabPin'), err: t('errPin'), fn: () => togglePin(tab) },
+      { icon: 'clock', label: t('snoozeThis'), err: t('errSnooze'), fn: () => snoozeMenu([tab], anchor || card) },
+      { icon: 'archive', label: t('tabArchive'), err: t('errArchive'), fn: () => archiveTabs([tab]) },
     );
-    if (note) items.push({ label: t(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
-    items.push(null, { label: t('tabClose'), danger: true, err: t('errClose'), fn: () => closeTab(entry) });
+    if (note) items.push({ icon: 'note', label: t(noteOf(entry.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(entry.url, note) });
+    items.push(null, { icon: 'close', label: t('tabClose'), danger: true, err: t('errClose'), fn: () => closeTab(entry) });
   } else {
     if (!(entry.item && entry.item.kind === 'window')) items.push(starItem());
-    if (entry.kind === 'snoozed') items.push({ label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
+    if (entry.kind === 'snoozed') items.push({ icon: 'close', label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
   }
   if (items.length) menu(anchor || card, items, { back: el.search, at });
 }
@@ -3190,7 +3190,9 @@ function menu(anchor, items, opts = {}) {
   };
   for (const it of items) {
     if (!it) { m.append(h('hr', '', null, 'menu-separator')); continue; }
-    const b = h('button', 'mi' + (it.danger ? ' danger' : '') + (it.on ? ' on' : ''), it.label, 'menu-item');
+    const b = h('button', 'mi' + (it.danger ? ' danger' : '') + (it.on ? ' on' : '') + (it.icon ? ' iconed' : ''), it.icon ? null : it.label, 'menu-item');
+    // `icon`: a name in ICON, drawn before the label (the label in its own span, so it takes the row's width).
+    if (it.icon) b.append(h('span', 'mic', null, 'menu-item-icon'), h('span', 'mil', it.label, 'menu-item-label')), b.firstChild.append(svgOf(ICON[it.icon]));
     b.type = 'button';
     b.setAttribute('role', it.on !== undefined ? 'menuitemradio' : 'menuitem');
     if (it.on !== undefined) { b.setAttribute('aria-checked', String(!!it.on)); if (it.on) b.append(svgOf(ICON.check)); }
