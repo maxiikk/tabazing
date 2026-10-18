@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **3.1.1** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **3.1.2** (from `manifest.json`). Available in English, Spanish and Russian.
 
 ---
 
@@ -151,8 +151,8 @@ When a tab is playing a video or music, a small player appears in the header, ri
 
 - **Play / Pause** works on any video or audio. **Previous** and **Next** work where the site has its own previous / next track buttons (the ones Chrome's own media controls show, as on YouTube, Spotify or SoundCloud); elsewhere they are greyed out.
 - The **⌄** button at the end opens **All media in your tabs**: one row per tab that has something to play, in every window, playing first. Each row has its preview, title, site, a moving-bars sign while it plays, and its own **Previous**, **Play / Pause**, **Next** and **Go to tab** buttons. Click a row to show it in the header player. **Go to tab** switches to that tab, like picking its card. **Tab** moves through the list, **Esc**, a click outside or the ⌄ again closes it.
-- What counts is exactly what Chrome's own media controls list: a video or audio shows up only once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs"), videos without sound and sounds shorter than 5 seconds never show. Once it has played, it stays while paused, muted or finished, until it is taken off the page, the page loads something else, or it has been paused for an hour.
-- Pages that were already open when Tabazing was installed or updated get the player at once; their **Previous** / **Next** work after the page is reloaded (or once the site sets them up again, as YouTube does for every video).
+- What counts is exactly what Chrome's own media controls list: a video or audio shows up only once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs"), videos without sound and sounds shorter than 5 seconds never show. Once it has played, it stays while paused, muted or finished (also when the site stops it to play something in another tab, as YouTube does), until it is taken off the page, the page loads something else, or it has been paused for an hour.
+- Pages that were already open when Tabazing was installed, updated or reloaded get the player at once, including media that played there before; their **Previous** / **Next** work after the page is reloaded (or once the site sets them up again, as YouTube does for every video).
 - If a page doesn't respond (some players ignore outside play requests), a message says so and the button goes back.
 
 ### Windows

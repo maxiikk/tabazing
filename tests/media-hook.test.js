@@ -36,9 +36,10 @@ const fire = (el, type) => el.dispatchEvent(new Event(type));
 // ---- loading the hook, and taking every trace of it away again
 let added = [];
 function load() {
-  const add = window.addEventListener;
-  window.addEventListener = function (type, fn, opts) { added.push([type, fn, opts]); return add.call(this, type, fn, opts); };
-  try { new Function(SRC)(); } finally { window.addEventListener = add; }
+  const add = window.addEventListener, addDoc = document.addEventListener;
+  window.addEventListener = function (type, fn, opts) { added.push([window, type, fn, opts]); return add.call(this, type, fn, opts); };
+  document.addEventListener = function (type, fn, opts) { added.push([document, type, fn, opts]); return addDoc.call(this, type, fn, opts); };
+  try { new Function(SRC)(); } finally { window.addEventListener = add; document.addEventListener = addDoc; }
 }
 let reports = [];
 const onReport = (e) => reports.push(e.detail);
@@ -60,7 +61,7 @@ beforeEach(() => {
   load();
 });
 afterEach(() => {
-  for (const [type, fn, opts] of added) window.removeEventListener(type, fn, opts);
+  for (const [target, type, fn, opts] of added) target.removeEventListener(type, fn, opts);
   added = [];
   document.removeEventListener('tabazing:media', onReport);
   delete window[KEY];
@@ -82,7 +83,7 @@ describe('reports', () => {
     settle();
     expect(reports).toHaveLength(1);
     expect(typeof reports[0]).toBe('string');
-    expect(last()).toEqual({ media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
+    expect(last()).toEqual({ v: 2, media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
   });
 
   it('injected into a page that is already playing (install, update), it says so without waiting for an event', () => {
@@ -126,7 +127,7 @@ describe('reports', () => {
     v.remove();
     v.pause();
     settle();
-    expect(last()).toEqual({ media: false });
+    expect(last()).toEqual({ v: 2, media: false });
     expect(reports).toHaveLength(2);
   });
 
@@ -135,7 +136,7 @@ describe('reports', () => {
     v.play();
     settle();
     window.dispatchEvent(new Event('pagehide'));
-    expect(last()).toEqual({ media: false });
+    expect(last()).toEqual({ v: 2, media: false });
     window.dispatchEvent(new Event('pagehide'));
     expect(reports).toHaveLength(2); // said once
     const back = new Event('pageshow');
@@ -272,15 +273,16 @@ describe('which media: Chrome\'s own rule (only media that played with sound)', 
     expect(reports).toEqual([]);
   });
 
-  it('a new source (emptied) has to play with sound again to count', () => {
+  it("a player that unloads its source stays, paused (YouTube stops one tab's video when another starts)", () => {
     const v = media('video');
     v.play();
-    v.pause();
     settle();
-    expect(last().media).toBe(true);
+    states.get(v).paused = true;
+    v.removeAttribute('src'); // stopVideo(): the source goes
+    fire(v, 'pause');
     fire(v, 'emptied');
     settle();
-    expect(last()).toEqual({ media: false });
+    expect(last()).toMatchObject({ media: true, playing: false, kind: 'video' });
   });
 
   it('the playing one, else the one played last, else the one that joined last', () => {
@@ -427,8 +429,68 @@ describe('idempotence', () => {
 
 // The beforeEach's copy, gone (for a test that loads its own).
 function afterEachCleanup() {
-  for (const [type, fn, opts] of added) window.removeEventListener(type, fn, opts);
+  for (const [target, type, fn, opts] of added) target.removeEventListener(type, fn, opts);
   added = [];
   delete window[KEY];
   P.play = vi.fn(function () { states.get(this).paused = false; fire(this, 'play'); return Promise.resolve(); });
 }
+
+describe('keeping the background up to date', () => {
+  it('a sync request (the relay started) says everything again, changed or not', () => {
+    media('video').play();
+    settle();
+    const n = reports.length;
+    document.dispatchEvent(new CustomEvent('tabazing:media-sync'));
+    settle();
+    expect(reports).toHaveLength(n + 1);
+    expect(last()).toMatchObject({ v: 2, media: true, playing: true });
+    window[KEY].sync(); // the background's way in, after a tab loaded
+    settle();
+    expect(reports).toHaveLength(n + 2);
+  });
+
+  it('injected later, it also counts media that played before it came (el.played), even paused now', () => {
+    settle();
+    const v = media('video');
+    Object.defineProperty(v, 'played', { value: { length: 1 }, configurable: true }); // it played, then paused
+    const never = media('audio');
+    Object.defineProperty(never, 'played', { value: { length: 0 }, configurable: true });
+    delete window[KEY];
+    load();
+    settle();
+    expect(last()).toMatchObject({ media: true, playing: false, kind: 'video' });
+  });
+
+  it('a copy from before versions existed is taken over; the same version is left alone', () => {
+    const old = vi.fn(() => true); // an old hook: a plain function, no version
+    Object.defineProperty(window, KEY, { value: old, configurable: true, enumerable: false, writable: false });
+    load();
+    expect(window[KEY]).not.toBe(old);
+    expect(window[KEY].version).toBe(2);
+    const current = window[KEY];
+    load();
+    expect(window[KEY]).toBe(current);
+  });
+
+  it('a newer copy retires the one it replaces and takes over its handlers and media', () => {
+    const next = vi.fn();
+    navigator.mediaSession.setActionHandler('nexttrack', next);
+    const v = media('video');
+    v.play();
+    v.pause();
+    settle();
+    const older = window[KEY];
+    Object.defineProperty(older, 'version', { value: 1 }); // pretend it is older
+    load();
+    const newer = window[KEY];
+    expect(newer).not.toBe(older);
+    expect(older('pause')).toBe(false); // retired: it no longer acts
+    expect(newer('nexttrack')).toBe(true); // the page's handler, set up before the newer copy came
+    expect(next).toHaveBeenCalledTimes(1);
+    reports = [];
+    newer.sync();
+    settle();
+    expect(reports).toHaveLength(1); // one report: only the newer copy speaks
+    expect(last()).toMatchObject({ media: true, playing: false, canNext: true });
+  });
+});

@@ -99,7 +99,7 @@
     "history"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "3.1.1",
+  "version": "3.1.2",
   "web_accessible_resources": [
     {
       "matches": [

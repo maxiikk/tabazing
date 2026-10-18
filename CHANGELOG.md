@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.2] - 2026-10-18
+
+### Fixed
+
+- A video stopped because you started one in another tab (as YouTube does) disappeared from the media player's list; like in Chrome's own media controls it now stays, paused.
+- After Tabazing was updated or reloaded, media playing or paused in tabs that were already open was missing from the player until something changed there; those pages now report what they play right away, and a page that loads (or changes its own address) is asked again once loaded.
+
 ## [3.1.1] - 2026-10-18
 
 ### Fixed
@@ -150,7 +157,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[3.1.1]: https://github.com/maxiikk/tabazing/compare/b6177be...HEAD
+[3.1.2]: https://github.com/maxiikk/tabazing/compare/6223238...HEAD
+[3.1.1]: https://github.com/maxiikk/tabazing/compare/b6177be...6223238
 [3.1.0]: https://github.com/maxiikk/tabazing/compare/9e19aa0...b6177be
 [3.0.3]: https://github.com/maxiikk/tabazing/compare/868f87a...9e19aa0
 [3.0.2]: https://github.com/maxiikk/tabazing/compare/6d950ea...868f87a

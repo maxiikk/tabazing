@@ -7,15 +7,24 @@
 // Security: the page sees and can fake all of this (same world). That only changes what Tabazing shows
 // for this tab and what its buttons do here; the background validates every report (lib/store.js).
 //
-// Idempotent: a second copy in the same page (declared and injected) finds the first and does nothing.
+// Idempotent: a second copy of the same version in the same page (declared and injected) finds the first and
+// does nothing. A newer version (injected into open tabs after an update) retires an older one and takes over;
+// copies from before versions existed can't be retired, so media-relay.js ignores reports without a version.
 (() => {
   const KEY = Symbol.for('tabazing.media');
-  if (window[KEY]) return;
+  const VERSION = 2; // in every report as "v"; media-relay.js passes on reports from VERSION 2 on
+  const prev = window[KEY];
+  if (prev && prev.version >= VERSION) return;
+  if (prev && typeof prev.retire === 'function') prev.retire();
+  let retired = false;
   const EVENT = 'tabazing:media'; // media-relay.js listens for this
+  const SYNC = 'tabazing:media-sync'; // ...and asks with this for everything again (when it starts)
   const ACTIONS = ['previoustrack', 'nexttrack', 'play', 'pause'];
   const EVENTS = ['play', 'playing', 'pause', 'ended', 'emptied', 'durationchange', 'volumechange', 'timeupdate'];
   // Which media count is Chrome's own rule (its media controls, MediaSessionImpl): only media that has PLAYED
-  // WITH SOUND joins, and then stays, paused or not, until it is taken out of the page or its source is reset.
+  // WITH SOUND joins, and then stays, paused or not, until it is taken out of the page (or the page goes).
+  // A player that unloads its source keeps its place: YouTube does that to the video in one tab when you start
+  // another, and Chrome still lists the first one, paused.
   // Media that never played, muted autoplay (feeds, backgrounds, GIF stand-ins) and sounds shorter than
   // 5 s ("transient" in Chrome) never show; nor does a page that only sets Media Session metadata.
   const MIN_SECONDS = 5;
@@ -26,7 +35,7 @@
   const watched = new WeakSet(); // elements with listeners of their own (see watch())
   const inDoc = new WeakSet();   // elements seen in the document: taken out of it, they are gone
   let lastPlayed = null;
-  let last = JSON.stringify({ media: false }); // nothing is reported until there is something to say
+  let last = JSON.stringify({ v: VERSION, media: false }); // nothing is reported until there is something to say
   let timer = 0;
 
   const session = () => navigator.mediaSession || null;
@@ -75,8 +84,8 @@
     watch(el);
     // timeupdate (a few times a second while playing) only matters until the element has joined: its sound
     // may be decoded, or its duration known, only a moment after it starts.
+    if (retired) return;
     if (e.type === 'timeupdate') { if (join(el)) schedule(); return; }
-    if (e.type === 'emptied') active.delete(el); // a new source: it joins again once that plays with sound
     if (e.type === 'play' || e.type === 'playing') lastPlayed = el;
     join(el);
     schedule();
@@ -98,9 +107,12 @@
   const longEnough = (el) => el.duration === Infinity || (Number.isFinite(el.duration) && el.duration >= MIN_SECONDS);
   const gone = (el) => !el.isConnected && inDoc.has(el); // was in the page, taken out of it
   // Playing with sound right now: it joins this frame's media (and stays). Returns whether it just joined.
-  function join(el) {
+  // `before`: it doesn't have to be playing now if it has played (el.played): for a hook injected into a page
+  // that is already open, which wasn't there to see it.
+  function join(el, before = false) {
     if (el.isConnected) inDoc.add(el);
-    if (active.has(el) || gone(el) || !playing(el) || !hasSource(el) || !withSound(el) || !longEnough(el)) return false;
+    const played = playing(el) || (before && el.played && el.played.length > 0);
+    if (active.has(el) || gone(el) || !played || !hasSource(el) || !withSound(el) || !longEnough(el)) return false;
     active.add(el);
     if (active.size > MAX_KNOWN) active.delete(active.values().next().value);
     return true;
@@ -117,9 +129,10 @@
   const text = (v) => (typeof v === 'string' ? v : '');
   function current() {
     const el = primary();
-    if (!el) return { media: false };
+    if (!el) return { v: VERSION, media: false };
     const m = metadata();
     return {
+      v: VERSION,
       media: true,
       playing: playing(el),
       kind: el instanceof HTMLVideoElement ? 'video' : 'audio',
@@ -135,21 +148,31 @@
   // The detail is a string: an object made in this world doesn't reach the isolated world's listener.
   function report() {
     timer = 0;
+    if (retired) return;
     const json = JSON.stringify(current());
     if (json === last) return;
     last = json;
     document.dispatchEvent(new CustomEvent(EVENT, { detail: json }));
   }
   function schedule() {
+    if (retired) return;
     clearTimeout(timer);
     timer = setTimeout(report, 150);
   }
+  // Say everything again, changed or not: the relay just started (the extension was reloaded, and with it
+  // what the background knew), or the background asks after the tab loaded.
+  function sync() {
+    last = '';
+    schedule();
+  }
+  document.addEventListener(SYNC, sync);
   // The frame goes away (navigation, an iframe removed): it plays nothing any more. Back from the
   // back/forward cache: say again what it plays.
+  const NONE = JSON.stringify({ v: VERSION, media: false });
   window.addEventListener('pagehide', () => {
     clearTimeout(timer);
-    if (last === JSON.stringify({ media: false })) return;
-    last = JSON.stringify({ media: false });
+    if (retired || last === NONE || last === JSON.stringify({ media: false })) return;
+    last = NONE;
     document.dispatchEvent(new CustomEvent(EVENT, { detail: last }));
   });
   window.addEventListener('pageshow', (e) => { if (e.persisted) { last = ''; schedule(); } });
@@ -157,7 +180,7 @@
   // The switcher's buttons (lib/media.js). The page's own handler when it has one (as Chrome's media
   // controls do), else the element itself; there is no previous / next without the page's handler.
   function act(action) {
-    if (!ACTIONS.includes(action)) return false;
+    if (retired || !ACTIONS.includes(action)) return false;
     const fn = handlers.get(action);
     if (fn) {
       try { fn({ action }); } catch { return false; }
@@ -171,8 +194,22 @@
     schedule();
     return true;
   }
+  // A newer copy takes over (see the top): this one stops reporting and acting.
+  act.version = VERSION;
+  act.sync = sync;
+  act.retire = () => { retired = true; clearTimeout(timer); document.removeEventListener(SYNC, sync); };
+  act.handoff = () => ({ handlers, active, lastPlayed }); // what a newer copy takes over (see below)
   Object.defineProperty(window, KEY, { value: act, configurable: true, enumerable: false, writable: false });
-  // Injected into a page that is already open (install, update): what plays there now joins at once.
-  for (const el of document.querySelectorAll('video, audio')) { watch(el); join(el); }
+  // Taking over from an older copy: the page's handlers and the media it knew (the page set them up before us).
+  if (prev && typeof prev.handoff === 'function') {
+    try {
+      const old = prev.handoff();
+      old.handlers.forEach((fn, a) => handlers.set(a, fn));
+      old.active.forEach((el) => { active.add(el); watch(el); });
+      lastPlayed = old.lastPlayed;
+    } catch {}
+  }
+  // Injected into a page that is already open (install, update): what plays there, or has played, joins at once.
+  for (const el of document.querySelectorAll('video, audio')) { watch(el); join(el, true); }
   schedule();
 })();

@@ -9,7 +9,7 @@ const load = () => new Function(SRC)();
 const EXT_ID = chrome.runtime.id;
 const report = (detail) => document.dispatchEvent(new CustomEvent('tabazing:media', { detail }));
 const sent = () => chrome.runtime.sendMessage.mock.calls.map((c) => c[0]);
-const PLAYING = JSON.stringify({ media: true, playing: true, kind: 'video', title: 'A', artist: '', canPrev: false, canNext: false, muted: false });
+const PLAYING = JSON.stringify({ v: 2, media: true, playing: true, kind: 'video', title: 'A', artist: '', canPrev: false, canNext: false, muted: false });
 
 function unload() {
   const r = window.__tabazingMedia;
@@ -27,8 +27,8 @@ describe('media-relay.js', () => {
 
   it('sends each report\'s text, as is, to the background', () => {
     report(PLAYING);
-    report(JSON.stringify({ media: false }));
-    expect(sent()).toEqual([{ type: MSG.MEDIA, state: PLAYING }, { type: MSG.MEDIA, state: '{"media":false}' }]);
+    report(JSON.stringify({ v: 2, media: false }));
+    expect(sent()).toEqual([{ type: MSG.MEDIA, state: PLAYING }, { type: MSG.MEDIA, state: '{"v":2,"media":false}' }]);
   });
 
   it('the same text twice in a row is sent once', () => {
@@ -43,7 +43,11 @@ describe('media-relay.js', () => {
     report('');
     report('x'.repeat(LIMITS.MEDIA_STATE_MAX + 1));
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
-    report('x'.repeat(LIMITS.MEDIA_STATE_MAX));
+    const atLimit = (n) => JSON.stringify({ v: 2, pad: 'x'.repeat(n - '{"v":2,"pad":""}'.length) }); // valid JSON, n characters
+    expect(atLimit(LIMITS.MEDIA_STATE_MAX)).toHaveLength(LIMITS.MEDIA_STATE_MAX);
+    report(atLimit(LIMITS.MEDIA_STATE_MAX + 1));
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    report(atLimit(LIMITS.MEDIA_STATE_MAX));
     expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
   });
 
@@ -82,5 +86,25 @@ describe('media-relay.js', () => {
       report(PLAYING);
       expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('media-relay.js and media-hook.js versions', () => {
+  it('drops reports from hooks older than version 2 (left in pages open from before an update), and broken JSON', () => {
+    report(JSON.stringify({ media: true, playing: true, kind: 'video', title: 'old rules', artist: '', canPrev: false, canNext: false, muted: false }));
+    report(JSON.stringify({ v: 1, media: false }));
+    report('{not json');
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    report(PLAYING);
+    expect(sent()).toEqual([{ type: MSG.MEDIA, state: PLAYING }]);
+  });
+
+  it('asks the page\'s hook for everything again when it starts (after an install, update or reload)', () => {
+    unload();
+    const asked = vi.fn();
+    document.addEventListener('tabazing:media-sync', asked);
+    load();
+    document.removeEventListener('tabazing:media-sync', asked);
+    expect(asked).toHaveBeenCalledTimes(1);
   });
 });

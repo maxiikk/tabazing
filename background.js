@@ -91,9 +91,12 @@ chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   else if (tab.active && info.status === 'complete') prepareSwitcher(tab);
   // Chrome unloaded (or reloaded) this tab while we were running: that's a real "Sleeping" tab.
   if (typeof info.discarded === 'boolean') markDiscarded(tabId, info.discarded).catch(() => {});
-  // A new page (or a reload): what the old one played is gone; the new one reports for itself. A page
-  // that changes its address itself (history.pushState) doesn't start loading, and keeps its media.
-  if (info.status === 'loading') forgetMedia(tabId).catch(() => {});
+  // Loading (a new page, a reload, or a page changing its own address, which Chrome may also count): what
+  // was known about its media may be out of date. Forget it, and once loaded ask the tab's media-hook.js
+  // copies what they play now: a new page has nothing (yet), a page that only changed its address still
+  // has its media. Only tabs that had media are asked.
+  if (info.status === 'loading') forgetMedia(tabId).then((had) => { if (had) mediaResync.add(tabId); }).catch(() => {});
+  if (info.status === 'complete' && mediaResync.delete(tabId)) resyncMedia(tabId);
   if (info.status === 'complete' && tab.active && !isSweeping()) {
     scheduleCapture(tab.windowId, 450);
     offerFlyout(tab);
@@ -276,6 +279,15 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
   await injectPageScripts(await chrome.tabs.query({ url: ['http://*/*', 'https://*/*', 'file://*/*'] }));
 });
+
+const mediaResync = new Set(); // tabs whose media to ask for again once they finish loading
+// Ask every media-hook.js in a tab to say again what it plays (see media-hook.js: sync).
+function resyncMedia(tabId) {
+  chrome.scripting.executeScript({
+    target: { tabId, allFrames: true }, world: 'MAIN',
+    func: () => { const h = window[Symbol.for('tabazing.media')]; if (h && typeof h.sync === 'function') h.sync(); },
+  }).catch(() => {});
+}
 
 // Tabs that were open before install/reload (or before site access was allowed) don't have the content
 // scripts yet: put them in. Each guards itself, so injecting twice is harmless. The media relay goes in before
@@ -838,5 +850,5 @@ export {
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
   trigger, openSwitcher, injectInto, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
   WATCH_FIRST_MS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
-  flyoutOver, offerFlyout, injectFlyout, injectPageScripts, captureOne, reopenOver, fromContentScript, fromSwitcher,
+  flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

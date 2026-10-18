@@ -1,6 +1,6 @@
 // background.js: what pages play (MSG.MEDIA from media-relay.js), kept per tab and frame for the switcher's
 // player, and forgotten when the tab closes or loads a new page.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS } from '../lib/constants.js';
 import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send } from './background.shared.js';
 
@@ -81,6 +81,37 @@ describe('forgetting', () => {
     chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
     await flush();
     expect(Object.keys(media())).toEqual([String(other.id)]);
+  });
+
+  it('once loaded, a tab that had media is asked what it plays now (a page that only changed its address still has it)', async () => {
+    const { tab, other } = await playing();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
+    await flush();
+    const resyncs = () => chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files);
+    expect(resyncs()).toEqual([]); // not while loading
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
+    chrome.tabs.onUpdated._emit(other.id, { status: 'complete' }, other); // had media, but didn't load: not asked
+    await flush();
+    expect(resyncs().map(([o]) => o.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
+    // what it runs in the page: the hook's sync, if the page has the hook
+    const sync = vi.fn();
+    window[Symbol.for('tabazing.media')] = Object.assign(() => true, { sync });
+    resyncs()[0][0].func();
+    expect(sync).toHaveBeenCalledTimes(1);
+    delete window[Symbol.for('tabazing.media')];
+    expect(() => resyncs()[0][0].func()).not.toThrow(); // no hook: nothing
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab); // asked once per load
+    await flush();
+    expect(resyncs()).toHaveLength(1);
+  });
+
+  it('a tab that had no media is not asked after it loads', async () => {
+    const { tab } = seed();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
+    await flush();
+    chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
+    await flush();
+    expect(chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func)).toEqual([]);
   });
 
   it('but not on other changes (a title, a page changing its own address, the load finishing)', async () => {
