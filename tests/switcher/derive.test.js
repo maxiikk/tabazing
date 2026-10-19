@@ -414,14 +414,14 @@ describe('navigation and layout', () => {
   });
 
   it('stepKey moves along the cards, wrapping at the ends', () => {
-    const list = sw.state.matches.map((e) => e.key);
+    const list = sw.state.steps.map((e) => e.key);
     expect(list).toHaveLength(3);
     expect(sw.stepKey(list[0], 1)).toBe(list[1]);
     expect(sw.stepKey(list[2], 1)).toBe(list[0]);
     expect(sw.stepKey(list[0], -1)).toBe(list[2]);
     // From something that isn't a card: from the current tab (first here)
     expect(sw.stepKey('nope', 1)).toBe(list[1]);
-    sw.state.matches = [];
+    sw.state.steps = [];
     expect(sw.stepKey('x', 1)).toBeNull();
   });
 

@@ -74,13 +74,13 @@ describe('snoozed tabs', () => {
 
   it('getSnoozed validates and fills defaults', async () => {
     L._data.set(KEY.SNOOZED, [
-      item('a', 10, { windowId: 3, pinned: true, t: 4, junk: 1 }),
-      item('b', 20, { title: 'x'.repeat(400), windowId: -1, pinned: 'yes', t: 'x' }),
+      item('a', 10, { windowId: 3, pinned: true, t: 4, junk: 1, group: { id: 4, title: 'Work', color: 'blue' } }),
+      item('b', 20, { title: 'x'.repeat(400), windowId: -1, pinned: 'yes', t: 'x', group: { title: 5 } }),
       { ...item('c', 30), id: 5 }, { ...item('d', 30), url: 'https://d/' + 'x'.repeat(LIMITS.MAX_URL_KEY) }, item('e', 0), null,
     ]);
     expect(await s.getSnoozed()).toEqual([
-      { id: 'a', url: 'https://a.com/', title: 'a', at: 10, windowId: 3, pinned: true, t: 4 },
-      { id: 'b', url: 'https://b.com/', title: 'x'.repeat(300), at: 20, windowId: null, pinned: false, t: 20 },
+      { id: 'a', url: 'https://a.com/', title: 'a', at: 10, windowId: 3, pinned: true, t: 4, group: { id: 4, title: 'Work', color: 'blue' } },
+      { id: 'b', url: 'https://b.com/', title: 'x'.repeat(300), at: 20, windowId: null, pinned: false, t: 20, group: null },
     ]);
     L._data.set(KEY.SNOOZED, {});
     expect(await s.getSnoozed()).toEqual([]);
@@ -259,7 +259,7 @@ describe('view', () => {
 describe('prefs', () => {
   const defaults = {
     lang: 'auto', startup: false, cardSize: 'default', accent: DEFAULT_ACCENT, allWindows: false, theme: 'system',
-    pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, showGroups: true, ownWindow: false, titleLines: 2,
+    pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, showGroups: true, groupWrap: false, ownWindow: false, titleLines: 2,
     searchHistory: true, searchBookmarks: true, iconTips: 0,
   };
   const SWITCHES = ['pinnedFirst', 'showClosed', 'showSnoozed', 'showAge', 'showGroups', 'searchHistory', 'searchBookmarks']; // on unless set to false
@@ -272,8 +272,8 @@ describe('prefs', () => {
     for (const lang of ['auto', 'en', 'ru', 'es']) { L._data.set(KEY.PREFS, { lang }); expect((await s.getPrefs()).lang).toBe(lang); }
     for (const cardSize of ['small', 'list']) { L._data.set(KEY.PREFS, { cardSize }); expect((await s.getPrefs()).cardSize).toBe(cardSize); }
     for (const theme of ['dark', 'light', 'system']) { L._data.set(KEY.PREFS, { theme }); expect((await s.getPrefs()).theme).toBe(theme); }
-    L._data.set(KEY.PREFS, { startup: true, allWindows: true, accent: '#abcdef' });
-    expect(await s.getPrefs()).toEqual({ ...defaults, startup: true, allWindows: true, accent: '#ABCDEF' });
+    L._data.set(KEY.PREFS, { startup: true, allWindows: true, accent: '#abcdef', groupWrap: true });
+    expect(await s.getPrefs()).toEqual({ ...defaults, startup: true, allWindows: true, accent: '#ABCDEF', groupWrap: true });
     L._data.set(KEY.PREFS, { ...Object.fromEntries(SWITCHES.map((k) => [k, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
     expect(await s.getPrefs()).toEqual({ ...defaults, ...Object.fromEntries(SWITCHES.map((k) => [k, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
   });

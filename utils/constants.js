@@ -45,7 +45,7 @@ export const KEY = Object.freeze({
   NUDGE: 'nudge',             // storage.local: { day, runs, shown, last, never } the "use Alt+Q" nudge (never sent anywhere)
   LAST_OPEN: 'lastOpen',      // storage.session: when the switcher last opened
   PREFS: 'prefs',             // storage.local: { lang: 'auto'|'en'|'ru'|'es', startup: boolean, cardSize: 'default'|'small'|'list', accent: '#rrggbb', allWindows: boolean, theme: 'dark'|'light'|'system',
-                              //   pinnedFirst, showClosed, showSnoozed, showAge, showGroups, ownWindow, searchHistory, searchBookmarks: boolean, titleLines: 1|2, iconTips: number } Settings (store.js getPrefs has the defaults)
+                              //   pinnedFirst, showClosed, showSnoozed, showAge, showGroups, groupWrap, ownWindow, searchHistory, searchBookmarks: boolean, titleLines: 1|2, iconTips: number } Settings (store.js getPrefs has the defaults)
   NOCAP: 'nocap',             // storage.session: normalized URLs Chrome refused to screenshot (the Web Store, some built-in pages)
   RESUME: 'resume',           // storage.session: { t, query, scope, sort, starred, key } reopen the switcher where it was (after a one-tab capture)
   OVERLAY: 'overlay',         // { tabId, t } tab currently covered by the overlay

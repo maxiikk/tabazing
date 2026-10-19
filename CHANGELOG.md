@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.4.0] - 2026-10-19
+
+### Added
+
+- Tab groups from Tabazing: a tab's menu has "Add to group…" (the window's groups, or "New group…" with a name and one of Chrome's colours) and "Remove from group"; ticked tabs get "Add to group…" under More; the command palette can open, ungroup or close the current tab's group, and add the current tab to a group or take it out of one.
+- A tile's menu has "Name and colour…", "Move group to new window", "Collapse / Expand in Chrome", and Put to sleep, Mute, Snooze and Archive for the whole group.
+- A tile works like a card: Del, its × or a middle-click close the group (Undo brings it back), Ctrl+click, its tick box or Ctrl+Space tick all its tabs (some ticked shows a dash), Space or Shift+click show all its tabs' pictures big.
+- A tile shows what its tabs are doing: "Current tab", how many play sound, sleep, have a note or a star, "Collapsed" in Chrome's tab strip, and its window when all windows are shown.
+- Search finds tab groups by name (Enter opens one), and in a group lists that group's tabs first.
+- "By order": drag a tile to move the whole group, or drop tabs on a tile to put them in that group.
+- Settings → Cards → "Alt+Q / Alt+W go round inside a tab group" (off by default): they wrap at the group's ends instead of stepping out.
+- A tour step about tab groups, and screen readers hear when you go into or out of a group.
+
+### Changed
+
+- Esc in a group goes back to all the tabs (one level back, as elsewhere); Esc again closes Tabazing. The "All tabs" button shows the key.
+- Opening Tabazing in any way from a tab outside the group it was in leaves that group, as Alt+Q / Alt+W already did. Stepping out of a group with Alt+Q / Alt+W no longer forgets it until you actually go elsewhere.
+- By recent use, the tab you used just before is always one Alt+W away, even when it is pinned (pinned tabs are still shown first).
+- Sorted by name, a group's tile goes where its group's name does.
+- Filters and the Starred filter keep groups as tiles, showing only the tabs they let through.
+- An unnamed group is called by its colour ("Blue group"), as Chrome shows it.
+- "Reopen in the background" on a closed tab Chrome remembers says it opens without its history.
+
+### Fixed
+
+- Merge windows broke up the other windows' tab groups; it now moves them as groups, and Undo puts them back in their groups.
+- "Move to new window" took tabs out of their group; their group now goes along (Undo puts them back in it).
+- "Select all" ticked tabs inside group tiles without showing it; a tile now shows its tabs' ticks.
+- Undo after closing every tab of the group you were in brought the tabs back, but not the group view.
+- Group changes made in Chrome while Tabazing was open (renamed, recoloured, tabs moved in or out) only showed after reopening it.
+- The palette's "New tab" in a group didn't add the tab to the group, unlike the header's.
+- A snoozed tab, or a closed tab reopened from Tabazing's own log, came back outside the group it was in.
+- Close duplicates could close the copy inside a group and keep the loose one.
+
 ## [6.3.1] - 2026-10-19
 
 ### Changed
@@ -347,7 +381,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...HEAD
+[6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...HEAD
+[6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...0c7ba85
 [6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...ad37a0b
 [6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...7e4fde2
 [6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...8a7846c

@@ -71,7 +71,7 @@ describe('a recently closed card', () => {
   it('Reopen in the background: a tab behind Tabazing, which stays; the entry leaves the list', async () => {
     const sw = await boot(withClosed());
     openMenu(sw);
-    menuItem(t('closedBackground')).click();
+    menuItem(t('closedBackgroundFresh')).click(); // (one Chrome remembers: a fresh tab, without its history)
     await waitFor(() => sw.state.tabs.some((x) => x.url === GONE));
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: GONE, windowId: 1, active: false });
     expect(titles(sw)).toEqual([]);

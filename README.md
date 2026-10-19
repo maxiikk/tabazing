@@ -117,14 +117,14 @@ On a Mac, "Alt" is the Option key (⌥).
 | Open | Enter | Enter | Switch to the selected tab, or open the highlighted search result. |
 | Address / Google | Shift+Enter | Shift+Enter | Open what you typed as an address, or search Google for it. |
 | Big preview | Space | Space | Show the selected card's preview in full size (when nothing is typed). |
-| Close tab | Del | ⌘⌫ | Close the selected tab. On a snoozed tab, cancels the snooze. On a "Starred, not open" card, removes the star. On a recently closed one, removes it from the list. |
-| Leave group | Backspace | ⌫ | In a [tab group](#tab-groups), go back to all tabs (with the search box empty). |
+| Close tab | Del | ⌘⌫ | Close the selected tab (on a group's tile, all its tabs; Undo brings them back in the group). On a snoozed tab, cancels the snooze. On a "Starred, not open" card, removes the star. On a recently closed one, removes it from the list. |
+| Leave group | Esc, or Backspace | Esc, or ⌫ | In a [tab group](#tab-groups), go back to all tabs (Backspace with the search box empty). |
 | Undo | Ctrl+Z | ⌘Z | Undo what you last did in Tabazing: reopen closed tabs, or move merged or moved tabs back (when the search box is empty). |
 | Star | Alt+S | ⌥S | Star or unstar the selected page. |
 | Capture | Alt+P | ⌥P | Take a preview of the selected tab. |
 | Search | Ctrl+F | ⌘F | Jump to the search box. Just typing anywhere works too. |
 | Windows | Ctrl+← / Ctrl+→ | ⌃← / ⌃→ | Show the previous or next window's tabs, or all windows (when there is more than one window). |
-| Back / close | Esc | Esc | In this order: clears the search, leaves the duplicates view, clears the ticks, closes Tabazing. |
+| Back / close | Esc | Esc | In this order: clears the search, leaves the duplicates view, clears the ticks, leaves the tab group, closes Tabazing. |
 
 All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card at the top right.
 
@@ -309,17 +309,22 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 - **Show more** under the section (a button, reachable with Tab) shows everything Tabazing knows you closed in the last 7 days, up to 24 items; **Show fewer** goes back.
 - Settings → **Show Recently closed** hides the section (search still finds closed tabs).
 - **Search reaches further back:** it finds anything closed in the **last 7 days**, using Chrome's own list plus Tabazing's local log of closed tabs.
-- Each closed tab has its **note** button and **⋯** (or right-click it, or Shift+F10): **Reopen**, **Reopen in a new window**, **Reopen in the background** (Tabazing stays open and the tab joins your open tabs), **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: reopen later**, **Archive** and **Remove from list** (also **Del**; Undo puts it back). A closed window offers Reopen window, Copy links, Bookmark… and Remove from list.
+- Each closed tab has its **note** button and **⋯** (or right-click it, or Shift+F10): **Reopen**, **Reopen in a new window**, **Reopen in the background** (Tabazing stays open and the tab joins your open tabs; it opens afresh, so the menu says "without its history" where Reopen would bring that back), **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: reopen later**, **Archive** and **Remove from list** (also **Del**; Undo puts it back). A closed window offers Reopen window, Copy links, Bookmark… and Remove from list.
 
 ### Tab groups
 
-- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be. Its picture is the group's first tabs, as many as it has up to four (one fills the picture, two sit side by side, three are one big and two small, four are two by two), with **+N** for the rest; its header has the group's name and how many tabs it has.
-- **Open a group** by clicking its tile, or select it and press Enter, Space or its number. Tabazing then shows only that group's tabs, framed in its colour, with the group's name as the heading: everything works there as usual (Alt+Q steps through the group's tabs, search, close, sort...), and **New tab** opens the tab in the group.
-- Tabazing **stays inside the group** every time you open it, until you leave it: click **‹ All tabs**, press **Backspace** in the empty search box, or choose **Leave the tab group** in the command palette. Esc only closes Tabazing.
-- **Alt+Q / Alt+W** treat a group as one card, its tile: stepping onto it doesn't open it, **letting go of Alt on it does** (instead of switching tabs). Inside a group they step through its tabs, and letting go switches to one, as usual. **Before its first tab** (Alt+Q) or **after its last** (Alt+W) they step out of the group, to the card before or after its tile among all your tabs; that may be another group's tile, which again opens only if you let go of Alt there. Stepping out leaves the group. Opened with Alt+Q / Alt+W from a tab outside the group you were in (you went elsewhere in Chrome itself), Tabazing steps among all your tabs and leaves the group.
+- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be (sorted by name: where the group's name goes). Its picture is the group's first tabs, as many as it has up to four (one fills the picture, two sit side by side, three are one big and two small, four are two by two), with **+N** for the rest; its header has the group's name (an unnamed group is called by its colour, "Blue group") and how many tabs it has.
+- Small pills on the tile say what its tabs are doing: **Current tab** (the tab you're on is in it), how many play sound (or are muted), sleep, have a note or a star, **Collapsed** when it is collapsed in Chrome's tab strip, and its window when all windows are shown.
+- A tile works like a card: **click** (or Enter, or its number) opens the group, **Space** or **Shift+click** shows all its tabs' pictures big (Enter there opens it), **Ctrl+click** (⌘-click), its tick box or Ctrl+Space tick all its tabs (some ticked shows a dash), **Del**, its **×** or a middle-click close the group (**Undo** brings the tabs back in a group of the same name and colour), right-click or **⋯** open its menu.
+- **Inside a group** Tabazing shows only its tabs, framed in its colour, with the group's name as the heading: everything works there as usual (search lists the group's tabs first), and **New tab** (the header's or the palette's) opens the tab in the group.
+- Tabazing **stays inside the group** every time you open it from one of its tabs. You leave with **‹ All tabs**, **Esc** (one level back, as elsewhere; Esc again closes Tabazing), **Backspace** in the empty search box, or the palette's **Leave the tab group**. Opening Tabazing from a tab outside the group (you went elsewhere) also leaves it.
+- **Alt+Q / Alt+W** treat a group as one card, its tile: stepping onto it doesn't open it, **letting go of Alt on it does** (instead of switching tabs). Inside a group they step through its tabs, and letting go switches to one, as usual. **Before its first tab** (Alt+Q) or **after its last** (Alt+W) they step out of the group, to the card before or after its tile among all your tabs; that may be another group's tile, which again opens only if you let go of Alt there. Settings → Cards → **Alt+Q / Alt+W go round inside a tab group** makes them wrap at the group's ends instead.
+- A tile's **⋯** menu: **Open group**, **Name and colour…**, **Copy links**, **Bookmark…**, **Move group to new window**, **Collapse / Expand in Chrome**, **Put to sleep**, **Mute / Unmute**, **Snooze…**, **Archive**, **Ungroup** (the tabs stay open) and **Close group**.
+- A tab's menu has **Add to group…** (the window's groups, or **New group…**, which asks for a name and one of Chrome's colours) and, for a grouped tab, **Remove from group**; ticked tabs get **Add to group…** under **More**. The command palette offers the same for the current tab and its group.
+- With **By order**, drag a tile to move the whole group, or drop tabs on a tile to put them in that group.
+- Groups stay groups: **Merge windows** and **Move group to new window** move a group as a group, **Move to new window** takes the tabs' group along, and **Undo**, a snoozed tab waking up and a recently closed tab reopened put tabs back in their group. **Close duplicates** keeps the copy that's in a group.
+- Filters and the Starred filter narrow tiles to the tabs they let through. Search finds groups by name (Enter opens one) and tags each grouped tab with its group.
 - Settings → Cards → **Show tab groups as tiles** (on by default): turn it off to give every tab its own card again, each tagged with its group's name.
-- A tile's **⋯** menu: **Open group**, **Copy links**, **Bookmark…**, **Ungroup** (the tabs stay open) and **Close group** (Undo brings the tabs back in a group of the same name and colour).
-- While a filter, the Starred filter or the duplicates view is on, grouped tabs show as cards of their own, each with a tag naming its group; search results carry that tag too.
 
 ### Bookmarks
 
@@ -418,8 +423,8 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 - **Nothing leaves your computer.** Tabazing's pages run under a content security policy with `connect-src 'none'`, so they cannot contact any server. The only web pages Tabazing ever opens are the ones you click, such as the review link.
 - **What is stored, and for how long** (all in Chrome's local extension storage, on this device):
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
-  - **Closed-tabs log:** address, title and icon of tabs you closed, kept **7 days** (up to 200 entries), for search.
-  - **Stars, notes and snoozed tabs** (address, title, time) until you remove them.
+  - **Closed-tabs log:** address, title and icon of tabs you closed (and the name and colour of the tab group each was in), kept **7 days** (up to 200 entries), for search.
+  - **Stars, notes and snoozed tabs** (address, title, time, and a snoozed tab's group name and colour) until you remove them.
   - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, and the ids of the last few command-palette actions you ran.
   - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
 

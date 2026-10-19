@@ -210,7 +210,7 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     expect(tid('menu')).not.toBe(null);
     expect(menuLabels()).toEqual([
       t('menuSelect'), t('star'), t('copyLink'), t('capturePreview'), t('tabReload'), t('tabDuplicate'), t('sleepThis'),
-      t('tabMute'), t('tabPin'), t('snoozeThis'), t('tabArchive'), t('noteAdd'), t('markMenu'), t('tabClose'),
+      t('tabMute'), t('tabPin'), t('snoozeThis'), t('tabArchive'), t('noteAdd'), t('groupAddTo'), t('markMenu'), t('tabClose'),
     ]);
     expect(focused()).toBe(tids('menu-item')[0]);
   });

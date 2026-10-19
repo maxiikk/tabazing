@@ -496,3 +496,38 @@ describe('snoozed tabs', () => {
     expect(S().get(KEY.WOKEN)).toEqual({});
   });
 });
+
+describe('tab groups', () => {
+  it('a snoozed tab that was in a group wakes up in it (one of the same name and colour, or a new one)', async () => {
+    const { w } = seed();
+    chrome._addGroup({ id: 40, title: 'Work', color: 'blue', windowId: w.id });
+    const there = chrome._addTab({ windowId: w.id, url: 'https://there.com/', groupId: 40 });
+    L().set(KEY.SNOOZED, [{ id: 'a', url: 'https://later.com/', at: Date.now() - 1, windowId: w.id, group: { id: 3, title: 'Work', color: 'blue' } }]);
+    await bg().wakeSnoozed();
+    const tab = await chrome.tabs.create.mock.results[0].value;
+    expect(chrome.tabs.group).toHaveBeenCalledWith({ tabIds: [tab.id], groupId: 40 });
+    expect(there.groupId).toBe(40);
+  });
+
+  it('the closed-tabs log keeps the group a tab was in', async () => {
+    const { w, tab } = seed('https://a.com/');
+    chrome._addGroup({ id: 41, title: 'Reading', color: 'green', windowId: w.id });
+    tab.groupId = 41;
+    chrome.tabs.onUpdated._emit(tab.id, { groupId: 41 }, { ...tab });
+    await flush(10);
+    expect(S().get('m:' + tab.id)).toMatchObject({ u: 'https://a.com/', g: { id: 41, title: 'Reading', color: 'green' } });
+    chrome.tabs.onRemoved._emit(tab.id, { windowId: w.id, isWindowClosing: false });
+    await vi.advanceTimersByTimeAsync(200);
+    await flush(10);
+    expect(L().get(KEY.CLOSED_LOG)[0]).toMatchObject({ url: 'https://a.com/', group: { id: 41, title: 'Reading', color: 'green' } });
+  });
+
+  it('a group renamed: its tabs\' entries follow', async () => {
+    const { w, tab } = seed('https://a.com/');
+    chrome._addGroup({ id: 42, title: 'Old', color: 'red', windowId: w.id });
+    tab.groupId = 42;
+    chrome.tabGroups.onUpdated._emit({ id: 42, title: 'New', color: 'red', windowId: w.id });
+    await flush(10);
+    expect(S().get('m:' + tab.id).g).toEqual({ id: 42, title: 'New', color: 'red' });
+  });
+});

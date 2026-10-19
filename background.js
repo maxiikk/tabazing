@@ -28,6 +28,7 @@ import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
 import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './utils/capture.js';
 import { isOwnUrl } from './utils/ext.js';
 import { overlayHost, removeOverlay } from './utils/overlay-host.js';
+import { groupOf, putInGroup } from './utils/groups.js';
 
 // With use_dynamic_url this is a per-session random origin, so pages can't
 // probe for the extension's permanent id.
@@ -85,10 +86,15 @@ chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
   watchCycling(tab);
 });
 
-chrome.tabs.onCreated.addListener((tab) => { rememberTab(tab).catch(() => {}); quietAt = Date.now(); updateBadge(); });
+chrome.tabs.onCreated.addListener((tab) => { remember(tab); quietAt = Date.now(); updateBadge(); });
 
+// What the closed-tabs log needs of a tab, with its group's name and colour when it is in one.
+function remember(tab) {
+  const g = tab.groupId >= 0 && chrome.tabGroups ? chrome.tabGroups.get(tab.groupId).catch(() => null) : null;
+  Promise.resolve(g).then((group) => rememberTab(tab, groupOf(group))).catch(() => {});
+}
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
-  if (info.url || info.title || info.favIconUrl) rememberTab(tab).catch(() => {});
+  if (info.url || info.title || info.favIconUrl || info.groupId !== undefined) remember(tab);
   // A new page in the tab being looked at: prepare the switcher in it as soon as it exists (a moment after
   // the load starts, when the new document is usually there), and again once loaded in case it wasn't.
   if (tab.active && info.status === 'loading') prepareSwitcher(tab, 250);
@@ -140,7 +146,11 @@ chrome.tabs.onReplaced.addListener((addedId, removedId) => {
   replaceInMru(removedId, addedId);
   forgetTabMeta(removedId).catch(() => {});
   moveDiscarded(removedId, addedId).catch(() => {});
-  chrome.tabs.get(addedId).then((t) => rememberTab(t)).catch(() => {});
+  chrome.tabs.get(addedId).then(remember).catch(() => {});
+});
+// A group renamed or recoloured: its tabs' entries follow.
+if (chrome.tabGroups) chrome.tabGroups.onUpdated.addListener((g) => {
+  chrome.tabs.query({ groupId: g.id }).then((tabs) => tabs.forEach((t) => rememberTab(t, groupOf(g)).catch(() => {}))).catch(() => {});
 });
 
 // ------------------------------------------------------------- the "use Alt+Q" nudge
@@ -272,7 +282,8 @@ async function setup({ fresh = false } = {}) {
   // so there the cleanup is left to the save path, which waits a minute (maybeCleanup in store.js).
   if (fresh) cleanupPreviews().catch(() => {});
   cleanupClosedLog().catch(() => {}); // ...and the 7-day closed-tab log
-  chrome.tabs.query({ windowType: 'normal' }).then(rememberTabs).catch(() => {}); // what each open tab is, for the log
+  Promise.all([chrome.tabs.query({ windowType: 'normal' }), chrome.tabGroups ? chrome.tabGroups.query({}).catch(() => []) : []]) // what each open tab is, for the log
+    .then(([tabs, groups]) => rememberTabs(tabs, new Map(groups.map((g) => [g.id, groupOf(g)])))).catch(() => {});
   const active = await chrome.tabs.query({ active: true, windowType: 'normal' });
   await seedMru(active.map((t) => t.id));
   const [focused] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -490,7 +501,11 @@ async function wakeSnoozed() {
     try {
       // Reopened unannounced: noted so the switcher can say which tabs are back (until they are looked at).
       if (windowId === null || windowId === undefined) await markWoken(((await chrome.windows.create({ url: x.url })).tabs || [])[0]?.id);
-      else await markWoken((await chrome.tabs.create({ url: x.url, windowId, active: false, pinned: x.pinned })).id);
+      else {
+        const tab = await chrome.tabs.create({ url: x.url, windowId, active: false, pinned: x.pinned });
+        await markWoken(tab.id);
+        if (x.group && !x.pinned) await putInGroup([tab.id], x.group, windowId).catch(() => {}); // back in its group
+      }
     } catch {}
   }
 }

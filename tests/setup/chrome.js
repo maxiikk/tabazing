@@ -163,6 +163,7 @@ const chrome = {
     query: vi.fn(async (q = {}) => D.tabs.filter((t) => {
       const w = D.windows.find((x) => x.id === t.windowId);
       if (q.windowId !== undefined && q.windowId !== -2 && t.windowId !== q.windowId) return false;
+      if (q.groupId !== undefined && t.groupId !== q.groupId) return false;
       if (q.windowType && (!w || w.type !== q.windowType)) return false;
       if ((q.currentWindow || q.lastFocusedWindow) && (!w || !w.focused)) return false;
       for (const k of ['active', 'pinned', 'audible', 'discarded', 'highlighted', 'status']) if (q[k] !== undefined && t[k] !== q[k]) return false;
@@ -202,6 +203,7 @@ const chrome = {
         const t = needTab(id);
         const from = t.windowId;
         t.windowId = p.windowId ?? t.windowId;
+        if (t.windowId !== from) { t.groupId = -1; D.groups = D.groups.filter((g) => D.tabs.some((x) => x.groupId === g.id)); }
         place(t, p.index === -1 ? Infinity : p.index);
         reindex(from);
         out.push(tabOut(t));
@@ -241,7 +243,7 @@ const chrome = {
     getCurrent: vi.fn(async () => clone(D.windows.find((w) => w.focused) || D.windows[0])),
     create: vi.fn(async (p = {}) => {
       const w = makeWindow({ type: p.type || 'normal', state: p.state || 'normal', focused: !!p.focused });
-      if (p.tabId !== undefined) { const t = needTab(p.tabId); const from = t.windowId; t.windowId = w.id; t.index = 0; reindex(from); }
+      if (p.tabId !== undefined) { const t = needTab(p.tabId); const from = t.windowId; t.windowId = w.id; t.index = 0; t.groupId = -1; reindex(from); D.groups = D.groups.filter((g) => D.tabs.some((x) => x.groupId === g.id)); }
       else if (p.url) makeTab({ windowId: w.id, url: [].concat(p.url)[0], active: true });
       return { ...clone(w), tabs: D.tabs.filter((t) => t.windowId === w.id).map(tabOut) };
     }),
@@ -260,6 +262,21 @@ const chrome = {
     query: vi.fn(async (q = {}) => clone(D.groups.filter((g) => q.windowId === undefined || g.windowId === q.windowId))),
     get: vi.fn(async (id) => { const g = D.groups.find((x) => x.id === id); if (!g) throw new Error(`No group with id: ${id}.`); return clone(g); }),
     update: vi.fn(async (id, p = {}) => { const g = D.groups.find((x) => x.id === id); if (!g) throw new Error(`No group with id: ${id}.`); Object.assign(g, p); return clone(g); }),
+    // Like Chrome: the group's tabs go together, in their order, to `index` in `windowId` (-1: the end).
+    move: vi.fn(async (id, p = {}) => {
+      const g = D.groups.find((x) => x.id === id);
+      if (!g) throw new Error(`No group with id: ${id}.`);
+      const tabs = D.tabs.filter((t) => t.groupId === id).sort((a, b) => a.index - b.index);
+      const from = g.windowId;
+      g.windowId = p.windowId ?? g.windowId;
+      // As one block, `index` counted among the other tabs of the window it goes to.
+      const others = D.tabs.filter((t) => t.windowId === g.windowId && t.groupId !== id).sort((a, b) => a.index - b.index);
+      const at = p.index === -1 || p.index === undefined ? others.length : Math.min(Math.max(0, p.index), others.length);
+      for (const t of tabs) t.windowId = g.windowId;
+      [...others.slice(0, at), ...tabs, ...others.slice(at)].forEach((t, i) => { t.index = i; });
+      reindex(from);
+      return clone(g);
+    }),
     onCreated: event(), onUpdated: event(), onRemoved: event(),
   },
   sessions: {

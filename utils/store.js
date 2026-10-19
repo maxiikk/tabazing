@@ -15,6 +15,7 @@ import { normalizeUrl, isWorthReopening } from './ext.js';
 import { emptyReview } from './review.js';
 import { isAccent, DEFAULT_ACCENT } from './accent.js';
 import { getArchived } from './archive.js';
+import { cleanGroup } from './groups.js';
 
 const S = chrome.storage.session;
 const L = chrome.storage.local;
@@ -333,16 +334,18 @@ export async function getClosedLog() {
 }
 
 const lastMeta = new Map(); // tabId -> last JSON written, to skip repeat writes (lost on worker restart: harmless)
-const metaOf = (tab) => {
+// `group`: the tab group it is in ({ id, title, color }, utils/groups.js), so a tab reopened from the log goes back in it.
+const metaOf = (tab, group = null) => {
   const url = (tab && (tab.url || tab.pendingUrl)) || '';
   if (!tab || !isId(tab.id) || tab.incognito || !isLoggableUrl(url) || !isWorthReopening(url)) return null;
   const icon = typeof tab.favIconUrl === 'string' && /^https?:/.test(tab.favIconUrl) && tab.favIconUrl.length <= 512 ? tab.favIconUrl : '';
-  return { u: url, ti: String(tab.title || '').slice(0, 300), f: icon };
+  const g = tab.groupId >= 0 ? cleanGroup(group) : null;
+  return { u: url, ti: String(tab.title || '').slice(0, 300), f: icon, ...(g ? { g } : {}) };
 };
 
-// Call whenever a tab's url, title or icon may have changed.
-export function rememberTab(tab) {
-  const m = metaOf(tab);
+// Call whenever a tab's url, title, icon or group may have changed.
+export function rememberTab(tab, group = null) {
+  const m = metaOf(tab, group);
   if (!m) return Promise.resolve();
   const json = JSON.stringify(m);
   if (lastMeta.get(tab.id) === json) return Promise.resolve();
@@ -350,10 +353,11 @@ export function rememberTab(tab) {
   return serial(() => S.set({ [tabMetaKey(tab.id)]: m }));
 }
 
-export function rememberTabs(tabs) {
+// `groups`: id -> group, for the tabs that are in one.
+export function rememberTabs(tabs, groups = new Map()) {
   const writes = {};
   for (const tab of tabs) {
-    const m = metaOf(tab);
+    const m = metaOf(tab, groups.get(tab.groupId));
     if (m) { writes[tabMetaKey(tab.id)] = m; lastMeta.set(tab.id, JSON.stringify(m)); }
   }
   return serial(() => S.set(writes));
@@ -401,7 +405,8 @@ export function flushClosedTabs() {
     for (const { m, at } of add) { // in closing order, as if each were written on its own
       const k = normalizeUrl(m.u);
       log = log.filter((x) => x.k !== k);
-      log.unshift({ e: { url: m.u, title: typeof m.ti === 'string' ? m.ti : '', favIconUrl: typeof m.f === 'string' ? m.f : '', closedAt: at }, k });
+      const group = cleanGroup(m.g);
+      log.unshift({ e: { url: m.u, title: typeof m.ti === 'string' ? m.ti : '', favIconUrl: typeof m.f === 'string' ? m.f : '', closedAt: at, ...(group ? { group } : {}) }, k });
       log = log.slice(0, LIMITS.MAX_CLOSED_LOG);
     }
     await L.set({ [KEY.CLOSED_LOG]: log.map((x) => x.e) });
@@ -460,7 +465,7 @@ export function updateOnboard(patch) {
 const isSnooze = (v) => !!v && typeof v === 'object' && typeof v.id === 'string' && typeof v.url === 'string' && v.url.length <= LIMITS.MAX_URL_KEY && isTime(v.at);
 export async function getSnoozed() {
   const v = (await L.get(KEY.SNOOZED))[KEY.SNOOZED];
-  return Array.isArray(v) ? v.filter(isSnooze).map((x) => ({ id: x.id, url: x.url, title: String(x.title || '').slice(0, 300), at: x.at, windowId: isId(x.windowId) ? x.windowId : null, pinned: x.pinned === true, t: isTime(x.t) ? x.t : x.at })) : [];
+  return Array.isArray(v) ? v.filter(isSnooze).map((x) => ({ id: x.id, url: x.url, title: String(x.title || '').slice(0, 300), at: x.at, windowId: isId(x.windowId) ? x.windowId : null, pinned: x.pinned === true, t: isTime(x.t) ? x.t : x.at, group: cleanGroup(x.group) })) : [];
 }
 async function scheduleSnoozeAlarm(list) {
   if (!chrome.alarms) return;
@@ -638,7 +643,7 @@ export async function getPrefs() {
     lang: ['auto', 'en', 'ru', 'es'].includes(v.lang) ? v.lang : 'auto', startup: v.startup === true,
     cardSize: ['small', 'list'].includes(v.cardSize) ? v.cardSize : 'default', accent: isAccent(v.accent) ? v.accent.toUpperCase() : DEFAULT_ACCENT,
     allWindows: v.allWindows === true, theme: ['dark', 'light'].includes(v.theme) ? v.theme : 'system',
-    pinnedFirst: on(v.pinnedFirst), showClosed: on(v.showClosed), showSnoozed: on(v.showSnoozed), showAge: on(v.showAge), showGroups: on(v.showGroups),
+    pinnedFirst: on(v.pinnedFirst), showClosed: on(v.showClosed), showSnoozed: on(v.showSnoozed), showAge: on(v.showAge), showGroups: on(v.showGroups), groupWrap: v.groupWrap === true,
     ownWindow: v.ownWindow === true, titleLines: v.titleLines === 1 ? 1 : 2,
     searchHistory: on(v.searchHistory), searchBookmarks: on(v.searchBookmarks),
     iconTips: Number.isInteger(v.iconTips) && v.iconTips >= 0 ? v.iconTips : 0, // times the toolbar-icon tip was shown
