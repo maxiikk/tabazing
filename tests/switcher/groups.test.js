@@ -240,6 +240,23 @@ describe('Alt+Q / Alt+W (Alt held)', () => {
     expect((await stored()).id).toBe(OTHER);
   });
 
+  // By recent use (the Sort's default), inside a group as anywhere: the tab you just came to is first, so "next"
+  // (Alt+W) goes back to the one you were on before it, then on to the less recently used ones, then out.
+  it('inside a group, by recent use: after going from W1 to W3, Alt+W goes back to W1, then W2, then out', async () => {
+    const tabs = [{ title: 'A', url: 'https://a.example/' }, ...['W1', 'W2', 'W3'].map((title) => ({ title, url: `https://${title.toLowerCase()}.example/`, groupId: GROUP, active: title === 'W3' }))];
+    // ids by creation: A 1, W1 2, W2 3, W3 4. Used last: W3 (now), W1 before it, then A, then W2.
+    const sw = await boot({ tabs, ctx: { hold: true, dir: 1 }, beforeImport: async () => { await two({ inside: GROUP }).beforeImport(); await S.set({ mru: [4, 2, 1, 3] }); } });
+    expect(kinds(sw)).toEqual(['W3', 'W1', 'W2']); // the group view, most recently used first
+    expect(sel(sw)).toBe('W1'); // the opening Alt+W: the tab used before this one
+    sw.qPress(1);
+    expect(sel(sw)).toBe('W2');
+    sw.qPress(1); // past the group's last tab: out, to the card after its tile
+    expect(sw.state.inGroup).toBe(null);
+    expect(sel(sw)).toBe('A');
+    sw.qPress(-1); // and back: the tile (not opened while Alt is held)
+    expect(sel(sw)).toBe('G' + GROUP);
+  });
+
   it('a group of one tab: either way out of it', async () => {
     const sw = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: GROUP, active: true }, { title: 'B', url: 'https://b.example/' }], ctx: { hold: true, dir: 1 }, ...two({ inside: GROUP }) });
     expect(sw.state.inGroup).toBe(null);

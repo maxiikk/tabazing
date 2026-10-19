@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.3.1] - 2026-10-19
+
+### Changed
+
+- Nothing you can see: a test now covers stepping inside a tab group by recent use (after going from one of its tabs to another, Alt+W goes back to the first).
+
 ## [6.3.0] - 2026-10-19
 
 ### Changed
@@ -341,7 +347,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...HEAD
+[6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...HEAD
+[6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...ad37a0b
 [6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...7e4fde2
 [6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...8a7846c
 [6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...f8a4757
