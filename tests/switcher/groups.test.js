@@ -176,40 +176,93 @@ describe('the group view', () => {
 });
 
 describe('Alt+Q / Alt+W (Alt held)', () => {
-  const MIXED = [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: GROUP, active: true }, { title: 'W2', url: 'https://w2.example/', groupId: GROUP }, { title: 'B', url: 'https://b.example/' }];
-
-  it('inside a group, they step through every tab (out of the group too), and letting go of Alt switches there', async () => {
-    const sw = await boot({ tabs: MIXED, ctx: { hold: true, dir: 1 }, ...withGroup({ inside: true }) });
-    expect(sw.state.inGroup).toBe(null); // while Alt is held: every tab, no group view...
-    expect(kinds(sw)).toEqual(['W1', 'A', 'W2', 'B']); // ...and no tiles (current first, then recent use)
-    expect(tid('body').classList.contains('in-group')).toBe(false);
-    let to = sw.state.entries[sw.state.sel].tab;
-    expect(to.title).toBe('A'); // the opening Alt+Q: the next tab in the global order, outside the group
-    sw.qPress(1);
-    sw.qPress(1);
-    to = sw.state.entries[sw.state.sel].tab;
-    expect(to.title).toBe('B');
-    sw.altReleased();
-    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === to.id && p.active));
-    expect((await stored()).id).toBe(GROUP); // still inside it next time
+  // The strip: A, W1 W2 (group 7, "Work"), B, V1 V2 (group 8, "Other"). The current tab comes first, then the strip's order.
+  const OTHER = 8;
+  const STRIP = (active) => [
+    { title: 'A', url: 'https://a.example/' },
+    { title: 'W1', url: 'https://w1.example/', groupId: GROUP }, { title: 'W2', url: 'https://w2.example/', groupId: GROUP },
+    { title: 'B', url: 'https://b.example/' },
+    { title: 'V1', url: 'https://v1.example/', groupId: OTHER }, { title: 'V2', url: 'https://v2.example/', groupId: OTHER },
+  ].map((x) => ({ ...x, active: x.title === active }));
+  const two = (extra = {}) => ({
+    beforeImport: async () => {
+      chrome._addGroup({ id: GROUP, title: 'Work', color: 'blue', windowId: 1 });
+      chrome._addGroup({ id: OTHER, title: 'Other', color: 'red', windowId: 1 });
+      if (extra.inside) await S.set({ group: { id: extra.inside, t: Date.now() } });
+    },
   });
+  const sel = (sw) => { const e = sw.state.entries[sw.state.sel]; return e.kind === 'group' ? 'G' + e.group.id : e.tab.title; };
 
-  it('staying open (Alt+E) brings the group view back', async () => {
-    const sw = await boot({ tabs: MIXED, ctx: { hold: true, dir: 1 }, ...withGroup({ inside: true }) });
-    sw.stopHolding();
+  it('among all the cards a group stays a tile, one step; letting go of Alt on it opens it (and switches to nothing)', async () => {
+    const sw = await boot({ tabs: STRIP('A'), ctx: { hold: true, dir: 1 }, ...two() });
+    expect(kinds(sw)).toEqual(['A', 'G', 'B', 'G']);
+    expect(sel(sw)).toBe('G' + GROUP); // the step after A
+    sw.qPress(1);
+    expect(sel(sw)).toBe('B');
+    sw.qPress(-1);
+    sw.altReleased();
     await waitFor(() => sw.state.inGroup === GROUP);
     expect(kinds(sw)).toEqual(['W1', 'W2']);
+    expect(chrome.tabs.update.mock.calls.some(([, p]) => p.active)).toBe(false);
+    expect(sw.state.done).toBe(false);
   });
 
-  it('pressed in an open switcher showing groups, every tab again, from the same tab; the tiles come back after', async () => {
-    const sw = await boot({ tabs: MIXED, ctx: { dir: 0 }, ...withGroup() });
-    expect(kinds(sw)).toEqual(['G', 'A', 'B']);
+  it('inside a group they step through its tabs; letting go switches to that tab', async () => {
+    const sw = await boot({ tabs: STRIP('W1'), ctx: { hold: true, dir: 1 }, ...two({ inside: GROUP }) });
+    expect(sw.state.inGroup).toBe(GROUP);
+    expect(sel(sw)).toBe('W2');
+    sw.altReleased();
+    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === tabByTitle(sw, 'W2').id && p.active));
+    expect((await stored()).id).toBe(GROUP); // still inside it
+  });
+
+  it('past the group\'s last tab: out of it, to the card after its tile (a tab: letting go switches there)', async () => {
+    const sw = await boot({ tabs: STRIP('W1'), ctx: { hold: true, dir: 1 }, ...two({ inside: GROUP }) });
+    sw.qPress(1); // past W2, the last one
+    expect(sw.state.inGroup).toBe(null);
+    expect(kinds(sw)).toEqual(['G', 'A', 'B', 'G']); // all the cards again (the current tab's group first)
+    expect(sel(sw)).toBe('A');
+    expect(tid('body').classList.contains('in-group')).toBe(false);
+    await vi.waitFor(async () => expect(await stored()).toBe(undefined)); // the group is left
+    sw.altReleased();
+    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === tabByTitle(sw, 'A').id && p.active));
+  });
+
+  it('before the group\'s first tab: out of it, to the card before its tile, here another group, not opened until Alt is let go', async () => {
+    const sw = await boot({ tabs: STRIP('W1'), ctx: { hold: true, dir: -1 }, ...two({ inside: GROUP }) });
+    // From W1, the group's first tab, the opening Alt+Q steps out: before the tile (first) comes, wrapping, the last card.
+    expect(sw.state.inGroup).toBe(null);
+    expect(sel(sw)).toBe('G' + OTHER);
+    expect(tile()).not.toBe(null);
+    sw.altReleased();
+    await waitFor(() => sw.state.inGroup === OTHER);
+    expect(kinds(sw)).toEqual(['V1', 'V2']);
+    expect((await stored()).id).toBe(OTHER);
+  });
+
+  it('a group of one tab: either way out of it', async () => {
+    const sw = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: GROUP, active: true }, { title: 'B', url: 'https://b.example/' }], ctx: { hold: true, dir: 1 }, ...two({ inside: GROUP }) });
+    expect(sw.state.inGroup).toBe(null);
+    expect(sel(sw)).toBe('A');
+  });
+
+  it('pressed in an open group view, the same: within it, then out at its ends', async () => {
+    const sw = await boot({ tabs: STRIP('W1'), ctx: { dir: 0 }, ...two({ inside: GROUP }) });
+    expect(sel(sw)).toBe('W1');
     sw.qPress(1);
-    expect(kinds(sw)).toEqual(['W1', 'A', 'W2', 'B']);
-    expect(sw.state.entries[sw.state.sel].tab.title).toBe('A'); // the step after the current tab (W1)
-    sw.stopHolding();
-    await waitFor(() => tile());
-    expect(sw.state.entries[sw.state.sel].tab.title).toBe('A');
+    expect(sel(sw)).toBe('W2');
+    sw.qPress(-1);
+    sw.qPress(-1); // before W1
+    expect(sw.state.inGroup).toBe(null);
+    expect(sel(sw)).toBe('G' + OTHER);
+  });
+
+  it('from a tab outside the group it was inside of (you went elsewhere in Chrome): among all the cards, the group left', async () => {
+    const sw = await boot({ tabs: STRIP('B'), ctx: { hold: true, dir: 1 }, ...two({ inside: GROUP }) });
+    expect(sw.state.inGroup).toBe(null);
+    expect(kinds(sw)).toEqual(['B', 'A', 'G', 'G']);
+    expect(sel(sw)).toBe('A');
+    await vi.waitFor(async () => expect(await stored()).toBe(undefined));
   });
 });
 

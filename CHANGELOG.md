@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.3.0] - 2026-10-19
+
+### Changed
+
+- Alt+Q / Alt+W keep tab groups as tiles: a group is one step, and letting go of Alt on its tile opens the group instead of switching tabs. Inside a group they step through its tabs; before its first tab or after its last they step out of it, to the card before or after its tile (another group's tile opens only when you let go of Alt on it). This replaces 6.2.0's way, which showed every tab on its own while Alt was held.
+- Alt+Q / Alt+W from a tab outside the group Tabazing was inside of (after going elsewhere in Chrome itself) leave the group and step among all the tabs.
+
 ## [6.2.1] - 2026-10-19
 
 ### Fixed
@@ -334,7 +341,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...HEAD
+[6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...HEAD
+[6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...7e4fde2
 [6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...8a7846c
 [6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...f8a4757
 [6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...ecbee9a

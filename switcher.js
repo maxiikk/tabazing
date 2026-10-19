@@ -129,7 +129,6 @@ const state = {
   tileOf: new Map(),    // derived: a grouped tab's key -> its group tile's key (where the tab is on screen)
   steps: null,          // derived: the cards Alt+Q steps through when group tiles stand for some tabs (else state.matches)
   cardCount: 0,         // derived: the open-tab cards shown (a group tile is one)
-  flat: false,          // derived: the cards were laid out without groups because Alt is held (see derive)
   closedHidden: {},     // "Recently closed" entries removed from the list (utils/store.js getClosedHidden)
 };
 
@@ -650,11 +649,8 @@ function derive() {
 
   const dupeKeys = state.dupesView ? dupeUrls() : null;
   // Inside a tab group (its tile was opened): only its tabs, whatever window it is in. Settings -> Show tab groups
-  // as tiles off: no tiles and no group view, every tab its own card (tagged with its group). Neither while Alt
-  // is held from Alt+Q / Alt+W: like Alt+Tab, they step through every tab, out of the group too; staying open
-  // (stopHolding) brings the group view and the tiles back.
-  state.flat = !!state.holding;
-  const groups = pref('showGroups') && !state.flat;
+  // as tiles off: no tiles and no group view, every tab its own card (tagged with its group).
+  const groups = pref('showGroups');
   const inGroup = groups && state.group !== null && state.tabs.some((x) => x.groupId === state.group) ? state.group : null;
   state.inGroup = inGroup;
   const open = state.tabs
@@ -1406,8 +1402,34 @@ function stepKey(from, d) {
 }
 function cycle(d) {
   const cur = state.entries[state.sel];
-  const key = stepKey(cur && (cur.kind === 'tab' || cur.kind === 'group') ? cur.key : null, d);
-  if (key) selectKey(key);
+  const s = stepFrom(cur && (cur.kind === 'tab' || cur.kind === 'group') ? cur.key : null, d);
+  if (s.leave) return refresh({ keepKey: stepOutOfGroup(d) });
+  if (s.key) selectKey(s.key);
+}
+// Where a step goes from the card `from` (d = +1 next, -1 previous). Among all the cards a group is its tile, one
+// step like any card (letting go of Alt on it opens it: choose). In the group view, the group's tabs; past its
+// first or last one the step leaves the group: { leave: true } (stepOutOfGroup goes on from there).
+function stepFrom(from, d) {
+  if (state.inGroup === null) return { key: stepKey(from, d) };
+  const list = state.matches.map((e) => e.key);
+  if (!list.length) return { leave: true };
+  let here = list.indexOf(from);
+  if (here < 0) here = list.indexOf('t' + CTX.srcTab);
+  const to = here < 0 ? (d > 0 ? 0 : list.length - 1) : here + d;
+  return to >= 0 && to < list.length ? { key: list[to] } : { leave: true };
+}
+// Out of the group view by a step past its ends: the group is left (forgotten, as with "All tabs"), and the step
+// lands on the card before or after the group's tile among all the cards, which may be another group's tile
+// (not opened: only letting go of Alt there does). Returns that card's key.
+function stepOutOfGroup(d) {
+  const id = state.inGroup;
+  state.group = null;
+  setGroup(null).catch(() => {});
+  derive();
+  const list = (state.steps || state.matches).map((e) => e.key);
+  if (!list.length) return null;
+  const at = list.indexOf('g' + id);
+  return at < 0 ? list[d > 0 ? 0 : list.length - 1] : list[(((at + d) % list.length) + list.length) % list.length];
 }
 
 // Select an open tab by key; if it sits in a collapsed section, open that section for this visit.
@@ -4939,14 +4961,7 @@ function onKeyDown(e) {
 // the selected tab. Alt+E opens it to stay (as do the toolbar icon and the rest): arrows, typing, the mouse,
 // Enter and Esc. Pressing Alt+Q / Alt+W in an open switcher makes it an Alt+Tab one again.
 function qPress(d, hold = true) {
-  if (hold && !state.holding) {
-    state.holding = true;
-    // Shown with groups (tiles, or the group view): every tab instead, as at an Alt+Q open, from the same tab.
-    if (state.inGroup !== null || state.tileOf.size) {
-      const cur = state.entries[state.sel];
-      refresh({ keepKey: cur && cur.kind === 'group' ? 't' + cur.recent[0].id : cur && cur.key });
-    }
-  }
+  if (hold) state.holding = true;
   cycle(d);
 }
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
@@ -4959,14 +4974,13 @@ function altReleased() {
 // Alt is no longer held but the switcher stays open: opened with Alt+Q / Alt+W it hid what needs typing
 // (html.alttab: the search box, note buttons), so bring that back. A moment later, and only if still open,
 // so a key that closes it at once (Esc, Enter) doesn't flash the search box first.
-// The cards laid out for Alt (state.flat: no groups) are laid out again with them.
 function stopHolding() {
   state.holding = false;
-  if (!document.documentElement.classList.contains('alttab') && !state.flat) return;
+  if (!document.documentElement.classList.contains('alttab')) return;
   setTimeout(() => {
     if (state.done || state.holding) return;
     document.documentElement.classList.remove('alttab');
-    if (state.flat) refresh(); else relayout();
+    relayout();
     if (!state.palette) el.search.focus({ preventScroll: true });
   }, 60);
 }
@@ -5219,11 +5233,20 @@ function getLaunch() {
     state.starOnly = !!resume.starred;
   }
   derive();
+  // Alt+Q / Alt+W from a tab outside the group Tabazing was inside of (you went elsewhere in Chrome itself): the
+  // group is left, and they step among all the cards.
+  if (CTX.hold && state.inGroup !== null && !state.tabs.some((x) => x.id === CTX.srcTab && x.groupId === state.inGroup)) {
+    state.group = null;
+    setGroup(null).catch(() => {});
+    derive();
+  }
   const mru = state.mruOrder;
-  // Alt+Q / Alt+W start one card before / after the current tab, Alt+E (dir 0) on the current tab itself;
-  // anything else (the toolbar icon, opening with Chrome) on the tab used before it.
+  const firstStep = () => { const s = stepFrom('t' + CTX.srcTab, CTX.dir); return s.leave ? stepOutOfGroup(CTX.dir) : s.key; };
+  // Alt+Q / Alt+W start one card before / after the current tab (in the group view, past its ends out of it),
+  // Alt+E (dir 0) on the current tab itself; anything else (the toolbar icon, opening with Chrome) on the tab
+  // used before it.
   const first = resume && typeof resume.key === 'string' ? resume.key
-    : CTX.hold ? stepKey('t' + CTX.srcTab, CTX.dir)
+    : CTX.hold ? firstStep()
     : CTX.dir === 0 ? 't' + CTX.srcTab
     : mru.length > 1 ? mru[1].key : null;
   const at = first ? state.entries.findIndex((e) => e.key === cardKey(first)) : -1;
@@ -5298,7 +5321,7 @@ export {
   PAL_ACTIONS, PAL_BY_ID, paletteActions, inEnglish, actionFields, paletteItems, PAL_ICON, paletteActionRow, paletteQuickRow,
   paletteCurrencyRow, palFrame, renderPalette, palHighlight, palMove, openPalette, exitPalette, palRun, copyQuick, runAction,
   paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY,
-  groupTiles, cardKey, GROUP_COLORS, groupColor, groupName, renderGroupCard, renderGroupBar, showsTab, enterGroup, leaveGroup,
+  groupTiles, cardKey, stepFrom, stepOutOfGroup, GROUP_COLORS, groupColor, groupName, renderGroupCard, renderGroupBar, showsTab, enterGroup, leaveGroup,
   regroup, closedQuick, reopenInWindow, reopenBehind, snoozeClosed, archiveClosed, forgetClosed, afterClosedChange, ungroup,
   pageOf, markFolders, bookmarkDialog, noteBits, groupTag,
 };
