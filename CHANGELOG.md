@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-10-19
+
+### Added
+
+- Tab groups: each of Chrome's tab groups shows among the cards as one tile in the group's colour, its picture the group's first four tabs. Opening a tile shows only that group's tabs, and Tabazing stays inside the group every time it opens until you leave it ("‹ All tabs", Backspace in the empty search box, or the palette's "Leave the tab group"). Alt+Q steps through the group's tabs there, and "New tab" opens the tab in the group.
+- A tile's menu: open the group, copy its links, bookmark it, ungroup it, or close it (Undo brings the tabs back in a group of the same name and colour).
+- "Bookmark…" on every tab (its menu, a recently closed tab's, a group's, and More for ticked tabs): a dialog to choose the bookmarks folder (find one by name, or make a new one), starting on the folder used last, with Undo. The palette's "Bookmark this page" opens it too.
+- Recently closed tabs have a note button and a menu: reopen, reopen in a new window, reopen in the background, copy link, star, note, bookmark, snooze, archive, and remove from the list (Del too, with Undo).
+- Search results and the cards tag a tab with its group, outside the group view.
+
+### Changed
+
+- The highlighted result in the search list and the command palette lifts and glows like the selected card.
+- The rows in the media player's list no longer light up or take the keyboard focus themselves: only their buttons do.
+
+### Fixed
+
+- A note is shown on a search result found by it whatever state its page is in: a recently closed, archived, bookmarked or visited page, not only an open tab. Those are now found by their notes too.
+- A video playing muted or with its volume at 0 (a YouTube video with the sound off) was missing from the media player. The site's own player now shows there; muted autoplay in feeds and hover previews still doesn't.
+
 ## [6.0.1] - 2026-10-18
 
 ### Changed
@@ -297,7 +317,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...HEAD
+[6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...HEAD
+[6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...ecbee9a
 [6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...cce6e44
 [5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...5045321
 [5.1.4]: https://github.com/maxiikk/tabazing/compare/ad37917...9c671ea

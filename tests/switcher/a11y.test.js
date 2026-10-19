@@ -210,7 +210,7 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     expect(tid('menu')).not.toBe(null);
     expect(menuLabels()).toEqual([
       t('menuSelect'), t('star'), t('copyLink'), t('capturePreview'), t('tabReload'), t('tabDuplicate'), t('sleepThis'),
-      t('tabMute'), t('tabPin'), t('snoozeThis'), t('tabArchive'), t('noteAdd'), t('tabClose'),
+      t('tabMute'), t('tabPin'), t('snoozeThis'), t('tabArchive'), t('noteAdd'), t('markMenu'), t('tabClose'),
     ]);
     expect(focused()).toBe(tids('menu-item')[0]);
   });
@@ -276,13 +276,25 @@ describe("the card's menu (Shift+F10, the menu key)", () => {
     expect(focused()).toBe(tid('search'));
   });
 
-  it('a closed card: star only', async () => {
+  it('a closed card: reopen it (here, in a new window, behind), copy, star, note, bookmark, snooze, archive, remove', async () => {
     const sw = await boot({ tabs: ABC });
     sw.state.closed = [{ id: 'l1', kind: 'tab', url: 'https://gone.example/', title: 'Gone', ts: Date.now(), count: 1, session: null, fields: [['Gone', 'https://gone.example/']] }];
     sw.refresh();
     sw.select(sw.state.entries.findIndex((e) => e.kind === 'closed'));
     key('F10', { shiftKey: true });
-    expect(menuLabels()).toEqual([t('star')]);
+    expect(menuLabels()).toEqual([
+      t('closedReopen'), t('closedNewWindow'), t('closedBackground'), t('copyLink'), t('star'), t('noteAdd'), t('markMenu'),
+      t('closedSnooze'), t('tabArchive'), t('closedRemove'),
+    ]);
+  });
+
+  it('a closed window: reopen it, copy its links, bookmark them, remove it', async () => {
+    const sw = await boot({ tabs: ABC });
+    sw.state.closed = [{ id: 's9', kind: 'window', url: 'https://one.example/', title: 'Window', ts: Date.now(), count: 2, session: { window: { sessionId: '9' } }, fields: [['One', 'https://one.example/'], ['Two', 'https://two.example/']] }];
+    sw.refresh();
+    sw.select(sw.state.entries.findIndex((e) => e.kind === 'closed'));
+    key('F10', { shiftKey: true });
+    expect(menuLabels()).toEqual([t('closedReopenWindow'), t('actCopy'), t('markMenu'), t('closedRemove')]);
   });
 });
 

@@ -110,14 +110,15 @@ On a Mac, "Alt" is the Option key (⌥).
 |---|---|---|---|
 | Move | ← → ↑ ↓ | ← → ↑ ↓ | Move the selection between cards. With the search list open, ↑ ↓ move through the results. |
 | Next / previous | Tab / Shift+Tab, while holding Alt | Tab / Shift+Tab, while holding ⌥ | Step to the next / previous card in the list (wrapping around), like Alt+Tab. Without Alt held, Tab moves the keyboard focus through Tabazing's buttons and fields, as on any page. |
-| Card actions | Shift+F10 or the Menu key | Shift+F10 | Open a menu of everything you can do with the selected card: select it, star, copy link, capture, reload, duplicate, put to sleep, mute, pin, snooze, archive, note, close. (Right-clicking a card, or its **⋯** button, opens the same menu.) |
+| Card actions | Shift+F10 or the Menu key | Shift+F10 | Open a menu of everything you can do with the selected card: select it, star, copy link, capture, reload, duplicate, put to sleep, mute, pin, snooze, archive, note, bookmark, close. (Right-clicking a card, or its **⋯** button, opens the same menu.) |
 | Jump | Alt+1 … Alt+9 | ⌥1 … ⌥9 | Switch to that numbered card. Works at any time, including while still holding Alt after Alt+Q. Plain digits do the same while you are not typing in the search box; there they type, so you can find titles that start with a number. |
 | Tick | Ctrl+Space | ⌘Space | Tick or untick the selected card (see [Selecting many tabs](#selecting-many-tabs-and-the-actions-bar)). |
 | Tick a range | Shift+← → ↑ ↓ | Shift+← → ↑ ↓ | Tick from the selected card to where the arrow goes, like in a file list; going back shrinks the range. Not while typing in the search box, where they select text. |
 | Open | Enter | Enter | Switch to the selected tab, or open the highlighted search result. |
 | Address / Google | Shift+Enter | Shift+Enter | Open what you typed as an address, or search Google for it. |
 | Big preview | Space | Space | Show the selected card's preview in full size (when nothing is typed). |
-| Close tab | Del | ⌘⌫ | Close the selected tab. On a snoozed tab, cancels the snooze. On a "Starred, not open" card, removes the star. |
+| Close tab | Del | ⌘⌫ | Close the selected tab. On a snoozed tab, cancels the snooze. On a "Starred, not open" card, removes the star. On a recently closed one, removes it from the list. |
+| Leave group | Backspace | ⌫ | In a [tab group](#tab-groups), go back to all tabs (with the search box empty). |
 | Undo | Ctrl+Z | ⌘Z | Undo what you last did in Tabazing: reopen closed tabs, or move merged or moved tabs back (when the search box is empty). |
 | Star | Alt+S | ⌥S | Star or unstar the selected page. |
 | Capture | Alt+P | ⌥P | Take a preview of the selected tab. |
@@ -212,7 +213,8 @@ When a tab is playing a video or music, a small player appears in the header, ri
 
 - **Play / Pause** works on any video or audio. **Previous** and **Next** work where the site has its own previous / next track buttons (the ones Chrome's own media controls show, as on YouTube, Spotify or SoundCloud); elsewhere they are greyed out.
 - The **⌄** button at the end opens **All media in your tabs**: one row per tab that has something to play, in every window, playing first. Each row has its preview, title, site, a moving-bars sign while it plays, and its own **Previous**, **Play / Pause**, **Next** and **Go to tab** buttons. Click a row to show it in the header player; double-click it to play or pause it. **Go to tab** switches to that tab, like picking its card. **Tab** moves through the list, **Esc**, a click outside or the ⌄ again closes it.
-- What counts is exactly what Chrome's own media controls list: a video or audio shows up only once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs"), videos without sound and sounds shorter than 5 seconds never show. Once it has played, it stays while paused, muted or finished (also when the site stops it to play something in another tab, as YouTube does), until it is taken off the page, the page loads something else, or it has been paused for an hour.
+- What counts is what Chrome's own media controls list: a video or audio shows up once it has **played with sound**. Media that is there but hasn't played yet, muted autoplay videos (feeds, backgrounds, animated "GIFs", hover previews), videos without sound and sounds shorter than 5 seconds never show. One thing more than Chrome: a site's own player also shows when you watch it **muted or with its volume at 0** (a YouTube video with the sound off), that is, a video the site names for Chrome's media controls that is at least 400×225 on the page. Once it has played, it stays while paused, muted or finished (also when the site stops it to play something in another tab, as YouTube does), until it is taken off the page, the page loads something else, or it has been paused for an hour.
+- The rows themselves don't take the keyboard focus or light up: only their buttons do. (The row shown in the header player is still marked for screen readers.)
 - Pages that were already open when Tabazing was installed, updated or reloaded get the player at once, including media that played there before; their **Previous** / **Next** work after the page is reloaded (or once the site sets them up again, as YouTube does for every video).
 - If a page doesn't respond (some players ignore outside play requests), a message says so and the button goes back.
 
@@ -261,7 +263,7 @@ Hover a card (or select it) to show its quick buttons at the top right of the pr
 | Snooze (clock) | Closes the tab now and reopens it later. See [Snooze](#snooze). |
 | Archive (box) | Moves the tab into the archive. See [Archive](#archive). |
 | Note | Adds or edits a note. See [Notes](#notes). |
-| ⋯ | The card's menu: select, star, copy link, capture preview, reload, duplicate, put to sleep, mute / unmute, pin / unpin, snooze, archive, note, close. Right-clicking the card opens the same menu at the pointer, and Shift+F10 (or the Menu key) on the selected card. |
+| ⋯ | The card's menu: select, star, copy link, capture preview, reload, duplicate, put to sleep, mute / unmute, pin / unpin, snooze, archive, note, **Bookmark…**, close. Right-clicking the card opens the same menu at the pointer, and Shift+F10 (or the Menu key) on the selected card. |
 
 The card header also has a **☆ star** and an **× close** button.
 
@@ -277,7 +279,7 @@ The card header also has a **☆ star** and an **× close** button.
 2. Type your note (up to 1,000 characters). It is saved as you type. Click outside, press Esc or click the × to close it.
 3. To remove a note, click **Clear**, or leave the box empty.
 
-Notes belong to the page's address. A card with a note has a highlighted note button, and hovering it shows the note. Search finds tabs by their notes, and the **Notes** filter shows every tab that has one.
+Notes belong to the page's address, so a note stays with the page when you close the tab. A card with a note has a highlighted note button, and hovering it shows the note. Search finds pages by their notes whatever state they are in (open, recently closed, archived, bookmarked or in your history): a result found by its note shows the note under its title, with the words you typed marked; one found some other way that has a note carries a **Note** tag. The **Notes** filter shows every open tab that has one.
 
 ### Snooze
 
@@ -307,6 +309,23 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 - **Show more** under the section (a button, reachable with Tab) shows everything Tabazing knows you closed in the last 7 days, up to 24 items; **Show fewer** goes back.
 - Settings → **Show Recently closed** hides the section (search still finds closed tabs).
 - **Search reaches further back:** it finds anything closed in the **last 7 days**, using Chrome's own list plus Tabazing's local log of closed tabs.
+- Each closed tab has its **note** button and **⋯** (or right-click it, or Shift+F10): **Reopen**, **Reopen in a new window**, **Reopen in the background** (Tabazing stays open and the tab joins your open tabs), **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: reopen later**, **Archive** and **Remove from list** (also **Del**; Undo puts it back). A closed window offers Reopen window, Copy links, Bookmark… and Remove from list.
+
+### Tab groups
+
+- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be. Its picture is the group's first four tabs, two by two, with **+N** for the rest; its header has the group's name and how many tabs it has.
+- **Open a group** by clicking its tile, or select it and press Enter, Space or its number. Tabazing then shows only that group's tabs, framed in its colour, with the group's name as the heading: everything works there as usual (Alt+Q steps through the group's tabs, search, close, sort...), and **New tab** opens the tab in the group.
+- Tabazing **stays inside the group** every time you open it, until you leave it: click **‹ All tabs**, press **Backspace** in the empty search box, or choose **Leave the tab group** in the command palette. Esc only closes Tabazing.
+- A tile's **⋯** menu: **Open group**, **Copy links**, **Bookmark…**, **Ungroup** (the tabs stay open) and **Close group** (Undo brings the tabs back in a group of the same name and colour).
+- While a filter, the Starred filter or the duplicates view is on, grouped tabs show as cards of their own, each with a tag naming its group; search results carry that tag too.
+
+### Bookmarks
+
+**Bookmark…** (in a tab's menu, a recently closed tab's, a group tile's, the actions bar's **More** for ticked tabs, and the command palette's **Bookmark this page**) saves pages as Chrome bookmarks in the folder you choose:
+
+- A dialog shows the **name** (for one page) and every bookmarks folder as a tree. Type in **Find a folder…** to narrow it down; ↑ / ↓ choose a folder; **New folder** makes one inside the chosen folder. **Save** (or Enter) saves; Esc or **Cancel** closes it.
+- It starts on the folder you saved into last. If the page is already bookmarked, it says where; saving into that same folder only renames the bookmark instead of adding it twice.
+- A message confirms where it went and offers **Undo**.
 
 ### Undo
 
@@ -402,7 +421,8 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
   - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, and the ids of the last few command-palette actions you ran.
   - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
 
-  - **Tab usage order**, kept only in memory and cleared when Chrome closes.
+  - **Tab usage order**, and the tab group Tabazing is showing, kept only in memory and cleared when Chrome closes.
+  - **Recently closed entries you removed from the list** (their address and when), for a month.
   - **What each tab is playing** (title, artist, playing or paused, which buttons the site offers) for the media player, kept only in memory and forgotten when the tab closes or loads another page.
 - **Archived tabs** are ordinary Chrome bookmarks, so they sync with your Chrome account if you have bookmark sync turned on.
 
@@ -418,6 +438,7 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 | `alarms` | Wake up at the right time to reopen snoozed tabs. |
 | `bookmarks` | Keep the "Tabs Archive" folder, and search your bookmarks. |
 | `history` | Search your browsing history from the search box. |
+| `tabGroups` | Show your tab groups (their names and colours) as tiles, and keep a tab in its group when Undo reopens it. |
 
 ---
 

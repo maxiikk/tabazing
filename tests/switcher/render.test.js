@@ -500,7 +500,9 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     const head = tid('open-head');
     const bar = tid('view-toolbar');
     expect(head.contains(tid('open-h'))).toBe(true);
-    expect([...head.children]).toEqual([tid('open-h'), tid('open-end')]); // the title first, then (at the other end) what acts on the open tabs
+    expect([...head.children]).toEqual([tid('open-title'), tid('open-end')]); // the title first, then (at the other end) what acts on the open tabs
+    expect([...tid('open-title').children]).toEqual([tid('group-leave'), tid('group-dot'), tid('open-h'), tid('group-count')]); // (the group view's parts hidden)
+    for (const id of ['group-leave', 'group-dot', 'group-count']) expect(tid(id).hidden, id).toBe(true);
     expect(bar.parentElement).toBe(tid('open-end'));
     expect([...tid('open-end').children]).toEqual([tid('open-actions'), bar]); // merge / duplicates, then sort and the chips
     for (const id of ['merge-btn', 'dupes-btn']) expect(tid('open-actions').contains(tid(id)), id).toBe(true);

@@ -245,12 +245,12 @@ describe('the quick-actions bar', () => {
 
   it('lists every action, the rarer ones under More, each with its own error note', async () => {
     const sw = await boot({ tabs: ABC });
-    expect(sw.ACTIONS.map((a) => a.id)).toEqual(['close', 'copy', 'md', 'win', 'sleep', 'snooze', 'archive', 'pin', 'mute']);
+    expect(sw.ACTIONS.map((a) => a.id)).toEqual(['close', 'copy', 'md', 'win', 'sleep', 'snooze', 'archive', 'bookmark', 'pin', 'mute']);
     expect(sw.ACTIONS.filter((a) => !a.more).map((a) => a.id)).toEqual(['close', 'copy']);
     expect(sw.ACTIONS.every((a) => !a.confirm)).toBe(true);
     expect(Object.fromEntries(sw.ACTIONS.map((a) => [a.id, a.err()]))).toEqual({
       close: t('errClose'), copy: t('copyFailed'), md: t('copyFailed'), win: t('errMove'), sleep: t('errSleep'),
-      snooze: t('errSnooze'), archive: t('errArchive'), pin: t('errPin'), mute: t('errMute'),
+      snooze: t('errSnooze'), archive: t('errArchive'), bookmark: t('markErr'), pin: t('errPin'), mute: t('errMute'),
     });
     const pin = sw.ACTIONS.find((a) => a.id === 'pin');
     expect(pin.label([{ pinned: true }])).toBe(t('actUnpin'));
@@ -265,8 +265,8 @@ describe('the quick-actions bar', () => {
     sw.pick(entryByTitle(sw, 'B'));
     tid('actions-more').click();
     const items = tids('menu-item').map((b) => b.textContent);
-    expect(items).toEqual([t('actCopyMd'), t('actNewWindow'), t('actSleep'), t('actSnooze'), t('actArchive'), t('actPin'), t('actMute')]);
-    tids('menu-item')[5].click(); // Pin
+    expect(items).toEqual([t('actCopyMd'), t('actNewWindow'), t('actSleep'), t('actSnooze'), t('actArchive'), t('markMenu'), t('actPin'), t('actMute')]);
+    tids('menu-item')[6].click(); // Pin
     await waitFor(() => live(tabByTitle(sw, 'B')?.id ?? 2).pinned);
   });
 

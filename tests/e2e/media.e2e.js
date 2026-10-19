@@ -99,6 +99,17 @@ describe('joining: only media that plays with sound', () => {
     await poll(() => ext.topOf(page)).toMatchObject({ media: true, playing: true });
   });
 
+  it('3b. the page\'s own player joins muted (it names what it plays, and it is big); a small muted one doesn\'t', async () => {
+    const small = await open('preview');
+    await small.evaluate(() => { navigator.mediaSession.metadata = new MediaMetadata({ title: 'Preview' }); });
+    await small.evaluate(addVideo, '/video-sound.webm', { muted: true, autoplay: true, loop: true, width: 320, height: 180 });
+    await expectNothing(small);
+    const page = await open('mutedplayer');
+    await page.evaluate(() => { navigator.mediaSession.metadata = new MediaMetadata({ title: 'A video', artist: 'A channel' }); });
+    await page.evaluate(addVideo, '/video-sound.webm', { muted: true, autoplay: true, loop: true, width: 960, height: 540 });
+    await poll(() => ext.topOf(page)).toMatchObject({ media: true, playing: true, kind: 'video', title: 'A video', muted: true });
+  });
+
   it('4. a sound shorter than 5 s is transient; 5 s and more joins', async () => {
     const page = await open('short');
     await page.evaluate(addAudio, 3);

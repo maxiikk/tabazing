@@ -7,7 +7,7 @@
 // survive a reset, because modules register them once when imported; chrome._clearListeners() drops them
 // (call it before importing a module afresh with vi.resetModules()).
 //
-// Seed data with chrome._addWindow() / chrome._addTab() / chrome._addBookmark(), or read it via chrome._data.
+// Seed data with chrome._addWindow() / chrome._addTab() / chrome._addGroup() / chrome._addBookmark(), or read it via chrome._data.
 import { vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -67,7 +67,7 @@ function area(name) {
 }
 
 // ---- tabs, windows, bookmarks, history, sessions: plain arrays tests can seed
-const D = { tabs: [], windows: [], nextTab: 1, nextWin: 1, bookmarks: null, nextMark: 100, history: [], closed: [], alarms: new Map(), zoom: new Map(), lang: 'en' };
+const D = { tabs: [], windows: [], groups: [], nextTab: 1, nextWin: 1, nextGroup: 1, bookmarks: null, nextMark: 100, history: [], closed: [], alarms: new Map(), zoom: new Map(), lang: 'en' };
 
 function freshBookmarks() {
   return {
@@ -101,7 +101,7 @@ function makeTab(p = {}) {
   const tab = {
     id: D.nextTab++, windowId, index: inWin.length, url: 'https://example.com/', title: 'Example', active: false, pinned: false,
     audible: false, discarded: false, highlighted: false, incognito: false, status: 'complete', mutedInfo: { muted: false },
-    lastAccessed: Date.now(), favIconUrl: '', ...p,
+    lastAccessed: Date.now(), favIconUrl: '', groupId: -1, ...p,
   };
   if (p.index !== undefined) { inWin.forEach((t) => { if (t.index >= p.index) t.index++; }); }
   D.tabs.push(tab);
@@ -115,6 +115,12 @@ function makeWindow(p = {}) {
   if (w.id >= D.nextWin) D.nextWin = w.id + 1;
   D.windows.push(w);
   return w;
+}
+function makeGroup(p = {}) {
+  const g = { id: p.id ?? D.nextGroup++, title: '', color: 'grey', collapsed: false, windowId: p.windowId ?? (D.windows[0] && D.windows[0].id), ...p };
+  if (g.id >= D.nextGroup) D.nextGroup = g.id + 1;
+  D.groups.push(g);
+  return g;
 }
 const tabOut = (t) => clone(t);
 function needTab(id) {
@@ -185,6 +191,7 @@ const chrome = {
         const t = needTab(id);
         D.tabs = D.tabs.filter((x) => x !== t);
         reindex(t.windowId);
+        D.groups = D.groups.filter((g) => D.tabs.some((x) => x.groupId === g.id));
         tabsEv.onRemoved._emit(id, { windowId: t.windowId, isWindowClosing: false });
       }
     }),
@@ -200,6 +207,19 @@ const chrome = {
         out.push(tabOut(t));
       }
       return Array.isArray(ids) ? out : out[0];
+    }),
+    // Tab groups: like Chrome, a group goes away with its last tab.
+    group: vi.fn(async ({ tabIds, groupId, createProperties = {} } = {}) => {
+      const ids = [].concat(tabIds);
+      let g = groupId !== undefined ? D.groups.find((x) => x.id === groupId) : null;
+      if (groupId !== undefined && !g) throw new Error(`No group with id: ${groupId}.`);
+      if (!g) g = makeGroup({ windowId: createProperties.windowId ?? needTab(ids[0]).windowId });
+      for (const id of ids) { const t = needTab(id); t.groupId = g.id; t.pinned = false; }
+      return g.id;
+    }),
+    ungroup: vi.fn(async (tabIds) => {
+      for (const id of [].concat(tabIds)) needTab(id).groupId = -1;
+      D.groups = D.groups.filter((g) => D.tabs.some((t) => t.groupId === g.id));
     }),
     reload: vi.fn(async () => {}),
     getZoom: vi.fn(async (id) => { needTab(id); return D.zoom.get(id) ?? 1; }),
@@ -235,6 +255,13 @@ const chrome = {
     remove: vi.fn(async (id) => { D.windows = D.windows.filter((w) => w.id !== id); D.tabs = D.tabs.filter((t) => t.windowId !== id); }),
     onRemoved: event(), onFocusChanged: event(), onCreated: event(), onBoundsChanged: event(),
   },
+  tabGroups: {
+    TAB_GROUP_ID_NONE: -1,
+    query: vi.fn(async (q = {}) => clone(D.groups.filter((g) => q.windowId === undefined || g.windowId === q.windowId))),
+    get: vi.fn(async (id) => { const g = D.groups.find((x) => x.id === id); if (!g) throw new Error(`No group with id: ${id}.`); return clone(g); }),
+    update: vi.fn(async (id, p = {}) => { const g = D.groups.find((x) => x.id === id); if (!g) throw new Error(`No group with id: ${id}.`); Object.assign(g, p); return clone(g); }),
+    onCreated: event(), onUpdated: event(), onRemoved: event(),
+  },
   sessions: {
     MAX_SESSION_RESULTS: 25,
     getRecentlyClosed: vi.fn(async (q = {}) => clone(D.closed.slice(0, q.maxResults ?? 25))),
@@ -264,7 +291,20 @@ const chrome = {
       const parent = findMark(n.parentId);
       parent.children = parent.children.filter((c) => c !== n);
     }),
-    search: vi.fn(async () => []),
+    // { url }: the bookmarks of exactly that address; a string: those whose title or address has it.
+    search: vi.fn(async (q) => {
+      const out = [];
+      const walk = (n) => { if (n.url && (typeof q === 'string' ? (n.title + ' ' + n.url).toLowerCase().includes(q.toLowerCase()) : n.url === q.url)) out.push(n); (n.children || []).forEach(walk); };
+      walk(D.bookmarks);
+      return out.map((n) => ({ ...n }));
+    }),
+    update: vi.fn(async (id, p = {}) => {
+      const n = findMark(id);
+      if (!n) throw new Error("Can't find bookmark for id.");
+      for (const k of ['title', 'url']) if (p[k] !== undefined) n[k] = p[k];
+      const { children, ...rest } = n;
+      return rest;
+    }),
     onCreated: event(), onRemoved: event(), onChanged: event(),
   },
   history: {
@@ -305,6 +345,7 @@ const chrome = {
 chrome._data = D;
 chrome._addWindow = (p) => makeWindow(p);
 chrome._addTab = (p) => makeTab(p);
+chrome._addGroup = (p) => makeGroup(p);
 chrome._addBookmark = (p) => {
   const parent = findMark(p.parentId ?? '2');
   const n = { id: String(p.id ?? D.nextMark++), parentId: parent.id, title: p.title || '', dateAdded: p.dateAdded ?? Date.now() };
@@ -316,7 +357,7 @@ chrome._findBookmark = (id) => findMark(id);
 chrome._clearListeners = () => events.forEach((ev) => ev._listeners.clear());
 chrome._reset = () => {
   for (const a of [chrome.storage.local, chrome.storage.session, chrome.storage.sync]) a._data.clear();
-  Object.assign(D, { tabs: [], windows: [], nextTab: 1, nextWin: 1, bookmarks: freshBookmarks(), nextMark: 100, history: [], closed: [], lang: 'en' });
+  Object.assign(D, { tabs: [], windows: [], groups: [], nextTab: 1, nextWin: 1, nextGroup: 1, bookmarks: freshBookmarks(), nextMark: 100, history: [], closed: [], lang: 'en' });
   D.alarms.clear();
   D.zoom.clear();
   chrome.runtime.lastError = undefined;

@@ -210,7 +210,8 @@ describe('the list (chevron)', () => {
     expect(tid('media-list-title', pop).textContent).toBe(t('mediaList'));
     expect(tid('player-more').getAttribute('aria-expanded')).toBe('true');
     expect(tid('player-more').getAttribute('aria-controls')).toBe(pop.id);
-    expect(focused()).toBe(tid('media-row-pick', rows()[0])); // the one the player shows
+    expect(focused()).toBe(tid('media-row-toggle', rows()[0])); // the one the player shows: its play / pause
+    expect(sw.tabbables(pop).some((n) => n.dataset.testid === 'media-row-pick')).toBe(false); // a row is not a control: only its buttons are
     const list = sw.tabbables(pop);
     list[list.length - 1].focus();
     expect(key('Tab').defaultPrevented).toBe(true);
@@ -259,8 +260,9 @@ describe('the list (chevron)', () => {
     expect(tid('media-row-state', live).textContent).toBe(t('mediaPaused'));
     expect(tid('media-row-eq', cats).getAttribute('aria-hidden')).toBe('true');
     expect(tids('media-row-eq-bar', cats)).toHaveLength(3);
-    expect(tid('media-row-pick', cats).getAttribute('aria-pressed')).toBe('true');
-    expect(tid('media-row-pick', live).getAttribute('aria-pressed')).toBe('false');
+    expect(cats.getAttribute('aria-current')).toBe('true'); // the one the player shows (no look of its own)
+    expect(live.hasAttribute('aria-current')).toBe(false);
+    expect(tid('media-row-pick', cats).tagName).toBe('SPAN');
     expect(tid('media-row-toggle', cats).getAttribute('aria-label')).toBe(t('mediaPause'));
     expect(tid('media-row-toggle', live).getAttribute('aria-label')).toBe(t('mediaPlay'));
     expect(tid('media-row-prev', cats).disabled).toBe(true);
@@ -292,12 +294,10 @@ describe('the list (chevron)', () => {
     await openList();
     rows()[1].click();
     expect(tid('player-title').textContent).toBe('Live');
-    expect(tid('media-row-pick', rows()[1]).getAttribute('aria-pressed')).toBe('true');
-    expect(tid('media-row-pick', rows()[0]).getAttribute('aria-pressed')).toBe('false');
-    tid('media-row-pick', rows()[2]).focus();
-    tid('media-row-pick', rows()[2]).click(); // its main button (what Enter presses)
+    expect(rows()[1].getAttribute('aria-current')).toBe('true');
+    expect(rows()[0].hasAttribute('aria-current')).toBe(false);
+    tid('media-row-pick', rows()[2]).click(); // its picture and title
     expect(tid('player-title').textContent).toBe('Embedded');
-    expect(focused()).toBe(tid('media-row-pick', rows()[2]));
     expect(tid('media-list')).not.toBe(null);
   });
 
@@ -353,7 +353,7 @@ describe('the list (chevron)', () => {
     expect(focused()).toBe(tid('media-row-toggle', rows()[1])); // the same button of the same row
     await seedMedia({ ...ALL, Radio: undefined, Alpha: undefined, 'Tube video': ALL['Tube video'] });
     await waitFor(() => rows().length === 1);
-    expect(focused()).toBe(tid('media-row-pick', rows()[0])); // its row went: the focus stays in the list
+    expect(focused()).toBe(tid('media-row-toggle', rows()[0])); // its row went: the focus stays in the list
     await S.set({ [KEY.MEDIA]: {} });
     await waitFor(() => !tid('media-list'));
     expect(focused()).toBe(tid('search')); // nothing left: no list, no player

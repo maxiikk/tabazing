@@ -586,6 +586,7 @@ export async function getView() {
     sort: SORTS.includes(v.sort) ? v.sort : 'recent',
     collapsed: Array.isArray(v.collapsed) ? v.collapsed.filter((x) => typeof x === 'string' && x.length <= 300).slice(0, LIMITS.MAX_COLLAPSED) : [],
     settingsTab: SETTINGS_TABS.includes(v.settingsTab) ? v.settingsTab : 'look', // the category Settings last showed
+    markFolder: typeof v.markFolder === 'string' && /^\w{1,40}$/.test(v.markFolder) ? v.markFolder : '', // the bookmarks folder "Bookmark…" last saved into
   };
 }
 export function updateView(patch) {
@@ -594,6 +595,38 @@ export function updateView(patch) {
     next.collapsed = next.collapsed.slice(-LIMITS.MAX_COLLAPSED);
     await L.set({ [KEY.VIEW]: next });
     return next;
+  });
+}
+
+// ---------- the tab group the switcher is inside of (storage.session) ----------
+// Set when a group's tile is opened, cleared when the group is left: until then every open shows that group.
+// Chrome's group ids last one browser session, so this does too.
+export async function getGroup() {
+  const v = (await S.get(KEY.GROUP))[KEY.GROUP];
+  return v && isId(v.id) ? v.id : null;
+}
+export const setGroup = (id) => (isId(id) ? S.set({ [KEY.GROUP]: { id, t: Date.now() } }) : S.remove(KEY.GROUP));
+
+// ---------- "Recently closed" entries removed from the list (storage.local) ----------
+// Chrome's own list of closed tabs can't be edited, so an entry removed from it is remembered here instead:
+// { [key]: t } hides what was closed at or before `t` under that key (closedKey). Kept a month at most.
+export const closedKey = (item) => (item.kind === 'window' ? 'w:' : '') + (keyOf(item.url) || item.url);
+export async function getClosedHidden(now = Date.now()) {
+  const v = (await L.get(KEY.CLOSED_HIDDEN))[KEY.CLOSED_HIDDEN];
+  const out = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const [k, t] of Object.entries(v)) if (k && k.length <= LIMITS.MAX_URL_KEY + 2 && isTime(t) && now - t < LIMITS.CLOSED_HIDDEN_TTL_MS) out[k] = t;
+  }
+  return out;
+}
+// `keys`: { [key]: t }, hide what was closed under each key at or before its t; with `show`, show those keys again.
+export function hideClosed(keys, show = false) {
+  return withLock('closedHidden', async () => {
+    const all = await getClosedHidden();
+    for (const [k, t] of Object.entries(keys)) { if (show) delete all[k]; else all[k] = Math.max(all[k] || 0, t); }
+    const kept = Object.entries(all).sort((a, b) => b[1] - a[1]).slice(0, LIMITS.MAX_CLOSED_HIDDEN);
+    await L.set({ [KEY.CLOSED_HIDDEN]: Object.fromEntries(kept) });
+    return Object.fromEntries(kept);
   });
 }
 

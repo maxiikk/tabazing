@@ -577,16 +577,17 @@ describe('actions on the current tab', () => {
     expect(shown()).toBe(true);
   });
 
-  it('Bookmark this page: once (a second time says it already is)', async () => {
+  it('Bookmark this page: the palette makes way for the Bookmark dialog, for the current tab', async () => {
     const sw = await boot({ tabs: ABC });
     key('k', { code: 'KeyK', ctrlKey: true });
     await runAction(sw, 'bookmark');
-    expect(chrome.bookmarks.create).toHaveBeenCalledWith({ title: 'Alpha', url: 'https://alpha.example/' });
-    expect(toastText()).toBe(t('palMarked', { title: 'Alpha' }));
-    chrome.bookmarks.search.mockResolvedValueOnce([{ id: '9', url: 'https://alpha.example/' }]);
-    await runAction(sw, 'bookmark');
-    expect(chrome.bookmarks.create).toHaveBeenCalledTimes(1);
-    expect(toastText()).toBe(t('palMarkedAlready'));
+    await waitFor(() => tid('bookmark-form'));
+    expect(shown()).toBe(false);
+    expect(sw.state.modal).toBe('bookmark');
+    expect(tid('bookmark-name').value).toBe('Alpha');
+    tid('bookmark-save').click();
+    await waitFor(() => chrome.bookmarks.create.mock.calls.length > 0);
+    expect(chrome.bookmarks.create).toHaveBeenCalledWith({ parentId: '2', title: 'Alpha', url: 'https://alpha.example/' });
   });
 
   it('no tab actions until the current tab is known, and none that page can’t take', async () => {
@@ -684,5 +685,23 @@ describe('Tabazing actions', () => {
     await runAction(sw, 'media-toggle');
     expect(chrome.scripting.executeScript.mock.calls.map(([o]) => o.args[0])).toEqual(['nexttrack', 'previoustrack', 'pause']);
     expect(closedMsg()).toMatchObject({ reason: 'cancel' });
+  });
+});
+
+describe('the highlighted result (styles/switcher.css)', () => {
+  it('lifts as the selected card does: an accent edge and glow, a touch bigger, springing the same way', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(process.cwd() + '/styles/switcher.css', 'utf8');
+    const rule = (sel) => { const at = css.indexOf('\n' + sel + ' {'); return at < 0 ? '' : css.slice(at, css.indexOf('}', at)); };
+    expect(rule('.ddr.on')).toMatch(/translate: 0 -1px; scale: 1\.012/);
+    expect(rule('.ddr.on')).toMatch(/box-shadow: 0 0 0 2px var\(--ring\), 0 8px 22px color-mix\(in srgb, var\(--accent\)/);
+    expect(css).toMatch(/\.ddr \{ transition: translate \.16s cubic-bezier\(\.2, \.9, \.3, 1\.2\), scale \.16s/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.ddr\.on \{ translate: none; scale: none; \} \}/);
+  });
+
+  it('the media list\'s rows have no hover or "current" look of their own (only their buttons do)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync(process.cwd() + '/styles/switcher.css', 'utf8');
+    expect(css).not.toMatch(/\.mrow:hover|\.mrow\.on \{|\.mpick:focus/);
   });
 });

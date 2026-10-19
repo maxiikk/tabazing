@@ -85,7 +85,7 @@ describe('reports', () => {
     settle();
     expect(reports).toHaveLength(1);
     expect(typeof reports[0]).toBe('string');
-    expect(last()).toEqual({ v: 3, media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
+    expect(last()).toEqual({ v: 4, media: true, playing: true, kind: 'video', title: 'Page title', artist: '', canPrev: false, canNext: false, muted: false });
   });
 
   it('injected into a page that is already playing (install, update), it says so without waiting for an event', () => {
@@ -129,7 +129,7 @@ describe('reports', () => {
     v.remove();
     v.pause();
     settle();
-    expect(last()).toEqual({ v: 3, media: false });
+    expect(last()).toEqual({ v: 4, media: false });
     expect(reports).toHaveLength(2);
   });
 
@@ -138,7 +138,7 @@ describe('reports', () => {
     v.play();
     settle();
     window.dispatchEvent(new Event('pagehide'));
-    expect(last()).toEqual({ v: 3, media: false });
+    expect(last()).toEqual({ v: 4, media: false });
     window.dispatchEvent(new Event('pagehide'));
     expect(reports).toHaveLength(2); // said once
     const back = new Event('pageshow');
@@ -245,6 +245,43 @@ describe('which media: Chrome\'s own rule (only media that played with sound)', 
     fire(v, 'volumechange');
     settle();
     expect(last()).toMatchObject({ media: true, playing: true, muted: false });
+  });
+
+  // The page's own player counts without sound too (more than Chrome does): a YouTube video watched muted.
+  describe('muted or at zero volume, the page\'s own player', () => {
+    const size = (el, width, height) => { el.getBoundingClientRect = () => ({ width, height, top: 0, left: 0, right: width, bottom: height }); };
+
+    it.each([['muted', { muted: true }], ['at zero volume', { volume: 0 }]])('it says what it plays (Media Session) and it is big, %s: it joins', (_, opts) => {
+      navigator.mediaSession.metadata = { title: 'A video', artist: 'A channel' };
+      const v = media('video', opts);
+      if ('volume' in opts) Object.defineProperty(v, 'volume', { value: 0, configurable: true });
+      size(v, 960, 540);
+      v.play();
+      settle();
+      expect(last()).toMatchObject({ media: true, playing: true, kind: 'video', title: 'A video', muted: !!opts.muted });
+    });
+
+    it('an <audio> the page names joins muted too', () => {
+      navigator.mediaSession.metadata = { title: 'A podcast' };
+      media('audio', { muted: true }).play();
+      settle();
+      expect(last()).toMatchObject({ media: true, kind: 'audio', title: 'A podcast' });
+    });
+
+    it('a small one (a hover preview) stays out; so does a big one the page doesn\'t name (muted autoplay)', () => {
+      navigator.mediaSession.metadata = { title: 'A video' };
+      const preview = media('video', { muted: true });
+      size(preview, 320, 180);
+      preview.play();
+      settle();
+      expect(reports).toEqual([]);
+      navigator.mediaSession.metadata = { title: '' };
+      const feed = media('video', { muted: true });
+      size(feed, 960, 540);
+      feed.play();
+      settle();
+      expect(reports).toEqual([]);
+    });
   });
 
   it('an unknown duration waits until it is known; live streams count', () => {
@@ -445,7 +482,7 @@ describe('keeping the background up to date', () => {
     document.dispatchEvent(new CustomEvent('tabazing:media-sync'));
     settle();
     expect(reports).toHaveLength(n + 1);
-    expect(last()).toMatchObject({ v: 3, media: true, playing: true });
+    expect(last()).toMatchObject({ v: 4, media: true, playing: true });
     window[KEY].sync(); // the background's way in, after a tab loaded
     settle();
     expect(reports).toHaveLength(n + 2);
@@ -468,7 +505,7 @@ describe('keeping the background up to date', () => {
     Object.defineProperty(window, KEY, { value: old, configurable: true, enumerable: false, writable: false });
     load();
     expect(window[KEY]).not.toBe(old);
-    expect(window[KEY].version).toBe(3);
+    expect(window[KEY].version).toBe(4);
     const current = window[KEY];
     load();
     expect(window[KEY]).toBe(current);
@@ -511,7 +548,7 @@ describe('edge cases', () => {
     v.remove();
     fire(v, 'pause'); // Chrome pauses media taken out of the page
     settle();
-    expect(last()).toEqual({ v: 3, media: false });
+    expect(last()).toEqual({ v: 4, media: false });
     box.append(v); // put back (a page restoring its player)
     fire(v, 'loadedmetadata');
     fire(v, 'pause');
@@ -602,8 +639,8 @@ describe('edge cases', () => {
   });
 
   it('state() says what this frame plays now, for the background to check', () => {
-    expect(JSON.parse(window[KEY].state())).toEqual({ v: 3, media: false });
+    expect(JSON.parse(window[KEY].state())).toEqual({ v: 4, media: false });
     media('audio').play();
-    expect(JSON.parse(window[KEY].state())).toMatchObject({ v: 3, media: true, playing: true, kind: 'audio' });
+    expect(JSON.parse(window[KEY].state())).toMatchObject({ v: 4, media: true, playing: true, kind: 'audio' });
   });
 });

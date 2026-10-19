@@ -105,10 +105,11 @@
     "unlimitedStorage",
     "alarms",
     "bookmarks",
-    "history"
+    "history",
+    "tabGroups"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "6.0.1",
+  "version": "6.1.0",
   "web_accessible_resources": [
     {
       "matches": [

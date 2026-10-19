@@ -235,11 +235,11 @@ describe('view', () => {
   });
 
   it('getView validates', async () => {
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look' });
-    L._data.set(KEY.VIEW, { sort: 'name', collapsed: ['a', 3, 'x'.repeat(301), 'b'], settingsTab: 'keys' });
-    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'], settingsTab: 'keys' });
-    L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a', settingsTab: 'colours' });
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look' });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '' });
+    L._data.set(KEY.VIEW, { sort: 'name', collapsed: ['a', 3, 'x'.repeat(301), 'b'], settingsTab: 'keys', markFolder: '12' });
+    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'], settingsTab: 'keys', markFolder: '12' });
+    L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a', settingsTab: 'colours', markFolder: 'no such id!' });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '' });
     L._data.set(KEY.VIEW, { settingsTab: ['keys'] });
     expect((await s.getView()).settingsTab).toBe('look');
     L._data.set(KEY.VIEW, { collapsed: Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i) });
@@ -247,7 +247,7 @@ describe('view', () => {
   });
 
   it('updateView merges and keeps the newest MAX_COLLAPSED', async () => {
-    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [], settingsTab: 'look' });
+    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [], settingsTab: 'look', markFolder: '' });
     const collapsed = Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i);
     const next = await s.updateView({ collapsed });
     expect(next.sort).toBe('order');
@@ -320,5 +320,29 @@ describe('the command palette’s recent actions', () => {
     expect(await s.notePaletteRecent('c')).toEqual(['c', 'g', 'f', 'e', 'd', 'b'].slice(0, LIMITS.PALETTE_RECENT));
     expect(L._data.get(KEY.PALETTE_RECENT)[0]).toBe('c');
     expect(await s.notePaletteRecent('Not valid!')).toEqual(L._data.get(KEY.PALETTE_RECENT)); // nothing written
+  });
+});
+
+describe('"Recently closed" entries removed from the list', () => {
+  it('closedKey: the page\'s normalized address, "w:" before it for a closed window', () => {
+    expect(s.closedKey({ kind: 'tab', url: 'https://a.com/x/#top' })).toBe('https://a.com/x');
+    expect(s.closedKey({ kind: 'window', url: 'https://a.com/' })).toBe('w:https://a.com/');
+  });
+
+  it('hideClosed keeps the newest time per key; with `show` it forgets them again', async () => {
+    expect(await s.getClosedHidden()).toEqual({});
+    await s.hideClosed({ a: NOW - 100 });
+    await s.hideClosed({ a: NOW - 500, b: NOW - 200 });
+    expect(await s.getClosedHidden()).toEqual({ a: NOW - 100, b: NOW - 200 });
+    expect(await s.hideClosed({ a: 0 }, true)).toEqual({ b: NOW - 200 });
+  });
+
+  it('getClosedHidden validates and drops what is older than a month; at most MAX_CLOSED_HIDDEN are kept', async () => {
+    L._data.set(KEY.CLOSED_HIDDEN, { old: NOW - LIMITS.CLOSED_HIDDEN_TTL_MS - 1, bad: 'x', ok: NOW - 1000 });
+    expect(await s.getClosedHidden()).toEqual({ ok: NOW - 1000 });
+    const many = Object.fromEntries(Array.from({ length: LIMITS.MAX_CLOSED_HIDDEN + 5 }, (_, i) => ['k' + i, NOW - i]));
+    const kept = await s.hideClosed(many);
+    expect(Object.keys(kept)).toHaveLength(LIMITS.MAX_CLOSED_HIDDEN);
+    expect(kept.k0).toBe(NOW); // the newest stay
   });
 });

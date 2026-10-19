@@ -12,7 +12,7 @@
 // copies from before versions existed can't be retired, so media-relay.js ignores reports without a version.
 (() => {
   const KEY = Symbol.for('tabazing.media');
-  const VERSION = 3; // in every report as "v"; media-relay.js passes on reports from VERSION 2 on
+  const VERSION = 4; // in every report as "v"; media-relay.js passes on reports from VERSION 2 on
   const prev = window[KEY];
   if (prev && prev.version >= VERSION) return;
   if (prev && typeof prev.retire === 'function') prev.retire();
@@ -27,11 +27,13 @@
   // another, and Chrome still lists the first one, paused.
   // Media that never played, muted autoplay (feeds, backgrounds, GIF stand-ins) and sounds shorter than
   // 5 s ("transient" in Chrome) never show; nor does a page that only sets Media Session metadata.
+  // One thing more than Chrome: the page's own player joins muted or at zero volume too (see meant()), so a
+  // YouTube video watched with its sound off is still in the player.
   const MIN_SECONDS = 5;
   const MAX_KNOWN = 32;
 
   const handlers = new Map(); // action -> the page's Media Session handler
-  const active = new Set();   // elements that have played with sound: this frame's media, oldest first
+  const active = new Set();   // elements that have played with sound (or on purpose: meant()): this frame's media, oldest first
   const watched = new WeakSet(); // elements with listeners of their own (see watch())
   const inDoc = new WeakSet();   // elements seen in the document: taken out of it, they are gone
   let lastPlayed = null;
@@ -128,19 +130,30 @@
     const n = el.webkitAudioDecodedByteCount;
     return typeof n !== 'number' || n > 0;
   }
+  // The page's own player counts with no sound too: it tells Chrome what it plays (Media Session metadata with a
+  // title) and it is big in the page (a video of 400×225 or more; an <audio>). Muted autoplay (feeds, backgrounds,
+  // hover previews) is neither. Not "started by a click": a click's user activation lasts seconds, long enough
+  // for a feed's muted videos to start under it.
+  function meant(el) {
+    const m = metadata();
+    if (!m || !text(m.title)) return false;
+    if (el instanceof HTMLAudioElement) return true;
+    const r = el.getBoundingClientRect();
+    return r.width >= 400 && r.height >= 225;
+  }
   // Long enough: 5 s or more, or live (endless). An unknown duration waits until it is known, or until it
   // has played 5 s (some streams never say how long they are).
   const longEnough = (el) => el.duration === Infinity || (Number.isFinite(el.duration) ? el.duration >= MIN_SECONDS : el.currentTime >= MIN_SECONDS);
   // Was in the page and is out of it now. Only for now: a player moved elsewhere in the page (a mini player)
   // is back as soon as it is put back in.
   const gone = (el) => !el.isConnected && inDoc.has(el);
-  // Playing with sound right now: it joins this frame's media (and stays). Returns whether it just joined.
+  // Playing with sound (or on purpose: meant) right now: it joins this frame's media (and stays). Returns whether it just joined.
   // `before`: it doesn't have to be playing now if it has played (el.played): for a hook injected into a page
   // that is already open, which wasn't there to see it.
   function join(el, before = false) {
     if (el.isConnected) inDoc.add(el);
     const played = playing(el) || (before && el.played && el.played.length > 0);
-    if (active.has(el) || gone(el) || !played || !hasSource(el) || !withSound(el) || !longEnough(el)) return false;
+    if (active.has(el) || gone(el) || !played || !hasSource(el) || !(withSound(el) || meant(el)) || !longEnough(el)) return false;
     active.add(el);
     if (active.size > MAX_KNOWN) { // too many: those out of the page go first, then the oldest
       const out = [...active].find(gone);

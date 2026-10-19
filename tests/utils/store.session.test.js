@@ -477,3 +477,17 @@ describe('woken snoozed tabs', () => {
     expect(S.set).not.toHaveBeenCalled();
   });
 });
+
+describe('the tab group the switcher is inside of', () => {
+  it('setGroup keeps it, getGroup reads it back; null (or anything but an id) forgets it', async () => {
+    expect(await s.getGroup()).toBe(null);
+    await s.setGroup(12);
+    expect(await s.getGroup()).toBe(12);
+    expect(S._data.get(KEY.GROUP)).toEqual({ id: 12, t: NOW });
+    await s.setGroup(null);
+    expect(await s.getGroup()).toBe(null);
+    expect(S._data.has(KEY.GROUP)).toBe(false);
+    S._data.set(KEY.GROUP, { id: 'x' });
+    expect(await s.getGroup()).toBe(null);
+  });
+});

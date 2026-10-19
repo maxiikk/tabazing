@@ -60,7 +60,13 @@
           <!-- The Open tabs title, and at the other end of its row what acts on the open tabs only: merging windows,
                closing duplicates, and how they are sorted and filtered. -->
           <div class="open-head" data-testid="open-head">
-            <h2 id="open-h" class="section-h" data-i18n="openTabs" data-testid="open-h">Open tabs</h2>
+            <!-- In the group view (switcher.js renderGroupBar): "All tabs" back out, the group's colour, its name as the heading, its count. -->
+            <div class="open-title" data-testid="open-title">
+              <button id="group-leave" class="act grpback" type="button" hidden data-testid="group-leave"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="groupLeave" data-testid="group-leave-label">All tabs</span></button>
+              <span id="group-dot" class="gdot" hidden data-testid="group-dot"></span>
+              <h2 id="open-h" class="section-h" data-i18n="openTabs" data-testid="open-h">Open tabs</h2>
+              <span id="group-n" class="grpn" hidden data-testid="group-count"></span>
+            </div>
             <div class="open-end" data-testid="open-end">
             <div class="setup open-acts" data-testid="open-actions">
             <button id="merge-btn" class="act" type="button" hidden data-testid="merge-btn">

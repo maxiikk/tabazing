@@ -51,6 +51,8 @@ export const KEY = Object.freeze({
   OVERLAY: 'overlay',         // { tabId, t } tab currently covered by the overlay
   LAUNCH: 'launch',           // { token, t, ctx } one-time launch for the next switcher
   PALETTE_RECENT: 'palRecent', // storage.local: string[] ids of the command palette's actions, most recently run first
+  GROUP: 'group',             // storage.session: { id, t } the tab group the switcher is inside of (group ids last one browser session)
+  CLOSED_HIDDEN: 'closedHidden', // storage.local: { [key]: t } "Recently closed" entries removed from the list (key: normalized URL, 'w:' + it for a window)
   MEDIA: 'media',             // storage.session: { [tabId]: { [frameId]: { media, playing, kind, title, artist, canPrev, canNext, muted, t } } } what each frame plays (media-hook.js)
 });
 
@@ -98,6 +100,8 @@ export const LIMITS = Object.freeze({
   MAX_SNOOZED: 300,             // most snoozed tabs kept               // most tab notes kept (the oldest go first)
   MAX_STARS: 300,               // most starred pages kept (their previews are kept like an open tab's)
   MAX_COLLAPSED: 200,           // most collapsed sections remembered
+  MAX_CLOSED_HIDDEN: 300,       // most "Recently closed" entries remembered as removed from the list
+  CLOSED_HIDDEN_TTL_MS: 30 * 24 * 3600 * 1000, // ...each for this long (Chrome's own list can reach further back than our 7-day log)
   RESUME_TTL_MS: 15000,         // a resume note older than this is ignored
   SWEEP_MAX_TABS: 100,          // most tabs one "Capture all previews" run visits
   SWEEP_STALE_MS: 6 * 60 * 60 * 1000, // tabs whose preview is newer than this are skipped
