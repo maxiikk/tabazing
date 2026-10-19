@@ -313,7 +313,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 ### Tab groups
 
-- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be. Its picture is the group's first four tabs, two by two, with **+N** for the rest; its header has the group's name and how many tabs it has.
+- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be. Its picture is the group's first tabs, as many as it has up to four (one fills the picture, two sit side by side, three are one big and two small, four are two by two), with **+N** for the rest; its header has the group's name and how many tabs it has.
 - **Open a group** by clicking its tile, or select it and press Enter, Space or its number. Tabazing then shows only that group's tabs, framed in its colour, with the group's name as the heading: everything works there as usual (Alt+Q steps through the group's tabs, search, close, sort...), and **New tab** opens the tab in the group.
 - Tabazing **stays inside the group** every time you open it, until you leave it: click **‹ All tabs**, press **Backspace** in the empty search box, or choose **Leave the tab group** in the command palette. Esc only closes Tabazing.
 - **Alt+Q / Alt+W** always go through **every tab**, like Alt+Tab: while you hold Alt, groups are set aside (no tiles, no group view), so you can step out of the group to the previous or next tab. Letting go of Alt switches there; staying open (Alt+E, the mouse, typing) brings the group view and the tiles back.

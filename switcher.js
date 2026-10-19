@@ -1017,7 +1017,7 @@ function renderCard(entry, index) {
 }
 
 // ---- tab groups: Chrome's groups as tiles among the cards (derive: groupTiles). A tile's picture is its first
-// four tabs, two by two, in the group's colour; opening it (click, Enter, its number) shows only that group's tabs
+// tabs (up to four), in the group's colour; opening it (click, Enter, its number) shows only that group's tabs
 // (the group view), and every open of Tabazing shows them until the group is left (its "All tabs" button, or
 // Backspace in the empty search box).
 const GROUP_COLORS = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange']; // chrome.tabGroups.Color (switcher.css [data-gc])
@@ -1055,15 +1055,15 @@ function renderGroupCard(entry, index) {
     card.append(head);
     return finishCard(card, entry);
   }
-  const thumb = h('div', 'thumb gmosaic', null, 'card-thumb');
-  for (let k = 0; k < 4; k++) {
-    const x = entry.tabs[k];
-    const cell = h('div', 'gcell' + (x ? '' : ' empty'), null, x ? 'card-group-cell' : 'card-group-cell-empty');
-    if (x) {
-      const p = state.previews[x.id];
-      if (p && p.img) cell.append(shotImg({ key: 'gt' + x.id, preview: p }));
-      else { const img = h('img', 'gfav', null, 'card-group-favicon'); img.src = favicon(urlOf(x)); img.alt = ''; cell.append(img); }
-    }
+  // As many cells as it has tabs, up to four (switcher.css .gmosaic.n1-n4): one fills the picture, two sit side by
+  // side, three are one big and two small, four two by two. No empty placeholders.
+  const shown = entry.tabs.slice(0, 4);
+  const thumb = h('div', 'thumb gmosaic n' + shown.length, null, 'card-thumb');
+  for (const x of shown) {
+    const cell = h('div', 'gcell', null, 'card-group-cell');
+    const p = state.previews[x.id];
+    if (p && p.img) cell.append(shotImg({ key: 'gt' + x.id, preview: p }));
+    else { const img = h('img', 'gfav', null, 'card-group-favicon'); img.src = favicon(urlOf(x)); img.alt = ''; cell.append(img); }
     thumb.append(cell);
   }
   if (n > 4) thumb.append(h('span', 'pill', t('groupMoreN', { count: n - 4 }), 'card-group-more'));

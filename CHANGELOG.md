@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.1] - 2026-10-19
+
+### Fixed
+
+- A tab group with fewer than four tabs showed empty placeholders in its tile. Its picture now has one cell per tab: one fills it, two sit side by side, three are one big and two small.
+- The thin "stacked card" edge under a group's tile, which looked like a stray line, is gone.
+
 ## [6.2.0] - 2026-10-19
 
 ### Added
@@ -327,7 +334,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...HEAD
+[6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...HEAD
+[6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...8a7846c
 [6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...f8a4757
 [6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...ecbee9a
 [6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...cce6e44

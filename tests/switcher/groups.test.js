@@ -1,6 +1,8 @@
 // Tab groups: a tile per Chrome tab group among the cards (its first four tabs as its picture), the group view
 // its tile opens (only that group's tabs, remembered for every open until it is left), and what a tile's menu does.
 import { describe, it, expect, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
 import { t } from '../../utils/translations.js';
@@ -33,16 +35,26 @@ describe('group tiles', () => {
     expect(sw.state.matchCount).toBe(5); // ...but they count, and "Select all" takes them
   });
 
-  it('its picture: the first four tabs, two by two (empty cells for fewer), "+N" for the rest', async () => {
-    await boot({ tabs: TABS(3), ...withGroup() });
-    expect(tids('card-group-cell', tile())).toHaveLength(3);
-    expect(tids('card-group-cell-empty', tile())).toHaveLength(1);
+  it.each([1, 2, 3, 4])('its picture with %i tab(s): that many cells, no empty placeholders', async (n) => {
+    await boot({ tabs: TABS(n), ...withGroup() });
+    expect(tids('card-group-cell', tile())).toHaveLength(n);
+    expect(tid('card-thumb', tile()).classList.contains('n' + n)).toBe(true); // (switcher.css lays each count out)
     expect(tid('card-group-more', tile())).toBe(null);
-    chrome._reset();
+  });
+
+  it('its picture: the first four tabs, two by two, "+N" for the rest', async () => {
     await boot({ tabs: TABS(6), ...withGroup() });
     expect(tids('card-group-cell', tile())).toHaveLength(4);
     expect(tid('card-group-more', tile()).textContent).toBe(t('groupMoreN', { count: 2 }));
     expect(tile().title.split('\n')[0]).toBe(t('groupTip', { name: 'Work' }));
+  });
+
+  it('the stylesheet fills the picture with one cell, two side by side, three as one big and two small', () => {
+    const css = readFileSync(resolve(process.cwd(), 'styles/switcher.css'), 'utf8');
+    expect(css).toContain('.gtile .gmosaic.n1 { grid-template: 1fr / 1fr; }');
+    expect(css).toContain('.gtile .gmosaic.n2 { grid-template: 1fr / 1fr 1fr; }');
+    expect(css).toContain('.gtile .gmosaic.n3 > .gcell:first-child { grid-row: span 2; }');
+    expect(css).not.toContain('.gcell.empty');
   });
 
   it('a group without a name is "Unnamed group"', async () => {
