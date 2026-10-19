@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.0] - 2026-10-19
+
+### Added
+
+- Settings → Cards → "Show tab groups as tiles" (on by default): off, every tab has its own card again, tagged with its group's name.
+
+### Fixed
+
+- Inside a tab group, Alt+Q / Alt+W couldn't reach the tabs outside it. While Alt is held they now step through every tab in the usual order, out of the group too; staying open brings the group view back.
+
 ## [6.1.0] - 2026-10-19
 
 ### Added
@@ -317,7 +327,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...HEAD
+[6.2.0]: https://github.com/maxiikk/tabazing/compare/f8a4757...HEAD
+[6.1.0]: https://github.com/maxiikk/tabazing/compare/ecbee9a...f8a4757
 [6.0.1]: https://github.com/maxiikk/tabazing/compare/cce6e44...ecbee9a
 [6.0.0]: https://github.com/maxiikk/tabazing/compare/5045321...cce6e44
 [5.2.0]: https://github.com/maxiikk/tabazing/compare/9c671ea...5045321

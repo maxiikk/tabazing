@@ -259,10 +259,10 @@ describe('view', () => {
 describe('prefs', () => {
   const defaults = {
     lang: 'auto', startup: false, cardSize: 'default', accent: DEFAULT_ACCENT, allWindows: false, theme: 'system',
-    pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, ownWindow: false, titleLines: 2,
+    pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, showGroups: true, ownWindow: false, titleLines: 2,
     searchHistory: true, searchBookmarks: true, iconTips: 0,
   };
-  const SWITCHES = ['pinnedFirst', 'showClosed', 'showSnoozed', 'showAge', 'searchHistory', 'searchBookmarks']; // on unless set to false
+  const SWITCHES = ['pinnedFirst', 'showClosed', 'showSnoozed', 'showAge', 'showGroups', 'searchHistory', 'searchBookmarks']; // on unless set to false
 
   it('defaults', async () => {
     expect(await s.getPrefs()).toEqual(defaults);

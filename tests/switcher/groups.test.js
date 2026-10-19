@@ -1,6 +1,6 @@
 // Tab groups: a tile per Chrome tab group among the cards (its first four tabs as its picture), the group view
 // its tile opens (only that group's tabs, remembered for every open until it is left), and what a tile's menu does.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
 import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
 import { t } from '../../utils/translations.js';
@@ -160,6 +160,93 @@ describe('the group view', () => {
     await sw.runAction(sw.PAL_BY_ID.get('leave-group'));
     await waitFor(() => sw.state.inGroup === null);
     expect(sw.paletteActions().map((a) => a.id)).not.toContain('leave-group');
+  });
+});
+
+describe('Alt+Q / Alt+W (Alt held)', () => {
+  const MIXED = [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: GROUP, active: true }, { title: 'W2', url: 'https://w2.example/', groupId: GROUP }, { title: 'B', url: 'https://b.example/' }];
+
+  it('inside a group, they step through every tab (out of the group too), and letting go of Alt switches there', async () => {
+    const sw = await boot({ tabs: MIXED, ctx: { hold: true, dir: 1 }, ...withGroup({ inside: true }) });
+    expect(sw.state.inGroup).toBe(null); // while Alt is held: every tab, no group view...
+    expect(kinds(sw)).toEqual(['W1', 'A', 'W2', 'B']); // ...and no tiles (current first, then recent use)
+    expect(tid('body').classList.contains('in-group')).toBe(false);
+    let to = sw.state.entries[sw.state.sel].tab;
+    expect(to.title).toBe('A'); // the opening Alt+Q: the next tab in the global order, outside the group
+    sw.qPress(1);
+    sw.qPress(1);
+    to = sw.state.entries[sw.state.sel].tab;
+    expect(to.title).toBe('B');
+    sw.altReleased();
+    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === to.id && p.active));
+    expect((await stored()).id).toBe(GROUP); // still inside it next time
+  });
+
+  it('staying open (Alt+E) brings the group view back', async () => {
+    const sw = await boot({ tabs: MIXED, ctx: { hold: true, dir: 1 }, ...withGroup({ inside: true }) });
+    sw.stopHolding();
+    await waitFor(() => sw.state.inGroup === GROUP);
+    expect(kinds(sw)).toEqual(['W1', 'W2']);
+  });
+
+  it('pressed in an open switcher showing groups, every tab again, from the same tab; the tiles come back after', async () => {
+    const sw = await boot({ tabs: MIXED, ctx: { dir: 0 }, ...withGroup() });
+    expect(kinds(sw)).toEqual(['G', 'A', 'B']);
+    sw.qPress(1);
+    expect(kinds(sw)).toEqual(['W1', 'A', 'W2', 'B']);
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('A'); // the step after the current tab (W1)
+    sw.stopHolding();
+    await waitFor(() => tile());
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('A');
+  });
+});
+
+describe('Settings -> Show tab groups as tiles', () => {
+  const toggle = async (on) => {
+    if (!tid('settings-show-groups')) tid('settings-btn').click(); // (the gear again would close it)
+    await waitFor(() => tid('settings-show-groups'));
+    const box = tid('settings-show-groups');
+    box.checked = on;
+    box.dispatchEvent(new Event('change'));
+  };
+
+  it('on by default, in the Cards category, with a note', async () => {
+    await boot({ tabs: TABS(), ...withGroup() });
+    tid('settings-btn').click();
+    await waitFor(() => tid('settings-show-groups'));
+    expect(tid('settings-show-groups').checked).toBe(true);
+    expect(tid('settings-panel-cards').contains(tid('settings-show-groups'))).toBe(true);
+    expect(tid('settings-show-groups-label').textContent).toBe(t('setShowGroups'));
+    expect(tid('settings-show-groups-note').textContent).toBe(t('setShowGroupsNote'));
+  });
+
+  it('off: every tab its own card again (tagged with its group), and it is saved', async () => {
+    const sw = await boot({ tabs: TABS(), ...withGroup() });
+    await toggle(false);
+    await waitFor(() => !tile());
+    expect(kinds(sw)).toEqual(['A', 'W1', 'W2', 'W3', 'B']);
+    expect(tid('card-group-tag', cardOf('W1')).textContent).toBe('Work');
+    expect(sw.state.steps).toBe(null);
+    await vi.waitFor(async () => expect((await chrome.storage.local.get('prefs')).prefs.showGroups).toBe(false));
+    await toggle(true);
+    await waitFor(() => tile());
+  });
+
+  it('off while inside a group: out of it, for good (on again, it doesn\'t jump back in)', async () => {
+    const sw = await boot({ tabs: TABS(), ...withGroup({ inside: true }) });
+    expect(sw.state.inGroup).toBe(GROUP);
+    await toggle(false);
+    await waitFor(() => sw.state.inGroup === null && !tid('body').classList.contains('in-group'));
+    await vi.waitFor(async () => expect(await stored()).toBe(undefined));
+    await toggle(true);
+    await waitFor(() => tile());
+    expect(sw.state.inGroup).toBe(null);
+  });
+
+  it('off from the start: a remembered group isn\'t shown either', async () => {
+    const sw = await boot({ tabs: TABS(), prefs: { showGroups: false }, ...withGroup({ inside: true }) });
+    expect(sw.state.inGroup).toBe(null);
+    expect(tile()).toBe(null);
   });
 });
 

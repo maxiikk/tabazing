@@ -539,5 +539,7 @@
   "groupMoreN": "+{count, number}",
   "palLeaveGroup": "Leave the tab group",
   "palKwLeaveGroup": "group leave exit back all tabs",
-  "keyLeaveGroup": "Leave the tab group (search box empty)"
+  "keyLeaveGroup": "Leave the tab group (search box empty)",
+  "setShowGroups": "Show tab groups as tiles",
+  "setShowGroupsNote": "Off: every tab has its own card, tagged with its group’s name."
 }

@@ -565,7 +565,7 @@ describe('Settings', () => {
   it('every switch shows its stored value and saves', async () => {
     await boot({ tabs: AB });
     await open();
-    const want = { 'pinned-first': ['pinnedFirst', true], 'show-closed': ['showClosed', true], 'show-snoozed': ['showSnoozed', true], 'show-age': ['showAge', true], 'own-window': ['ownWindow', false], 'search-history': ['searchHistory', true], 'search-bookmarks': ['searchBookmarks', true] };
+    const want = { 'pinned-first': ['pinnedFirst', true], 'show-closed': ['showClosed', true], 'show-snoozed': ['showSnoozed', true], 'show-age': ['showAge', true], 'show-groups': ['showGroups', true], 'own-window': ['ownWindow', false], 'search-history': ['searchHistory', true], 'search-bookmarks': ['searchBookmarks', true] };
     for (const [id, [k, on]] of Object.entries(want)) {
       const box = tid('settings-' + id);
       expect(box.checked, id).toBe(on);

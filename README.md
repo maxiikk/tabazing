@@ -316,6 +316,8 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 - Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be. Its picture is the group's first four tabs, two by two, with **+N** for the rest; its header has the group's name and how many tabs it has.
 - **Open a group** by clicking its tile, or select it and press Enter, Space or its number. Tabazing then shows only that group's tabs, framed in its colour, with the group's name as the heading: everything works there as usual (Alt+Q steps through the group's tabs, search, close, sort...), and **New tab** opens the tab in the group.
 - Tabazing **stays inside the group** every time you open it, until you leave it: click **‹ All tabs**, press **Backspace** in the empty search box, or choose **Leave the tab group** in the command palette. Esc only closes Tabazing.
+- **Alt+Q / Alt+W** always go through **every tab**, like Alt+Tab: while you hold Alt, groups are set aside (no tiles, no group view), so you can step out of the group to the previous or next tab. Letting go of Alt switches there; staying open (Alt+E, the mouse, typing) brings the group view and the tiles back.
+- Settings → Cards → **Show tab groups as tiles** (on by default): turn it off to give every tab its own card again, each tagged with its group's name.
 - A tile's **⋯** menu: **Open group**, **Copy links**, **Bookmark…**, **Ungroup** (the tabs stay open) and **Close group** (Undo brings the tabs back in a group of the same name and colour).
 - While a filter, the Starred filter or the duplicates view is on, grouped tabs show as cards of their own, each with a tag naming its group; search results carry that tag too.
 

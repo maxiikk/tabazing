@@ -539,5 +539,7 @@
   "groupMoreN": "+{count, number}",
   "palLeaveGroup": "Salir del grupo de pestañas",
   "palKwLeaveGroup": "grupo salir volver todas pestañas",
-  "keyLeaveGroup": "Salir del grupo de pestañas (con el buscador vacío)"
+  "keyLeaveGroup": "Salir del grupo de pestañas (con el buscador vacío)",
+  "setShowGroups": "Mostrar los grupos de pestañas como mosaicos",
+  "setShowGroupsNote": "Desactivado: cada pestaña tiene su propia tarjeta, con el nombre de su grupo."
 }

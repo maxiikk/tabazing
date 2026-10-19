@@ -638,7 +638,7 @@ export async function getPrefs() {
     lang: ['auto', 'en', 'ru', 'es'].includes(v.lang) ? v.lang : 'auto', startup: v.startup === true,
     cardSize: ['small', 'list'].includes(v.cardSize) ? v.cardSize : 'default', accent: isAccent(v.accent) ? v.accent.toUpperCase() : DEFAULT_ACCENT,
     allWindows: v.allWindows === true, theme: ['dark', 'light'].includes(v.theme) ? v.theme : 'system',
-    pinnedFirst: on(v.pinnedFirst), showClosed: on(v.showClosed), showSnoozed: on(v.showSnoozed), showAge: on(v.showAge),
+    pinnedFirst: on(v.pinnedFirst), showClosed: on(v.showClosed), showSnoozed: on(v.showSnoozed), showAge: on(v.showAge), showGroups: on(v.showGroups),
     ownWindow: v.ownWindow === true, titleLines: v.titleLines === 1 ? 1 : 2,
     searchHistory: on(v.searchHistory), searchBookmarks: on(v.searchBookmarks),
     iconTips: Number.isInteger(v.iconTips) && v.iconTips >= 0 ? v.iconTips : 0, // times the toolbar-icon tip was shown

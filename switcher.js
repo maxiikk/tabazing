@@ -129,6 +129,7 @@ const state = {
   tileOf: new Map(),    // derived: a grouped tab's key -> its group tile's key (where the tab is on screen)
   steps: null,          // derived: the cards Alt+Q steps through when group tiles stand for some tabs (else state.matches)
   cardCount: 0,         // derived: the open-tab cards shown (a group tile is one)
+  flat: false,          // derived: the cards were laid out without groups because Alt is held (see derive)
   closedHidden: {},     // "Recently closed" entries removed from the list (utils/store.js getClosedHidden)
 };
 
@@ -216,7 +217,7 @@ function svgOf(markup) {
 // `prefs`: already read (at boot), so the tabs are asked for at once. `previews: false` leaves the previews
 // out (state.pvPending): at boot only the first cards' are read before the first draw (loadPreviews).
 const PREFS_FALLBACK = {
-  lang: 'auto', cardSize: 'default', allWindows: false, theme: 'system', pinnedFirst: true, showClosed: true, showSnoozed: true,
+  lang: 'auto', cardSize: 'default', allWindows: false, theme: 'system', pinnedFirst: true, showClosed: true, showSnoozed: true, showGroups: true,
   showAge: true, ownWindow: false, titleLines: 2, searchHistory: true, searchBookmarks: true, iconTips: 0,
 };
 async function load(prefs = null, { previews = true } = {}) {
@@ -648,8 +649,13 @@ function derive() {
   if (state.scope !== 'all' && !state.windows.some((w) => w.id === state.scope)) state.scope = 'all';
 
   const dupeKeys = state.dupesView ? dupeUrls() : null;
-  // Inside a tab group (its tile was opened): only its tabs, whatever window it is in.
-  const inGroup = state.group !== null && state.tabs.some((x) => x.groupId === state.group) ? state.group : null;
+  // Inside a tab group (its tile was opened): only its tabs, whatever window it is in. Settings -> Show tab groups
+  // as tiles off: no tiles and no group view, every tab its own card (tagged with its group). Neither while Alt
+  // is held from Alt+Q / Alt+W: like Alt+Tab, they step through every tab, out of the group too; staying open
+  // (stopHolding) brings the group view and the tiles back.
+  state.flat = !!state.holding;
+  const groups = pref('showGroups') && !state.flat;
+  const inGroup = groups && state.group !== null && state.tabs.some((x) => x.groupId === state.group) ? state.group : null;
   state.inGroup = inGroup;
   const open = state.tabs
     .filter((x) => !dupeKeys || dupeKeys.has(normalizeUrl(urlOf(x))))
@@ -663,7 +669,7 @@ function derive() {
   if (pref('pinnedFirst')) open.sort((a, b) => (b.tab.pinned ? 1 : 0) - (a.tab.pinned ? 1 : 0));
   // A tab group's tabs show as one tile, where its first tab would be; not inside a group, nor while a filter,
   // the Starred filter or the duplicates view picks out single tabs.
-  const tiled = inGroup === null && !state.dupesView && !state.starOnly && !state.filter ? groupTiles(open) : null;
+  const tiled = groups && inGroup === null && !state.dupesView && !state.starOnly && !state.filter ? groupTiles(open) : null;
   const cards = tiled || open;
   state.tileOf = new Map();
   if (tiled) for (const e of tiled) if (e.kind === 'group') for (const x of e.tabs) state.tileOf.set('t' + x.id, e.key);
@@ -1339,7 +1345,7 @@ function toTop() { el.scroller.scrollTop = 0; }
 function refresh({ keepKey } = {}) {
   const prevKey = keepKey || (state.entries[state.sel] || {}).key;
   derive();
-  const i = state.entries.findIndex((e) => e.key === prevKey);
+  const i = state.entries.findIndex((e) => e.key === cardKey(prevKey)); // (a tab now in a tile: the tile)
   state.sel = i >= 0 ? i : 0;
   render();
 }
@@ -4614,6 +4620,9 @@ function settingsPanes(prefs, anchor) {
       field(t('setLines'), 'settings-title-lines-label', lines)),
     cards: pane('cards', check('pinnedFirst', t('setPinnedFirst'), 'pinned-first', () => refresh()), shows('showAge', t('setShowAge'), 'show-age'),
       shows('showClosed', t('setShowClosed'), 'show-closed'), shows('showSnoozed', t('setShowSnoozed'), 'show-snoozed'),
+      // Off: out of the group view too, for good (turned on again later, it doesn't jump back into a group).
+      check('showGroups', t('setShowGroups'), 'show-groups', async () => { if (state.group !== null) { state.group = null; await setGroup(null).catch(() => {}); } refresh(); }),
+      fine(t('setShowGroupsNote'), 'settings-show-groups-note'),
       check('allWindows', t('setAllWindows'), 'all-windows', async () => { state.scope = 'all'; await reload(); }), fine(t('setAllWindowsNote'), 'settings-all-windows-note')),
     search: pane('search', searches('searchHistory', t('setSearchHistory'), 'search-history'), searches('searchBookmarks', t('setSearchBookmarks'), 'search-bookmarks')),
     behave: pane('behave', check('ownWindow', t('setOwnWindow'), 'own-window'), fine(t('setOwnWindowNote'), 'settings-own-window-note'),
@@ -4930,7 +4939,14 @@ function onKeyDown(e) {
 // the selected tab. Alt+E opens it to stay (as do the toolbar icon and the rest): arrows, typing, the mouse,
 // Enter and Esc. Pressing Alt+Q / Alt+W in an open switcher makes it an Alt+Tab one again.
 function qPress(d, hold = true) {
-  if (hold) state.holding = true;
+  if (hold && !state.holding) {
+    state.holding = true;
+    // Shown with groups (tiles, or the group view): every tab instead, as at an Alt+Q open, from the same tab.
+    if (state.inGroup !== null || state.tileOf.size) {
+      const cur = state.entries[state.sel];
+      refresh({ keepKey: cur && cur.kind === 'group' ? 't' + cur.recent[0].id : cur && cur.key });
+    }
+  }
   cycle(d);
 }
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
@@ -4943,13 +4959,14 @@ function altReleased() {
 // Alt is no longer held but the switcher stays open: opened with Alt+Q / Alt+W it hid what needs typing
 // (html.alttab: the search box, note buttons), so bring that back. A moment later, and only if still open,
 // so a key that closes it at once (Esc, Enter) doesn't flash the search box first.
+// The cards laid out for Alt (state.flat: no groups) are laid out again with them.
 function stopHolding() {
   state.holding = false;
-  if (!document.documentElement.classList.contains('alttab')) return;
+  if (!document.documentElement.classList.contains('alttab') && !state.flat) return;
   setTimeout(() => {
     if (state.done || state.holding) return;
     document.documentElement.classList.remove('alttab');
-    relayout();
+    if (state.flat) refresh(); else relayout();
     if (!state.palette) el.search.focus({ preventScroll: true });
   }, 60);
 }
