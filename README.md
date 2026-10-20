@@ -457,7 +457,7 @@ The extension itself has no build step and no runtime dependencies. Load the fol
 
 - The root holds `manifest.json`, the service worker (`background.js`), the content scripts (`hotkey.js`, `media-hook.js`, `media-relay.js`) and each page's script (`switcher.js`, `sweep.js`).
 - `markup/`: the HTML pages (`switcher.html`, `sweep.html`).
-- `styles/`: their stylesheets, in the manner of Material Design 3 (colour roles made from the accent, tonal surfaces, elevation, state layers; `switcher.js` adds the press ripple), and `styles/fonts/` with Roboto (bundled, SIL Open Font License: extension pages load nothing from the web).
+- `styles/`: their stylesheets, in the manner of today's Material UI (neutral surfaces with thin borders and soft shadows, the accent for what is primary or selected, a translucent accent halo for the keyboard focus; menus and small cards drop down from what opened them, `switcher.js` dropFrom), and `styles/fonts/` with Roboto (bundled, SIL Open Font License: extension pages load nothing from the web).
 - `utils/`: the shared modules (storage, translations, capture, media…), imported by the scripts above.
 - `dictionaries/`: every string, one file per language; `_locales/` is generated from it.
 - `icons/`, `scripts/` (dev tooling), `tests/`.

@@ -689,14 +689,13 @@ describe('Tabazing actions', () => {
 });
 
 describe('the highlighted result (styles/switcher.css)', () => {
-  it('lifts as the selected card does: an accent edge and glow, a touch bigger, springing the same way', async () => {
+  it('is tinted with the accent, its edge and picture in it; no lift, no glow (styles/switcher.css)', async () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync(process.cwd() + '/styles/switcher.css', 'utf8');
     const rule = (sel) => { const at = css.indexOf('\n' + sel + ' {'); return at < 0 ? '' : css.slice(at, css.indexOf('}', at)); };
-    expect(rule('.ddr.on')).toMatch(/translate: 0 -1px; scale: 1\.012/);
-    expect(rule('.ddr.on')).toMatch(/box-shadow: 0 0 0 2px var\(--ring\), 0 8px 22px color-mix\(in srgb, var\(--accent\)/);
-    expect(css).toMatch(/\.ddr \{ transition: translate \.16s cubic-bezier\(\.2, \.9, \.3, 1\.2\), scale \.16s/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{ \.ddr\.on \{ translate: none; scale: none; \} \}/);
+    expect(rule('.ddr.on')).toMatch(/background: var\(--md-secondary-container\); border-color: color-mix\(in srgb, var\(--md-primary\) 45%, transparent\)/);
+    expect(rule('.ddr.on')).not.toMatch(/translate|scale|box-shadow/);
+    expect(rule('.ddr.on .ddpic')).toMatch(/box-shadow: 0 0 0 2px var\(--md-primary\)/);
   });
 
   it('the media list\'s rows have no hover or "current" look of their own (only their buttons do)', async () => {

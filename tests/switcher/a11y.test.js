@@ -190,14 +190,14 @@ describe('Settings', () => {
     expect(sw.state.tabs).toHaveLength(3);
   });
 
-  it('its tabs are buttons of at least 24 px (Material\'s 48) with a visible focus ring (styles/switcher.css)', async () => {
+  it('its tabs are buttons of at least 24 px with a visible focus ring (styles/switcher.css)', async () => {
     await boot({ tabs: ABC });
     await openSettings();
     for (const id of ['settings-tab-look', 'settings-close']) expect(tid(id).tagName, id).toBe('BUTTON');
     const css = readFileSync(resolve(process.cwd(), 'styles/switcher.css'), 'utf8');
-    expect(css).toMatch(/\.settab \{[^}]*min-height: 48px/);
-    expect(css).toMatch(/\.setx, \.noteclose, \.bigx \{[^}]*width: 40px; height: 40px/); // Material's icon button
-    expect(css).toMatch(/:focus-visible \{ outline: 2px solid var\(--ring\)/);
+    expect(css).toMatch(/\.settab \{[^}]*min-height: 40px/);
+    expect(css).toMatch(/\.setx, \.noteclose, \.bigx \{[^}]*width: 36px; height: 36px/);
+    expect(css).toMatch(/:focus-visible \{ outline: 3px solid var\(--focus\)/);
   });
 });
 
@@ -529,5 +529,62 @@ describe('the note tooltip', () => {
     expect(tid('note-tooltip')).toBe(tip);
     tip.dispatchEvent(new Event('mouseleave'));
     await waitFor(() => !tid('note-tooltip'));
+  });
+});
+
+describe('where menus and small cards open (switcher.js dropFrom)', () => {
+  // jsdom lays nothing out: each test gives the node and the trigger their sizes.
+  const sized = (w, h) => { const n = document.createElement('div'); Object.defineProperty(n, 'offsetWidth', { value: w }); Object.defineProperty(n, 'offsetHeight', { get: () => (n.style.maxHeight ? Math.min(h, parseFloat(n.style.maxHeight)) : h) }); return n; };
+  const at = (n) => ({ left: parseFloat(n.style.left), top: parseFloat(n.style.top), up: n.classList.contains('up'), max: n.style.maxHeight });
+
+  it('drops down from just under its trigger, its end edge on the trigger\'s end, or its start on the start (a select)', async () => {
+    const sw = await boot({ tabs: ABC });
+    const n = sized(200, 300);
+    sw.dropFrom(n, { left: 400, right: 500, top: 100, bottom: 130 });
+    expect(at(n)).toEqual({ left: 300, top: 134, up: false, max: '' });
+    sw.dropFrom(n, { left: 400, right: 500, top: 100, bottom: 130 }, { alignLeft: true });
+    expect(at(n)).toEqual({ left: 400, top: 134, up: false, max: '' });
+  });
+
+  it('with no room below and more above, it opens just above its trigger, dropping up (.up)', async () => {
+    const sw = await boot({ tabs: ABC });
+    const n = sized(200, 300);
+    const H = window.innerHeight;
+    sw.dropFrom(n, { left: 400, right: 500, top: H - 150, bottom: H - 120 });
+    expect(at(n)).toEqual({ left: 300, top: H - 150 - 4 - 300, up: true, max: '' });
+    sw.dropFrom(n, { left: 400, right: 500, top: 100, bottom: 130 }); // and down again from a trigger higher up
+    expect(at(n).up).toBe(false);
+  });
+
+  it('kept inside the window; too tall for its side, a menu scrolls inside (fit)', async () => {
+    const sw = await boot({ tabs: ABC });
+    const n = sized(200, 5000);
+    const H = window.innerHeight;
+    sw.dropFrom(n, { left: 2, right: 40, top: 100, bottom: 130 }, { fit: true });
+    expect(at(n)).toEqual({ left: 8, top: 134, up: false, max: (H - 130 - 4 - 8) + 'px' });
+    const wide = sized(300, 50);
+    sw.dropFrom(wide, { left: window.innerWidth - 20, right: window.innerWidth - 10, top: 100, bottom: 130 }, { alignLeft: true });
+    expect(at(wide).left).toBe(window.innerWidth - 300 - 8);
+  });
+
+  it('a card\'s menu from the keyboard drops from the card\'s ⋯ button (as a click on it would), not from under the card', async () => {
+    const sw = await boot({ tabs: ABC, ctx: { dir: 0 } });
+    sw.select(1);
+    const more = tid('quick-more', cardOf('B'));
+    more.getClientRects = () => [{ width: 30, height: 30 }];
+    more.getBoundingClientRect = () => ({ left: 300, right: 330, top: 100, bottom: 130, width: 30, height: 30 });
+    key('F10', { shiftKey: true });
+    expect(tid('menu').anchor).toBe(more);
+    expect(at(tid('menu'))).toMatchObject({ top: 134, up: false });
+    key('Escape');
+    more.getClientRects = () => []; // not shown (a list row): from the card's header
+    key('F10', { shiftKey: true });
+    expect(tid('menu').anchor).toBe(tid('card-head', cardOf('B')));
+  });
+
+  it('a right-click opens it at the pointer, rightwards', async () => {
+    await boot({ tabs: ABC });
+    cardOf('B').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 210, clientY: 120 }));
+    expect(at(tid('menu'))).toMatchObject({ left: 210, top: 122, up: false });
   });
 });

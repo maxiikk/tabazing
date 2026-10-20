@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.5.1] - 2026-10-20
+
+### Changed
+
+- The look follows today's Material UI rather than the older Material style: quieter surfaces with thin borders and soft shadows, gently rounded corners, compact buttons, and no ripple on press.
+- The keyboard focus is a soft halo in your accent colour; the selected card has an accent edge with that halo, and the highlighted search result and menu item are tinted with the accent instead of lifting and glowing.
+- The open tab group sits on its own raised panel with a floating bar (the way back, the group's colour, name and tab count, Sort and filters) that stays at the top while you scroll.
+- The capture-progress window and the cards Tabazing shows on web pages have the same look.
+
+### Fixed
+
+- Menus, select lists and small cards open right at what opened them and drop down from it (or up, when there is no room below), instead of growing in place; a long menu scrolls instead of running off the screen.
+- A card's menu opened from the keyboard (Shift+F10, the menu key) drops from the card's ⋯ button instead of below the whole card.
+
 ## [6.5.0] - 2026-10-20
 
 ### Changed
@@ -399,7 +413,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...HEAD
+[6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...HEAD
+[6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...2c4f60a
 [6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...ed09220
 [6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...fbb6a27
 [6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...0c7ba85

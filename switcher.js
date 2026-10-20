@@ -2699,10 +2699,7 @@ function snoozePicker(tabs, anchor, run = (at) => snoozeTabs(tabs, at)) {
     Promise.resolve(run(at)).catch((x) => toast(t('errSnooze'), x));
   });
   el.app.append(pop);
-  const r = (anchor && anchor.isConnected ? anchor : el.search).getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.right - pop.offsetWidth)) + 'px';
-  const ph = pop.offsetHeight;
-  pop.style.top = (r.bottom + 6 + ph > window.innerHeight - 8 ? Math.max(8, r.top - ph - 6) : r.bottom + 6) + 'px';
+  dropFrom(pop, (anchor && anchor.isConnected ? anchor : el.search).getBoundingClientRect());
   setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   input.focus({ preventScroll: true });
 }
@@ -2881,10 +2878,7 @@ function groupEditor(anchor, { title, color, heading }, save) {
     Promise.resolve(save({ title: input.value.trim(), color: chosen })).catch((x) => toast(t('actFailed'), x));
   });
   el.app.append(pop);
-  const r = (anchor && anchor.isConnected ? anchor : el.search).getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.right - pop.offsetWidth)) + 'px';
-  const ph = pop.offsetHeight;
-  pop.style.top = (r.bottom + 6 + ph > window.innerHeight - 8 ? Math.max(8, r.top - ph - 6) : r.bottom + 6) + 'px';
+  dropFrom(pop, (anchor && anchor.isConnected ? anchor : el.search).getBoundingClientRect());
   setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   input.focus({ preventScroll: true });
   input.select();
@@ -3287,9 +3281,7 @@ function openMediaList() {
   anchor.setAttribute('aria-expanded', 'true');
   anchor.setAttribute('aria-controls', pop.id);
   renderMediaList();
-  const r = anchor.getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.right - pop.offsetWidth)) + 'px';
-  pop.style.top = (r.bottom + 8) + 'px'; // opens below the player
+  dropFrom(pop, anchor.getBoundingClientRect()); // drops down from the player
   setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   const cur = pop.querySelector('.mrow.on [data-testid="media-row-toggle"]') || tabbables(pop)[0];
   if (cur) cur.focus({ preventScroll: true });
@@ -3578,6 +3570,13 @@ function cardMenu(entry = state.entries[state.sel], { anchor = null, at = null }
   const i = state.entries.indexOf(entry);
   const card = i >= 0 ? cardAt(i) : null;
   if (!entry || !card) return;
+  // From the keyboard (Shift+F10, the menu key): it drops down from the card's ⋯ button, as a click on it would open
+  // it, or from the card's header when that button isn't shown; never from under the whole card.
+  if (at) anchor = card; // (a right-click: it opens at the pointer)
+  else if (!anchor) {
+    const more = card.querySelector('[data-testid="quick-more"]');
+    anchor = more && more.getClientRects().length ? more : card.querySelector('.head') || card;
+  }
   const items = [];
   const starItem = () => ({ icon: 'star', label: t(isStarred(entry.url) ? 'unstar' : 'star'), fn: () => star(entry) });
   if (entry.kind === 'tab') {
@@ -3630,7 +3629,7 @@ function cardMenu(entry = state.entries[state.sel], { anchor = null, at = null }
     if (note) items.push({ icon: 'note', label: t(noteOf(c.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(c.url, note) });
     items.push({ icon: 'bookmark', label: t('markMenu'), err: t('markErr'), fn: () => bookmarkDialog(pages) });
     if (!win) items.push(
-      { icon: 'clock', label: t('closedSnooze'), err: t('errSnooze'), fn: () => snoozeMenu([], anchor || card, (at) => snoozeClosed(c, at)) },
+      { icon: 'clock', label: t('closedSnooze'), err: t('errSnooze'), fn: () => snoozeMenu([], anchor, (at) => snoozeClosed(c, at)) },
       { icon: 'archive', label: t('tabArchive'), err: t('errArchive'), fn: () => archiveClosed(c) },
     );
     items.push(null, { icon: 'close', label: t('closedRemove'), danger: true, fn: () => forgetClosed(entry) });
@@ -3638,7 +3637,7 @@ function cardMenu(entry = state.entries[state.sel], { anchor = null, at = null }
     if (!(entry.item && entry.item.kind === 'window')) items.push(starItem());
     if (entry.kind === 'snoozed') items.push({ icon: 'close', label: t('cancelSnooze'), danger: true, fn: () => closeTab(entry) });
   }
-  if (items.length) menu(anchor || card, items, { back: el.search, at });
+  if (items.length) menu(anchor, items, { back: el.search, at });
 }
 
 // ---- a note on a tab (kept by its address, like stars). The button is accent-coloured while there is
@@ -3747,10 +3746,7 @@ function notePopover(url, anchor) {
   pop.addEventListener('click', (e) => e.stopPropagation());
   pop.addEventListener('keydown', (e) => { if (e.key === 'Escape' && e.target !== box) { e.preventDefault(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); } });
   el.app.append(pop);
-  const r = anchor.getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - 302, r.right - 290)) + 'px';
-  const ph = pop.offsetHeight;
-  pop.style.top = (r.bottom + 6 + ph > window.innerHeight - 8 ? Math.max(8, r.top - ph - 6) : r.bottom + 6) + 'px';
+  dropFrom(pop, anchor.getBoundingClientRect());
   setTimeout(() => { document.addEventListener('mousedown', outside, true); box.focus(); box.setSelectionRange(box.value.length, box.value.length); }, 0);
 }
 
@@ -3857,6 +3853,25 @@ function closePops() { document.querySelectorAll('.pop, .menu').forEach((x) => (
 // Items may be { on: true } (ticked: the current choice). ↑/↓ move; Esc, or choosing an item, closes it and
 // gives the focus back to `opts.back` || `anchor` (for a card or its buttons, which take no focus: the search
 // box), unless the item moves it on. opts.onClose runs however it closes.
+// A menu or a small card opens at what opened it (`r`, its trigger's box), as a dropdown does: just below it, dropping
+// down, its start edge on the trigger's start (`alignLeft`: a select, the pointer) or its end edge on the trigger's end
+// (a button near the right). When it doesn't fit below and there is more room above, it opens just above instead,
+// dropping up (.up, switcher.css: the reveal runs from that edge). `fit`: taller than the room on its side, it scrolls
+// inside rather than run off the screen. Always inside the window, 8 px from its edges.
+function dropFrom(node, r, { alignLeft = false, gap = 4, fit = false } = {}) {
+  node.classList.remove('up');
+  node.style.maxHeight = '';
+  const w = node.offsetWidth, H = window.innerHeight;
+  node.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, alignLeft ? r.left : r.right - w)) + 'px';
+  const below = H - r.bottom - gap - 8, above = r.top - gap - 8;
+  let ht = node.offsetHeight;
+  const up = ht > below && above > below;
+  const room = Math.max(0, up ? above : below);
+  if (fit && ht > room) { node.style.maxHeight = room + 'px'; ht = room; }
+  node.style.top = (up ? Math.max(8, r.top - gap - ht) : Math.max(8, Math.min(r.bottom + gap, H - 8 - ht))) + 'px';
+  node.classList.toggle('up', up);
+}
+
 function menu(anchor, items, opts = {}) {
   // Its button again while it is open: just close it (a toggle).
   const open = [...document.querySelectorAll('.menu')].find((x) => x.anchor === anchor);
@@ -3900,13 +3915,10 @@ function menu(anchor, items, opts = {}) {
     else if (e.key === 'Escape') { e.preventDefault(); m.close(true); }
   });
   el.app.append(m);
-  const r = opts.at ? { left: opts.at.x, right: opts.at.x, top: opts.at.y, bottom: opts.at.y } : anchor.getBoundingClientRect();
-  if (opts.at) opts.alignLeft = true; // from the pointer, rightwards
   if (opts.width) m.style.width = opts.width + 'px';
-  const w = m.offsetWidth;
-  m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, opts.alignLeft ? r.left : r.right - w)) + 'px';
-  const below = r.bottom + 6, h0 = m.offsetHeight;
-  m.style.top = (below + h0 > window.innerHeight - 8 ? Math.max(8, r.top - h0 - 6) : below) + 'px';
+  // At the pointer (a right-click): from that point, rightwards. Otherwise from its trigger, dropping down.
+  if (opts.at) dropFrom(m, { left: opts.at.x, right: opts.at.x, top: opts.at.y, bottom: opts.at.y }, { alignLeft: true, gap: 2, fit: true });
+  else dropFrom(m, anchor.getBoundingClientRect(), { alignLeft: !!opts.alignLeft, fit: true });
   setTimeout(() => { if (m.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   (m.querySelector('.mi.on') || m.querySelector('button')).focus({ preventScroll: true });
 }
@@ -5119,10 +5131,7 @@ function openShortcuts(anchor = el.keysBtn) {
   };
   el.app.append(pop);
   anchor.setAttribute('aria-expanded', 'true');
-  const r = anchor.getBoundingClientRect();
-  pop.style.left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.right - pop.offsetWidth)) + 'px';
-  pop.style.top = (r.bottom + 8) + 'px';
-  pop.style.maxHeight = Math.max(240, window.innerHeight - r.bottom - 20) + 'px';
+  dropFrom(pop, anchor.getBoundingClientRect(), { fit: true });
   setTimeout(() => { if (pop.isConnected) document.addEventListener('mousedown', outside, true); }, 0);
   x.focus({ preventScroll: true });
 }
@@ -5355,35 +5364,6 @@ function onKeyUp(e) {
   if (e.key === 'Alt') altReleased();
 }
 
-// ---- the press ripple (Material): a circle that grows from where a control is pressed, in a layer clipped to it
-// (switcher.css .rip), and fades once the press ends. Pointer presses only (a key press shows the focus ring); none
-// while the OS asks for less motion. Not on the media list's rows: only their buttons react.
-const RIPPLE_ON = 'button, .card, .ddr, .win, .settab, .bmrow, [role=menuitem], [role=tab]';
-const lessMotion = matchMedia('(prefers-reduced-motion: reduce)');
-function ripple(e) {
-  if (e.button !== 0 || lessMotion.matches || !(e.target instanceof Element)) return;
-  const host = e.target.closest(RIPPLE_ON);
-  if (!host || host.disabled || !el.app.contains(host) || host.closest('.mrow') || host.matches('.pick, .fs-native')) return;
-  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
-  const r = host.getBoundingClientRect();
-  const x = e.clientX - r.left, y = e.clientY - r.top;
-  const d = 2 * Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)); // reaches the farthest corner
-  const layer = h('span', 'rip', null, 'ripple');
-  layer.setAttribute('aria-hidden', 'true');
-  const wave = h('span', '', null, 'ripple-wave');
-  for (const [k, v] of [['width', d], ['height', d], ['left', x - d / 2], ['top', y - d / 2]]) wave.style.setProperty(k, v + 'px');
-  layer.append(wave);
-  host.append(layer);
-  const at = performance.now();
-  const end = () => {
-    window.removeEventListener('pointerup', end, true);
-    window.removeEventListener('pointercancel', end, true);
-    setTimeout(() => { layer.classList.add('out'); setTimeout(() => layer.remove(), 320); }, Math.max(0, 260 - (performance.now() - at)));
-  };
-  window.addEventListener('pointerup', end, true);
-  window.addEventListener('pointercancel', end, true);
-}
-
 // ------------------------------------------------------ clickjacking guard
 // A hostile page can make our iframe transparent, cover it, or move it, then
 // get you to click somewhere. IntersectionObserver v2 tells us whether the
@@ -5448,7 +5428,6 @@ function listen() {
     if (!searchFrame) searchFrame = requestAnimationFrame(flushSearch); // once per frame, however fast the typing
   });
   el.palInput.addEventListener('input', onPaletteInput);
-  el.app.addEventListener('pointerdown', ripple, true);
   el.palList.addEventListener('mousedown', (e) => e.preventDefault()); // keep the focus (and the caret) in the palette's box
   // A click anywhere but the search box or its dropdown closes the dropdown (typing brings it back).
   document.addEventListener('mousedown', (e) => {
@@ -5525,7 +5504,7 @@ function listen() {
     }
     // In the overlay, a wheel over anything that can't scroll would scroll the web page underneath.
     // Every area that scrolls on its own must be listed here, or the wheel does nothing over it (the palette's list was missing once).
-    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .archbody, .mlist, .setbody, .settabs, .pallist, .biggrid')) e.preventDefault();
+    if (!(e.target instanceof Element) || !e.target.closest('#scroller, .wins, .modal-back, .dd, .menu, .archbody, .mlist, .setbody, .settabs, .pallist, .biggrid')) e.preventDefault();
   }, { passive: false });
 
   // Only the background service worker may move the selection (content
@@ -5715,7 +5694,7 @@ export {
   PAL_SOURCES, PAL_TYPED_MAX, PAL_USEFUL, ZOOMS, srcTabInfo, srcTab, srcEntry, tabName, isWeb, staleTabs, otherTabs, chromePage,
   PAL_ACTIONS, PAL_BY_ID, paletteActions, inEnglish, actionFields, paletteItems, PAL_ICON, paletteActionRow, paletteQuickRow,
   paletteCurrencyRow, palFrame, renderPalette, palHighlight, palMove, openPalette, exitPalette, palRun, copyQuick, runAction,
-  paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY, ripple, RIPPLE_ON,
+  paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY, dropFrom,
   groupTiles, cardKey, stepFrom, stepOutOfGroup, GROUP_COLORS, groupColor, groupName, renderGroupCard, renderGroupBar, showsTab, enterGroup, leaveGroup,
   cardName, cardTabs, tickChanged, regroup, reopenPage, groupFor, closedQuick, reopenInWindow, reopenBehind, snoozeClosed, archiveClosed, forgetClosed, afterClosedChange, ungroup,
   pageOf, markFolders, bookmarkDialog, noteBits, groupTag, groupMenu, newGroup, editGroup, groupEditor, ungroupTabs, groupToWindow, collapseGroup, srcGroup, groupEntry, openBigGroup, nextColor,

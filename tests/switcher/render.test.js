@@ -924,7 +924,8 @@ describe('small pieces', () => {
     expect(css).toMatch(/html\.light \{[^}]*--ring: var\(--accent-ink\)/);
     expect(css).toMatch(/:root \{[^}]*--md-primary: var\(--accent\);[^}]*--ring: var\(--md-primary\)/); // dark: the accent itself (the scheme's primary)
     expect(css).toMatch(/html\.light \{[^}]*--md-primary: var\(--accent-ink\)/);
-    expect(css).toMatch(/^:focus-visible \{ outline: 2px solid var\(--ring\)/m);
+    expect(css).toMatch(/^:focus-visible \{ outline: 3px solid var\(--focus\); outline-offset: 2px; \}/m); // MUI's halo: the accent, translucent
+    expect(css).toMatch(/:root \{[^}]*--focus: color-mix\(in srgb, var\(--accent\) 50%, transparent\)/);
     expect(css).toMatch(/\.card\[aria-selected="true"\] \{[^}]*box-shadow: 0 0 0 2px var\(--ring\)/);
     expect(css).toMatch(/\.tour-hl \{ outline: 3px solid var\(--ring\)/);
   });
@@ -1097,34 +1098,24 @@ describe('the Material look (styles/switcher.css)', () => {
     expect(css).toMatch(/html, body \{[^}]*font: 400 14px\/1\.43 'Roboto'/);
   });
 
-  it('a press ripples from where it was pressed, in a layer clipped to the control, and goes', async () => {
-    const sw = await boot({ tabs: ABC() });
+  it('no press ripple (today\'s Material UI draws none): a press shows only its state colour', async () => {
+    const { readFileSync } = await import('node:fs');
+    await boot({ tabs: ABC() });
     const b = tid('settings-btn');
-    b.getBoundingClientRect = () => ({ left: 10, top: 10, width: 100, height: 40, right: 110, bottom: 50 });
     b.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 20, clientY: 30 }));
-    const layer = tid('ripple', b);
-    expect(layer).not.toBe(null);
-    expect(layer.getAttribute('aria-hidden')).toBe('true');
-    const wave = tid('ripple-wave', layer);
-    const d = 2 * Math.hypot(90, 20); // to the farthest corner
-    expect(parseFloat(wave.style.width)).toBeCloseTo(d, 3);
-    expect(parseFloat(wave.style.left)).toBeCloseTo(10 - d / 2, 3);
-    window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
-    await waitFor(() => !tid('ripple', b), { timeout: 1500 });
+    expect(tid('ripple')).toBe(null);
+    expect(readFileSync('styles/switcher.css', 'utf8')).not.toMatch(/\.rip\b/);
   });
 
-  it('no ripple for a right-click, nor on the media list\'s rows (only their buttons react)', async () => {
-    const sw = await boot({ tabs: ABC() });
-    const b = tid('settings-btn');
-    b.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 2 }));
-    expect(tid('ripple', b)).toBe(null);
-    const row = document.createElement('div');
-    row.className = 'mrow';
-    const inner = document.createElement('button');
-    row.append(inner);
-    tid('app').append(row);
-    inner.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
-    expect(tid('ripple', inner)).toBe(null);
-    row.remove();
+  it('menus, the search\'s results and the small cards drop down (revealed from the top edge), or up (.up), not grow', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8');
+    expect(css).toMatch(/\.menu \{[^}]*animation: drop \.2s/);
+    expect(css).toMatch(/\.menu\.up \{ animation-name: drop-up; \}/);
+    expect(css).toMatch(/\.pop \{[^}]*animation: drop \.2s/);
+    expect(css).toMatch(/\.pop\.up \{ animation-name: drop-up; \}/);
+    expect(css).toMatch(/\.dd \{[^}]*animation: drop \.2s/);
+    expect(css).toMatch(/@keyframes drop \{ from \{[^}]*clip-path: inset\(-24px -24px 100% -24px\)/);
+    expect(css).not.toMatch(/scaleY/);
   });
 });

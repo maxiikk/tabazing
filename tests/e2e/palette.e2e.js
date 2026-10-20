@@ -47,7 +47,7 @@ describe('the command palette', () => {
     const l = await layout(frame);
     expect(l.mode).toBe(true);
     expect([l.headerShown, l.cardsShown, l.paletteShown]).toEqual([false, false, true]);
-    expect(l.backdrop).toMatch(/^rgba\(17, 18, 21, 0\.9/); // the overlay's dimmed backdrop (the dark surface), as for the switcher
+    expect(l.backdrop).toMatch(/^rgba\(7, 9, 13, 0\.9/); // the overlay's dimmed backdrop (the dark surface), as for the switcher
     expect(l.html).toEqual({ x: 0, y: 0, w: l.vw, h: l.vh }); // the switcher's page fills the overlay
     expect(l.header.w).toBe(l.vw); // the header spans the window, not the palette's width
     expect(l.palette.w).toBeLessThanOrEqual(680);

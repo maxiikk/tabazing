@@ -212,22 +212,22 @@ function injectNudge(type, showMs, text, key) {
   host.dataset.testid = 'nudge-host';
   host.style.cssText = 'all:initial;position:fixed;bottom:20px;right:20px;z-index:2147483646';
   const root = host.attachShadow({ mode: 'closed' });
-  // Material's elevated card on a dark surface (the switcher's look), the same on every page.
+  // A card in the switcher's look (today's Material UI, dark), the same on every page.
   const css = `
-    .c{position:relative;font:400 14px/1.43 Roboto,"Segoe UI",system-ui,-apple-system,sans-serif;letter-spacing:.015em;color:#e4e3e8;background:#2b2c31;
-       width:320px;padding:20px 20px 12px;border-radius:16px;box-shadow:0 2px 3px rgba(0,0,0,.3),0 6px 10px 4px rgba(0,0,0,.15);
+    .c{position:relative;font:400 14px/1.43 Roboto,"Segoe UI",system-ui,-apple-system,sans-serif;color:#f2f4f8;background:#151b25;border:1px solid #242c39;
+       width:320px;padding:18px 18px 14px;border-radius:14px;box-shadow:0 4px 10px rgba(0,0,0,.35),0 14px 36px rgba(0,0,0,.55);
        animation:in .25s cubic-bezier(.05,.7,.1,1) both}
     @keyframes in{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-    .t{font-weight:500;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 12px;color:#c6c6d0}
-    kbd{font:500 12px ui-monospace,Consolas,monospace;background:#3a3c42;color:#e4e3e8;border-radius:4px;padding:2px 7px}
-    .r{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:0 -8px}
-    .b{font:inherit;font-weight:500;font-size:14px;letter-spacing:.1px;height:40px;padding:0 14px;border:0;border-radius:999px;background:none;color:#7DD3FC;cursor:pointer}
-    .b:hover,.b:focus-visible{background:rgba(125,211,252,.1)}
-    .b.p1{background:#7DD3FC;color:#0b2733;padding:0 20px}.b.p1:hover{box-shadow:0 1px 2px rgba(0,0,0,.3),0 1px 3px 1px rgba(0,0,0,.15)}
-    .q{color:#c6c6d0}
-    .x{position:absolute;top:8px;right:8px;width:40px;height:40px;border:0;border-radius:999px;background:none;font-size:20px;line-height:1;cursor:pointer;color:#c6c6d0}
-    .x:hover,.x:focus-visible{background:rgba(228,227,232,.08);color:#e4e3e8}
-    button:focus-visible{outline:2px solid #7DD3FC;outline-offset:2px}`;
+    .t{font-weight:600;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 14px;color:#a2acbd}
+    kbd{font:500 12px ui-monospace,Consolas,monospace;background:#1e2532;color:#f2f4f8;border:1px solid #3a4557;border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+    .r{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .b{font:inherit;font-weight:500;font-size:13px;height:32px;padding:0 12px;border:1px solid #242c39;border-radius:8px;background:#11161e;color:#f2f4f8;cursor:pointer}
+    .b:hover{background:#1e2532;border-color:#3a4557}
+    .b.p1{background:linear-gradient(to bottom,#a4e0fc,#7DD3FC);border-color:#4f9fc2;color:#0b2733;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}.b.p1:hover{background:#7DD3FC}
+    .q{background:none;border-color:transparent;color:#a2acbd}.q:hover{background:rgba(162,172,189,.1);border-color:transparent}
+    .x{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
+    .x:hover{background:rgba(162,172,189,.1);color:#f2f4f8}
+    button:focus-visible{outline:3px solid rgba(125,211,252,.5);outline-offset:2px}`;
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
   const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', text.title); box.dataset.testid = 'nudge';
@@ -625,18 +625,18 @@ function injectFlyout(doneType, showMs, text) {
   host.dataset.testid = 'flyout-host';
   host.style.cssText = 'all:initial;position:fixed;top:16px;right:16px;z-index:2147483646';
   const root = host.attachShadow({ mode: 'closed' });
-  // Material's elevated card on a dark surface (the switcher's look), the same on every page.
+  // A card in the switcher's look (today's Material UI, dark), the same on every page.
   const css = `
-    .c{position:relative;font:400 14px/1.43 Roboto,"Segoe UI",system-ui,-apple-system,sans-serif;letter-spacing:.015em;color:#e4e3e8;background:#2b2c31;
-       width:300px;padding:20px 20px 18px;border-radius:16px;box-shadow:0 2px 3px rgba(0,0,0,.3),0 6px 10px 4px rgba(0,0,0,.15);
+    .c{position:relative;font:400 14px/1.43 Roboto,"Segoe UI",system-ui,-apple-system,sans-serif;color:#f2f4f8;background:#151b25;border:1px solid #242c39;
+       width:300px;padding:18px 18px 16px;border-radius:14px;box-shadow:0 4px 10px rgba(0,0,0,.35),0 14px 36px rgba(0,0,0,.55);
        animation:in .25s cubic-bezier(.05,.7,.1,1) both}
     @keyframes in{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
-    .t{font-weight:500;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 10px;color:#c6c6d0}
-    kbd{font:500 12px ui-monospace,Consolas,monospace;background:#7DD3FC;color:#0b2733;border-radius:4px;padding:2px 7px}
-    .s{font-size:12px;color:#a9aab4;margin:0}
-    button{position:absolute;top:8px;right:8px;width:40px;height:40px;border:0;border-radius:999px;background:none;font-size:20px;line-height:1;cursor:pointer;color:#c6c6d0}
-    button:hover,button:focus-visible{background:rgba(228,227,232,.08);color:#e4e3e8}
-    button:focus-visible{outline:2px solid #7DD3FC;outline-offset:2px}`;
+    .t{font-weight:600;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 10px;color:#a2acbd}
+    kbd{font:500 12px ui-monospace,Consolas,monospace;background:#7DD3FC;color:#0b2733;border:1px solid #4f9fc2;border-bottom-width:2px;border-radius:5px;padding:1px 6px}
+    .s{font-size:12px;color:#8d98ab;margin:0}
+    button{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
+    button:hover{background:rgba(162,172,189,.1);color:#f2f4f8}
+    button:focus-visible{outline:3px solid rgba(125,211,252,.5);outline-offset:2px}`;
   // A constructable stylesheet is not blocked by a page's Content-Security-Policy (an inline <style> can be).
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
