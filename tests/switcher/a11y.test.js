@@ -190,13 +190,13 @@ describe('Settings', () => {
     expect(sw.state.tabs).toHaveLength(3);
   });
 
-  it('its tabs are buttons of at least 24 px with a visible focus ring (styles/switcher.css)', async () => {
+  it('its tabs are buttons of at least 24 px (Material\'s 48) with a visible focus ring (styles/switcher.css)', async () => {
     await boot({ tabs: ABC });
     await openSettings();
     for (const id of ['settings-tab-look', 'settings-close']) expect(tid(id).tagName, id).toBe('BUTTON');
     const css = readFileSync(resolve(process.cwd(), 'styles/switcher.css'), 'utf8');
-    expect(css).toMatch(/\.settab \{[^}]*min-height: 34px/);
-    expect(css).toMatch(/\.setx \{[^}]*width: 32px; height: 32px/);
+    expect(css).toMatch(/\.settab \{[^}]*min-height: 48px/);
+    expect(css).toMatch(/\.setx, \.noteclose, \.bigx \{[^}]*width: 40px; height: 40px/); // Material's icon button
     expect(css).toMatch(/:focus-visible \{ outline: 2px solid var\(--ring\)/);
   });
 });

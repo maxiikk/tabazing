@@ -420,7 +420,7 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 
 ## Privacy and permissions
 
-- **Nothing leaves your computer.** Tabazing's pages run under a content security policy with `connect-src 'none'`, so they cannot contact any server. The only web pages Tabazing ever opens are the ones you click, such as the review link.
+- **Nothing leaves your computer.** Tabazing's pages run under a content security policy with `connect-src 'none'`, so they cannot contact any server; even their font (Roboto) comes with the extension. The only web pages Tabazing ever opens are the ones you click, such as the review link.
 - **What is stored, and for how long** (all in Chrome's local extension storage, on this device):
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
   - **Closed-tabs log:** address, title and icon of tabs you closed (and the name and colour of the tab group each was in), kept **7 days** (up to 200 entries), for search.
@@ -457,7 +457,7 @@ The extension itself has no build step and no runtime dependencies. Load the fol
 
 - The root holds `manifest.json`, the service worker (`background.js`), the content scripts (`hotkey.js`, `media-hook.js`, `media-relay.js`) and each page's script (`switcher.js`, `sweep.js`).
 - `markup/`: the HTML pages (`switcher.html`, `sweep.html`).
-- `styles/`: their stylesheets.
+- `styles/`: their stylesheets, in the manner of Material Design 3 (colour roles made from the accent, tonal surfaces, elevation, state layers; `switcher.js` adds the press ripple), and `styles/fonts/` with Roboto (bundled, SIL Open Font License: extension pages load nothing from the web).
 - `utils/`: the shared modules (storage, translations, capture, media…), imported by the scripts above.
 - `dictionaries/`: every string, one file per language; `_locales/` is generated from it.
 - `icons/`, `scripts/` (dev tooling), `tests/`.

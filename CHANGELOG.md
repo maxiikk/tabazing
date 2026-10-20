@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.5.0] - 2026-10-20
+
+### Changed
+
+- A new look in the manner of Material Design (as Material UI draws it): colours made from your accent colour for both themes, tonal surfaces with elevation shadows, rounded shapes, highlights on what you point at, and a ripple where you press.
+- The header is a top app bar: a pill-shaped search bar, "New tab" as a floating action button, text buttons for Settings and Archive.
+- Cards are elevated cards; filters, sorting and the setup actions are Material chips; the window list is a navigation drawer.
+- Menus, dialogs, the command palette, the search results, the tooltip, the actions bar (a floating toolbar) and the note at the bottom (a snackbar) are drawn as Material draws them. Settings has switches and a navigation list, and its selects and text boxes are outlined fields.
+- The archive opens as a full-screen dialog, the tour as a card on the accent's container colour.
+- Roboto comes with the extension (Latin and Cyrillic), so the text looks the same everywhere.
+- The capture-progress window and the first-run and "use Alt+Q" cards on web pages have the same look.
+
 ## [6.4.1] - 2026-10-20
 
 ### Changed
@@ -387,7 +399,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...HEAD
+[6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...HEAD
+[6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...ed09220
 [6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...fbb6a27
 [6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...0c7ba85
 [6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...ad37a0b

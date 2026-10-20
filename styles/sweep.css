@@ -1,16 +1,65 @@
+/* The "Capture all previews" progress window, as Material draws a small dialog: a surface, a linear progress
+   indicator in the accent (utils/accent.js sets --accent), a text button. Dark or light as the system is. */
+@font-face {
+  font-family: 'Roboto'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/roboto-latin-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Roboto'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/roboto-latin-ext-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Roboto'; font-style: normal; font-weight: 100 900; font-display: swap;
+  src: url(fonts/roboto-cyrillic-wght-normal.woff2) format('woff2-variations');
+  unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;
+}
 * { box-sizing: border-box; }
-:root { --accent: #7DD3FC; --on-accent: #1B2A4A; }
-body { margin: 0; height: 100vh; display: grid; place-items: center; background: #1B2A4A; color: #1B2A4A; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { width: calc(100% - 28px); padding: 16px 18px 14px; background: color-mix(in srgb, var(--accent) 12%, white); box-shadow: 0 -3px 0 var(--accent), 0 3px 0 var(--accent), -3px 0 0 var(--accent), 3px 0 0 var(--accent), 6px 6px 0 color-mix(in srgb, var(--accent) 55%, black); }
-.top { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+:root {
+  color-scheme: dark;
+  --accent: #7DD3FC; --on-accent: #1B2A4A;
+  --primary: var(--accent); --on-primary: var(--on-accent);
+  --surface: color-mix(in srgb, var(--accent) 3%, #111215);
+  --container: color-mix(in srgb, var(--accent) 6%, #27282d);
+  --track: color-mix(in srgb, var(--accent) 22%, #2a2b31);
+  --on-surface: #e4e3e8; --on-surface-variant: #c6c6d0;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --primary: color-mix(in srgb, var(--accent) 52%, #000); --on-primary: #fff;
+    --surface: color-mix(in srgb, var(--accent) 2%, #fbf9fd);
+    --container: color-mix(in srgb, var(--accent) 4%, #eae8ee);
+    --track: color-mix(in srgb, var(--accent) 26%, #e4e2e8);
+    --on-surface: #1b1b20; --on-surface-variant: #46464f;
+  }
+}
+body {
+  margin: 0; height: 100vh; display: grid; place-items: center; background: var(--surface); color: var(--on-surface);
+  font: 400 14px/1.43 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif; letter-spacing: .015em; -webkit-font-smoothing: antialiased;
+}
+main {
+  width: calc(100% - 24px); padding: 20px 20px 12px; border-radius: 28px; background: var(--container);
+  box-shadow: 0 1px 3px rgba(0,0,0,.3), 0 4px 8px 3px rgba(0,0,0,.15);
+}
+.top { display: flex; align-items: center; gap: 14px; margin-bottom: 4px; }
 .top svg { image-rendering: pixelated; flex: none; }
-h1 { margin: 0; font-size: 17px; }
-#msg { margin: 0; font-weight: 600; }
-.left { margin: 2px 0 0; font-size: 12px; opacity: .75; }
+h1 { margin: 0 0 2px; font-size: 20px; line-height: 26px; font-weight: 400; }
+#msg { margin: 0; font-weight: 500; color: var(--on-surface); }
+.left { margin: 2px 0 0; font-size: 12px; color: var(--on-surface-variant); }
 p { margin: 0 0 8px; }
-.note { font-size: 12px; opacity: .75; }
-.bar { height: 14px; background: #fff; box-shadow: 0 0 0 3px #1B2A4A; margin: 10px 3px 12px; }
-.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s steps(4); }
+.note { font-size: 12px; color: var(--on-surface-variant); }
+/* Material's linear progress indicator: a 4 px track, the indicator, a gap, and a stop dot at the end */
+.bar { position: relative; height: 4px; margin: 14px 0 12px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.bar::after { content: ''; position: absolute; right: 0; top: 0; width: 4px; height: 4px; border-radius: 50%; background: var(--primary); }
+.bar i { display: block; height: 100%; width: 0; border-radius: 2px; background: var(--primary); transition: width .3s cubic-bezier(.2, 0, 0, 1); }
 .row { display: flex; align-items: center; gap: 12px; }
 .row .grow { flex: 1; }
-button { font: inherit; font-weight: 700; padding: 5px 16px; background: var(--accent); color: var(--on-accent); border: 3px solid #1B2A4A; cursor: pointer; }
+button {
+  font: inherit; font-weight: 500; letter-spacing: .1px; height: 40px; padding: 0 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: transparent; color: var(--primary); flex: none;
+}
+button:hover, button:focus-visible { background: color-mix(in srgb, var(--primary) 8%, transparent); }
+button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }

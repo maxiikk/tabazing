@@ -533,7 +533,7 @@ describe('renderTools: filters, Starred, duplicates, merge', () => {
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/\.tools:not\(:has\(> \.setup > :not\(\[hidden\]\)\)\) \{ display: none; \}/);
     expect(css).toMatch(/\.open-head \{[^}]*justify-content: space-between;[^}]*flex-wrap: wrap;/);
-    expect(css).toMatch(/\.chip \{[^}]*height: 30px; min-width: 30px;/); // a target of 24 px or more
+    expect(css).toMatch(/\.chip \{[^}]*height: 32px; min-width: 32px;/); // a target of 24 px or more (Material's filter chip)
   });
 
   it('Starred filter: pressed state and only starred tabs', async () => {
@@ -922,7 +922,8 @@ describe('small pieces', () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.light \{[^}]*--ring: var\(--accent-ink\)/);
-    expect(css).toMatch(/:root \{[^}]*--ring: var\(--accent\)/);
+    expect(css).toMatch(/:root \{[^}]*--md-primary: var\(--accent\);[^}]*--ring: var\(--md-primary\)/); // dark: the accent itself (the scheme's primary)
+    expect(css).toMatch(/html\.light \{[^}]*--md-primary: var\(--accent-ink\)/);
     expect(css).toMatch(/^:focus-visible \{ outline: 2px solid var\(--ring\)/m);
     expect(css).toMatch(/\.card\[aria-selected="true"\] \{[^}]*box-shadow: 0 0 0 2px var\(--ring\)/);
     expect(css).toMatch(/\.tour-hl \{ outline: 3px solid var\(--ring\)/);
@@ -1071,7 +1072,7 @@ describe('menu / closePops', () => {
 });
 
 describe('"Show more" under Recently closed', () => {
-  it('is a ghost button: plain text until pointed at or focused, then on the accent', async () => {
+  it('is a text button: the primary colour on nothing, a state layer of it when pointed at or focused', async () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync('styles/switcher.css', 'utf8').replace(/\r\n/g, '\n');
     const rule = (sel) => { const i = css.indexOf(sel + ' {'); return i < 0 ? '' : css.slice(i + sel.length + 2, css.indexOf('}', i)); };
@@ -1079,7 +1080,51 @@ describe('"Show more" under Recently closed', () => {
     expect(rest).toMatch(/background:\s*transparent/);
     expect(rest).toMatch(/text-decoration:\s*none/);
     const hover = rule('#closed-more:hover, #closed-more:focus-visible');
-    expect(hover).toMatch(/background:\s*var\(--accent\)/);
-    expect(hover).toMatch(/color:\s*var\(--on-accent\)/);
+    expect(rest).toMatch(/color:\s*var\(--md-primary\)/);
+    expect(hover).toMatch(/background:\s*color-mix\(in srgb, var\(--md-primary\) 8%, transparent\)/);
+  });
+});
+
+describe('the Material look (styles/switcher.css)', () => {
+  it('Roboto is bundled (extension pages load nothing from the web), in every alphabet the dictionaries use', async () => {
+    const { readFileSync, existsSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8');
+    for (const f of ['roboto-latin-wght-normal.woff2', 'roboto-latin-ext-wght-normal.woff2', 'roboto-cyrillic-wght-normal.woff2']) {
+      expect(css).toContain(`url(fonts/${f})`);
+      expect(existsSync('styles/fonts/' + f), f).toBe(true);
+    }
+    expect(existsSync('styles/fonts/OFL.txt')).toBe(true); // its licence goes with it
+    expect(css).toMatch(/html, body \{[^}]*font: 400 14px\/1\.43 'Roboto'/);
+  });
+
+  it('a press ripples from where it was pressed, in a layer clipped to the control, and goes', async () => {
+    const sw = await boot({ tabs: ABC() });
+    const b = tid('settings-btn');
+    b.getBoundingClientRect = () => ({ left: 10, top: 10, width: 100, height: 40, right: 110, bottom: 50 });
+    b.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 20, clientY: 30 }));
+    const layer = tid('ripple', b);
+    expect(layer).not.toBe(null);
+    expect(layer.getAttribute('aria-hidden')).toBe('true');
+    const wave = tid('ripple-wave', layer);
+    const d = 2 * Math.hypot(90, 20); // to the farthest corner
+    expect(parseFloat(wave.style.width)).toBeCloseTo(d, 3);
+    expect(parseFloat(wave.style.left)).toBeCloseTo(10 - d / 2, 3);
+    window.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    await waitFor(() => !tid('ripple', b), { timeout: 1500 });
+  });
+
+  it('no ripple for a right-click, nor on the media list\'s rows (only their buttons react)', async () => {
+    const sw = await boot({ tabs: ABC() });
+    const b = tid('settings-btn');
+    b.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 2 }));
+    expect(tid('ripple', b)).toBe(null);
+    const row = document.createElement('div');
+    row.className = 'mrow';
+    const inner = document.createElement('button');
+    row.append(inner);
+    tid('app').append(row);
+    inner.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, button: 0 }));
+    expect(tid('ripple', inner)).toBe(null);
+    row.remove();
   });
 });

@@ -5355,6 +5355,35 @@ function onKeyUp(e) {
   if (e.key === 'Alt') altReleased();
 }
 
+// ---- the press ripple (Material): a circle that grows from where a control is pressed, in a layer clipped to it
+// (switcher.css .rip), and fades once the press ends. Pointer presses only (a key press shows the focus ring); none
+// while the OS asks for less motion. Not on the media list's rows: only their buttons react.
+const RIPPLE_ON = 'button, .card, .ddr, .win, .settab, .bmrow, [role=menuitem], [role=tab]';
+const lessMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function ripple(e) {
+  if (e.button !== 0 || lessMotion.matches || !(e.target instanceof Element)) return;
+  const host = e.target.closest(RIPPLE_ON);
+  if (!host || host.disabled || !el.app.contains(host) || host.closest('.mrow') || host.matches('.pick, .fs-native')) return;
+  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+  const r = host.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const d = 2 * Math.hypot(Math.max(x, r.width - x), Math.max(y, r.height - y)); // reaches the farthest corner
+  const layer = h('span', 'rip', null, 'ripple');
+  layer.setAttribute('aria-hidden', 'true');
+  const wave = h('span', '', null, 'ripple-wave');
+  for (const [k, v] of [['width', d], ['height', d], ['left', x - d / 2], ['top', y - d / 2]]) wave.style.setProperty(k, v + 'px');
+  layer.append(wave);
+  host.append(layer);
+  const at = performance.now();
+  const end = () => {
+    window.removeEventListener('pointerup', end, true);
+    window.removeEventListener('pointercancel', end, true);
+    setTimeout(() => { layer.classList.add('out'); setTimeout(() => layer.remove(), 320); }, Math.max(0, 260 - (performance.now() - at)));
+  };
+  window.addEventListener('pointerup', end, true);
+  window.addEventListener('pointercancel', end, true);
+}
+
 // ------------------------------------------------------ clickjacking guard
 // A hostile page can make our iframe transparent, cover it, or move it, then
 // get you to click somewhere. IntersectionObserver v2 tells us whether the
@@ -5419,6 +5448,7 @@ function listen() {
     if (!searchFrame) searchFrame = requestAnimationFrame(flushSearch); // once per frame, however fast the typing
   });
   el.palInput.addEventListener('input', onPaletteInput);
+  el.app.addEventListener('pointerdown', ripple, true);
   el.palList.addEventListener('mousedown', (e) => e.preventDefault()); // keep the focus (and the caret) in the palette's box
   // A click anywhere but the search box or its dropdown closes the dropdown (typing brings it back).
   document.addEventListener('mousedown', (e) => {
@@ -5685,7 +5715,7 @@ export {
   PAL_SOURCES, PAL_TYPED_MAX, PAL_USEFUL, ZOOMS, srcTabInfo, srcTab, srcEntry, tabName, isWeb, staleTabs, otherTabs, chromePage,
   PAL_ACTIONS, PAL_BY_ID, paletteActions, inEnglish, actionFields, paletteItems, PAL_ICON, paletteActionRow, paletteQuickRow,
   paletteCurrencyRow, palFrame, renderPalette, palHighlight, palMove, openPalette, exitPalette, palRun, copyQuick, runAction,
-  paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY,
+  paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY, ripple, RIPPLE_ON,
   groupTiles, cardKey, stepFrom, stepOutOfGroup, GROUP_COLORS, groupColor, groupName, renderGroupCard, renderGroupBar, showsTab, enterGroup, leaveGroup,
   cardName, cardTabs, tickChanged, regroup, reopenPage, groupFor, closedQuick, reopenInWindow, reopenBehind, snoozeClosed, archiveClosed, forgetClosed, afterClosedChange, ungroup,
   pageOf, markFolders, bookmarkDialog, noteBits, groupTag, groupMenu, newGroup, editGroup, groupEditor, ungroupTabs, groupToWindow, collapseGroup, srcGroup, groupEntry, openBigGroup, nextColor,
