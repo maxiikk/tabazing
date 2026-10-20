@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.1] - 2026-10-20
+
+### Changed
+
+- A card's buttons (star, ×, the quick actions, Capture preview) show only while the mouse is on the card, no longer on the selected card: the keyboard can't press them anyway (it has the card's menu, Shift+F10). A starred page's star and a note's button stay in view.
+
+### Fixed
+
+- While Alt is held (Alt+Q / Alt+W), Settings and New tab stay at the left end of the header and GitHub, ⓘ and Archive at the right, instead of bunching up together.
+
 ## [6.6.0] - 2026-10-20
 
 ### Added
@@ -425,7 +435,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.6.0]: https://github.com/maxiikk/tabazing/compare/61fca4a...HEAD
+[6.6.1]: https://github.com/maxiikk/tabazing/compare/d99194d...HEAD
+[6.6.0]: https://github.com/maxiikk/tabazing/compare/61fca4a...d99194d
 [6.5.2]: https://github.com/maxiikk/tabazing/compare/d2ef9c3...61fca4a
 [6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...d2ef9c3
 [6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...2c4f60a

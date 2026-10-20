@@ -297,11 +297,12 @@ html.intro body { animation: grow .16s var(--ease-out) both, fadein .14s ease bo
 html.lines2 .grid:not(.small):not(.list) .head { height: 46px; align-items: flex-start; padding-top: 1px; }
 html.lines2 .grid:not(.small):not(.list) .title { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.35; overflow-wrap: anywhere; }
 html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { margin-top: 1px; }
-/* The star and × over the end of the header: hidden, they take none of the title's room; shown (hover, the
-   selected card, a starred page's star), the title makes way for them. */
+/* The star and × over the end of the header: hidden, they take none of the title's room; shown (the pointer on the
+   card, a starred page's star), the title makes way for them. A card's buttons are for the mouse (the keyboard has
+   the card's menu and the keys), so they show only while the pointer is on the card, not on the selected one. */
 .hbtns { position: absolute; top: -1px; right: -1px; display: inline-flex; align-items: center; gap: 2px; height: 28px; }
-.card:hover .head:has(.hbtns), .card[aria-selected="true"] .head:has(.hbtns), .head:has(.hbtns :focus-visible) { padding-right: 60px; }
-.card:hover .head:has(.hbtns:not(.two)), .card[aria-selected="true"] .head:has(.hbtns:not(.two)) { padding-right: 32px; }
+.card:hover .head:has(.hbtns), .head:has(.hbtns :focus-visible) { padding-right: 60px; }
+.card:hover .head:has(.hbtns:not(.two)) { padding-right: 32px; }
 .head:has(.hbtns.two .star.on) { padding-right: 60px; } /* a starred page's star stays in view */
 .head:has(.hbtns:not(.two) .star.on) { padding-right: 32px; }
 .grid.list .hbtns { top: 3px; }
@@ -318,7 +319,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
   background: transparent; cursor: pointer; opacity: 0; color: var(--md-on-surface-variant);
   display: inline-flex; align-items: center; justify-content: center; transition: background-color .15s var(--ease), opacity .12s, color .15s;
 }
-.card:hover .star, .card[aria-selected="true"] .star, .card:hover .x, .card[aria-selected="true"] .x { opacity: 1; }
+.card:hover .star, .card:hover .x { opacity: 1; }
 .star:hover { background: var(--fill); color: var(--md-primary); }
 .star.on { opacity: 1; color: var(--md-primary); --star-fill: var(--md-primary); }
 .x:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
@@ -330,7 +331,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
   color: var(--md-primary); background: var(--md-surface-container-low); border: 1px solid color-mix(in srgb, var(--md-primary) 40%, var(--line)); opacity: .7;
   transition: opacity .12s, background-color .15s var(--ease);
 }
-.card:hover .snap, .card[aria-selected="true"] .snap, .snap:focus-visible { opacity: 1; }
+.card:hover .snap, .snap:focus-visible { opacity: 1; }
 .snap:hover:not(:disabled) { background: color-mix(in srgb, var(--md-primary) 12%, var(--md-surface-container-low)); }
 .snap:disabled { cursor: default; opacity: 1; border-style: dashed; color: var(--fg-3); }
 .small .snap { height: 26px; padding: 0 10px; font-size: 12px; }
@@ -366,12 +367,12 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 .flags .tag, .flags .badge { background: rgba(7, 9, 13, .78); color: #fff; box-shadow: var(--el1); }
 .flags .badge { opacity: 1; width: 20px; height: 20px; border-radius: var(--r-xs); align-items: center; justify-content: center; }
 .flags .badge svg { width: 12px; height: 12px; }
-.card:hover .flags, .card[aria-selected="true"] .flags { opacity: .4; } /* the quick buttons above them read first */
+.card:hover .flags { opacity: .4; } /* the quick buttons above them read first */
 .grid.list .flags { position: static; flex: 0 1 auto; flex-wrap: nowrap; overflow: hidden; max-width: 45%; opacity: 1; pointer-events: auto; }
 .grid.list .flags .tag, .grid.list .flags .badge { background: var(--md-surface-container-highest); color: var(--md-on-surface-variant); box-shadow: none; }
 .tag.woken { background: var(--md-primary) !important; color: var(--md-on-primary) !important; }
 .qbtn { opacity: 0; transition: opacity .12s, background-color .15s var(--ease), color .15s var(--ease), border-color .15s; }
-.card:hover .qbtn, .card[aria-selected="true"] .qbtn, .qbtn:focus-visible, .qbtn.note.on { opacity: 1; }
+.card:hover .qbtn, .qbtn:focus-visible, .qbtn.note.on { opacity: 1; }
 .qbtn {
   width: 30px; height: 30px; border-radius: var(--r-s); border: 1px solid var(--line); padding: 0; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
@@ -720,7 +721,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 .grid.small .quick { gap: 2px; top: 6px; right: 6px; }
 .grid.small .qbtn { width: 26px; height: 26px; }
 .grid.list .qbtn { width: 28px; height: 28px; display: none; box-shadow: none; } /* in a line they take room only when shown */
-.grid.list .card:hover .qbtn, .grid.list .card[aria-selected="true"] .qbtn, .grid.list .qbtn.note.on { display: inline-flex; }
+.grid.list .card:hover .qbtn, .grid.list .qbtn.note.on { display: inline-flex; }
 
 /* ---------- drag to reorder ("By order"): a bar shows where the tab will land ---------- */
 .card.dragging { opacity: .45; box-shadow: var(--el4); }
@@ -796,6 +797,10 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
    Holding Alt rules out typing, so what needs the keyboard is hidden: the search field and each card's
    note button. Everything the mouse can use stays (settings, new tab, sort, filters, the cards' other buttons). */
 html.alttab .search, html.alttab .qbtn.note { display: none !important; }
+/* Without the search field (whose auto margins kept them apart) the header's two button groups still sit at its two
+   ends: the first button of the end group takes the free room (a wide header), or keeps its own column (narrow). */
+html.alttab #github-btn { margin-left: auto; }
+html.alttab .bar.narrow #github-btn { grid-column: 4; }
 
 /* the note's button ("Undo") */
 .toast .tact {

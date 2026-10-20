@@ -75,6 +75,28 @@ describe('renderCard: open tabs', () => {
     expect(tid('card-pinned', tid('card-flags', tid('card-head', card('Bravo'))))).not.toBe(null);
   });
 
+  it('a card\'s buttons show only while the pointer is on the card, not on the selected card (styles/switcher.css)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8');
+    // the keyboard can't reach them (it has the card's menu and the keys): no selected-card rule shows any of them
+    expect(css).not.toMatch(/\.card\[aria-selected="true"\] (\.head:has\(\.hbtns|\.star|\.x\b|\.qbtn|\.snap|\.flags)/);
+    expect(css).not.toMatch(/\.grid\.list \.card\[aria-selected="true"\] \.qbtn/);
+    expect(css).toMatch(/\.card:hover \.star, \.card:hover \.x \{ opacity: 1; \}/);
+    expect(css).toMatch(/\.card:hover \.qbtn, \.qbtn:focus-visible, \.qbtn\.note\.on \{ opacity: 1; \}/); // a note's button stays: it says there is one
+    expect(css).toMatch(/\.star\.on \{ opacity: 1;/); // so does a starred page's star
+  });
+
+  it('while Alt is held (no search field), the header\'s two button groups still sit at its two ends (styles/switcher.css)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8');
+    expect(css).toMatch(/html\.alttab \.search, html\.alttab \.qbtn\.note \{ display: none !important; \}/);
+    expect(css).toMatch(/html\.alttab #github-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
+    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
+    await boot({ tabs: ABC() });
+    const head = [...tid('header').children].filter((n) => n.tagName === 'BUTTON').map((n) => n.dataset.testid);
+    expect(head).toEqual(['settings-btn', 'newtab', 'github-btn', 'keys-btn', 'archive-btn']); // github-btn starts the end group
+  });
+
   it('the star and × sit in one box over the end of the header (they take no room while hidden)', async () => {
     await boot({ tabs: ABC() });
     const box = tid('card-head-buttons', card('Bravo'));

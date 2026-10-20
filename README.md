@@ -89,7 +89,7 @@ Each open tab is a card that shows the page title, its favicon and a screenshot 
   - a pin for pinned tabs
 - The site name shows next to the title on wide cards that have no tags.
 - A speaker in the header marks a tab playing sound (click it to mute or unmute).
-- The **☆ star** and **× close** buttons appear at the end of the header on hover and on the selected card; while hidden they take no room from the title.
+- The **☆ star** and **× close** buttons appear at the end of the header while the pointer is on the card (they are for the mouse: the keyboard has Shift+F10 and the keys); while hidden they take no room from the title. A starred page's star stays in view.
 - Asleep tabs (unloaded by Chrome to save memory) show a moon with "Asleep".
 - Hover a card to see its full title and address. Hovering doesn't select it: the selected card (lifted, what Enter opens) stays where the keyboard put it, and a click switches to the tab.
 
@@ -257,7 +257,7 @@ Pinned tabs come first in every order (unless Settings → **Pinned tabs first**
 
 ### Buttons on each card
 
-Hover a card (or select it) to show its quick buttons at the top right of the preview. With the **List** card size, they sit in the card's single row. On a narrow card they wrap rather than run off its edge. Only the most used ones are on the card; **⋯** opens the card's menu with everything else.
+Hover a card to show its quick buttons at the top right of the preview (only the mouse can press them; the keyboard has the card's menu, Shift+F10). With the **List** card size, they sit in the card's single row. On a narrow card they wrap rather than run off its edge. Only the most used ones are on the card; **⋯** opens the card's menu with everything else.
 
 | Button | What it does |
 |---|---|
