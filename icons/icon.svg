@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f2a3c"/><stop offset="1" stop-color="#0b1019"/></linearGradient>
+    <linearGradient id="tiles" gradientUnits="userSpaceOnUse" x1="28" y1="28" x2="100" y2="100"><stop offset="0" stop-color="#7dd3fc"/><stop offset="1" stop-color="#2f6fe4"/></linearGradient>
+    <linearGradient id="lit" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#cdeefe"/></linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="28" fill="url(#bg)"/>
+  <rect x="4.5" y="4.5" width="119" height="119" rx="27.5" fill="none" stroke="#ffffff" stroke-opacity=".1"/>
+  <rect x="63" y="23" width="42" height="42" rx="12" fill="none" stroke="#7dd3fc" stroke-opacity=".45" stroke-width="4"/>
+  <rect x="28" y="28" width="32" height="32" rx="8" fill="url(#tiles)"/>
+  <rect x="28" y="68" width="32" height="32" rx="8" fill="url(#tiles)"/>
+  <rect x="68" y="68" width="32" height="32" rx="8" fill="url(#tiles)"/>
+  <rect x="68" y="28" width="32" height="32" rx="8" fill="url(#lit)"/>
+</svg>

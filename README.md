@@ -462,7 +462,7 @@ The extension itself has no build step and no runtime dependencies. Load the fol
 - `styles/`: their stylesheets, in the manner of today's Material UI (neutral surfaces with thin borders and soft shadows, the accent for what is primary or selected, a translucent accent halo for the keyboard focus; menus and small cards drop down from what opened them, `switcher.js` dropFrom), and `styles/fonts/` with Roboto (bundled, SIL Open Font License: extension pages load nothing from the web).
 - `utils/`: the shared modules (storage, translations, capture, media…), imported by the scripts above.
 - `dictionaries/`: every string, one file per language; `_locales/` is generated from it.
-- `icons/`, `scripts/` (dev tooling), `tests/`.
+- `icons/` (the PNGs Chrome shows, drawn from `icon.svg` by `npm run icons`: `scripts/icons.js`), `scripts/` (dev tooling), `tests/`.
 
 ### Tests
 

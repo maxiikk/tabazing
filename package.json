@@ -2,12 +2,13 @@
   "name": "tabazing",
   "private": true,
   "type": "module",
-  "description": "Development tooling only: the tests, and `npm run i18n` (writes _locales/ from dictionaries/). The extension itself has no build step and no dependencies.",
+  "description": "Development tooling only: the tests, `npm run i18n` (writes _locales/ from dictionaries/) and `npm run icons` (draws icons/*.png). The extension itself has no build step and no dependencies.",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
-    "i18n": "node scripts/i18n.js"
+    "i18n": "node scripts/i18n.js",
+    "icons": "node scripts/icons.js"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",

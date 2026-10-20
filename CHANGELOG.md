@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.2] - 2026-10-20
+
+### Changed
+
+- A new icon in the switcher's modern look: four rounded tiles in blues on a dark rounded square, one of them lit, the tab you switch to.
+
 ## [6.6.1] - 2026-10-20
 
 ### Changed
@@ -435,7 +441,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.6.1]: https://github.com/maxiikk/tabazing/compare/d99194d...HEAD
+[6.6.2]: https://github.com/maxiikk/tabazing/compare/4185787...HEAD
+[6.6.1]: https://github.com/maxiikk/tabazing/compare/d99194d...4185787
 [6.6.0]: https://github.com/maxiikk/tabazing/compare/61fca4a...d99194d
 [6.5.2]: https://github.com/maxiikk/tabazing/compare/d2ef9c3...61fca4a
 [6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...d2ef9c3
