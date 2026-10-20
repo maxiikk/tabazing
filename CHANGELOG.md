@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.6.0] - 2026-10-20
+
+### Added
+
+- A GitHub button at the top right, left of the shortcuts button (ⓘ), opens Tabazing's repository in a new tab.
+
 ## [6.5.2] - 2026-10-20
 
 ### Fixed
@@ -419,7 +425,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.5.2]: https://github.com/maxiikk/tabazing/compare/d2ef9c3...HEAD
+[6.6.0]: https://github.com/maxiikk/tabazing/compare/61fca4a...HEAD
+[6.5.2]: https://github.com/maxiikk/tabazing/compare/d2ef9c3...61fca4a
 [6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...d2ef9c3
 [6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...2c4f60a
 [6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...ed09220

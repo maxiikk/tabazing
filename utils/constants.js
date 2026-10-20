@@ -144,6 +144,7 @@ export const REVIEW_URL = 'https://chromewebstore.google.com/detail/edjglhlabdmg
 // The website (tabatha-vert.vercel.app). Links only: the extension never sends anything there itself.
 export const SITE_URL = 'https://tabatha-vert.vercel.app';
 export const HELP_URL = SITE_URL + '/manual';
+export const REPO_URL = 'https://github.com/maxiikk/tabazing'; // the source (the header's GitHub button)
 const VERSION = chrome.runtime.getManifest().version;
 // Pages on the site that Tabazing opens. Only where the click came from, the version and the
 // language go in the URL; whatever people write is typed on the page itself, never put in a link.

@@ -18,7 +18,7 @@
 //     action keys close it instead of acting on something you can't see;
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
-import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, siteUrl } from './utils/constants.js';
+import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
 import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
 import { timeAgo, localizePage, setLang, uiLang } from './utils/i18n.js';
@@ -5458,6 +5458,7 @@ function listen() {
   on($('settings-btn'), (e) => openSettings(e.currentTarget));
   on($('archive-btn'), () => openArchive().catch((err) => toast(t('errArchiveOpen'), err)));
   on(el.keysBtn, () => openShortcuts());
+  on($('github-btn'), () => openUrl(REPO_URL)); // a new tab, beside the page Tabazing was opened from
   on(el.dupesBtn, closeDupes);
   on(el.mergeBtn, () => mergeWindows(state.otherWindows));
   on(el.closedMore, () => { state.closedMore = !state.closedMore; refresh(); });

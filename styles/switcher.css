@@ -122,7 +122,7 @@ button { font: inherit; color: inherit; }
 /* ---------- top bar ---------- */
 .bar { display: flex; align-items: center; gap: 10px; padding: 16px 40px 8px; min-height: 68px; }
 .ghost svg { color: var(--md-on-surface-variant); flex: none; }
-.ghost.icon { width: 36px; padding: 0; color: var(--md-on-surface-variant); } /* ⓘ: the shortcuts card */
+.ghost.icon { width: 36px; padding: 0; color: var(--md-on-surface-variant); } /* the GitHub button, and ⓘ: the shortcuts card */
 .ghost.icon:hover, .ghost.icon[aria-expanded="true"] { color: var(--md-on-surface); }
 .ghost.icon[aria-expanded="true"] { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
 #newtab svg { color: inherit; }
@@ -175,7 +175,7 @@ html.alttab .player { display: none !important; }
 /* A narrow window (.bar.narrow, below 1100 px: switcher.js layoutHeader): the header becomes a grid and the media
    player gets its own row under the search field, as wide as it. Below 900 px (.tight) the buttons around them keep
    only their icons (their words stay, for screen readers). The card area follows the header's height (setTop). */
-.bar.narrow { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 8px 10px; }
+.bar.narrow { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; gap: 8px 10px; }
 .bar.narrow .search { flex: none; width: 100%; max-width: 560px; margin: 0 auto; }
 .bar.narrow .player { grid-column: 3; grid-row: 2; width: 100%; max-width: 560px; min-width: 0; margin: 0 auto; }
 .bar.tight { padding-left: 16px; padding-right: 16px; gap: 8px; }

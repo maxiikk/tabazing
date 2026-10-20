@@ -57,6 +57,8 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Closing it.** Press **Esc** or switch to another window. Tabazing also closes after you pick a tab. Clicking empty space (the backdrop, the header, between cards) does not close it, so a missed click never loses your place.
 
+**The source.** The GitHub button at the top right, left of ⓘ, opens Tabazing's repository in a new tab.
+
 **All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
 
 **A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px the Settings, New tab and Archive buttons show only their icons. The cards always start right below the header.

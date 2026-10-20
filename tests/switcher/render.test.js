@@ -918,6 +918,17 @@ describe('small pieces', () => {
     expect(tid('keys-btn').getAttribute('aria-haspopup')).toBe('dialog');
   });
 
+  it('a GitHub button, just left of ⓘ, opens the repository in a new tab beside the page and closes Tabazing', async () => {
+    const sw = await boot();
+    const gh = tid('github-btn');
+    expect(gh.nextElementSibling).toBe(tid('keys-btn'));
+    expect(gh.getAttribute('aria-label')).toBe('Tabazing on GitHub');
+    expect(gh.title).toBe('Tabazing on GitHub');
+    gh.click();
+    await waitFor(() => chrome.tabs.create.mock.calls.length > 0);
+    expect(chrome.tabs.create.mock.calls[0][0]).toMatchObject({ url: 'https://github.com/maxiikk/tabazing', active: true });
+  });
+
   it('the light theme draws rings and outlines with the darkened accent (--ring), for 3:1 on a light ground', async () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync('styles/switcher.css', 'utf8');
