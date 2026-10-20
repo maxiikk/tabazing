@@ -866,7 +866,7 @@ html.alttab .bar.narrow #github-btn { grid-column: 4; }
   border: 1px solid transparent; transition: background-color .12s var(--ease), border-color .12s var(--ease);
 }
 .ddr:hover { background: var(--fill); }
-/* the highlighted result (↑ / ↓, or under the pointer): tinted with the accent, its edge and picture in it */
+/* the highlighted result (↑ / ↓ only: the pointer gives a row just the hover tint): tinted with the accent, its edge and picture in it */
 .ddr.on { background: var(--md-secondary-container); border-color: color-mix(in srgb, var(--md-primary) 45%, transparent); }
 .ddr.on .ddpic { box-shadow: 0 0 0 2px var(--md-primary); }
 .ddpic {

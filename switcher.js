@@ -2524,11 +2524,12 @@ function renderDropdown() {
   }
   const q = state.query.trim();
   let n = -1;
+  // Like the cards, the pointer doesn't move the highlight (only ↑ / ↓ do): a row under it shows only its hover tint,
+  // and a click opens it.
   dd.replaceChildren(...rows.map((r) => {
     if (r.note) return h('div', 'ddnote', r.note, 'dd-notice');
     const i = ++n;
     const row = ddRowEl(r, q, i === state.dd.hi, 'dd-' + i);
-    row.addEventListener('mousemove', () => { if (state.dd.hi !== i) { state.dd.hi = i; ddHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
     return row;
   }));
@@ -4186,12 +4187,12 @@ function renderPalette() {
   p.items = rows.filter((r) => r.kind);
   if (p.hi >= p.items.length) p.hi = 0;
   let n = -1;
+  // The pointer doesn't move the highlight (only ↑ / ↓ do), as in the search's results: a click runs the row.
   const nodes = rows.map((r) => {
     if (!r.kind) return h('div', 'ddnote', r.note, 'dd-notice');
     const i = ++n, on = i === p.hi, id = 'pal-' + i;
     const row = r.kind === 'action' ? paletteActionRow(r, ql, on, id) : r.kind === 'quick' ? paletteQuickRow(r.res, on, id)
       : r.kind === 'currency' ? paletteCurrencyRow(on, id) : ddRowEl(r, text.trim(), on, id);
-    row.addEventListener('mousemove', () => { if (state.palette && state.palette.hi !== i) { state.palette.hi = i; palHighlight(false); } });
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) palRun(r, { shift: e.shiftKey }); });
     return row;
   });

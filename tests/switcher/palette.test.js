@@ -195,13 +195,16 @@ describe('the keyboard and the mouse', () => {
     expect(input().getAttribute('role')).toBe('combobox');
   });
 
-  it('hovering highlights a row, a click runs it', async () => {
+  it('hovering a row does not move the highlight (only ↑ / ↓ do); a click runs the row clicked', async () => {
     const sw = await boot({ tabs: ABC });
     key('k', { code: 'KeyK', ctrlKey: true });
+    for (const type of ['mouseover', 'mouseenter', 'mousemove']) options()[2].dispatchEvent(new MouseEvent(type, { bubbles: true }));
+    expect(sw.state.palette.hi).toBe(0);
+    expect(options()[0].getAttribute('aria-selected')).toBe('true');
+    expect(options()[2].getAttribute('aria-selected')).toBe('false');
+    expect(input().getAttribute('aria-activedescendant')).toBe(options()[0].id);
     await type('downloads');
     const row = rowOf('downloads');
-    row.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(row.getAttribute('aria-selected')).toBe('true');
     row.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await tick(20);
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'chrome://downloads', windowId: 1, active: true });

@@ -505,15 +505,17 @@ describe('the search box and its dropdown', () => {
     expect(chrome.tabs.update).toHaveBeenCalledWith(4, { active: true });
   });
 
-  it('the hovered row is highlighted; a click opens it', async () => {
+  it('hovering a row does not move the highlight (only ↑ / ↓ do, as with the cards); a click opens the row clicked', async () => {
     const sw = await boot({ tabs: [...ABC(), { title: 'Bravo two', url: 'https://bravo2.example/' }] });
     type(sw, 'bravo');
     await nextFrame();
-    ddRows()[1].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(sw.state.dd.hi).toBe(1);
-    ddRows()[0].click();
+    for (const type of ['mouseover', 'mouseenter', 'mousemove']) ddRows()[1].dispatchEvent(new MouseEvent(type, { bubbles: true }));
+    expect(sw.state.dd.hi).toBe(0);
+    expect(ddRows()[0].classList.contains('on')).toBe(true);
+    expect(ddRows()[1].classList.contains('on')).toBe(false);
+    ddRows()[1].click();
     await waitFor(() => sw.state.done);
-    expect(chrome.tabs.update).toHaveBeenCalledWith(2, { active: true });
+    expect(chrome.tabs.update).toHaveBeenCalledWith(4, { active: true });
   });
 
   it('a press elsewhere hides the dropdown; typing brings it back', async () => {
