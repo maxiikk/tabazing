@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.5.2] - 2026-10-20
+
+### Fixed
+
+- Clicking a card's buttons (×, the quick actions) no longer makes Chrome warn about a focused element hidden from screen readers: the focus stays in the search box, and a button that is given the focus back is no longer hidden while it has it.
+
 ## [6.5.1] - 2026-10-20
 
 ### Changed
@@ -413,7 +419,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...HEAD
+[6.5.2]: https://github.com/maxiikk/tabazing/compare/d2ef9c3...HEAD
+[6.5.1]: https://github.com/maxiikk/tabazing/compare/2c4f60a...d2ef9c3
 [6.5.0]: https://github.com/maxiikk/tabazing/compare/ed09220...2c4f60a
 [6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...ed09220
 [6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...fbb6a27

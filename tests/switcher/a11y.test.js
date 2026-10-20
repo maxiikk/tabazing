@@ -365,6 +365,19 @@ describe('roles and states', () => {
     await waitFor(() => sw.isStarred('https://b.example/'));
   });
 
+  it('pressing one keeps the focus where it was; given the focus anyway, it isn\'t aria-hidden while it has it', async () => {
+    await boot({ tabs: ABC });
+    const x = tid('card-close', cardOf('B'));
+    const press = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 });
+    x.dispatchEvent(press);
+    expect(press.defaultPrevented).toBe(true); // (a button press would otherwise focus it)
+    x.focus(); // as a note card closing gives the focus back to its button
+    expect(document.activeElement).toBe(x);
+    expect(x.hasAttribute('aria-hidden')).toBe(false); // Chrome blocks aria-hidden on the focused element, and warns
+    tid('search').focus();
+    expect(x.getAttribute('aria-hidden')).toBe('true');
+  });
+
   it('a ticked card says so with aria-checked; aria-selected is the cursor', async () => {
     const sw = await boot({ tabs: ABC, ctx: { dir: 0 } });
     sw.pick(sw.state.entries[2]);

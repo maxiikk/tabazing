@@ -1190,8 +1190,17 @@ function finishCard(card, entry) {
 // A section: a header you can click to collapse it (remembered between opens), then its cards.
 // Buttons inside a card are for the mouse: an option can't hold buttons (screen readers drop them), and the
 // keyboard reaches all of them through the card's menu (Shift+F10, cardMenu) and the keys.
+// A press doesn't move the focus to one (it stays where it was, in the search box); when one is given the focus
+// anyway (a note card closing gives it back to its button), it isn't hidden while it has it: Chrome refuses
+// aria-hidden on the focused element.
 function mouseOnly(card) {
-  card.querySelectorAll('button').forEach((b) => { b.tabIndex = -1; b.setAttribute('aria-hidden', 'true'); });
+  card.querySelectorAll('button').forEach((b) => {
+    b.tabIndex = -1;
+    b.setAttribute('aria-hidden', 'true');
+    b.addEventListener('mousedown', (e) => { if (e.button === 0) e.preventDefault(); });
+    b.addEventListener('focus', () => b.removeAttribute('aria-hidden'));
+    b.addEventListener('blur', () => b.setAttribute('aria-hidden', 'true'));
+  });
 }
 
 function renderSection(sec, startIndex) {
