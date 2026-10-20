@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.4.1] - 2026-10-20
+
+### Changed
+
+- Hovering a card no longer selects it: the selected card (lifted, what Enter opens) stays where the keyboard put it, and only a click switches to the tab. The same in the archive.
+
 ## [6.4.0] - 2026-10-19
 
 ### Added
@@ -381,7 +387,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...HEAD
+[6.4.1]: https://github.com/maxiikk/tabazing/compare/fbb6a27...HEAD
+[6.4.0]: https://github.com/maxiikk/tabazing/compare/0c7ba85...fbb6a27
 [6.3.1]: https://github.com/maxiikk/tabazing/compare/ad37a0b...0c7ba85
 [6.3.0]: https://github.com/maxiikk/tabazing/compare/7e4fde2...ad37a0b
 [6.2.1]: https://github.com/maxiikk/tabazing/compare/8a7846c...7e4fde2

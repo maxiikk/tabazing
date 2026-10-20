@@ -89,7 +89,7 @@ Each open tab is a card that shows the page title, its favicon and a screenshot 
 - A speaker in the header marks a tab playing sound (click it to mute or unmute).
 - The **☆ star** and **× close** buttons appear at the end of the header on hover and on the selected card; while hidden they take no room from the title.
 - Asleep tabs (unloaded by Chrome to save memory) show a moon with "Asleep".
-- Hover a card to see its full title and address.
+- Hover a card to see its full title and address. Hovering doesn't select it: the selected card (lifted, what Enter opens) stays where the keyboard put it, and a click switches to the tab.
 
 #### Capture preview / Capture all previews
 

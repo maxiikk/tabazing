@@ -170,10 +170,9 @@ describe('redraws', () => {
     expect(sw.state.cardW).toBe(Math.floor(sw.cardWidth(sw.state.matchCount)));
   });
 
-  it('the mouse selects the card under it by its place, touching only the old and the new card', async () => {
+  it('selecting a card by its place touches only the old and the new card', async () => {
     const sw = await boot({ tabs: ABC() });
-    sw.state.mouseReady = true;
-    card('Charlie').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    sw.select(sw.state.entries.findIndex((e) => e.tab.title === 'Charlie'), { scroll: false });
     expect(selectedCard()).toBe(card('Charlie'));
     expect(tids('card-tab').filter((x) => x.getAttribute('aria-selected') === 'true').length).toBe(1);
     expect(card('Charlie').closest('[role=listbox]').getAttribute('aria-activedescendant')).toBe(card('Charlie').id);

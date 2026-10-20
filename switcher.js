@@ -71,7 +71,6 @@ const state = {
   sel: 0,
   holding: false,  // Alt still held from Alt+Q / Alt+W? They work like Alt+Tab: letting go of Alt switches
   done: false,
-  mouseReady: false,
   cardW: 320,      // current open-card width (px), set by render()
   slept: new Set(), // ids of tabs we saw Chrome discard in this browser session
   sections: [],    // derived: [{ key, title, entries }] for the open tabs (one plain list, or one per page in the duplicates view)
@@ -1150,7 +1149,7 @@ function headButtons(...btns) {
   return box;
 }
 
-// What every card does, whatever it shows: click to open, drag to move, hover to select, right-click for its menu.
+// What every card does, whatever it shows: click to open, drag to move, right-click for its menu (hovering selects nothing).
 function finishCard(card, entry) {
   // Its address, for screen readers (on screen it is only in the tooltip): the card's description.
   const desc = h('span', '', entry.kind === 'group' ? entry.tabs.map((x) => x.title || siteOf(urlOf(x))).join(', ') : siteOf(entry.url) || entry.url, 'card-description');
@@ -1183,9 +1182,8 @@ function finishCard(card, entry) {
   card.addEventListener('auxclick', (e) => {
     if (e.button === 1 && (entry.kind === 'tab' || entry.kind === 'group')) { e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) closeTab(entry); }
   });
-  card.addEventListener('mousemove', () => {
-    if (state.mouseReady && card._i !== state.sel) select(card._i, { scroll: false });
-  });
+  // Hovering doesn't select: the selection (the lifted card, what Enter opens) stays where the keyboard put it;
+  // a click switches to the tab.
   return card;
 }
 
@@ -3485,7 +3483,6 @@ function archiveCard(item, i) {
   if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
   mouseOnly(card); // its × is Del
   card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
-  card.addEventListener('mousemove', () => { if (state.archSel !== i) archSelect(i, false); });
   return card;
 }
 // Take a page out of the archive without opening it (the × on its card, or Del). Undo puts it back.
@@ -5465,7 +5462,6 @@ function listen() {
     if (state.palette && !el.palette.contains(e.target) && pointerAllowed()) { if (state.palette.from === 'shortcut') finish('cancel'); else exitPalette(); }
   });
   window.addEventListener('mousemove', (e) => {
-    state.mouseReady = true;
     if (!e.altKey && !e.ctrlKey && !e.metaKey) stopHolding();
   });
   // Focus left the switcher (address bar, another app...): close quietly.

@@ -274,13 +274,26 @@ describe('finishCard: the mouse on a card', () => {
     expect(sw.state.done).toBe(false);
   });
 
-  it('hover selects, but only once the mouse has really moved', async () => {
+  it('hovering a card doesn\'t select it (nor switch to it); a click switches to its tab', async () => {
     const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
-    card('Charlie').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(selectedTitle()).toBe('Alpha'); // the first move just arms the mouse
-    expect(sw.state.mouseReady).toBe(true);
-    card('Charlie').dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
-    expect(selectedTitle()).toBe('Charlie');
+    for (const type of ['mouseover', 'mouseenter', 'mousemove', 'mousemove']) card('Charlie').dispatchEvent(new MouseEvent(type, { bubbles: true }));
+    expect(selectedTitle()).toBe('Alpha'); // the selection stays where it was
+    expect(card('Charlie').getAttribute('aria-selected')).toBe('false');
+    expect(chrome.tabs.update).not.toHaveBeenCalled();
+    card('Charlie').click();
+    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, p]) => id === sw.state.tabs.find((x) => x.title === 'Charlie').id && p.active));
+  });
+
+  it('nor in the archive overlay', async () => {
+    const sw = await boot({ tabs: ABC(), beforeImport: () => {
+      const arch = chrome._addBookmark({ parentId: '2', title: 'Tabs Archive' });
+      for (const n of ['One', 'Two']) chrome._addBookmark({ parentId: arch.id, title: n, url: `https://${n.toLowerCase()}.example/` });
+    } });
+    await sw.openArchive();
+    const cards = tids('card-archived');
+    const before = sw.state.archSel;
+    cards[1 - before].dispatchEvent(new MouseEvent('mousemove', { bubbles: true }));
+    expect(sw.state.archSel).toBe(before);
   });
 
   it('a click on empty space anywhere (the backdrop, between cards, a heading, the toolbar, the window list, the header) does not close it', async () => {
