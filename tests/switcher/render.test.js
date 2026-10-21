@@ -90,11 +90,11 @@ describe('renderCard: open tabs', () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.alttab \.search, html\.alttab \.qbtn\.note \{ display: none !important; \}/);
-    expect(css).toMatch(/html\.alttab #github-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
-    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
+    expect(css).toMatch(/html\.alttab #keys-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
+    expect(css).toMatch(/html\.alttab \.bar\.narrow #keys-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
     await boot({ tabs: ABC() });
     const head = [...tid('header').children].filter((n) => n.tagName === 'BUTTON').map((n) => n.dataset.testid);
-    expect(head).toEqual(['menu-btn', 'newtab', 'github-btn', 'keys-btn']); // github-btn starts the end group
+    expect(head).toEqual(['menu-btn', 'newtab', 'keys-btn', 'github-btn']); // keys-btn starts the end group
   });
 
   it('the star and × sit in one box over the end of the header (they take no room while hidden)', async () => {
@@ -934,10 +934,11 @@ describe('small pieces', () => {
     expect(tid('keys-btn').getAttribute('aria-haspopup')).toBe('dialog');
   });
 
-  it('a GitHub button, just left of ⓘ, opens the repository in a new tab beside the page and closes Tabazing', async () => {
+  it('a GitHub button, last, just right of ⓘ, opens the repository in a new tab beside the page and closes Tabazing', async () => {
     const sw = await boot();
     const gh = tid('github-btn');
-    expect(gh.nextElementSibling).toBe(tid('keys-btn'));
+    expect(gh.previousElementSibling).toBe(tid('keys-btn'));
+    expect(gh.nextElementSibling).toBe(null); // the header's last: the one link out of Tabazing
     expect(gh.getAttribute('aria-label')).toBe('Tabazing on GitHub');
     expect(gh.title).toBe('Tabazing on GitHub');
     gh.click();

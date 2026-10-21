@@ -57,9 +57,9 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Closing it.** Press **Esc** or switch to another window. Tabazing also closes after you pick a tab. Clicking empty space (the backdrop, the header, between cards) does not close it, so a missed click never loses your place.
 
-**The menu.** The **☰** button at the top left opens a drawer from the left with **History**, **Bookmarks**, **Archive** and **Settings** (each with its icon and name; History and Bookmarks show their shortcuts). A press on one closes the drawer and opens that dialog; **Esc**, its **×** or a press beside it closes it. **↑ / ↓** move between its buttons. The header itself keeps only ☰, **New tab**, the search box (and the media player), GitHub and ⓘ.
+**The menu.** The **☰** button at the top left opens a drawer from the left with **History**, **Bookmarks**, **Archive** and **Settings** (each with its icon and name; History and Bookmarks show their shortcuts). A press on one closes the drawer and opens that dialog; **Esc**, its **×** or a press beside it closes it. **↑ / ↓** move between its buttons. The header itself keeps only ☰, **New tab**, the search box (and the media player), ⓘ and GitHub.
 
-**The source.** The GitHub button at the top right, left of ⓘ, opens Tabazing's repository in a new tab.
+**The source.** The GitHub button at the top right, after ⓘ, opens Tabazing's repository in a new tab.
 
 **All the shortcuts.** The **ⓘ** button at the top right opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
 

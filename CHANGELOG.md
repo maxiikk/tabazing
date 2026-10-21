@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.12.2] - 2026-10-21
+
+### Changed
+
+- The header's ⓘ (shortcuts) button comes first at the top right, the GitHub link last.
+
 ## [6.12.1] - 2026-10-21
 
 ### Changed
@@ -556,7 +562,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...HEAD
+[6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...HEAD
+[6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...e93bf5c
 [6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...7b1c4c2
 [6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...be73ae8
 [6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...e8b898b

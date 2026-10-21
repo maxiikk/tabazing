@@ -794,8 +794,8 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 /* Without the search field (whose auto margins kept them apart) the header's two button groups still sit at its two
    ends: the first button of the end group takes the free room (a wide header), or keeps its own column (narrow). */
-html.alttab #github-btn { margin-left: auto; }
-html.alttab .bar.narrow #github-btn { grid-column: 4; }
+html.alttab #keys-btn { margin-left: auto; }
+html.alttab .bar.narrow #keys-btn { grid-column: 4; }
 
 /* the note's button ("Undo") */
 .toast .tact {
