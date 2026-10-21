@@ -353,3 +353,45 @@ describe('a recently closed card’s delete button', () => {
     expect(sw.state.entries.some((e) => e.kind === 'closed')).toBe(false);
   });
 });
+
+describe('a page\u2019s "last opened" tag and loading more by itself', () => {
+  it('says how long ago ("5m ago", "1 year ago"); hovering it shows the full date', async () => {
+    chrome._data.history.push({ url: 'https://new.example/', title: 'New', lastVisitTime: NOW - 5 * 60000, visitCount: 1 });
+    chrome._data.history.push({ url: 'https://old.example/', title: 'Old', lastVisitTime: NOW - 400 * 864e5, visitCount: 1 });
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    const tags = cards().map((c) => tid('card-history-ago', c));
+    expect(tags.map((x) => x.textContent)).toEqual([t('agoMin', { n: 5 }), t('agoYear', { count: 1 })]);
+    expect(t('agoMin', { n: 5 })).toBe('5m ago');
+    expect(t('agoYear', { count: 1 })).toBe('1 year ago');
+    tags[1].dispatchEvent(new MouseEvent('mouseenter'));
+    await waitFor(() => tid('history-date-tooltip'));
+    expect(tid('history-date-tooltip-title').textContent).toBe(t('historyLastOpened'));
+    expect(tid('history-date-tooltip-text').textContent).toBe(new Date(NOW - 400 * 864e5).toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short' }));
+    expect(tags[1].title).toBe(''); // its own tooltip, not the row's
+  });
+
+  it('agoShort: minutes, hours, days, weeks, months, years', async () => {
+    const sw = await boot({ tabs: AB });
+    const ago = (ms) => sw.agoShort(Date.now() - ms);
+    expect([ago(10e3), ago(3 * 3600e3), ago(2 * 864e5), ago(15 * 864e5), ago(90 * 864e5), ago(800 * 864e5)])
+      .toEqual([t('justNow'), '3h ago', '2d ago', '2w ago', '3 months ago', '2 years ago']);
+  });
+
+  it('reaching the bottom of the list loads the next 50 by itself', async () => {
+    seedHistory(120);
+    const seen = [];
+    const IO = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = window.IntersectionObserver = class { constructor(cb) { this.cb = cb; seen.push(this); } observe(n) { this.n = n; } unobserve() {} disconnect() {} takeRecords() { return []; } };
+    try {
+      const sw = await boot({ tabs: AB });
+      await openHistory(sw);
+      const io = seen.find((x) => x.n === tid('history-more'));
+      expect(io).toBeTruthy();
+      io.cb([{ isIntersecting: true, target: tid('history-more') }]);
+      await waitFor(() => cards().length === 100);
+      io.cb([{ isIntersecting: true, target: tid('history-more') }]);
+      await waitFor(() => cards().length === 120);
+    } finally { globalThis.IntersectionObserver = window.IntersectionObserver = IO; }
+  });
+});

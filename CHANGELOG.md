@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.11.0] - 2026-10-21
+
+### Added
+
+- History: reaching the bottom of the list loads the next 50 pages by itself.
+
+### Changed
+
+- History: each page has a "last opened" tag saying how long ago ("5m ago", "3h ago", "1 year ago") instead of the time of day; hovering it shows the full date and time.
+
 ## [6.10.1] - 2026-10-21
 
 ### Changed
@@ -533,7 +543,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...HEAD
+[6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...HEAD
+[6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...e8b898b
 [6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...14a2776
 [6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...4e66da4
 [6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...b54e1f5

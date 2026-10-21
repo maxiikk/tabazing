@@ -3678,7 +3678,26 @@ function dayLabel(ts) {
   if (ago === 1) return t('historyYesterday');
   return d.toLocaleDateString(uiLang(), { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
 }
-const clockLabel = (ts) => new Date(ts).toLocaleTimeString(uiLang(), { hour: '2-digit', minute: '2-digit' });
+// How long ago, short: "just now", "5m ago", "3h ago", "2d ago", "3w ago", "4 months ago", "1 year ago".
+function agoShort(ts) {
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (!ts || s < 60) return t('justNow');
+  if (s < 3600) return t('agoMin', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('agoHour', { n: Math.floor(s / 3600) });
+  if (s < 7 * 86400) return t('agoDay', { n: Math.floor(s / 86400) });
+  if (s < 30 * 86400) return t('agoWeek', { n: Math.floor(s / (7 * 86400)) });
+  if (s < 365 * 86400) return t('agoMonth', { count: Math.floor(s / (30 * 86400)) });
+  return t('agoYear', { count: Math.floor(s / (365 * 86400)) });
+}
+// A page's "last opened" tag: how long ago; hovering it shows the full date and time.
+function agoTag(ts) {
+  const tag = h('span', 'tag histago', agoShort(ts), 'card-history-ago');
+  tag.title = ''; // (not the row's tooltip: its own)
+  tag.setAttribute('aria-label', t('historyLastOpened') + ': ' + fullTime(ts));
+  tag.addEventListener('mouseenter', () => showTip(tag, t('historyLastOpened'), fullTime(ts), 'history-date-tooltip'));
+  tag.addEventListener('mouseleave', hideTipSoon);
+  return tag;
+}
 const fullTime = (ts) => new Date(ts).toLocaleString(uiLang(), { dateStyle: 'medium', timeStyle: 'short' });
 // A dialog that asks first: a title, a sentence, Cancel, and its actions ({ label, cls, fn, testid }).
 function confirmDialog({ title, text, testid, actions }) {
@@ -3770,6 +3789,12 @@ async function openHistory() {
   state.hist = { items: [], limit: HISTORY_PAGE, more: false, sel: 0, back, list, body, count, moreBtn: more, empty, x, q: '', find: find.input, picked: new Set(), anchor: -1,
     layout: view.histLayout === 'grid' ? 'grid' : 'list', range, layoutBtn: layout, selBar: sel, selN, notice };
   fancySelect(range);
+  // Reaching the bottom of the list loads the next 50 by itself ("Show 50 more" is there, and stays for the keyboard).
+  state.hist.io = new IntersectionObserver((seen) => {
+    const H = state.hist;
+    if (H && seen.some((x) => x.isIntersecting) && H.more && !H.busy) moreHistory().catch(() => {});
+  }, { root: body, rootMargin: '0px 0px 240px 0px' });
+  state.hist.io.observe(more);
   // the last search comes back, selected: typing replaces it
   if (view.histQ) { find.input.value = view.histQ; state.hist.q = view.histQ; }
   updateInert();
@@ -3877,10 +3902,16 @@ async function moreHistory() {
     const add = addHistory(res.items, previews);
     if (add.length) histSelect(first, false);
     if (H.moreBtn.hidden && document.activeElement === H.moreBtn) H.find.focus({ preventScroll: true });
-  } finally { H.busy = false; H.moreBtn.disabled = false; }
+  } finally {
+    H.busy = false;
+    H.moreBtn.disabled = false;
+    // still in view after these (a tall window): watched again, so the next 50 come too
+    if (H.io && H.more) { H.io.unobserve(H.moreBtn); H.io.observe(H.moreBtn); }
+  }
 }
 // What a page says about itself: where it is, when it was last visited, how often (the tooltip; the big preview).
 const histInfo = (e) => [e.url, t('historyLastVisit', { time: fullTime(e.item.ts) }), t('historyVisits', { count: e.n || 1 })];
+// (the history's rows no longer show the time of day: their "last opened" tag says how long ago, its tooltip when)
 // A page as a row (the list) or a card (the grid): its tick box, its picture, its title, site and time, its note,
 // and its buttons (note, big preview, remove, ⋯).
 function historyItem(entry) {
@@ -3919,9 +3950,11 @@ function historyItem(entry) {
     img.alt = '';
     pic.append(img);
     const text = h('div', 'bmvtext', null, 'card-text');
+    const tline = h('span', 'bmvtline', null, 'card-history-title-row');
+    tline.append(titleEl, agoTag(c.ts));
     const sub = h('span', 'bmvsub', null, 'card-history-sub');
-    sub.append(q ? highlight(siteOf(c.url) || c.url, q) : siteOf(c.url) || c.url, ' · ' + clockLabel(c.ts));
-    text.append(titleEl, sub);
+    sub.append(q ? highlight(siteOf(c.url) || c.url, q) : siteOf(c.url) || c.url);
+    text.append(tline, sub);
     if (note) { const n = h('span', 'bmvnote', null, 'card-history-note'); n.append(q ? highlight(note, q) : note); text.append(n); }
     const acts = h('div', 'bmvacts', null, 'card-quick-actions');
     const noteBtn = noteButton(entry);
@@ -3934,7 +3967,7 @@ function historyItem(entry) {
     const fav = h('img', 'fav', null, 'card-favicon');
     fav.src = favicon(c.url);
     fav.alt = '';
-    head.append(pick, fav, titleEl, h('span', 'tag', clockLabel(c.ts), 'card-history-ago'), headButtons(remove));
+    head.append(pick, fav, titleEl, agoTag(c.ts), headButtons(remove));
     const quick = h('div', 'quick', null, 'card-quick-actions');
     quick.append(noteButton(entry), big, more);
     const thumb = entry.preview ? thumbFor(entry, { label: '' }) : thumbFor(entry, { bare: true });
@@ -3993,6 +4026,7 @@ function histSelect(i, scroll = true) {
 }
 function closeHistory() {
   closePops();
+  if (state.hist && state.hist.io) state.hist.io.disconnect();
   document.querySelectorAll('.hist').forEach((n) => n.remove());
   state.hist = null;
   updateInert();
@@ -5217,16 +5251,21 @@ const TIP_DELAY_MS = 150;
 let tipTimer = null;
 let tipHide = null;
 function noteTip(b) {
+  if (document.querySelector('.notepop')) return;
+  showTip(b, t('noteTitle'), b.dataset.note, 'note-tooltip');
+}
+// Our tooltip under (or over) `b`, a moment after the pointer reaches it: a heading and a text. It stays while the
+// pointer is on it. `testid` names its parts (`testid`, -title, -text).
+function showTip(b, title, text, testid) {
   clearTimeout(tipTimer);
   clearTimeout(tipHide);
-  const text = b.dataset.note;
-  if (!text || document.querySelector('.notepop')) return;
+  if (!text) return;
   tipTimer = setTimeout(() => {
     if (!b.isConnected) return;
     hideTip();
-    const tip = h('div', 'tip', null, 'note-tooltip');
+    const tip = h('div', 'tip', null, testid);
     tip.setAttribute('role', 'tooltip');
-    tip.append(h('span', 'tiph', t('noteTitle'), 'note-tooltip-title'), h('span', 'tipt', text, 'note-tooltip-text'));
+    tip.append(h('span', 'tiph', title, testid + '-title'), h('span', 'tipt', text, testid + '-text'));
     tip.addEventListener('mouseenter', () => clearTimeout(tipHide));
     tip.addEventListener('mouseleave', hideTipSoon);
     el.app.append(tip);
@@ -7290,7 +7329,7 @@ export {
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
   viewKey, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
-  refreshHistory, setHistoryLayout, histPick, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
+  refreshHistory, setHistoryLayout, histPick, agoShort, agoTag, showTip, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   bmvMove, bmvSort, bmvNudge, bmvOpenAll, bmvImportStars, bmvFilter, bmvFind, bmvOpenSiblings, bmvMoveDialog,
   quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,

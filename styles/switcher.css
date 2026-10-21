@@ -937,6 +937,7 @@ html.alttab .bar.narrow #github-btn { grid-column: 4; }
 .bmvrow:hover .bmvacts .qbtn, .bmvacts .qbtn.note.on, .bmvacts .qbtn:focus-visible { opacity: 1; }
 .bmvacts .qbtn.del:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
 .bmvtline { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.tag.histago { flex: none; cursor: default; font-variant-numeric: tabular-nums; } /* the history's "last opened": its date on hover */
 .bmvtline .bmvtitle { flex: 0 1 auto; }
 .bmvpath { color: var(--fg-3); }
 .bmvrow.archive .bmvfold { color: var(--md-on-surface-variant); }

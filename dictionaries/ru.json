@@ -716,5 +716,12 @@
   "statusArchived": "архив в архиве",
   "statusSnoozed": "отложена отложенная",
   "statusBookmarked": "закладка закладки",
-  "statusVisited": "история посещённая"
+  "statusVisited": "история посещённая",
+  "agoMin": "{n} мин назад",
+  "agoHour": "{n} ч назад",
+  "agoDay": "{n} дн. назад",
+  "agoWeek": "{n} нед. назад",
+  "agoMonth": "{count, plural, one {# месяц назад} few {# месяца назад} many {# месяцев назад} other {# месяца назад}}",
+  "agoYear": "{count, plural, one {# год назад} few {# года назад} many {# лет назад} other {# года назад}}",
+  "historyLastOpened": "Последнее открытие"
 }

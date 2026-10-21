@@ -716,5 +716,12 @@
   "statusArchived": "archivada archivado archivo",
   "statusSnoozed": "pospuesta pospuesto",
   "statusBookmarked": "marcador marcadores",
-  "statusVisited": "historial visitada"
+  "statusVisited": "historial visitada",
+  "agoMin": "hace {n} min",
+  "agoHour": "hace {n} h",
+  "agoDay": "hace {n} d",
+  "agoWeek": "hace {n} sem",
+  "agoMonth": "{count, plural, one {hace # mes} other {hace # meses}}",
+  "agoYear": "{count, plural, one {hace # año} other {hace # años}}",
+  "historyLastOpened": "Abierta por última vez"
 }

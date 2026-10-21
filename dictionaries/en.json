@@ -716,5 +716,12 @@
   "statusArchived": "archived archive",
   "statusSnoozed": "snoozed snooze",
   "statusBookmarked": "bookmarked bookmark",
-  "statusVisited": "history visited"
+  "statusVisited": "history visited",
+  "agoMin": "{n}m ago",
+  "agoHour": "{n}h ago",
+  "agoDay": "{n}d ago",
+  "agoWeek": "{n}w ago",
+  "agoMonth": "{count, plural, one {# month ago} other {# months ago}}",
+  "agoYear": "{count, plural, one {# year ago} other {# years ago}}",
+  "historyLastOpened": "Last opened"
 }
