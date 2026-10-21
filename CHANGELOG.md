@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.14.0] - 2026-10-21
+
+### Added
+
+- Drag a recently closed tab, a snoozed tab or a starred page onto the open tabs: it opens there in the background, and Tabazing stays open (By order, beside the card you drop it on). Onto a tab group's tile, it opens at the end of that group.
+- Drag tabs, or a group's tile, onto a window in the list on the left to move them there (Undo moves them back); a page that isn't open opens in that window.
+- Drop tabs on Snoozed to snooze them (its choices open), or on Recently closed to close them (Undo reopens them).
+- Drop a link from another window or app on the open tabs, a group's tile or a window: it opens there in the background.
+- While you drag, the places that take it are outlined.
+
+### Changed
+
+- A group's tile can be dragged in any sort (onto a window, or Recently closed); among the cards it still moves only By order.
+
 ## [6.13.1] - 2026-10-21
 
 ### Fixed
@@ -606,7 +620,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...HEAD
+[6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...HEAD
+[6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...19f50c5
 [6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...e092117
 [6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...ff28464
 [6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...2315e98

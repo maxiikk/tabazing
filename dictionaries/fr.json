@@ -323,6 +323,7 @@
   "wokenTag": "Revenu du report",
   "mergeAll": "Tout fusionner dans cette fenêtre",
   "movedN": "{count, plural, one {# onglet déplacé dans une nouvelle fenêtre} other {# onglets déplacés dans une nouvelle fenêtre}}",
+  "movedToN": "{count, plural, one {# onglet déplacé dans : {window}} other {# onglets déplacés dans : {window}}}",
   "movedBackN": "{count, plural, one {# onglet remis en place} other {# onglets remis en place}}",
   "errClose": "Impossible de fermer cet onglet. Réessayez.",
   "errMove": "Impossible de déplacer les onglets. Chrome est peut-être occupé ; réessayez.",

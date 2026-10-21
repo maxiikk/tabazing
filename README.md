@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.13.1** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.14.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -145,8 +145,22 @@ All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card
 | Shift+click a tick box | Tick every tab between the last one you ticked and this one. |
 | Right-click a card, or its **⋯** | The card's menu (everything it can do). |
 | Middle-click (press the wheel) | Close the tab. |
-| Drag a card | Onto a tab group's tile: put the tab in that group, at its end (in any sort). Sorted **By order** (see below), also: move the tab in the tab strip. |
+| Drag a card | Onto a tab group's tile: put the tab in that group, at its end (in any sort). Sorted **By order** (see below), also: move the tab in the tab strip. More below, under **Drag and drop**. |
 | Alt + mouse wheel | Step through cards while holding Alt after Alt+Q or Alt+W. |
+
+#### Drag and drop
+
+While you drag, the places that take what you drag are outlined, and the one under the pointer lights up.
+
+| Drag | Onto | What happens |
+|---|---|---|
+| A **recently closed** tab, a **snoozed** tab or a **starred** page that isn't open | The open tabs (anywhere on their list) | It opens there **in the background**: you stay where you are and Tabazing stays open. A closed tab leaves Recently closed; a snoozed one its snooze. Sorted **By order**, drop it beside a card to open it right there. In a group's view it opens in that group. |
+| The same | A tab group's tile | It opens in the background **at the end of that group**. |
+| The same | A window in the list on the left | It opens in the background in that window. |
+| Open tabs (or the ticked ones), a group's tile | A window in the list on the left | They move to the end of that window; **Undo** moves them back. |
+| Open tabs, a recently closed tab or a starred page | **Snoozed** | The snooze choices open, for them. |
+| Open tabs, a group's tile | **Recently closed** | They close (**Undo** reopens them). |
+| A link, from another window or app | The open tabs, a group's tile or a window | It opens there in the background. |
 
 ### Search
 
@@ -364,7 +378,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 - **Alt+Q / Alt+W** treat a group as one card, its tile: stepping onto it doesn't open it, **letting go of Alt on it does** (instead of switching tabs). Inside a group they step through its tabs, and letting go switches to one, as usual. **Before its first tab** (Alt+Q) or **after its last** (Alt+W) they step out of the group, to the card before or after its tile among all your tabs; that may be another group's tile, which again opens only if you let go of Alt there. Settings → Cards → **Alt+Q / Alt+W go round inside a tab group** makes them wrap at the group's ends instead.
 - A tile's **⋯** menu: **Open group**, **Name and colour…**, **Copy links**, **Bookmark…**, **Move group to new window**, **Collapse / Expand in Chrome**, **Put to sleep**, **Mute / Unmute**, **Snooze…**, **Archive**, **Ungroup** (the tabs stay open) and **Close group**.
 - A tab's menu has **Add to group…** (the window's groups, or **New group…**, which asks for a name and one of Chrome's colours) and, for a grouped tab, **Remove from group**; ticked tabs get **Add to group…** under **More**. The command palette offers the same for the current tab and its group.
-- With **By order**, drag a tile to move the whole group, or drop tabs on a tile to put them in that group.
+- With **By order**, drag a tile to move the whole group; in any order, drop tabs (or a closed tab, a link) on a tile to put them in that group, or drag the tile onto a window to move the whole group there.
 - Groups stay groups: **Merge windows** and **Move group to new window** move a group as a group, **Move to new window** takes the tabs' group along, and **Undo**, a snoozed tab waking up and a recently closed tab reopened put tabs back in their group. **Close duplicates** keeps the copy that's in a group.
 - Filters and the Starred filter narrow tiles to the tabs they let through. Search finds groups by name (Enter opens one) and tags each grouped tab with its group.
 - Settings → Cards → **Show tab groups as tiles** (on by default): turn it off to give every tab its own card again, each tagged with its group's name.

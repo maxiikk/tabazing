@@ -740,6 +740,12 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 .card.drop-after::after { inset-inline-end: -12px; }
 /* tabs dropped on a group's tile go into the group: the whole tile lights up */
 .card.drop-into { border-color: var(--gc, var(--md-primary)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc, var(--md-primary)) 40%, transparent), var(--el3); background: color-mix(in srgb, var(--gc, var(--md-primary)) 12%, var(--md-surface-container-low)); }
+/* the lists and windows that take what is dragged (switcher.js dragToMove): outlined while it is, the one under the pointer more */
+.dzone { border-radius: var(--r-l); transition: outline-color .15s, background-color .15s; }
+.dzone.drop-ok { outline: 2px dashed color-mix(in srgb, var(--md-primary) 45%, transparent); outline-offset: 4px; }
+.dzone.drop-zone, .dzone.drop-into { outline: 2px solid var(--md-primary); outline-offset: 4px; background: color-mix(in srgb, var(--md-primary) 7%, transparent); }
+.wrow.dzone { border-radius: var(--r-m); }
+.wrow.dzone.drop-ok, .wrow.dzone.drop-into { outline-offset: 1px; }
 
 /* ---------- tab notes ---------- */
 /* a quick button that is "on" (a note, pinned): the accent; only a note's stays in view without hovering */

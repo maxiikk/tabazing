@@ -852,6 +852,12 @@ function renderWindows() {
       setScope(w.id);
       el.search.focus();
     });
+    // Dropped on: tabs (or a group) move to this window, a page opens in it (see dragToMove).
+    if (w.id !== 'all') {
+      const there = (ids) => ids.every((id) => (state.tabs.find((x) => x.id === id) || {}).windowId === w.id);
+      dropZone(row, (d) => (d.ids ? !there(d.ids) : d.group !== undefined ? (state.groups.get(d.group) || {}).windowId !== w.id : d.page || d.link),
+        (d, e) => (d.ids || d.group !== undefined ? moveToWin(d, w.id) : openDropped(d.page || droppedLinks(e), { windowId: w.id })), 'drop-into');
+    }
     return row;
   }));
 }
@@ -1225,8 +1231,10 @@ function finishCard(card, entry) {
     select(card._i, { scroll: false });
     cardMenu(entry, { at: { x: e.clientX, y: e.clientY } });
   });
-  // Drag: a tab onto a group's tile, in any order (into the group); By order, also cards before / after others (moves).
+  // Drag (see dragToMove): a tab onto a group's tile, a window, Snoozed or Recently closed; By order, also before /
+  // after other cards. A page that isn't open: onto the open tabs, a tile or a window, to open it there.
   if ((entry.kind === 'tab' || entry.kind === 'group') && !state.dupesView) dragToMove(card, entry);
+  else if (entry.kind === 'closed' || entry.kind === 'snoozed' || entry.kind === 'star') dragToOpen(card, entry);
   // Middle-click (the mouse wheel) closes the tab. Pressing the wheel would start Chrome's auto-scroll
   // first, which swallows the click, so that is turned off on cards.
   card.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
@@ -2047,11 +2055,11 @@ const undoRecord = (tabs) => tabs.map((x) => {
   const g = x.groupId >= 0 ? state.groups.get(x.groupId) : null;
   return { id: x.id, url: urlOf(x), windowId: x.windowId, index: x.index, pinned: !!x.pinned, ...(g ? { group: { id: g.id, title: g.title || '', color: groupColor(g) } } : {}) };
 });
-function pushUndo(tabs, kind = 'close') {
+function pushUndo(tabs, kind = 'close', said = null) {
   if (!tabs.length) return;
   state.undo.push({ kind, tabs, at: Date.now(), inGroup: state.group }); // (the group view it was done in: Undo goes back to it)
   if (state.undo.length > 20) state.undo.shift();
-  const text = kind === 'close' ? t('closedN', { count: tabs.length }) : kind === 'merge' ? t('mergedN', { count: tabs.length }) : t('movedN', { count: tabs.length });
+  const text = said || (kind === 'close' ? t('closedN', { count: tabs.length }) : kind === 'merge' ? t('mergedN', { count: tabs.length }) : t('movedN', { count: tabs.length }));
   toast(text, null, { label: t('undo') + (IS_MAC ? ' (⌘Z)' : ' (Ctrl+Z)'), fn: undoLast });
 }
 async function undoLast() {
@@ -2708,12 +2716,13 @@ function whenLabel(ts) {
   return d.toDateString() === today.toDateString() ? time : d.toLocaleDateString(uiLang(), { weekday: 'short' }) + ' ' + time;
 }
 // `run(at)`: what snoozing does (a recently closed tab: snoozeClosed); else the tabs close until then.
-function snoozeMenu(tabs, anchor, run = (at) => snoozeTabs(tabs, at)) {
+// `opts`: menu()'s (`at`: at the pointer, as for a drop on Snoozed).
+function snoozeMenu(tabs, anchor, run = (at) => snoozeTabs(tabs, at), opts = {}) {
   menu(anchor, [
     ...snoozeChoices().map((c) => ({ label: c.label, err: t('errSnooze'), fn: () => run(c.at) })),
     null,
     { label: t('snoozePick'), fn: () => snoozePicker(tabs, anchor, run) },
-  ]);
+  ], opts);
 }
 // "Pick a time…": a small card with a date and time box, below `anchor`. Only a time still to come is taken.
 // Like the other cards it has the focus and Tab until it closes (Esc, a press outside, Cancel), and gives the
@@ -3021,43 +3030,177 @@ function openBigGroup(entry) {
 }
 
 // ---- drag to reorder ("By order" only: there the cards are the tab strip, so a drop is a real move).
-// Drag a card (or the ticked cards) onto the left or right half of another to put it before or after. A group's
-// tile moves the whole group; tabs dropped on a tile go into that group.
-let drag = null; // what is being dragged: { ids } (tabs) or { group } (a group's tile)
-const clearDrop = () => document.querySelectorAll('.drop-before, .drop-after, .drop-into').forEach((n) => n.classList.remove('drop-before', 'drop-after', 'drop-into'));
+// ------------------------------------------------------------ drag and drop
+// What can be dragged: open tabs (a card, or the ticked cards), a group's tile, a page that isn't open (a recently
+// closed tab, a snoozed one, a starred page: its card), or a link from elsewhere (another window, another app).
+// Where it goes, and what that does:
+//   - a tab's card, By order: before or after it (tabs and groups move there; a page opens there, behind Tabazing);
+//   - a group's tile: into the group (tabs join it at its end; a page opens at its end);
+//   - the open tabs (anywhere on their list): a page opens there, at the end, behind Tabazing, which stays (in the
+//     group view: in that group);
+//   - a window in the list on the left: tabs and groups move to it (Undo moves them back); a page opens in it;
+//   - Snoozed: the snooze choices open for the tabs (or the closed tab, the starred page);
+//   - Recently closed: the tabs close (Undo reopens them).
+// While something is dragged, the places that take it are outlined (.drop-ok), the one under the pointer more so.
+let drag = null; // { ids } (tabs), { group } (a tile's group id), { page } (a card's entry), or null
+const DROP_CLASSES = ['drop-before', 'drop-after', 'drop-into', 'drop-zone'];
+const clearDrop = () => document.querySelectorAll(DROP_CLASSES.map((c) => '.' + c).join(', ')).forEach((n) => n.classList.remove(...DROP_CLASSES));
+const showDrop = (node, cls) => { if (node.classList.contains(cls)) return; clearDrop(); node.classList.add(cls); };
 // A drop on the card's half toward the end goes after it: its right half, or its left half right to left.
 const dropAfter = (card, e) => { const r = card.getBoundingClientRect(); return (e.clientX > r.left + r.width / 2) !== isRtl(); };
+// What is dragged: ours, or a link from elsewhere (only its kind can be read until it is dropped).
+const dragged = (e) => drag || (e.dataTransfer && [...(e.dataTransfer.types || [])].includes('text/uri-list') ? { link: true } : null);
+// The address(es) a dropped link carries: web pages only.
+const droppedLinks = (e) => String(e.dataTransfer.getData('text/uri-list') || '').split(/\r?\n/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#') && /^(https?|ftp|file):/i.test(s)).slice(0, 20);
+function startDrag(what, card, e, text) {
+  drag = what;
+  e.dataTransfer.effectAllowed = what.page ? 'copyMove' : 'move';
+  e.dataTransfer.setData('text/plain', text);
+  card.classList.add('dragging');
+  document.querySelectorAll('.dzone').forEach((n) => n.classList.toggle('drop-ok', !!n._takes(what)));
+}
+function endDrag() {
+  drag = null;
+  clearDrop();
+  document.querySelectorAll('.dragging, .drop-ok').forEach((n) => n.classList.remove('dragging', 'drop-ok'));
+}
+// A place that takes drops: `takes(what)` says whether it takes this (truthy), `run(what, e)` does the drop.
+function dropZone(node, takes, run, cls = 'drop-zone') {
+  node.classList.add('dzone');
+  node._takes = takes;
+  // (dragenter too: Chrome takes a drop only where both were cancelled)
+  const over = (e) => {
+    const what = dragged(e);
+    if (!what || !takes(what) || e.defaultPrevented) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = what.ids || what.group !== undefined ? 'move' : 'copy';
+    showDrop(node, cls);
+  };
+  node.addEventListener('dragenter', over);
+  node.addEventListener('dragover', over);
+  node.addEventListener('dragleave', (e) => { if (!node.contains(e.relatedTarget)) node.classList.remove(cls); });
+  node.addEventListener('drop', (e) => {
+    const what = dragged(e);
+    if (!what || !takes(what) || e.defaultPrevented) return;
+    e.preventDefault();
+    endDrag();
+    if (pointerAllowed()) Promise.resolve(run(what, e)).catch((err) => toast(t('errMove'), err));
+  });
+}
+// What a drop on this card does: 'into' (a group's tile), 'before' / 'after' (By order), or null (the list around
+// it may take it instead).
+function cardDrop(entry, card, e, what) {
+  if (!what) return null;
+  const tile = entry.kind === 'group', reorder = state.sort === 'order';
+  const side = reorder ? (dropAfter(card, e) ? 'after' : 'before') : null;
+  if (what.ids) return what.ids.some((id) => cardTabs(entry).some((x) => x.id === id)) ? null : tile ? 'into' : side;
+  if (what.group !== undefined) return tile && what.group === entry.group.id ? null : side;
+  return tile ? 'into' : side; // a page, a link
+}
 function dragToMove(card, entry) {
   const tile = entry.kind === 'group';
-  const own = cardTabs(entry).map((x) => x.id);
-  const reorder = state.sort === 'order'; // the strip's own order is shown: cards move before / after each other
-  card.draggable = !tile || reorder; // (a group's tile moves the group: only By order)
+  card.draggable = true;
   card.addEventListener('dragstart', (e) => {
-    drag = tile ? { group: entry.group.id } : { ids: state.picked.has(entry.tab.id) ? [...state.picked] : [entry.tab.id] };
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', tile ? groupName(entry.group) : urlOf(entry.tab));
-    card.classList.add('dragging');
+    startDrag(tile ? { group: entry.group.id } : { ids: state.picked.has(entry.tab.id) ? [...state.picked] : [entry.tab.id] }, card, e, tile ? groupName(entry.group) : urlOf(entry.tab));
   });
-  card.addEventListener('dragend', () => { drag = null; card.classList.remove('dragging'); clearDrop(); });
-  card.addEventListener('dragover', (e) => {
-    if (!drag || (drag.ids ? drag.ids.some((id) => own.includes(id)) : tile && drag.group === entry.group.id)) return;
-    if (!reorder && !(drag.ids && tile)) return; // another order than the strip's: only into a group
+  card.addEventListener('dragend', endDrag);
+  const over = (e) => {
+    const act = cardDrop(entry, card, e, dragged(e));
+    if (!act) return; // (the open tabs around it may take it)
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    const cls = drag.ids && tile ? 'drop-into' : dropAfter(card, e) ? 'drop-after' : 'drop-before';
-    if (card.classList.contains(cls)) return;
-    clearDrop();
-    card.classList.add(cls);
-  });
-  card.addEventListener('dragleave', (e) => { if (!card.contains(e.relatedTarget)) card.classList.remove('drop-before', 'drop-after', 'drop-into'); });
+    e.dataTransfer.dropEffect = drag && (drag.ids || drag.group !== undefined) ? 'move' : 'copy';
+    showDrop(card, 'drop-' + act);
+  };
+  card.addEventListener('dragenter', over); // (both: Chrome takes a drop only where both were cancelled)
+  card.addEventListener('dragover', over);
+  card.addEventListener('dragleave', (e) => { if (!card.contains(e.relatedTarget)) card.classList.remove(...DROP_CLASSES); });
   card.addEventListener('drop', (e) => {
+    const what = dragged(e), act = cardDrop(entry, card, e, what);
+    if (!act) return;
     e.preventDefault();
-    const what = drag, after = dropAfter(card, e);
-    clearDrop();
-    if (!what || !pointerAllowed() || (!reorder && !(what.ids && tile))) return;
-    const done = what.ids && tile ? addToGroup(what.ids, entry.group) : what.ids ? moveTabs(what.ids, entry.tab, after) : moveGroup(what.group, entry, after);
+    const links = what.link ? droppedLinks(e) : null;
+    endDrag();
+    if (!pointerAllowed()) return;
+    const after = act === 'after';
+    const done = what.ids ? (tile ? addToGroup(what.ids, entry.group) : moveTabs(what.ids, entry.tab, after))
+      : what.group !== undefined ? moveGroup(what.group, entry, after)
+      : openDropped(what.page || links, tile ? { group: entry.group } : { near: entry.tab, after });
     done.catch((err) => toast(t('errMove'), err));
   });
+}
+// A page's card (recently closed, snoozed, starred): dragged to be opened somewhere. A closed window isn't (Chrome
+// alone brings one back).
+function dragToOpen(card, entry) {
+  if (entry.kind === 'closed' && entry.item.kind === 'window') return;
+  card.draggable = true;
+  card.addEventListener('dragstart', (e) => startDrag({ page: entry }, card, e, entry.item.url));
+  card.addEventListener('dragend', endDrag);
+}
+// Open what was dropped (a page's card entry, or links), behind Tabazing, which stays: next to a tab (`near`, `after`),
+// at the end of a group, or at the end of a window (`windowId`, else the one Tabazing was opened from). A recently
+// closed tab then leaves that list, a snoozed one its snooze.
+async function openDropped(what, { near = null, after = true, group = null, windowId = null } = {}) {
+  const urls = Array.isArray(what) ? what : [what.item.url];
+  if (!urls.length) return;
+  let win = windowId || CTX.srcWin, index;
+  if (group) {
+    const members = (await chrome.tabs.query({ groupId: group.id })).sort((a, b) => a.index - b.index);
+    const last = members[members.length - 1];
+    if (last) { win = last.windowId; index = last.index + 1; } else group = null; // (the group is gone)
+  } else if (near) {
+    const at = await chrome.tabs.get(near.id);
+    win = at.windowId;
+    index = at.index + (after ? 1 : 0);
+  }
+  const made = [];
+  for (const url of urls) {
+    const tab = await chrome.tabs.create({ url, windowId: win, active: false, ...(index !== undefined ? { index: index++ } : {}) });
+    made.push(tab.id);
+  }
+  if (group && chrome.tabs.group) await chrome.tabs.group({ tabIds: made, groupId: group.id });
+  if (!Array.isArray(what)) {
+    if (what.kind === 'closed') await hideClosed({ [closedKey(what.item)]: what.item.ts || Date.now() }).catch(() => {}); // Chrome's own entry would stay
+    if (what.kind === 'snoozed') state.snoozed = await removeSnoozed([what.item.id]).catch(() => state.snoozed);
+  }
+  const back = !Array.isArray(what) && (what.kind === 'closed' || what.kind === 'snoozed');
+  toast(group ? t('groupAddedN', { count: made.length, name: groupName(group) }) : t(back ? 'reopenedN' : 'openedN', { count: made.length }));
+  if (!Array.isArray(what) && what.kind === 'closed') await loadClosed();
+  await reload();
+}
+// Tabs (or a group) dropped on a window in the list on the left: to the end of that window. Undo moves them back. The
+// tab Tabazing is drawn over, among them: it goes along, to that window, and Tabazing closes.
+async function moveToWin(what, winId) {
+  const tabs = what.group !== undefined ? state.tabs.filter((x) => x.groupId === what.group) : state.tabs.filter((x) => what.ids.includes(x.id));
+  const moving = tabs.filter((x) => x.windowId !== winId).sort((a, b) => a.windowId - b.windowId || a.index - b.index);
+  if (!moving.length) return;
+  const undo = undoRecord(moving);
+  const own = CTX.mode === 'overlay' && moving.some((x) => x.id === CTX.srcTab);
+  if (what.group !== undefined) await chrome.tabGroups.move(what.group, { windowId: winId, index: -1 });
+  else {
+    await chrome.tabs.move(moving.map((x) => x.id), { windowId: winId, index: -1 });
+    await regroup(undo.map((x) => ({ x, tab: { id: x.id } }))); // their groups go along (one of each, there)
+  }
+  state.picked.clear();
+  if (own) { await chrome.tabs.update(CTX.srcTab, { active: true }).catch(() => {}); await chrome.windows.update(winId, { focused: true }).catch(() => {}); return finish('switch'); }
+  await reload();
+  const w = state.windows.find((x) => x.id === winId);
+  pushUndo(undo, 'move', t('movedToN', { count: undo.length, window: w ? w.label : '' }));
+}
+// The lists that take drops (set up once: they stay as the cards change).
+function setupDropZones() {
+  const openSection = el.openGrid.closest('section');
+  dropZone(openSection, (w) => w.page || w.link, (w, e) => {
+    const g = state.inGroup !== null ? state.groups.get(state.inGroup) : null;
+    return openDropped(w.page || droppedLinks(e), g ? { group: { id: g.id, title: g.title } } : { windowId: typeof state.scope === 'number' ? state.scope : CTX.srcWin });
+  });
+  // (the snooze choices at the pointer; "Pick a time…" below the section's title)
+  dropZone(el.snoozedSection, (w) => w.ids || (w.page && w.page.kind !== 'snoozed'), (w, e) => {
+    const anchor = $('snoozed-h'), at = { at: { x: e.clientX, y: e.clientY } };
+    if (w.ids) return snoozeMenu(state.tabs.filter((x) => w.ids.includes(x.id)), anchor, undefined, at);
+    const c = w.page.item;
+    return snoozeMenu([], anchor, (when) => snoozeClosed(c, when), at);
+  });
+  dropZone(el.closedSection, (w) => w.ids || w.group !== undefined, (w) => closeMany(w.group !== undefined ? state.tabs.filter((x) => x.groupId === w.group) : state.tabs.filter((x) => w.ids.includes(x.id))));
 }
 // Move tabs, in their tab-strip order, to just before or after `target`. One at a time, each placed
 // right after the one before it, reading fresh positions every step (each move shifts the others).
@@ -7320,6 +7463,10 @@ function listen() {
   });
   window.addEventListener('contextmenu', (e) => { if (menuKeyAt && performance.now() - menuKeyAt < 1000) e.preventDefault(); }); // the card's menu took that key
   el.scroller.addEventListener('scroll', hideTip, { passive: true });
+  setupDropZones();
+  document.addEventListener('dragend', endDrag); // (its card may be gone by then: a drop redraws the cards)
+  document.addEventListener('drop', (e) => { if (!e.defaultPrevented) { e.preventDefault(); endDrag(); } }); // (a link dropped anywhere else isn't opened as a page in Tabazing's frame)
+  for (const type of ['dragenter', 'dragover']) document.addEventListener(type, (e) => { const d = dragged(e); if (d && d.link) e.preventDefault(); });
   // Holding Alt after Alt+Q / Alt+W, the wheel steps through the tabs: down to the next card (like W), up to the one before (like Q); letting
   // go of Alt still switches. A mouse wheel moves one tab per notch; a touchpad's small scrolls add up.
   let wheelSum = 0, wheelAt = 0;
@@ -7507,7 +7654,7 @@ export {
   searchHistory, histMemo, historyItems, urlKeys, urlKey, bigHits, fullTimer, scoreBig, fullPass, NONE, ddRows,
   searchFrame, flushSearch, ddShown, ddMove, ddHighlight, ddPics, ddPic, renderDropdown, ddActivate,
   restoreClosed, openPage, mergeWindows, snoozeChoices, whenLabel, snoozeMenu, snoozeTabs, unsnooze, drag,
-  clearDrop, dropAfter, dragToMove, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
+  clearDrop, dropAfter, dragToMove, dragToOpen, cardDrop, openDropped, moveToWin, startDrag, endDrag, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
   viewKey, backupOpen, openBackup, closeBackup, exportBackup, importBackup, backupKey, BACKUP_KINDS, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,

@@ -323,6 +323,7 @@
   "wokenTag": "Wieder zurück",
   "mergeAll": "Alle mit diesem Fenster zusammenführen",
   "movedN": "{count, plural, one {# Tab in ein neues Fenster verschoben} other {# Tabs in ein neues Fenster verschoben}}",
+  "movedToN": "{count, plural, one {# Tab verschoben nach: {window}} other {# Tabs verschoben nach: {window}}}",
   "movedBackN": "{count, plural, one {# Tab zurückgelegt} other {# Tabs zurückgelegt}}",
   "errClose": "Der Tab konnte nicht geschlossen werden. Versuch es noch einmal.",
   "errMove": "Die Tabs konnten nicht verschoben werden. Chrome ist vielleicht beschäftigt; versuch es noch einmal.",

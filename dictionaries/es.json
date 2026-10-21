@@ -323,6 +323,7 @@
   "wokenTag": "De vuelta",
   "mergeAll": "Unir todas a esta ventana",
   "movedN": "{count, plural, one {# pestaña movida a una ventana nueva} other {# pestañas movidas a una ventana nueva}}",
+  "movedToN": "{count, plural, one {# pestaña movida a: {window}} other {# pestañas movidas a: {window}}}",
   "movedBackN": "{count, plural, one {# pestaña devuelta a su sitio} other {# pestañas devueltas a su sitio}}",
   "errClose": "No se pudo cerrar la pestaña. Inténtalo de nuevo.",
   "errMove": "No se pudieron mover las pestañas. Chrome puede estar ocupado; inténtalo de nuevo.",

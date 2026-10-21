@@ -365,7 +365,7 @@ describe('dragging ("By order")', () => {
     expect(sw.state.sort).toBe('recent');
     const a = rect(cardOf('A')), b = rect(cardOf('B')), g = rect(tile());
     expect(a.draggable).toBe(true);
-    expect(g.draggable).toBe(false); // a group moves only By order
+    expect(g.draggable).toBe(true); // (onto a window, or Recently closed; among the cards only By order)
     a.dispatchEvent(dragEvent('dragstart'));
     const onTab = dragEvent('dragover', 50);
     b.dispatchEvent(onTab);

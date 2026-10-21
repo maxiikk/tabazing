@@ -323,6 +323,7 @@
   "wokenTag": "Înapoi din amânare",
   "mergeAll": "Unește toate cu această fereastră",
   "movedN": "{count, plural, one {# filă mutată într-o fereastră nouă} few {# file mutate într-o fereastră nouă} other {# de file mutate într-o fereastră nouă}}",
+  "movedToN": "{count, plural, one {# filă mutată în: {window}} few {# file mutate în: {window}} other {# de file mutate în: {window}}}",
   "movedBackN": "{count, plural, one {# filă pusă la loc} few {# file puse la loc} other {# de file puse la loc}}",
   "errClose": "Fila nu a putut fi închisă. Încearcă din nou.",
   "errMove": "Filele nu au putut fi mutate. Poate Chrome e ocupat; încearcă din nou.",

@@ -323,6 +323,7 @@
   "wokenTag": "Back from snooze",
   "mergeAll": "Merge all into this window",
   "movedN": "{count, plural, one {Moved # tab to a new window} other {Moved # tabs to a new window}}",
+  "movedToN": "{count, plural, one {Moved # tab to {window}} other {Moved # tabs to {window}}}",
   "movedBackN": "{count, plural, one {Put # tab back} other {Put # tabs back}}",
   "errClose": "Couldn’t close that tab. Try again.",
   "errMove": "Couldn’t move the tabs. Chrome may be busy; try again.",

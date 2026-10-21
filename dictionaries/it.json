@@ -323,6 +323,7 @@
   "wokenTag": "Di ritorno",
   "mergeAll": "Unisci tutto in questa finestra",
   "movedN": "{count, plural, one {# scheda spostata in una nuova finestra} other {# schede spostate in una nuova finestra}}",
+  "movedToN": "{count, plural, one {# scheda spostata in: {window}} other {# schede spostate in: {window}}}",
   "movedBackN": "{count, plural, one {# scheda rimessa a posto} other {# schede rimesse a posto}}",
   "errClose": "Impossibile chiudere la scheda. Riprova.",
   "errMove": "Impossibile spostare le schede. Chrome potrebbe essere occupato; riprova.",
