@@ -19,7 +19,7 @@
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
 import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
-import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey } from './utils/store.js';
+import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBmNotes, putBmNotes, setBmNote } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
 import { timeAgo, localizePage, setLang, uiLang } from './utils/i18n.js';
 import { t, getLocale, setLocale } from './utils/translations.js';
@@ -119,6 +119,8 @@ const state = {
   archivePreviews: {},  // normalized URL -> preview, for archived pages
   archSel: 0,           // the selected card in the archive overlay
   hist: null,           // the history overlay while it is open: its pages (entries), the selected one, its parts
+  bmv: null,            // the bookmarks overlay while it is open: the tree by id, open folders, picked bookmarks, the rows shown
+  bmNotes: {},          // notes on bookmarks, by bookmark id (utils/store.js getBmNotes)
   urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
   pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
   media: [],            // what plays in the tabs, playing first (utils/media.js mediaEntries): the player and its list
@@ -3437,7 +3439,8 @@ async function openArchived(item) {
 // The archive overlay (the Archive button, top right): every archived tab, over the switcher. The red ×
 // or Esc closes it; clicking a card opens that tab, its × (or Del) takes it out of the archive without
 // opening it. Arrows move, Enter opens. `sel` is the card to select (redrawn after a removal).
-const archiveOpen = () => !!document.querySelector('.arch');
+const ARCH = '.arch:not(.hist):not(.bmv)'; // the archive overlay (the history's and the bookmarks' share its look, .arch)
+const archiveOpen = () => !!document.querySelector(ARCH);
 async function openArchive(sel = 0) {
   closePops();
   closeBig();
@@ -3446,7 +3449,7 @@ async function openArchive(sel = 0) {
   renderDropdown();
   await loadArchived();
   if (state.done) return;
-  let back = document.querySelector('.arch');
+  let back = document.querySelector(ARCH);
   if (!back) {
     back = h('div', 'arch', null, 'archive-overlay');
     back.setAttribute('role', 'dialog');
@@ -3515,7 +3518,7 @@ async function dropArchived(item, i) {
   toast(t('archiveRemoved'), null, { label: t('undo'), fn: async () => { await addArchived([item]); if (archiveOpen()) await openArchive(i); } });
 }
 function archSelect(i, scroll = true) {
-  const cards = [...document.querySelectorAll('.arch .card')];
+  const cards = [...document.querySelectorAll(ARCH + ' .card')];
   if (!cards.length) return;
   state.archSel = Math.max(0, Math.min(cards.length - 1, i));
   cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.archSel)));
@@ -3523,7 +3526,7 @@ function archSelect(i, scroll = true) {
   if (scroll) cards[state.archSel].scrollIntoView({ block: 'nearest' });
 }
 function closeArchive() {
-  document.querySelectorAll('.arch').forEach((n) => n.remove());
+  document.querySelectorAll(ARCH).forEach((n) => n.remove());
   updateInert();
   el.archiveBtn.focus({ preventScroll: true }); // back to what opened it
 }
@@ -3536,7 +3539,7 @@ function archiveKey(e) {
   if (k === 'Escape') return closeArchive();
   // Ctrl+Z (⌘Z): the Undo of the note at the bottom ("Removed from the archive · Undo").
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
-  const cards = [...document.querySelectorAll('.arch .card')];
+  const cards = [...document.querySelectorAll(ARCH + ' .card')];
   if (!cards.length) return;
   if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
     if (e.repeat) return;
@@ -3561,13 +3564,26 @@ const historyOpen = () => !!document.querySelector('.hist');
 const openable = (url) => /^(https?|file|ftp):/i.test(url || '');
 let histSeq = 0; // the cards' ids
 // The newest `limit` pages Chrome has that Tabazing can open (its own pages, chrome://… are left out: a few more are
-// asked for, so a page of the list is still 50), and whether it has more.
-async function fetchHistory(limit) {
+// asked for, so a page of the list is still 50), and whether it has more. `text`: only the pages it finds, newest
+// first, matched as the search box matches (typos forgiven) on their title, site, address and note (the note left on
+// the page as a tab: a closed tab keeps it). It looks through the newest 5000 visits (read once while the history is
+// open) and what Chrome's own history search finds for the text, which reaches further back.
+const HISTORY_POOL = 5000;
+let histPool = null;
+async function fetchHistory(limit, text = '') {
   if (!chrome.history) return { items: [], more: false };
-  const ask = limit + HISTORY_PAGE;
-  const got = await chrome.history.search({ text: '', startTime: 0, maxResults: ask });
-  const items = got.filter((x) => openable(x.url)).map(hist);
-  return { items: items.slice(0, limit), more: items.length > limit || got.length >= ask };
+  if (!text) {
+    const ask = limit + HISTORY_PAGE;
+    const got = await chrome.history.search({ text: '', startTime: 0, maxResults: ask });
+    const items = got.filter((x) => openable(x.url)).map(hist);
+    return { items: items.slice(0, limit), more: items.length > limit || got.length >= ask };
+  }
+  if (!histPool) histPool = chrome.history.search({ text: '', startTime: 0, maxResults: HISTORY_POOL }).then((got) => got.filter((x) => openable(x.url)).map(hist));
+  const [pool, theirs] = await Promise.all([histPool, chrome.history.search({ text, startTime: 0, maxResults: 500 }).catch(() => [])]);
+  const byUrl = new Map();
+  for (const x of [...pool, ...theirs.filter((y) => openable(y.url)).map(hist)]) if (!byUrl.has(x.url) || byUrl.get(x.url).t < x.t) byUrl.set(x.url, x);
+  const found = [...byUrl.values()].filter((x) => matches(text, x.title, hostOf(x.url), x.url, noteOf(x.url))).sort((a, b) => b.t - a.t);
+  return { items: found.slice(0, limit), more: found.length > limit };
 }
 // A page of the history as an entry: what the cards, the menu and the big preview read.
 const histEntry = (x, previews) => ({
@@ -3581,6 +3597,8 @@ async function openHistory() {
   state.dd.hidden = true;
   renderDropdown();
   if (archiveOpen()) closeArchive();
+  if (bookmarksOpen()) closeBookmarks();
+  histPool = null; // read again: the history may have grown since
   const res = await fetchHistory(HISTORY_PAGE).catch(() => ({ items: [], more: false }));
   const previews = await getPreviews(res.items.map((x) => x.url)).catch(() => ({}));
   if (state.done) return;
@@ -3602,8 +3620,16 @@ async function openHistory() {
   x.setAttribute('aria-label', t('historyClose'));
   x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeHistory(); });
   head.append(title, h('span', 'archsub', t('historySub'), 'history-sub'), x);
+  // the search box: pages by title, site, address or note, typos forgiven (it waits for a pause in typing)
+  const tools = h('div', 'bmvtools', null, 'history-tools');
+  const find = searchField('history-search', t('historySearch'), t('historySearchAria'));
+  find.input.setAttribute('aria-controls', 'hist-grid');
+  let findTimer = null;
+  find.input.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => findHistory(find.input.value.trim()).catch(() => {}), 180); });
+  tools.append(find.box);
   const body = h('div', 'archbody', null, 'history-body');
   const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'history-grid');
+  grid.id = 'hist-grid';
   grid.setAttribute('role', 'listbox');
   grid.setAttribute('aria-labelledby', 'hist-h');
   const more = h('button', 'btn histmore', null, 'history-more');
@@ -3611,9 +3637,9 @@ async function openHistory() {
   more.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) moreHistory().catch((err) => toast(t('actFailed'), err)); });
   const empty = h('p', 'empty', t(chrome.history ? 'historyEmpty' : 'historyNone'), 'history-empty');
   body.append(empty, grid, more);
-  back.append(head, body);
+  back.append(head, tools, body);
   el.app.append(back);
-  state.hist = { items: [], limit: HISTORY_PAGE, more: res.more, sel: 0, back, grid, body, count, moreBtn: more, empty, x };
+  state.hist = { items: [], limit: HISTORY_PAGE, more: res.more, sel: 0, back, grid, body, count, moreBtn: more, empty, x, q: '', find: find.input };
   addHistory(res.items, previews);
   updateInert();
   histSelect(0, false);
@@ -3629,9 +3655,26 @@ function addHistory(items, previews) {
   syncHistory();
   return add;
 }
+// The search box's text: the list starts again with the newest 50 pages that have it.
+async function findHistory(q) {
+  const H = state.hist;
+  if (!H || q === H.q) return;
+  H.q = q;
+  H.limit = HISTORY_PAGE;
+  const res = await fetchHistory(H.limit, q).catch(() => ({ items: [], more: false }));
+  const previews = await getPreviews(res.items.map((x) => x.url)).catch(() => ({}));
+  if (state.hist !== H || H.q !== q) return; // typed on meanwhile
+  H.items = [];
+  H.grid.replaceChildren();
+  H.more = res.more;
+  addHistory(res.items, previews);
+  histSelect(0, false);
+  H.body.scrollTop = 0;
+}
 function syncHistory() {
   const H = state.hist;
   H.count.textContent = String(H.items.length);
+  H.empty.textContent = t(!chrome.history ? 'historyNone' : H.q ? 'historyNoMatch' : 'historyEmpty');
   H.empty.hidden = H.items.length > 0;
   H.grid.hidden = !H.items.length;
   H.moreBtn.hidden = !H.more;
@@ -3645,9 +3688,10 @@ async function moreHistory() {
   H.moreBtn.disabled = true;
   try {
     H.limit += HISTORY_PAGE;
-    const res = await fetchHistory(H.limit);
+    const q = H.q;
+    const res = await fetchHistory(H.limit, q);
     const previews = await getPreviews(res.items.map((x) => x.url)).catch(() => ({}));
-    if (state.hist !== H || !historyOpen()) return;
+    if (state.hist !== H || !historyOpen() || H.q !== q) return;
     H.more = res.more;
     const first = H.items.length;
     const add = addHistory(res.items, previews);
@@ -3732,6 +3776,7 @@ async function removeHistory(entry) {
   await chrome.history.deleteUrl({ url: entry.url });
   const k = urlKey(entry.url);
   if (state.history) state.history = state.history.filter((x) => urlKey(x.url) !== k);
+  if (histPool) histPool = histPool.then((pool) => pool.filter((x) => x.url !== entry.url));
   if (state.histQ && state.histQ.items) state.histQ = { ...state.histQ, items: state.histQ.items.filter((x) => urlKey(x.url) !== k) };
   if (!H || state.hist !== H) return;
   const i = H.items.indexOf(entry);
@@ -3785,9 +3830,18 @@ function historyKey(e) {
   if (target && target.closest('.menu, .pop')) return;
   if (MODIFIERS.has(k)) return;
   if (target && target.closest('.histmore') && (k === 'Enter' || k === ' ')) return;
+  const H0 = state.hist;
+  const inBox = !!H0 && target === H0.find;
+  // In the search box the keys type, except ↑ ↓ (the pages), Enter (open the selected one) and Esc (empty it first).
+  if (inBox && !['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(k)) return;
+  // Typing elsewhere goes to the search box (the letter with it).
+  if (!inBox && H0 && k.length === 1 && k !== ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) { H0.find.focus({ preventScroll: true }); return; }
   e.preventDefault();
   e.stopPropagation();
-  if (k === 'Escape') return closeHistory();
+  if (k === 'Escape') {
+    if (inBox && H0.find.value) { H0.find.value = ''; findHistory('').catch(() => {}); return; }
+    return closeHistory();
+  }
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
   const H = state.hist;
   if (!H || !H.items.length) return;
@@ -3805,11 +3859,540 @@ function historyKey(e) {
   if (k === 'ContextMenu' || (k === 'F10' && e.shiftKey)) { if (!e.repeat) historyMenu(entry); return; }
   const cards = H.items.map((x) => x.card);
   if (k === 'ArrowRight' || k === 'ArrowLeft') return histSelect(H.sel + (k === 'ArrowRight' ? 1 : -1));
+  if (inBox && (k === 'ArrowDown' || k === 'ArrowUp')) return histSelect(H.sel + (k === 'ArrowDown' ? 1 : -1)); // one page at a time
   if (k === 'ArrowDown' || k === 'ArrowUp') {
     const j = cardToward(cards, H.sel, k === 'ArrowDown' ? 1 : -1);
     if (j >= 0) histSelect(j);
     else if (k === 'ArrowDown' && H.more) moreHistory().catch(() => {}); // past the last row: the next 50
   }
+}
+
+// A search box in the history's and the bookmarks' bar: a magnifier and the field. { box, input }.
+function searchField(testid, placeholder, aria) {
+  const box = h('label', 'bmvsearch', null, testid + '-box');
+  box.append(svgOf(ICON.zoom));
+  const input = h('input', '', null, testid);
+  input.type = 'search';
+  input.placeholder = placeholder;
+  input.setAttribute('aria-label', aria);
+  input.autocomplete = 'off';
+  input.spellcheck = false;
+  box.append(input);
+  return { box, input };
+}
+
+// ---- the bookmarks (the bookmark button beside History): every Chrome bookmark as a tree, over the switcher as the
+// history is. A folder opens and closes (click, ← →); a bookmark shows its preview (or its icon), its address and its
+// note. A click (Enter) opens it, Shift+click (Space) shows it big, its tick box (Ctrl+click, Ctrl+Space) picks it for
+// "Delete" in the bar. Its buttons: its note (a bookmark's own: kept by the bookmark, not by its address, so a tab's
+// note is another thing), big preview, Edit (F2), Delete (Del) and ⋯ with what else a page can have done to it. A
+// folder's: add a bookmark or a folder in it, open all, rename, delete (with what is in it; Undo brings it all back).
+// The box at the top finds bookmarks by name, site, address or note, and folders by name.
+const bookmarksOpen = () => !!document.querySelector('.bmv');
+const bmNoteOf = (id) => ((state.bmNotes || {})[id] || {}).n || '';
+async function openBookmarks() {
+  if (!chrome.bookmarks) return toast(t('ddNoMarks'));
+  closePops();
+  closeBig();
+  hideTip();
+  state.dd.hidden = true;
+  renderDropdown();
+  if (archiveOpen()) closeArchive();
+  if (historyOpen()) closeHistory();
+  const [tree, notes] = await Promise.all([chrome.bookmarks.getTree(), getBmNotes().catch(() => ({}))]);
+  if (state.done) return;
+  state.bmNotes = notes;
+  document.querySelectorAll('.bmv').forEach((n) => n.remove());
+  const back = h('div', 'arch bmv', null, 'bookmarks-overlay');
+  back.setAttribute('role', 'dialog');
+  back.setAttribute('aria-modal', 'true');
+  back.setAttribute('aria-labelledby', 'bmv-h');
+  back.addEventListener('click', (e) => e.stopPropagation());
+  const head = h('div', 'archhead', null, 'bookmarks-header');
+  const title = h('h2', 'archtitle', t('bmvTitle'), 'bookmarks-title');
+  title.id = 'bmv-h';
+  const count = h('span', 'n', '', 'bookmarks-count');
+  title.append(count);
+  const x = h('button', 'archx', null, 'bookmarks-close');
+  x.type = 'button';
+  x.append(svgOf(ICON.close));
+  x.title = t('bmvClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('bmvClose'));
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeBookmarks(); });
+  head.append(title, h('span', 'archsub', t('bmvSub'), 'bookmarks-sub'), x);
+  // the bar: the search box, Add bookmark, New folder; with bookmarks picked, how many and Delete / Clear
+  const tools = h('div', 'bmvtools', null, 'bookmarks-tools');
+  const find = searchField('bookmarks-search', t('bmvSearch'), t('bmvSearchAria'));
+  find.input.setAttribute('role', 'combobox');
+  find.input.setAttribute('aria-controls', 'bmv-tree');
+  find.input.setAttribute('aria-expanded', 'true');
+  // Each search selects its first bookmark found (the folders above it are only where it is).
+  find.input.addEventListener('input', () => {
+    const B = state.bmv;
+    B.q = find.input.value;
+    B.curId = null;
+    B.cur = 0;
+    drawBookmarks();
+    const first = B.rows.findIndex((r) => r.n.url);
+    if (B.q.trim() && first >= 0) bmvSelect(first);
+  });
+  const tool = (testid, icon, label, fn) => {
+    const b = h('button', 'act', null, testid);
+    b.type = 'button';
+    b.append(svgOf(ICON[icon]), h('span', '', label, testid + '-label'));
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); });
+    return b;
+  };
+  const add = tool('bookmarks-add', 'plus', t('bmvAdd'), () => bmvEdit(null, { parentId: bmvHere() }).catch((err) => toast(t('bmvErr'), err)));
+  const folder = tool('bookmarks-new-folder', 'folder', t('bmvNewFolder'), () => bmvEdit(null, { parentId: bmvHere(), folder: true }).catch((err) => toast(t('bmvErr'), err)));
+  const sel = h('div', 'bmvsel', null, 'bookmarks-selection');
+  const selN = h('span', '', '', 'bookmarks-selected');
+  sel.append(selN,
+    button('bookmarks-delete-selected', t('bmvDeleteSel'), 'small danger', () => bmvDelete([...state.bmv.picked].map((id) => state.bmv.byId.get(id))).catch((err) => toast(t('bmvErr'), err))),
+    button('bookmarks-clear-selected', t('bmvClearSel'), 'small quiet', () => { state.bmv.picked.clear(); drawBookmarks(); }));
+  tools.append(find.box, add, folder, sel);
+  const body = h('div', 'archbody', null, 'bookmarks-body');
+  const treeEl = h('div', 'bmvtree', null, 'bookmarks-tree');
+  treeEl.id = 'bmv-tree';
+  treeEl.setAttribute('role', 'tree');
+  treeEl.setAttribute('aria-labelledby', 'bmv-h');
+  treeEl.setAttribute('aria-multiselectable', 'true');
+  const empty = h('p', 'empty', '', 'bookmarks-empty');
+  body.append(empty, treeEl);
+  back.append(head, tools, body);
+  el.app.append(back);
+  const B = state.bmv = { back, body, tree: treeEl, empty, count, find: find.input, sel, selN, x, q: '', cur: 0, curId: null, rows: [], open: new Set(), picked: new Set(), previews: {}, byId: new Map(), tops: [] };
+  bmvIndex(B, tree);
+  B.tops.forEach((id) => B.open.add(id)); // the bar and Other bookmarks start open
+  drawBookmarks();
+  updateInert();
+  find.input.focus({ preventScroll: true });
+  loadBmvPreviews(B);
+}
+// The tree, by id: { id, parentId, title, url, kids (ids, in order), top (Chrome's own folders: fixed), dateAdded }.
+function bmvIndex(B, tree) {
+  B.byId = new Map();
+  B.tops = [];
+  const walk = (n) => {
+    const node = { id: n.id, parentId: n.parentId, title: n.title || '', url: n.url || '', dateAdded: n.dateAdded || 0, top: n.parentId === '0', fixed: n.parentId === '0' || !!n.unmodifiable, kids: [] };
+    B.byId.set(n.id, node);
+    for (const c of n.children || []) { node.kids.push(c.id); walk(c); }
+  };
+  for (const top of (tree[0] && tree[0].children) || []) { B.tops.push(top.id); walk(top); }
+}
+async function loadBmvPreviews(B) {
+  const urls = [...B.byId.values()].filter((n) => n.url).map((n) => n.url);
+  const previews = await getPreviews(urls).catch(() => ({}));
+  if (state.bmv !== B) return;
+  B.previews = previews;
+  drawBookmarks();
+}
+// After a change: the tree read again; what was open, picked and selected stays so (if it still is there).
+async function reloadBookmarks() {
+  const B = state.bmv;
+  state.marks = null; // the search reads them again
+  if (!B) return;
+  const tree = await chrome.bookmarks.getTree();
+  if (state.bmv !== B) return;
+  bmvIndex(B, tree);
+  for (const id of [...B.picked]) if (!B.byId.has(id)) B.picked.delete(id);
+  drawBookmarks();
+  loadBmvPreviews(B);
+}
+// A bookmark as an entry (what the menu, the big preview, a star and a snooze read), kept with its node.
+function bmEntry(n) {
+  const B = state.bmv;
+  const preview = (B && B.previews[normalizeUrl(n.url)]) || null;
+  if (!n.entry) n.entry = { kind: 'bmk', key: 'b' + n.id, url: n.url, node: n, item: { url: n.url, title: n.title, ts: n.dateAdded, session: null, fields: [[n.title, n.url]] } };
+  n.entry.preview = preview;
+  return n.entry;
+}
+// The rows shown, in order: each folder's contents while it is open; searching, the matches and their folders.
+function bmvRows() {
+  const B = state.bmv, q = B.q.trim();
+  const rows = [];
+  if (!q) {
+    const walk = (id, depth) => { const n = B.byId.get(id); rows.push({ n, depth }); if (!n.url && B.open.has(id)) n.kids.forEach((k) => walk(k, depth + 1)); };
+    B.tops.forEach((id) => walk(id, 0));
+    return rows;
+  }
+  const hit = new Set();
+  for (const n of B.byId.values()) {
+    if (n.top) continue;
+    const found = n.url ? matches(q, n.title, n.url, hostOf(n.url), bmNoteOf(n.id)) : matches(q, n.title);
+    if (!found) continue;
+    hit.add(n.id);
+    for (let p = B.byId.get(n.parentId); p; p = B.byId.get(p.parentId)) hit.add(p.id);
+  }
+  const walk = (id, depth) => { if (!hit.has(id)) return; const n = B.byId.get(id); rows.push({ n, depth }); if (!n.url) n.kids.forEach((k) => walk(k, depth + 1)); };
+  B.tops.forEach((id) => walk(id, 0));
+  return rows;
+}
+function drawBookmarks() {
+  const B = state.bmv;
+  if (!B) return;
+  B.rows = bmvRows();
+  const at = B.curId ? B.rows.findIndex((r) => r.n.id === B.curId) : -1;
+  B.cur = at >= 0 ? at : Math.max(0, Math.min(B.cur, B.rows.length - 1));
+  B.tree.replaceChildren(...B.rows.map(bmvRow));
+  const marks = [...B.byId.values()].filter((n) => n.url).length;
+  B.count.textContent = String(marks);
+  const searching = !!B.q.trim();
+  const shown = searching ? B.rows.some((r) => r.n.url || !r.n.top) : marks > 0 || B.rows.length > B.tops.length;
+  B.empty.textContent = t(searching ? 'bmvNoMatch' : 'bmvEmpty');
+  B.empty.hidden = shown;
+  B.sel.hidden = !B.picked.size;
+  B.selN.textContent = t('bmvSelected', { count: B.picked.size });
+  B.back.classList.toggle('picking', B.picked.size > 0);
+  bmvSelect(B.cur, false);
+}
+function bmvRow({ n, depth }, i) {
+  const B = state.bmv;
+  const searching = !!B.q.trim();
+  const open = !n.url && (searching || B.open.has(n.id));
+  const row = h('div', 'bmvrow ' + (n.url ? 'mark' : 'folder') + (!n.url && !open ? ' shut' : '') + (B.picked.has(n.id) ? ' picked' : ''), null, n.url ? 'bmv-mark' : 'bmv-folder');
+  row.id = 'bmv-' + n.id;
+  row.setAttribute('role', 'treeitem');
+  row.setAttribute('aria-level', String(depth + 1));
+  row.setAttribute('aria-selected', 'false');
+  row.style.setProperty('--d', depth);
+  const title = n.title || (n.url ? hostOf(n.url) : '') || t('untitled');
+  const acts = h('div', 'bmvacts', null, 'bmv-actions');
+  const act = (testid, icon, label, fn, cls = '') => {
+    const b = h('button', 'qbtn' + cls, null, testid);
+    b.type = 'button';
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    b.append(svgOf(ICON[icon]));
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) { B.curId = n.id; bmvSelect(i, false); Promise.resolve(fn(b)).catch((err) => toast(t('bmvErr'), err)); } });
+    return b;
+  };
+  const more = act('quick-more', 'more', t('cardMenu'), (b) => bmvMenu(n, { anchor: b }));
+  more.setAttribute('aria-haspopup', 'menu');
+  if (!n.url) {
+    row.setAttribute('aria-expanded', String(open));
+    const chev = h('span', 'bmvchev', null, 'bmv-chevron');
+    chev.append(svgOf(ICON.chevron));
+    const ic = h('span', 'bmvfold', null, 'bmv-folder-icon');
+    ic.append(svgOf(ICON.folder));
+    row.append(chev, ic, h('span', 'bmvtitle', title, 'bmv-title'), h('span', 'tag', t('bmvItems', { count: n.kids.length }), 'bmv-count'));
+    acts.append(act('bmv-add-here', 'plus', t('bmvAddHere'), () => bmvEdit(null, { parentId: n.id })));
+    if (!n.fixed) acts.append(act('bmv-rename', 'brush', t('bmvRename'), () => bmvEdit(n)), act('bmv-delete', 'trash', t('bmvDeleteFolder'), () => bmvDelete([n]), ' del'));
+    acts.append(more);
+    row.append(acts);
+    row.title = title;
+  } else {
+    const pick = h('button', 'bmvpick' + (B.picked.has(n.id) ? ' on' : ''), null, 'bmv-pick');
+    pick.type = 'button';
+    pick.setAttribute('role', 'checkbox');
+    pick.setAttribute('aria-checked', String(B.picked.has(n.id)));
+    pick.setAttribute('aria-label', t('bmvSelect'));
+    pick.append(svgOf(ICON.check));
+    pick.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) bmvPick(n.id); });
+    const entry = bmEntry(n);
+    const pic = h('div', 'bmvpic', null, 'bmv-picture');
+    const img = h('img', entry.preview && entry.preview.img ? 'shot' : 'fav', null, entry.preview && entry.preview.img ? 'bmv-preview' : 'bmv-favicon');
+    img.src = entry.preview && entry.preview.img ? entry.preview.img : favicon(n.url);
+    img.alt = '';
+    pic.append(img);
+    const text = h('div', 'bmvtext', null, 'bmv-text');
+    const note = bmNoteOf(n.id);
+    const noteLine = h('span', 'bmvnote', note, 'bmv-note-text');
+    noteLine.hidden = !note;
+    text.append(h('span', 'bmvtitle', title, 'bmv-title'), h('span', 'bmvsub', siteOf(n.url) || n.url, 'bmv-address'), noteLine);
+    const noteBtn = act('quick-note', 'note', t('noteAdd'), (b) => bmvNote(n, b), ' note');
+    paintNote(noteBtn, note);
+    noteBtn.addEventListener('mouseenter', () => noteTip(noteBtn));
+    noteBtn.addEventListener('mouseleave', hideTipSoon);
+    acts.append(noteBtn, act('quick-big', 'expand', t('historyBig'), () => openBig(bmEntry(n))), act('bmv-edit', 'brush', t('bmvEdit'), () => bmvEdit(n)),
+      act('bmv-delete', 'trash', t('bmvDelete'), () => bmvDelete([n]), ' del'), more);
+    row.append(pick, pic, text, acts);
+    row.title = t('bmvOpenTip', { title }) + '\n' + n.url;
+  }
+  mouseOnly(row);
+  row.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!pointerAllowed()) return;
+    B.curId = n.id;
+    if (!n.url) return bmvToggle(n.id);
+    if (e.ctrlKey || e.metaKey) return bmvPick(n.id);
+    if (e.shiftKey) { bmvSelect(i, false); return openBig(bmEntry(n)); }
+    openPage(n.url);
+  });
+  row.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!pointerAllowed()) return;
+    B.curId = n.id;
+    bmvSelect(i, false);
+    bmvMenu(n, { at: { x: e.clientX, y: e.clientY } });
+  });
+  return row;
+}
+function bmvSelect(i, scroll = true) {
+  const B = state.bmv;
+  if (!B) return;
+  const rows = [...B.tree.children];
+  if (!rows.length) { B.find.removeAttribute('aria-activedescendant'); return; }
+  B.cur = Math.max(0, Math.min(rows.length - 1, i));
+  B.curId = B.rows[B.cur].n.id;
+  rows.forEach((r, k) => r.setAttribute('aria-selected', String(k === B.cur)));
+  B.tree.setAttribute('aria-activedescendant', rows[B.cur].id);
+  B.find.setAttribute('aria-activedescendant', rows[B.cur].id);
+  if (scroll) rows[B.cur].scrollIntoView({ block: 'nearest' });
+}
+function bmvToggle(id, open = null) {
+  const B = state.bmv;
+  if (B.q.trim()) return; // searching, every folder with a match is open
+  const on = open === null ? !B.open.has(id) : open;
+  if (on) B.open.add(id); else B.open.delete(id);
+  B.curId = id;
+  drawBookmarks();
+}
+function bmvPick(id) {
+  const B = state.bmv;
+  if (B.picked.has(id)) B.picked.delete(id); else B.picked.add(id);
+  B.curId = id;
+  drawBookmarks();
+}
+// The folder a new bookmark or folder goes into: the selected folder, or the selected bookmark's; else Other bookmarks.
+function bmvHere() {
+  const B = state.bmv;
+  const r = B.rows[B.cur];
+  if (r) return r.n.url ? r.n.parentId : r.n.id;
+  return B.tops.find((id) => /other/i.test(id)) || B.tops[1] || B.tops[0];
+}
+function closeBookmarks() {
+  closePops();
+  document.querySelectorAll('.bmv').forEach((n) => n.remove());
+  state.bmv = null;
+  updateInert();
+  $('bookmarks-btn').focus({ preventScroll: true });
+}
+// A bookmark's note: the note card, writing to the bookmark's own notes (not the page's).
+function bmvNote(n, anchor) {
+  notePopover(n.url, anchor, {
+    label: t('bmvNoteTitle'), hint: t('bmvNoteHint'), get: () => bmNoteOf(n.id),
+    set: async (text) => {
+      state.bmNotes = await setBmNote(n.id, text, n.url);
+      const row = document.getElementById('bmv-' + n.id);
+      const line = row && row.querySelector('[data-testid="bmv-note-text"]');
+      if (line) { line.textContent = bmNoteOf(n.id); line.hidden = !line.textContent; }
+    },
+  });
+}
+// What it takes to put deleted bookmarks back (Undo): each with its place, its note, and a folder's contents.
+function bmvSnap(n) {
+  const B = state.bmv;
+  const parent = B.byId.get(n.parentId);
+  const snap = (m, index) => ({ title: m.title, url: m.url, parentId: m.parentId, index, note: m.url ? bmNoteOf(m.id) : '', kids: m.url ? null : m.kids.map((k, i) => snap(B.byId.get(k), i)) });
+  return snap(n, parent ? parent.kids.indexOf(n.id) : 0);
+}
+const bmvMarksIn = (n) => (n.url ? [n] : n.kids.flatMap((k) => bmvMarksIn(state.bmv.byId.get(k))));
+// Delete bookmarks and folders (a folder with all it holds). Undo makes them again, where they were, notes and all.
+async function bmvDelete(nodes) {
+  const B = state.bmv;
+  if (!B) return;
+  nodes = nodes.filter((n) => n && !n.fixed);
+  const ids = new Set(nodes.map((n) => n.id));
+  nodes = nodes.filter((n) => { for (let p = B.byId.get(n.parentId); p; p = B.byId.get(p.parentId)) if (ids.has(p.id)) return false; return true; }); // (inside a folder that goes too)
+  if (!nodes.length) return;
+  const snaps = nodes.map(bmvSnap);
+  const marks = nodes.flatMap(bmvMarksIn);
+  const row = B.rows.findIndex((r) => ids.has(r.n.id));
+  for (const n of nodes) await (n.url ? chrome.bookmarks.remove(n.id) : chrome.bookmarks.removeTree(n.id));
+  if (marks.some((m) => bmNoteOf(m.id))) state.bmNotes = await putBmNotes(Object.fromEntries(marks.map((m) => [m.id, null])));
+  marks.forEach((m) => B.picked.delete(m.id));
+  B.curId = null;
+  B.cur = Math.max(0, row);
+  await reloadBookmarks();
+  const one = nodes.length === 1 && !nodes[0].url;
+  toast(one ? t('bmvFolderDeleted', { name: nodes[0].title || t('untitled') }) : t('bmvDeleted', { count: marks.length }), null, { label: t('undo'), fn: async () => { await bmvRestore(snaps); await reloadBookmarks(); } });
+}
+async function bmvRestore(snaps) {
+  const notes = {};
+  const make = async (s, parentId, index) => {
+    const made = await chrome.bookmarks.create({ parentId, index, title: s.title, ...(s.url ? { url: s.url } : {}) });
+    if (s.url && s.note) notes[made.id] = { n: s.note, u: s.url };
+    for (const [i, c] of (s.kids || []).entries()) await make(c, made.id, i);
+  };
+  for (const s of [...snaps].sort((a, b) => a.index - b.index)) await make(s, s.parentId, s.index);
+  if (Object.keys(notes).length) state.bmNotes = await putBmNotes(notes);
+}
+// An address as typed ("example.com"): with https:// when it has no scheme; '' when it isn't one.
+function webAddress(text) {
+  let u = String(text || '').trim();
+  if (!u) return '';
+  if (!/^[a-z][\w+.-]*:/i.test(u)) u = 'https://' + u;
+  try { return new URL(u).href; } catch { return ''; }
+}
+// Edit a bookmark (name, address, folder) or a folder (name, where it is); with no node, add one into `parentId`
+// (a new bookmark starts as the page Tabazing was opened over).
+async function bmvEdit(n = null, { parentId = null, folder = false } = {}) {
+  const B = state.bmv;
+  if (!B || (n && n.fixed)) return;
+  const isFolder = n ? !n.url : folder;
+  const tree = await chrome.bookmarks.getTree();
+  if (state.done || state.bmv !== B) return;
+  const inside = (id) => { for (let p = B.byId.get(id); p; p = B.byId.get(p.parentId)) if (n && p.id === n.id) return true; return false; };
+  const folders = markFolders(tree).filter((f) => !(n && !n.url && inside(f.id)));
+  const form = h('form', 'bmform', null, 'bmv-edit-form');
+  const h3 = h('h3', '', t(n ? (isFolder ? 'bmvRenameTitle' : 'bmvEditTitle') : (isFolder ? 'bmvFolderTitle' : 'bmvAddTitle')), 'dialog-title');
+  h3.id = 'dlg-title';
+  form.append(h3);
+  const field = (testid, label, value) => {
+    const l = h('label', 'bmlabel', label, testid + '-label');
+    const input = h('input', 'bminput', null, testid);
+    input.id = 'f-' + testid;
+    l.htmlFor = input.id;
+    input.value = value;
+    input.maxLength = 2000;
+    input.spellcheck = false;
+    form.append(l, input);
+    return input;
+  };
+  const page = !n && !isFolder ? srcTab() : null;
+  const usable = page && !isOwnUrl(urlOf(page)) && /^(https?|file|ftp):/i.test(urlOf(page));
+  const name = field('bmv-edit-name', t('bmvName'), n ? n.title : usable ? page.title || '' : '');
+  const url = isFolder ? null : field('bmv-edit-url', t('bmvUrl'), n ? n.url : usable ? urlOf(page) : '');
+  if (url) url.type = 'url';
+  const fl = h('label', 'bmlabel', t('bmvFolder'), 'bmv-edit-folder-label');
+  const sel = h('select', '', null, 'bmv-edit-folder');
+  sel.id = 'f-bmv-edit-folder';
+  fl.htmlFor = sel.id;
+  sel.setAttribute('aria-label', t('bmvFolder'));
+  const start = n ? n.parentId : parentId;
+  for (const f of folders) { const o = h('option', '', f.path, 'bmv-edit-folder-option'); o.value = f.id; sel.append(o); }
+  sel.value = folders.some((f) => f.id === start) ? start : (folders.find((f) => f.other) || folders[0] || {}).id || '';
+  form.append(fl, sel);
+  const err = h('p', 'perr', '', 'bmv-edit-error');
+  err.hidden = true;
+  const row = h('div', 'row', null, 'bmv-edit-buttons');
+  const save = h('button', 'btn primary', t('bmvSave'), 'bmv-edit-save');
+  save.type = 'submit';
+  row.append(h('span', 'grow', null, 'bmv-edit-spacer'), button('bmv-edit-cancel', t('cancel'), 'quiet', closeDialog), save);
+  form.append(err, row);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!pointerAllowed()) return;
+    const title = name.value.trim();
+    const address = url ? (n && url.value.trim() === n.url ? n.url : webAddress(url.value)) : '';
+    if (url && !address) { err.textContent = t('bmvBadUrl'); err.hidden = false; url.focus(); return; }
+    if (isFolder && !title) { name.focus(); return; }
+    save.disabled = true;
+    try {
+      const to = sel.value;
+      if (n) {
+        await chrome.bookmarks.update(n.id, isFolder ? { title } : { title, url: address });
+        if (to && to !== n.parentId) await chrome.bookmarks.move(n.id, { parentId: to });
+        B.curId = n.id;
+      } else {
+        const made = await chrome.bookmarks.create({ parentId: to, title: title || (address ? siteOf(address) : ''), ...(isFolder ? {} : { url: address }) });
+        B.curId = made.id;
+      }
+      for (let p = B.byId.get(to); p; p = B.byId.get(p.parentId)) B.open.add(p.id); // where it went is shown
+      if (B.q) { B.q = ''; B.find.value = ''; }
+      closeDialog();
+      await reloadBookmarks();
+      bmvSelect(B.cur);
+    } catch (x) { save.disabled = false; toast(t('bmvErr'), x); }
+  });
+  showDialog('bmedit', [form]);
+  fancySelect(sel);
+  name.focus({ preventScroll: true });
+  name.select();
+}
+// A bookmark's ⋯ (a right-click, Shift+F10): open it (here, a new window, behind), see it big, copy, star, its note,
+// snooze, pick it, edit, delete. A folder's: add a bookmark or a folder in it, open all, rename, delete.
+function bmvMenu(n, { anchor = null, at = null } = {}) {
+  const B = state.bmv;
+  const row = document.getElementById('bmv-' + n.id);
+  if (!B || !row) return;
+  if (at) anchor = row;
+  else if (!anchor) anchor = row.querySelector('[data-testid="quick-more"]') || row;
+  const items = [];
+  if (n.url) {
+    const entry = bmEntry(n), c = entry.item;
+    const noteBtn = row.querySelector('[data-testid="quick-note"]');
+    items.push(
+      { icon: 'goto', label: t('historyOpen'), fn: () => openPage(n.url) },
+      { icon: 'window', label: t('historyNewWindow'), err: t('actFailed'), fn: () => reopenInWindow(c) },
+      { icon: 'tab', label: t('historyBehind'), err: t('actFailed'), fn: () => historyBehind(c) },
+      { icon: 'expand', label: t('historyBig'), fn: () => openBig(entry) },
+      null,
+      { icon: 'link', label: t('copyLink'), err: t('copyFailed'), fn: () => copyLinks([{ title: n.title, url: n.url }], 'plain') },
+      { icon: 'star', label: t(isStarred(n.url) ? 'unstar' : 'star'), fn: () => star(entry) },
+      { icon: 'note', label: t(bmNoteOf(n.id) ? 'noteEdit' : 'noteAdd'), fn: () => bmvNote(n, noteBtn || anchor) },
+      { icon: 'clock', label: t('historySnooze'), err: t('errSnooze'), fn: () => snoozeMenu([], anchor, (when) => snoozeClosed(c, when)) },
+      null,
+      { icon: 'check', label: t(B.picked.has(n.id) ? 'bmvUnselect' : 'bmvSelect'), fn: () => bmvPick(n.id) },
+      { icon: 'brush', label: t('bmvEdit'), err: t('bmvErr'), fn: () => bmvEdit(n) },
+      { icon: 'trash', label: t('bmvDelete'), danger: true, err: t('bmvErr'), fn: () => bmvDelete([n]) },
+    );
+  } else {
+    const marks = bmvMarksIn(n).filter((m) => /^(https?|file|ftp):/i.test(m.url));
+    items.push({ icon: 'plus', label: t('bmvAddHere'), err: t('bmvErr'), fn: () => bmvEdit(null, { parentId: n.id }) },
+      { icon: 'folder', label: t('bmvFolderHere'), err: t('bmvErr'), fn: () => bmvEdit(null, { parentId: n.id, folder: true }) });
+    if (marks.length) items.push({ icon: 'tab', label: t('bmvOpenAll', { count: marks.length }), err: t('actFailed'), fn: () => bmvOpenAll(marks) });
+    if (!n.fixed) items.push(null, { icon: 'brush', label: t('bmvRename'), err: t('bmvErr'), fn: () => bmvEdit(n) },
+      { icon: 'trash', label: t('bmvDeleteFolder'), danger: true, err: t('bmvErr'), fn: () => bmvDelete([n]) });
+  }
+  menu(anchor, items, { back: B.find, at });
+}
+// A folder's "Open all": its bookmarks as tabs behind Tabazing, which stays (they join the open tabs).
+async function bmvOpenAll(marks) {
+  for (const m of marks) await chrome.tabs.create({ url: m.url, windowId: CTX.srcWin, active: false });
+  toast(t('openedN', { count: marks.length }));
+  await reload();
+}
+// While the bookmarks are open they have the keyboard: the search box types; ↑ ↓ move through the rows from
+// anywhere, ← → close / open a folder (or go to its parent / first row) unless they move the caret in the box;
+// Enter opens (a folder: opens or closes it); outside the box Space shows a bookmark big, Ctrl+Space picks it, Del
+// deletes (the picked ones, or the selected row), F2 edits, Shift+F10 is the menu; Esc empties the box, then closes.
+function bmvKey(e) {
+  const k = e.key, B = state.bmv;
+  const target = e.target instanceof Element ? e.target : null;
+  if (!B || (target && target.closest('.menu, .pop'))) return;
+  if (MODIFIERS.has(k)) return;
+  const inBox = target === B.find;
+  if (target && target.closest('.bmvtools button') && (k === 'Enter' || k === ' ')) return; // the bar's buttons press
+  const stop = () => { e.preventDefault(); e.stopPropagation(); };
+  if (k === 'Escape') {
+    stop();
+    if (B.find.value) { B.find.value = ''; B.q = ''; drawBookmarks(); B.find.focus({ preventScroll: true }); return; }
+    return closeBookmarks();
+  }
+  if (k === 'ArrowDown' || k === 'ArrowUp') { stop(); return bmvSelect(B.cur + (k === 'ArrowDown' ? 1 : -1)); }
+  const r = B.rows[B.cur];
+  if ((k === 'ArrowRight' || k === 'ArrowLeft') && !(inBox && B.find.value)) {
+    stop();
+    if (!r) return;
+    const n = r.n, open = !n.url && (B.q.trim() || B.open.has(n.id));
+    if (k === 'ArrowRight') { if (!n.url && !open) return bmvToggle(n.id, true); if (!n.url && n.kids.length) return bmvSelect(B.cur + 1); return; }
+    if (!n.url && open && !B.q.trim()) return bmvToggle(n.id, false);
+    const up = B.rows.findIndex((x) => x.n.id === n.parentId);
+    if (up >= 0) bmvSelect(up);
+    return;
+  }
+  if (k === 'Enter') {
+    stop();
+    if (!r) return;
+    if (!r.n.url) return bmvToggle(r.n.id);
+    if (!keysAllowed()) return finish('cancel');
+    return openPage(r.n.url);
+  }
+  if (k === ' ' && (e.ctrlKey || e.metaKey)) { stop(); if (r && r.n.url) bmvPick(r.n.id); return; }
+  if (inBox) return; // the rest is typing
+  if (k === ' ') { stop(); if (!r) return; return r.n.url ? openBig(bmEntry(r.n)) : bmvToggle(r.n.id); }
+  if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
+    stop();
+    if (e.repeat || !r) return;
+    return bmvDelete(B.picked.size ? [...B.picked].map((id) => B.byId.get(id)) : [r.n]).catch((err) => toast(t('bmvErr'), err));
+  }
+  if (k === 'F2') { stop(); if (r) bmvEdit(r.n).catch((err) => toast(t('bmvErr'), err)); return; }
+  if (k === 'ContextMenu' || (k === 'F10' && e.shiftKey)) { stop(); if (r && !e.repeat) bmvMenu(r.n); return; }
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { stop(); if (!e.repeat) toastUndo(); return; }
+  if (k.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) B.find.focus({ preventScroll: true }); // typing goes to the box
 }
 
 // The quick buttons on a tab's card (shown on hover): the ones used most, pin,
@@ -3994,7 +4577,11 @@ function hideTipSoon() {
 // Click the note button: a small card with a text box opens below it. Closing it (click elsewhere,
 // Esc, or the button again) saves what is written; it is also saved while typing, because picking
 // a tab closes Tabazing straight away. An empty box removes the note.
-function notePopover(url, anchor) {
+// `io`: whose note it is, for a bookmark's (kept by the bookmark: { get, set, label, hint }); else the page's (url).
+function notePopover(url, anchor, io = null) {
+  const get = io ? io.get : () => noteOf(url);
+  const put = io ? io.set : (text) => setNote(url, text).then((notes) => { state.notes = notes; });
+  const label = io ? io.label : t('noteTitle');
   const open = document.querySelector('.notepop');
   closePops();
   if (open && open.anchor === anchor) return; // the same button again: just close it
@@ -4003,12 +4590,12 @@ function notePopover(url, anchor) {
   // × goes back to what had the focus: its note button (clicked), or the search box (the card's menu).
   const back = document.activeElement && document.activeElement !== document.body ? document.activeElement : el.search;
   pop.setAttribute('role', 'dialog');
-  pop.setAttribute('aria-label', t('noteTitle'));
+  pop.setAttribute('aria-label', label);
   const box = h('textarea', '', null, 'note-input');
-  box.value = noteOf(url);
+  box.value = get();
   box.placeholder = t('notePh');
   box.maxLength = LIMITS.NOTE_MAX;
-  box.setAttribute('aria-label', t('noteTitle'));
+  box.setAttribute('aria-label', label);
   // Top right: "Clear" (red; removes the note, the card stays open to write a new one; shown while there is
   // text), then × (closes the card, keeping what was written).
   const clear = h('button', 'noteclear', t('noteClearBtn'), 'note-clear');
@@ -4024,8 +4611,8 @@ function notePopover(url, anchor) {
   x.addEventListener('click', (e) => { e.stopPropagation(); pop.close(); (back.isConnected ? back : el.search).focus({ preventScroll: true }); });
   const tools = h('div', 'notetools', null, 'note-tools');
   tools.append(clear, x);
-  pop.append(h('label', '', t('noteTitle'), 'note-label'), tools, box, h('p', 'pfine', t('noteHint'), 'note-hint'));
-  const save = () => setNote(url, box.value).then((notes) => { state.notes = notes; paintNote(anchor, noteOf(url)); }).catch(() => {});
+  pop.append(h('label', '', label, 'note-label'), tools, box, h('p', 'pfine', io ? io.hint : t('noteHint'), 'note-hint'));
+  const save = () => put(box.value).then(() => paintNote(anchor, get())).catch(() => {});
   let timer = null;
   box.addEventListener('input', () => { clear.hidden = !box.value; clearTimeout(timer); timer = setTimeout(save, 400); });
   const outside = (e) => { if (!pop.contains(e.target) && e.target !== anchor && !anchor.contains(e.target)) pop.close(); };
@@ -4103,7 +4690,7 @@ function closeBig() {
   if (bigEntry) { // the focus back where it was: the history, or the search box
     const was = bigEntry;
     bigEntry = null;
-    (was.kind === 'hist' && state.hist && historyOpen() ? state.hist.x : el.search).focus({ preventScroll: true });
+    (was.kind === 'hist' && state.hist && historyOpen() ? state.hist.x : was.kind === 'bmk' && state.bmv && bookmarksOpen() ? state.bmv.find : el.search).focus({ preventScroll: true });
   }
 }
 
@@ -4112,7 +4699,7 @@ function closeBig() {
 // regions, or a select's list (a menu: Settings opens them over itself).
 function updateInert() {
   const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .setback')
-    || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || (state.palette && el.palette);
+    || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || (state.palette && el.palette);
   for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu') && !n.classList.contains('pop'));
 }
 
@@ -4125,7 +4712,7 @@ function tabbables(root) {
 }
 function focusLayer() {
   return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
-    || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || el.app;
+    || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
   const root = focusLayer();
@@ -4517,6 +5104,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   hideTip();
   if (archiveOpen()) closeArchive();
   if (historyOpen()) closeHistory();
+  if (bookmarksOpen()) closeBookmarks();
   if (state.modal) closeDialog();
   stopHolding();
   state.palette = { from, saved, hi: 0, items: [] };
@@ -4645,7 +5233,7 @@ function showDialog(kind, nodes) {
   el.modal.hidden = false;
   el.modal.classList.toggle('tour', kind === 'tour');
   el.dialog.classList.toggle('manual', kind === 'tour');
-  el.dialog.classList.toggle('bm', kind === 'bookmark');
+  el.dialog.classList.toggle('bm', kind === 'bookmark' || kind === 'bmedit');
   updateInert();
   const first = el.dialog.querySelector('textarea, .primary') || el.dialog.querySelector('button');
   if (first) first.focus({ preventScroll: true });
@@ -5452,6 +6040,7 @@ async function firstRun() {
 // While a dialog is open it takes the keyboard: Esc closes it, the tour has arrow keys,
 // everything else (Tab, Enter, typing in the feedback box) works on the dialog itself.
 function dialogKey(e) {
+  if (e.target instanceof Element && e.target.closest('.menu')) return; // a select's list over the dialog: its own keys
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return state.modal === 'tour' ? endTour() : askLater(); }
   if (state.modal === 'tour' && !e.altKey && !e.ctrlKey && !e.metaKey) {
     if (e.key === 'ArrowRight') { e.preventDefault(); tourAt < TOUR.length - 1 ? tourStep(tourAt + 1) : endTour(); }
@@ -5484,20 +6073,26 @@ function onKeyDown(e) {
       e.preventDefault();
       const en = bigEntry, i = state.entries.indexOf(en);
       closeBig();
-      if (en.kind === 'hist') { if (keysAllowed()) openPage(en.url); else finish('cancel'); } else if (i >= 0) choose(i);
+      if (en.kind === 'hist' || en.kind === 'bmk') { if (keysAllowed()) openPage(en.url); else finish('cancel'); } else if (i >= 0) choose(i);
     }
     else if (e.key === ' ') { e.preventDefault(); closeBig(); } // Space again: close
     else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { // the next / previous card's preview
       e.preventDefault();
       const hist = bigEntry.kind === 'hist' && state.hist;
-      const list = hist ? state.hist.items : state.entries;
+      const bmk = bigEntry.kind === 'bmk' && state.bmv;
+      const list = hist ? state.hist.items : bmk ? state.bmv.rows.filter((r) => r.n.url).map((r) => bmEntry(r.n)) : state.entries;
       const n = list.length, i = list.indexOf(bigEntry);
-      if (n && i >= 0) { const j = (((i + (e.key === 'ArrowRight' ? 1 : -1)) % n) + n) % n; if (hist) histSelect(j); else select(j); openBig(list[j]); }
+      if (n && i >= 0) {
+        const j = (((i + (e.key === 'ArrowRight' ? 1 : -1)) % n) + n) % n;
+        if (hist) histSelect(j); else if (bmk) bmvSelect(state.bmv.rows.findIndex((r) => r.n === list[j].node)); else select(j);
+        openBig(list[j]);
+      }
     }
     else if (!MODIFIERS.has(e.key)) e.preventDefault();
     return;
   }
   if (state.modal) return dialogKey(e);
+  if (bookmarksOpen()) return bmvKey(e);
   if (historyOpen()) return historyKey(e);
   if (archiveOpen()) return archiveKey(e);
   if (settingsOpen()) return settingsKey(e);
@@ -5641,7 +6236,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || bookmarksOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -5754,6 +6349,7 @@ function listen() {
   on($('settings-btn'), (e) => openSettings(e.currentTarget));
   on($('archive-btn'), () => openArchive().catch((err) => toast(t('errArchiveOpen'), err)));
   on($('history-btn'), () => openHistory().catch((err) => toast(t('actFailed'), err)));
+  on($('bookmarks-btn'), () => openBookmarks().catch((err) => toast(t('bmvErr'), err)));
   on(el.keysBtn, () => openShortcuts());
   on($('github-btn'), () => openUrl(REPO_URL)); // a new tab, beside the page Tabazing was opened from
   on(el.dupesBtn, closeDupes);
@@ -5980,7 +6576,8 @@ export {
   clearDrop, dropAfter, dragToMove, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
-  historyOpen, openHistory, moreHistory, historyCard, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton,
+  historyOpen, openHistory, moreHistory, historyCard, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
+  bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
   openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,

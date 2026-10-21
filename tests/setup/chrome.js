@@ -298,15 +298,34 @@ const chrome = {
       if (!parent || !parent.children) throw new Error("Can't find parent bookmark for id.");
       const n = { id: String(D.nextMark++), parentId: parent.id, title: p.title || '', dateAdded: Date.now() };
       if (p.url) n.url = p.url; else n.children = [];
-      parent.children.push(n);
+      const at = p.index === undefined ? parent.children.length : Math.max(0, Math.min(p.index, parent.children.length));
+      parent.children.splice(at, 0, n);
       const { children, ...rest } = n;
-      return { ...rest, index: parent.children.length - 1 };
+      return { ...rest, index: at };
     }),
     remove: vi.fn(async (id) => {
       const n = findMark(id);
       if (!n) throw new Error("Can't find bookmark for id.");
+      if (n.children && n.children.length) throw new Error("Can't remove non-empty folder (use recursive to force).");
       const parent = findMark(n.parentId);
       parent.children = parent.children.filter((c) => c !== n);
+    }),
+    removeTree: vi.fn(async (id) => {
+      const n = findMark(id);
+      if (!n) throw new Error("Can't find bookmark for id.");
+      const parent = findMark(n.parentId);
+      parent.children = parent.children.filter((c) => c !== n);
+    }),
+    move: vi.fn(async (id, p = {}) => {
+      const n = findMark(id);
+      if (!n) throw new Error("Can't find bookmark for id.");
+      const from = findMark(n.parentId), to = findMark(p.parentId ?? n.parentId);
+      from.children = from.children.filter((c) => c !== n);
+      const at = p.index === undefined ? to.children.length : Math.max(0, Math.min(p.index, to.children.length));
+      to.children.splice(at, 0, n);
+      n.parentId = to.id;
+      const { children, ...rest } = n;
+      return { ...rest, index: at };
     }),
     // { url }: the bookmarks of exactly that address; a string: those whose title or address has it.
     search: vi.fn(async (q) => {

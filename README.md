@@ -307,7 +307,9 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 ### History
 
-The **clock** button right of Settings opens your Chrome browsing history over the switcher, newest first.
+The **clock** button right of New tab opens your Chrome browsing history over the switcher, newest first.
+
+- **Search** with the box at the top: it finds pages by title, site, address or the note you left on the page (a closed tab keeps its note), forgiving typos. It looks through your newest 5000 visits and whatever Chrome's own history search finds further back.
 
 - It shows **50 pages** at a time; **Show 50 more** at the bottom (or **↓** past the last row) adds the next 50.
 - Each page is a card with its **preview** when Tabazing has one, and otherwise just the **page's icon**.
@@ -316,6 +318,17 @@ The **clock** button right of Settings opens your Chrome browsing history over t
 - **Remove from history:** the card's **trash** button, or **Del** (⌘⌫). This removes every visit to that page from Chrome's history.
 - **⋯** (or right-click, or Shift+F10): **Open**, **Open in a new window**, **Open in the background** (Tabazing stays), **Big preview**, **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: open it later**, **Archive** and **Remove from history**.
 - Close it with **Esc** or its ×.
+
+### Bookmarks
+
+The **bookmark** button (right of New tab, after History) opens all your Chrome bookmarks as a tree over the switcher.
+
+- **Folders** open and close with a click, or **→ / ←**. Chrome's own folders (the bookmarks bar, Other bookmarks) start open.
+- Each **bookmark** shows its **preview** when Tabazing has one (otherwise its icon), its site, and its **note**. Click it (or **Enter**) to open it: its tab if one is open, otherwise a new tab. **Shift+click** or **Space**, or its expand button, shows it big.
+- **Search** with the box at the top: it finds bookmarks by name, site, address or note, and folders by name, forgiving typos. The folders around each match are shown with it. **Esc** empties the box, then closes the view.
+- **Notes on bookmarks** are the bookmark's own. They stay with the bookmark even if you change its address, and they are separate from the notes on tabs (which belong to the page a tab shows).
+- **Manage**: **Add bookmark** (it starts as the page you opened Tabazing over) and **New folder** in the bar, into the selected folder; **Edit** (F2) a bookmark's name, address and folder, or a folder's name and place; **Delete** (Del) a bookmark or a folder with everything in it. Tick bookmarks (their box, **Ctrl+click** or **Ctrl+Space**) to delete several at once from the bar. Every delete offers **Undo**, which puts it all back where it was, notes included.
+- **⋯** (or right-click, or Shift+F10): a bookmark's **Open**, **Open in a new window**, **Open in the background**, **Big preview**, **Copy link**, **Star**, **Note**, **Snooze**, **Select**, **Edit…**, **Delete**; a folder's **Add a bookmark here**, **New folder inside**, **Open all**, **Rename…**, **Delete folder**.
 
 ### Recently closed
 
@@ -458,7 +471,7 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 | `favicon` | Show each site's icon on its card and in search results. |
 | `sessions` | List recently closed tabs and windows, and restore them with their history. |
 | `alarms` | Wake up at the right time to reopen snoozed tabs. |
-| `bookmarks` | Keep the "Tabs Archive" folder, and search your bookmarks. |
+| `bookmarks` | Keep the "Tabs Archive" folder, search your bookmarks, and show, add, edit and delete them in the Bookmarks view when you ask. |
 | `history` | Search your browsing history from the search box, show it in the History view, and remove a page from it when you ask. |
 | `tabGroups` | Show your tab groups (their names and colours) as tiles, and keep a tab in its group when Undo reopens it. |
 

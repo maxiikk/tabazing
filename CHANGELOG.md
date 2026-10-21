@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.8.0] - 2026-10-21
+
+### Added
+
+- A Bookmarks button (after History) opens all your bookmarks as a tree with previews. Open, preview big, copy, star, snooze; add, edit (name, address, folder), delete one or several ticked at once, delete whole folders, all with Undo; search by name, site, address or note, typos forgiven.
+- Notes on bookmarks: a bookmark's own note, kept with that bookmark even when its address changes, separate from the notes on tabs.
+- A search box in the History view: pages by title, site, address or their note, typos forgiven.
+
+### Changed
+
+- The History button moved to the right of New tab, with the new Bookmarks button after it.
+
+### Fixed
+
+- A dialog opened from the History view (Bookmark…) no longer opens behind it.
+
 ## [6.7.0] - 2026-10-21
 
 ### Added
@@ -458,7 +474,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...HEAD
+[6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...HEAD
+[6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...55dba83
 [6.6.3]: https://github.com/maxiikk/tabazing/compare/b995760...7e24214
 [6.6.2]: https://github.com/maxiikk/tabazing/compare/4185787...b995760
 [6.6.1]: https://github.com/maxiikk/tabazing/compare/d99194d...4185787

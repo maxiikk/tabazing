@@ -24,10 +24,11 @@ async function openHistory(sw) {
 }
 
 describe('the history button', () => {
-  it('sits right of Settings, a labelled icon button that opens a dialog', async () => {
+  it('sits right of New tab (then the bookmarks button), a labelled icon button that opens a dialog', async () => {
     await boot({ tabs: AB });
     const b = tid('history-btn');
-    expect(tid('settings-btn').nextElementSibling).toBe(b);
+    expect(tid('newtab').nextElementSibling).toBe(b);
+    expect(b.nextElementSibling).toBe(tid('bookmarks-btn'));
     expect(b.getAttribute('aria-label')).toBe(t('historyBtn'));
     expect(b.getAttribute('aria-haspopup')).toBe('dialog');
   });
@@ -179,6 +180,30 @@ describe('the history overlay', () => {
     sw.histSelect(99, false);
     key('ArrowDown'); // no row below the last: the next 50
     await waitFor(() => cards().length === 130);
+  });
+
+  it('its search box finds pages by title, site, address or the page note, typos forgiven; Esc empties it', async () => {
+    seedHistory(60);
+    chrome._data.history.push({ url: 'https://news.example/today', title: 'Morning news', lastVisitTime: NOW - 999999, visitCount: 1 });
+    await chrome.storage.local.set({ notes: { 'https://p55.example/': { u: 'https://p55.example/', n: 'invoice for march', t: NOW } } });
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    const search = async (text) => { tid('history-search').value = text; await sw.findHistory(text); };
+    await search('mornin nwes'); // typos
+    expect(titles()).toEqual(['Morning news']);
+    await search('news.example');
+    expect(titles()).toEqual(['Morning news']);
+    await search('invoice');
+    expect(titles()).toEqual(['Page 55']);
+    expect(tid('history-more').hidden).toBe(true);
+    await search('qqqzzz');
+    expect(tid('history-empty').hidden).toBe(false);
+    expect(tid('history-empty').textContent).toBe(t('historyNoMatch'));
+    tid('history-search').focus();
+    key('Escape');
+    await waitFor(() => cards().length === 50);
+    expect(tid('history-search').value).toBe('');
+    expect(sw.historyOpen()).toBe(true);
   });
 
   it('while it is open the rest of the switcher is inert', async () => {

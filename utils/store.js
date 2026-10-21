@@ -552,6 +552,34 @@ export function setNote(url, text) {
   });
 }
 
+// ---------- notes on bookmarks (storage.local) ----------
+// Keyed by the bookmark's id, not by an address: a bookmark's note stays with that bookmark (when its address is
+// edited too), and has nothing to do with the note on a tab, which is about the page the tab shows.
+export async function getBmNotes() {
+  const v = (await L.get(KEY.BM_NOTES))[KEY.BM_NOTES];
+  const out = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const [id, e] of Object.entries(v)) {
+      if (/^\w{1,40}$/.test(id) && e && typeof e.n === 'string' && e.n && isTime(e.t)) out[id] = { u: String(e.u || '').slice(0, LIMITS.MAX_URL_KEY), n: e.n.slice(0, LIMITS.NOTE_MAX), t: e.t };
+    }
+  }
+  return out;
+}
+// Set several bookmarks' notes at once: { [id]: { n, u } } (an empty text, or null, removes that one). Returns every note.
+export function putBmNotes(changes) {
+  return withLock('bmNotes', async () => {
+    const notes = await getBmNotes();
+    for (const [id, c] of Object.entries(changes || {})) {
+      const n = String((c && c.n) || '').trim().slice(0, LIMITS.NOTE_MAX);
+      if (n) notes[id] = { u: String((c && c.u) || '').slice(0, LIMITS.MAX_URL_KEY), n, t: Date.now() }; else delete notes[id];
+    }
+    Object.keys(notes).sort((a, b) => notes[b].t - notes[a].t).slice(LIMITS.MAX_NOTES).forEach((x) => delete notes[x]);
+    await L.set({ [KEY.BM_NOTES]: notes });
+    return notes;
+  });
+}
+export const setBmNote = (id, text, url = '') => putBmNotes({ [id]: { n: text, u: url } });
+
 // ---------- stars (storage.local) ----------
 // Pages the user starred, keyed by normalized URL (tab ids don't survive a restart).
 // Not bookmarks: they live only in Tabazing, on this computer.

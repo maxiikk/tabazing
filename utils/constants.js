@@ -40,6 +40,7 @@ export const KEY = Object.freeze({
   WOKEN: 'woken',             // storage.session: { [tabId]: wokeAt } snoozed tabs reopened and not yet looked at
   SNOOZED: 'snoozed',         // storage.local: [{ id, url, title, at, windowId, pinned, t }] tabs closed for now, reopened at `at`
   NOTES: 'notes',             // storage.local: { [normalizedUrl]: { u, n, t } } notes the user wrote on tabs
+  BM_NOTES: 'bmNotes',        // storage.local: { [bookmarkId]: { u, n, t } } notes on bookmarks (kept by the bookmark, not its address)
   STARS: 'stars',             // storage.local: { [normalizedUrl]: { u, ti, t } } pages the user starred
   VIEW: 'view',               // storage.local: { sort, collapsed: string[], settingsTab } how the switcher lays tabs out, and Settings' last category
   NUDGE: 'nudge',             // storage.local: { day, runs, shown, last, never } the "use Alt+Q" nudge (never sent anywhere)
