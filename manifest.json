@@ -6,6 +6,7 @@
     },
     "default_title": "__MSG_actionTitle__"
   },
+  "author": "MaxiiKK",
   "background": {
     "service_worker": "background.js",
     "type": "module"
@@ -109,7 +110,7 @@
     "tabGroups"
   ],
   "short_name": "__MSG_extShortName__",
-  "version": "6.12.2",
+  "version": "6.12.3",
   "web_accessible_resources": [
     {
       "matches": [

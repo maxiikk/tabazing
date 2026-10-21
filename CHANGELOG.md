@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.12.3] - 2026-10-21
+
+### Changed
+
+- MaxiiKK is named as Tabazing's author (in the extension's details and the README).
+
 ## [6.12.2] - 2026-10-21
 
 ### Changed
@@ -562,7 +568,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...HEAD
+[6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...HEAD
+[6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...2315e98
 [6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...e93bf5c
 [6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...7b1c4c2
 [6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...be73ae8
