@@ -666,9 +666,6 @@ function derive() {
     .map((tab) => ({ kind: 'tab', key: 't' + tab.id, tab, preview: state.previews[tab.id] || null }));
   state.mruOrder = open.slice(); // what Alt+Q cycles through: always recent use
   if (SORTERS[state.sort]) open.sort(SORTERS[state.sort]);
-  // Alt+Q / Alt+W step by recent use as Alt+Tab does, pinned or not: the tab used just before this one is one step
-  // away even when it is pinned (and shown first). In the other sorts they step in the order the cards are shown.
-  const byUse = state.sort === 'recent' ? open.slice() : null;
   // Pinned tabs first (Settings), then the rest, each in the chosen sort ([pinned, pinned, current, ...] by recent use).
   const pinnedFirst = (a, b) => (b.tab && b.tab.pinned ? 1 : 0) - (a.tab && a.tab.pinned ? 1 : 0);
   if (pref('pinnedFirst')) open.sort(pinnedFirst);
@@ -683,7 +680,9 @@ function derive() {
   const cards = tiled || open;
   state.tileOf = new Map();
   if (tiled) for (const e of tiled) if (e.kind === 'group') for (const x of e.tabs) state.tileOf.set('t' + x.id, e.key);
-  state.steps = byUse ? tile(byUse) || byUse : cards; // what Alt+Q / Alt+W step through
+  // What Alt+Q / Alt+W step through: the cards in the order they are shown (pinned tabs first), so none is left for
+  // the far end of the list. (The first Alt+W by recent use goes to the tab used just before, wherever it is: boot.)
+  state.steps = cards;
   state.cardCount = cards.length;
 
   const all = sectionsFor(cards);
@@ -7158,7 +7157,10 @@ function getLaunch() {
     derive();
   }
   const mru = state.mruOrder;
-  const firstStep = () => { const s = stepFrom('t' + CTX.srcTab, CTX.dir); return s.leave ? stepOutOfGroup(CTX.dir) : s.key; };
+  // By recent use, the first Alt+W goes to the tab used just before this one, as Alt+Tab does, even when it is pinned
+  // (shown first); every other step follows the cards as shown.
+  const before = state.sort === 'recent' && state.inGroup === null && CTX.dir > 0 ? mru.find((e) => e.key !== 't' + CTX.srcTab) : null;
+  const firstStep = () => { if (before) return before.key; const s = stepFrom('t' + CTX.srcTab, CTX.dir); return s.leave ? stepOutOfGroup(CTX.dir) : s.key; };
   // Alt+Q / Alt+W start one card before / after the current tab (in the group view, past its ends out of it),
   // Alt+E (dir 0) on the current tab itself; anything else (the toolbar icon, opening with Chrome) on the tab
   // used before it.

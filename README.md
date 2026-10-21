@@ -40,7 +40,7 @@ Tabazing does not run in Incognito windows.
 | Shortcut | Mac | What it does |
 |---|---|---|
 | **Alt+Q** | Option+Q | **Hold Alt and press Q** to see your tabs, with the **previous card in the list** selected (the card before the current tab, in the order the cards are shown). From the first card it wraps around to the last. Keep holding Alt and press Q again to go further back. **Let go of Alt to switch** to the selected tab, just like Alt+Tab. |
-| **Alt+W** | Option+W | The same, but selects the **next card in the list** (wrapping around from the last card to the first). |
+| **Alt+W** | Option+W | The same, but selects the **next card in the list** (wrapping around from the last card to the first). Sorted by recently used, the first Alt+W goes to the tab you used just before, like Alt+Tab, even when that is a pinned tab shown first; every step after that follows the cards as shown, pinned tabs included. |
 | **Alt+E** | Option+E | Opens Tabazing with the current tab selected and **keeps it open**, so you can search, use the arrow keys or the mouse. |
 | **Alt+R** | ⌥R | Opens Tabazing straight into the [command palette](#command-palette): commands, sums, conversions and search in one box. |
 | Toolbar icon | Toolbar icon | Opens Tabazing and keeps it open. The first three times, a note reminds you that Alt+Q does this from anywhere. |

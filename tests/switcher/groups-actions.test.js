@@ -203,6 +203,35 @@ describe('sorting and stepping', () => {
     expect(sw.state.entries[sw.state.sel].tab.title).toBe('P');
   });
 
+  // used: A (now), B, C, D, and the pinned P long ago: shown P, A, B, C, D
+  const STALE = () => [{ title: 'P', url: 'https://p.example/', pinned: true }, { title: 'A', url: 'https://a.example/', active: true },
+    { title: 'B', url: 'https://b.example/' }, { title: 'C', url: 'https://c.example/' }, { title: 'D', url: 'https://d.example/' }];
+  it('a pinned tab not used for long is one Alt+Q away (the card before the current one), not last', async () => {
+    const sw = await boot({ tabs: STALE(), ctx: { hold: true, dir: -1 }, beforeImport: () => S.set({ mru: [2, 3, 4, 5, 1] }) });
+    expect(sw.state.entries.map((e) => e.tab.title)).toEqual(['P', 'A', 'B', 'C', 'D']);
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('P');
+  });
+
+  it('Alt+W goes to the tab used before, then on round the cards as shown, the pinned one in its place', async () => {
+    const sw = await boot({ tabs: STALE(), ctx: { hold: true, dir: 1 }, beforeImport: () => S.set({ mru: [2, 3, 4, 5, 1] }) });
+    const sel = () => sw.state.entries[sw.state.sel].tab.title;
+    expect(sel()).toBe('B');
+    const seen = [];
+    for (let i = 0; i < 4; i++) { sw.qPress(1); seen.push(sel()); }
+    expect(seen).toEqual(['C', 'D', 'P', 'A']);
+  });
+
+  it('a pinned tab used just before: the first Alt+W goes to it, the next ones on from there as shown', async () => {
+    const tabs = [{ title: 'P', url: 'https://p.example/', pinned: true }, { title: 'A', url: 'https://a.example/', active: true }, { title: 'B', url: 'https://b.example/' }];
+    const sw = await boot({ tabs, ctx: { hold: true, dir: 1 }, beforeImport: () => S.set({ mru: [2, 1, 3] }) });
+    const sel = () => sw.state.entries[sw.state.sel].tab.title;
+    expect(sel()).toBe('P');
+    sw.qPress(1);
+    expect(sel()).toBe('A');
+    sw.qPress(1);
+    expect(sel()).toBe('B');
+  });
+
   it('Close duplicates keeps the copy that is in a group', async () => {
     const sw = await boot({ tabs: [{ title: 'Loose', url: 'https://same.example/', active: true }, { title: 'Grouped', url: 'https://same.example/', groupId: GROUP }], ...withGroup() });
     expect(sw.duplicates().map((x) => x.title)).toEqual(['Loose']);

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.1] - 2026-10-21
+
+### Fixed
+
+- Alt+Q / Alt+W no longer leave pinned tabs for the very end: they step through the cards in the order shown, so a pinned tab (shown first) is one Alt+Q away from the tab after it. Sorted by recently used, the first Alt+W still goes to the tab used just before, pinned or not.
+
 ## [6.9.0] - 2026-10-21
 
 ### Added
@@ -503,7 +509,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...HEAD
+[6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...HEAD
+[6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...b54e1f5
 [6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...fcbc898
 [6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...55dba83
 [6.6.3]: https://github.com/maxiikk/tabazing/compare/b995760...7e24214
