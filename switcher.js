@@ -118,6 +118,7 @@ const state = {
   archived: null,       // the "Tabs Archive" bookmarks folder: [{ id, url, title, t }] newest first (utils/archive.js)
   archivePreviews: {},  // normalized URL -> preview, for archived pages
   archSel: 0,           // the selected card in the archive overlay
+  hist: null,           // the history overlay while it is open: its pages (entries), the selected one, its parts
   urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
   pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
   media: [],            // what plays in the tabs, playing first (utils/media.js mediaEntries): the player and its list
@@ -176,6 +177,7 @@ const ICON = {
   puzzle: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M3 5.5h2.2a1.6 1.6 0 1 1 3 0H10.5v2.3a1.6 1.6 0 1 1 0 3V13H3z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
   keyboard: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8.5" rx="1.5" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M4 6.8h.5M6.5 6.8h.5M9 6.8h.5M11.5 6.8h.5M5 10h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
   download: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M8 2.5v7.5M4.8 7 8 10.2 11.2 7M3 13.2h10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  trash: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2.8 4.2h10.4M6.2 4.2V2.8h3.6v1.4M4.2 4.2l.7 9h6.2l.7-9M6.7 6.6v4.4M9.3 6.6v4.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   eraser: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><path d="M9.6 2.8 13.2 6.4 7.4 12.2H4.6L2.8 10.4zM6.2 6.2l3.6 3.6M7.4 13.2h6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>',
   key: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="5" cy="8" r="2.8" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M7.8 8H14M11.5 8v2.2M13.5 8v1.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
   zoom: '<svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
@@ -859,7 +861,7 @@ function shotImg(entry) {
 }
 // `loading`: its preview is still being read (just after the first draw): the favicon on a plain tile, nothing
 // that says "no preview" or offers to capture one.
-function thumbFor(entry, { label, sub, icon, action, loading = false }) {
+function thumbFor(entry, { label, sub, icon, action, loading = false, bare = false }) {
   const thumb = h('div', 'thumb', null, 'card-thumb');
   if (loading) {
     const box = h('div', 'nopreview loading', null, 'card-loading');
@@ -884,6 +886,13 @@ function thumbFor(entry, { label, sub, icon, action, loading = false }) {
     const img = h('img', '', null, 'card-tile-favicon');
     img.src = favicon(entry.url);
     img.alt = '';
+    if (bare) { // just the page's icon (the history: no "No preview yet", nothing can be captured there)
+      tile.append(img);
+      box.classList.add('bare');
+      box.append(tile);
+      thumb.append(box);
+      return thumb;
+    }
     const badge = h('span', 'icon', null, 'card-tile-badge');
     badge.append(svgOf(icon));
     tile.append(img, badge);
@@ -1003,7 +1012,8 @@ function renderCard(entry, index) {
     if (ago && entry.kind === 'closed') head.append(h('span', 'tag', ago, 'card-closed-ago'));
     if (entry.kind === 'snoozed') head.append(h('span', 'tag snz', t('wakesAt', { time: whenLabel(c.ts) }), 'card-wakes'));
     const btns = [];
-    if (c.kind !== 'window') btns.push(starButton(entry));
+    if (entry.kind === 'closed') btns.push(deleteButton(t('closedRemove'), 'card-closed-remove', () => forgetClosed(entry))); // (its star is in its ⋯)
+    else if (c.kind !== 'window') btns.push(starButton(entry));
     if (entry.kind === 'snoozed') { // × cancels the snooze (the tab is not reopened)
       const x = h('button', 'x', null, 'card-cancel-snooze');
       x.type = 'button';
@@ -1143,6 +1153,17 @@ function renderGroupBar() {
 
 // The star and × of a card's header: laid over the end of the title (they show on hover, on the selected card
 // and with the focus), so while hidden they take none of its room.
+// A card's delete button (a trash can, red on hover): a recently closed entry off the list, a page out of the history.
+function deleteButton(label, testid, fn) {
+  const b = h('button', 'x del', null, testid);
+  b.type = 'button';
+  b.title = label + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
+  b.setAttribute('aria-label', label);
+  b.append(svgOf(ICON.trash));
+  b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); });
+  return b;
+}
+
 function headButtons(...btns) {
   const box = h('span', 'hbtns' + (btns.length > 1 ? ' two' : ''), null, 'card-head-buttons');
   box.append(...btns);
@@ -3530,7 +3551,268 @@ function archiveKey(e) {
   if (k === 'ArrowDown' || k === 'ArrowUp') { const j = cardToward(cards, state.archSel, k === 'ArrowDown' ? 1 : -1); if (j >= 0) archSelect(j); }
 }
 
-// The quick buttons on a tab's card (shown on hover and on the selected card): the ones used most, pin,
+// ---- the browsing history (the clock button beside Settings): Chrome's history, newest first, 50 pages at a time
+// ("Show 50 more" at the bottom), over the switcher as the archive is. Each page is a card: its preview when Tabazing
+// has one, else just its icon. A click (Enter) opens it (its tab, when one is open), Shift+click (Space) or its zoom
+// button shows it big, its trash (Del) removes it from Chrome's history, and ⋯ (a right-click, Shift+F10) has what
+// else can be done with a page: open it in a new window or behind, copy, star, note, bookmark, snooze, archive.
+const HISTORY_PAGE = 50;
+const historyOpen = () => !!document.querySelector('.hist');
+const openable = (url) => /^(https?|file|ftp):/i.test(url || '');
+let histSeq = 0; // the cards' ids
+// The newest `limit` pages Chrome has that Tabazing can open (its own pages, chrome://… are left out: a few more are
+// asked for, so a page of the list is still 50), and whether it has more.
+async function fetchHistory(limit) {
+  if (!chrome.history) return { items: [], more: false };
+  const ask = limit + HISTORY_PAGE;
+  const got = await chrome.history.search({ text: '', startTime: 0, maxResults: ask });
+  const items = got.filter((x) => openable(x.url)).map(hist);
+  return { items: items.slice(0, limit), more: items.length > limit || got.length >= ask };
+}
+// A page of the history as an entry: what the cards, the menu and the big preview read.
+const histEntry = (x, previews) => ({
+  kind: 'hist', key: 'h' + (++histSeq), url: x.url, preview: previews[normalizeUrl(x.url)] || null,
+  item: { url: x.url, title: x.title || '', ts: x.t, session: null, fields: [[x.title || '', x.url]] },
+});
+async function openHistory() {
+  closePops();
+  closeBig();
+  hideTip();
+  state.dd.hidden = true;
+  renderDropdown();
+  if (archiveOpen()) closeArchive();
+  const res = await fetchHistory(HISTORY_PAGE).catch(() => ({ items: [], more: false }));
+  const previews = await getPreviews(res.items.map((x) => x.url)).catch(() => ({}));
+  if (state.done) return;
+  document.querySelectorAll('.hist').forEach((n) => n.remove());
+  const back = h('div', 'arch hist', null, 'history-overlay');
+  back.setAttribute('role', 'dialog');
+  back.setAttribute('aria-modal', 'true');
+  back.setAttribute('aria-labelledby', 'hist-h');
+  back.addEventListener('click', (e) => e.stopPropagation()); // its empty space doesn't close the switcher
+  const head = h('div', 'archhead', null, 'history-header');
+  const title = h('h2', 'archtitle', t('historyTitle'), 'history-title');
+  title.id = 'hist-h';
+  const count = h('span', 'n', '', 'history-count');
+  title.append(count);
+  const x = h('button', 'archx', null, 'history-close');
+  x.type = 'button';
+  x.append(svgOf(ICON.close));
+  x.title = t('historyClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('historyClose'));
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeHistory(); });
+  head.append(title, h('span', 'archsub', t('historySub'), 'history-sub'), x);
+  const body = h('div', 'archbody', null, 'history-body');
+  const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'history-grid');
+  grid.setAttribute('role', 'listbox');
+  grid.setAttribute('aria-labelledby', 'hist-h');
+  const more = h('button', 'btn histmore', null, 'history-more');
+  more.type = 'button';
+  more.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) moreHistory().catch((err) => toast(t('actFailed'), err)); });
+  const empty = h('p', 'empty', t(chrome.history ? 'historyEmpty' : 'historyNone'), 'history-empty');
+  body.append(empty, grid, more);
+  back.append(head, body);
+  el.app.append(back);
+  state.hist = { items: [], limit: HISTORY_PAGE, more: res.more, sel: 0, back, grid, body, count, moreBtn: more, empty, x };
+  addHistory(res.items, previews);
+  updateInert();
+  histSelect(0, false);
+  x.focus({ preventScroll: true });
+}
+// Cards for these pages (the ones not shown yet), at the end; the count, "Show more" and the empty note follow.
+function addHistory(items, previews) {
+  const H = state.hist;
+  const have = new Set(H.items.map((e) => e.url));
+  const add = items.filter((x) => !have.has(x.url)).map((x) => histEntry(x, previews));
+  H.items.push(...add);
+  H.grid.append(...add.map(historyCard));
+  syncHistory();
+  return add;
+}
+function syncHistory() {
+  const H = state.hist;
+  H.count.textContent = String(H.items.length);
+  H.empty.hidden = H.items.length > 0;
+  H.grid.hidden = !H.items.length;
+  H.moreBtn.hidden = !H.more;
+  H.moreBtn.textContent = t('historyMore', { count: HISTORY_PAGE });
+}
+// "Show 50 more": the next 50 visits, under the ones shown (the page stays where it was).
+async function moreHistory() {
+  const H = state.hist;
+  if (!H || H.busy) return;
+  H.busy = true;
+  H.moreBtn.disabled = true;
+  try {
+    H.limit += HISTORY_PAGE;
+    const res = await fetchHistory(H.limit);
+    const previews = await getPreviews(res.items.map((x) => x.url)).catch(() => ({}));
+    if (state.hist !== H || !historyOpen()) return;
+    H.more = res.more;
+    const first = H.items.length;
+    const add = addHistory(res.items, previews);
+    if (add.length) histSelect(first, false);
+    if (H.moreBtn.hidden && document.activeElement === H.moreBtn) H.x.focus({ preventScroll: true });
+  } finally { H.busy = false; H.moreBtn.disabled = false; }
+}
+function historyCard(entry) {
+  const c = entry.item;
+  const title = c.title || hostOf(c.url) || t('untitled');
+  const card = h('div', 'card', null, 'card-history');
+  card.id = 'hist-' + entry.key;
+  card.setAttribute('role', 'option');
+  card.setAttribute('aria-selected', 'false');
+  card.title = t('historyOpenTip', { title }) + '\n' + c.url;
+  entry.card = card;
+  const head = h('div', 'head', null, 'card-head');
+  const fav = h('img', 'fav', null, 'card-favicon');
+  fav.src = favicon(c.url);
+  fav.alt = '';
+  head.append(fav, h('span', 'title', title, 'card-title'));
+  const ago = timeAgo(c.ts / 1000);
+  if (ago) head.append(h('span', 'tag', ago, 'card-history-ago'));
+  head.append(headButtons(deleteButton(t('historyRemove'), 'card-history-remove', () => removeHistory(entry).catch((err) => toast(t('historyRemoveErr'), err)))));
+  // its note, its big preview, ⋯ (everything else)
+  const quick = h('div', 'quick', null, 'card-quick-actions');
+  const big = h('button', 'qbtn', null, 'quick-big');
+  big.type = 'button';
+  big.title = t('historyBig') + ' (Space)';
+  big.setAttribute('aria-label', t('historyBig'));
+  big.append(svgOf(ICON.expand));
+  big.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) { histSelect(state.hist.items.indexOf(entry), false); openBig(entry); } });
+  const more = h('button', 'qbtn', null, 'quick-more');
+  more.type = 'button';
+  more.title = t('cardMenu');
+  more.setAttribute('aria-label', t('cardMenu'));
+  more.setAttribute('aria-haspopup', 'menu');
+  more.append(svgOf(ICON.more));
+  more.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) historyMenu(entry, { anchor: more }); });
+  quick.append(noteButton(entry), big, more);
+  if (state.cardSize === 'list') { head.insertBefore(quick, head.querySelector('.hbtns')); card.append(head); }
+  else {
+    const thumb = entry.preview ? thumbFor(entry, { label: '' }) : thumbFor(entry, { bare: true });
+    thumb.append(quick);
+    card.append(head, thumb);
+  }
+  mouseOnly(card); // the keyboard has Enter, Space, Del and the menu (Shift+F10)
+  card.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!pointerAllowed()) return;
+    if (e.shiftKey) { histSelect(state.hist.items.indexOf(entry), false); return openBig(entry); }
+    openPage(c.url);
+  });
+  card.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!pointerAllowed()) return;
+    histSelect(state.hist.items.indexOf(entry), false);
+    historyMenu(entry, { at: { x: e.clientX, y: e.clientY } });
+  });
+  return card;
+}
+function histSelect(i, scroll = true) {
+  const H = state.hist;
+  if (!H || !H.items.length) return;
+  H.sel = Math.max(0, Math.min(H.items.length - 1, i));
+  H.items.forEach((e, k) => e.card.setAttribute('aria-selected', String(k === H.sel)));
+  const card = H.items[H.sel].card;
+  H.grid.setAttribute('aria-activedescendant', card.id);
+  if (scroll) card.scrollIntoView({ block: 'nearest' });
+}
+function closeHistory() {
+  closePops();
+  document.querySelectorAll('.hist').forEach((n) => n.remove());
+  state.hist = null;
+  updateInert();
+  $('history-btn').focus({ preventScroll: true }); // back to what opened it
+}
+// Out of Chrome's history (every visit to it), and off the list here; the search forgets it too.
+async function removeHistory(entry) {
+  const H = state.hist;
+  await chrome.history.deleteUrl({ url: entry.url });
+  const k = urlKey(entry.url);
+  if (state.history) state.history = state.history.filter((x) => urlKey(x.url) !== k);
+  if (state.histQ && state.histQ.items) state.histQ = { ...state.histQ, items: state.histQ.items.filter((x) => urlKey(x.url) !== k) };
+  if (!H || state.hist !== H) return;
+  const i = H.items.indexOf(entry);
+  if (i >= 0) H.items.splice(i, 1);
+  entry.card.remove();
+  syncHistory();
+  histSelect(Math.min(i, H.items.length - 1), false);
+  toast(t('historyRemoved'));
+}
+// Open a page of the history behind Tabazing, which stays (the new tab joins the open ones).
+async function historyBehind(c) {
+  await reopenPage(c, { active: false });
+  toast(t('openedN', { count: 1 }));
+  await reload();
+}
+// A history card's ⋯ (a right-click, Shift+F10): everything a page can have done to it.
+function historyMenu(entry, { anchor = null, at = null } = {}) {
+  const c = entry.item, card = entry.card;
+  if (!card || !card.isConnected) return;
+  if (at) anchor = card;
+  else if (!anchor) {
+    const more = card.querySelector('[data-testid="quick-more"]');
+    anchor = more && more.getClientRects().length ? more : card.querySelector('.head') || card;
+  }
+  const note = card.querySelector('.qbtn.note');
+  const pages = [{ title: c.title, url: c.url }];
+  const items = [
+    { icon: 'goto', label: t('historyOpen'), fn: () => openPage(c.url) },
+    { icon: 'window', label: t('historyNewWindow'), err: t('actFailed'), fn: () => reopenInWindow(c) },
+    { icon: 'tab', label: t('historyBehind'), err: t('actFailed'), fn: () => historyBehind(c) },
+    { icon: 'expand', label: t('historyBig'), fn: () => openBig(entry) },
+    null,
+    { icon: 'link', label: t('copyLink'), err: t('copyFailed'), fn: () => copyLinks(pages, 'plain') },
+    { icon: 'star', label: t(isStarred(c.url) ? 'unstar' : 'star'), fn: () => star(entry) },
+  ];
+  if (note) items.push({ icon: 'note', label: t(noteOf(c.url) ? 'noteEdit' : 'noteAdd'), fn: () => notePopover(c.url, note) });
+  items.push(
+    { icon: 'bookmark', label: t('markMenu'), err: t('markErr'), fn: () => bookmarkDialog(pages) },
+    { icon: 'clock', label: t('historySnooze'), err: t('errSnooze'), fn: () => snoozeMenu([], anchor, (when) => snoozeClosed(c, when)) },
+    { icon: 'archive', label: t('tabArchive'), err: t('errArchive'), fn: () => archiveClosed(c) },
+    null,
+    { icon: 'trash', label: t('historyRemove'), danger: true, err: t('historyRemoveErr'), fn: () => removeHistory(entry) },
+  );
+  menu(anchor, items, { back: state.hist.x, at });
+}
+// While the history is open it has the keyboard (a menu or small card over it keeps its own keys). Tab reaches its
+// buttons; Enter / Space press "Show 50 more" when the keyboard is on it, else they act on the selected page.
+function historyKey(e) {
+  const k = e.key;
+  const target = e.target instanceof Element ? e.target : null;
+  if (target && target.closest('.menu, .pop')) return;
+  if (MODIFIERS.has(k)) return;
+  if (target && target.closest('.histmore') && (k === 'Enter' || k === ' ')) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (k === 'Escape') return closeHistory();
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
+  const H = state.hist;
+  if (!H || !H.items.length) return;
+  const entry = H.items[H.sel];
+  if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
+    if (e.repeat) return;
+    if (!keysAllowed()) return finish('cancel');
+    return removeHistory(entry).catch((err) => toast(t('historyRemoveErr'), err));
+  }
+  if (k === 'Enter') {
+    if (!keysAllowed()) return finish('cancel');
+    return openPage(entry.url);
+  }
+  if (k === ' ') return openBig(entry);
+  if (k === 'ContextMenu' || (k === 'F10' && e.shiftKey)) { if (!e.repeat) historyMenu(entry); return; }
+  const cards = H.items.map((x) => x.card);
+  if (k === 'ArrowRight' || k === 'ArrowLeft') return histSelect(H.sel + (k === 'ArrowRight' ? 1 : -1));
+  if (k === 'ArrowDown' || k === 'ArrowUp') {
+    const j = cardToward(cards, H.sel, k === 'ArrowDown' ? 1 : -1);
+    if (j >= 0) histSelect(j);
+    else if (k === 'ArrowDown' && H.more) moreHistory().catch(() => {}); // past the last row: the next 50
+  }
+}
+
+// The quick buttons on a tab's card (shown on hover): the ones used most, pin,
 // snooze, archive and the note, then ⋯ for everything else (its menu). Pin is the contextual fourth: a tab
 // that plays sound already has its mute button in the header (the speaker), so a second one here would only
 // repeat it, and a silent tab has nothing to mute.
@@ -3818,7 +4100,11 @@ function closeBig() {
   const open = document.querySelectorAll('.bigback');
   open.forEach((n) => n.remove());
   if (open.length) updateInert();
-  if (bigEntry) { bigEntry = null; el.search.focus({ preventScroll: true }); }
+  if (bigEntry) { // the focus back where it was: the history, or the search box
+    const was = bigEntry;
+    bigEntry = null;
+    (was.kind === 'hist' && state.hist && historyOpen() ? state.hist.x : el.search).focus({ preventScroll: true });
+  }
 }
 
 // While a dialog, Settings, the archive, a big preview or the command palette is open, the rest of the switcher is
@@ -3826,8 +4112,8 @@ function closeBig() {
 // regions, or a select's list (a menu: Settings opens them over itself).
 function updateInert() {
   const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .setback')
-    || document.querySelector('#app > .arch') || (state.palette && el.palette);
-  for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu'));
+    || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || (state.palette && el.palette);
+  for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu') && !n.classList.contains('pop'));
 }
 
 // Tab moves through the controls of the top layer (a big preview, a dialog, a menu, Settings, a card like a note,
@@ -3839,7 +4125,7 @@ function tabbables(root) {
 }
 function focusLayer() {
   return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
-    || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .arch') || el.app;
+    || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
   const root = focusLayer();
@@ -4230,6 +4516,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   closeBig();
   hideTip();
   if (archiveOpen()) closeArchive();
+  if (historyOpen()) closeHistory();
   if (state.modal) closeDialog();
   stopHolding();
   state.palette = { from, saved, hi: 0, items: [] };
@@ -5193,17 +5480,25 @@ function onKeyDown(e) {
   if (e.key === 'Escape' && document.querySelector('.tip')) { e.preventDefault(); e.stopPropagation(); return hideTip(); } // the note tooltip first
   if (document.querySelector('.bigback')) { // the big preview has the keyboard: Esc closes it, Enter opens that tab
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeBig(); }
-    else if (e.key === 'Enter') { e.preventDefault(); const i = state.entries.indexOf(bigEntry); closeBig(); if (i >= 0) choose(i); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      const en = bigEntry, i = state.entries.indexOf(en);
+      closeBig();
+      if (en.kind === 'hist') { if (keysAllowed()) openPage(en.url); else finish('cancel'); } else if (i >= 0) choose(i);
+    }
     else if (e.key === ' ') { e.preventDefault(); closeBig(); } // Space again: close
     else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { // the next / previous card's preview
       e.preventDefault();
-      const n = state.entries.length, i = state.entries.indexOf(bigEntry);
-      if (n && i >= 0) { const j = (((i + (e.key === 'ArrowRight' ? 1 : -1)) % n) + n) % n; select(j); openBig(state.entries[j]); }
+      const hist = bigEntry.kind === 'hist' && state.hist;
+      const list = hist ? state.hist.items : state.entries;
+      const n = list.length, i = list.indexOf(bigEntry);
+      if (n && i >= 0) { const j = (((i + (e.key === 'ArrowRight' ? 1 : -1)) % n) + n) % n; if (hist) histSelect(j); else select(j); openBig(list[j]); }
     }
     else if (!MODIFIERS.has(e.key)) e.preventDefault();
     return;
   }
   if (state.modal) return dialogKey(e);
+  if (historyOpen()) return historyKey(e);
   if (archiveOpen()) return archiveKey(e);
   if (settingsOpen()) return settingsKey(e);
   // Typing in any field other than the search box (a note, the Sort list), or pressing a button
@@ -5346,7 +5641,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || archiveOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -5458,6 +5753,7 @@ function listen() {
   const on = (node, fn) => node.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(e); });
   on($('settings-btn'), (e) => openSettings(e.currentTarget));
   on($('archive-btn'), () => openArchive().catch((err) => toast(t('errArchiveOpen'), err)));
+  on($('history-btn'), () => openHistory().catch((err) => toast(t('actFailed'), err)));
   on(el.keysBtn, () => openShortcuts());
   on($('github-btn'), () => openUrl(REPO_URL)); // a new tab, beside the page Tabazing was opened from
   on(el.dupesBtn, closeDupes);
@@ -5684,6 +5980,7 @@ export {
   clearDrop, dropAfter, dragToMove, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
+  historyOpen, openHistory, moreHistory, historyCard, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton,
   quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
   openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,

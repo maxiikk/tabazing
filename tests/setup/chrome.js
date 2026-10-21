@@ -329,9 +329,10 @@ const chrome = {
       const text = (q.text || '').toLowerCase();
       return clone(D.history
         .filter((x) => (!q.startTime || (x.lastVisitTime || 0) >= q.startTime) && (!text || (x.title || '').toLowerCase().includes(text) || x.url.toLowerCase().includes(text)))
+        .sort((a, b) => (b.lastVisitTime || 0) - (a.lastVisitTime || 0)) // newest first, as Chrome returns them
         .slice(0, q.maxResults ?? 100));
     }),
-    deleteUrl: vi.fn(async () => {}),
+    deleteUrl: vi.fn(async ({ url }) => { D.history = D.history.filter((x) => x.url !== url); }),
   },
   alarms: {
     create: vi.fn(async (name, info) => { D.alarms.set(name, { name, scheduledTime: info.when ?? Date.now() + (info.delayInMinutes || 0) * 60000 }); }),

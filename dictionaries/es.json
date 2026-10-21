@@ -577,5 +577,22 @@
   "palRemoveFromGroup": "Quitar esta pestaña de su grupo",
   "palUngroup": "Desagrupar el grupo de esta pestaña",
   "palCloseGroup": "Cerrar el grupo de esta pestaña",
-  "palKwGroup": "grupo pestañas grupos mosaico desagrupar"
+  "palKwGroup": "grupo pestañas grupos mosaico desagrupar",
+  "historyBtn": "Historial de navegación",
+  "historyTitle": "Historial",
+  "historySub": "El historial de Chrome, lo más reciente primero",
+  "historyClose": "Cerrar el historial",
+  "historyEmpty": "Aún no hay historial.",
+  "historyNone": "El historial de Chrome no está disponible.",
+  "historyMore": "Mostrar {count} más",
+  "historyOpenTip": "Abrir {title}",
+  "historyRemove": "Quitar del historial",
+  "historyRemoved": "Quitada del historial",
+  "historyRemoveErr": "No se pudo quitar del historial",
+  "historyOpen": "Abrir",
+  "historyNewWindow": "Abrir en una ventana nueva",
+  "historyBehind": "Abrir en segundo plano",
+  "historyBig": "Vista previa grande",
+  "historySnooze": "Posponer: abrirla más tarde",
+  "openedN": "{count, plural, one {Se abrió # pestaña} other {Se abrieron # pestañas}}"
 }

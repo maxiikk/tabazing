@@ -577,5 +577,22 @@
   "palRemoveFromGroup": "Убрать эту вкладку из группы",
   "palUngroup": "Разгруппировать группу этой вкладки",
   "palCloseGroup": "Закрыть группу этой вкладки",
-  "palKwGroup": "группа вкладок группы плитка разгруппировать"
+  "palKwGroup": "группа вкладок группы плитка разгруппировать",
+  "historyBtn": "История браузера",
+  "historyTitle": "История",
+  "historySub": "История Chrome, сначала новые",
+  "historyClose": "Закрыть историю",
+  "historyEmpty": "Истории пока нет.",
+  "historyNone": "История Chrome недоступна.",
+  "historyMore": "Показать ещё {count}",
+  "historyOpenTip": "Открыть {title}",
+  "historyRemove": "Удалить из истории",
+  "historyRemoved": "Удалено из истории",
+  "historyRemoveErr": "Не удалось удалить из истории",
+  "historyOpen": "Открыть",
+  "historyNewWindow": "Открыть в новом окне",
+  "historyBehind": "Открыть в фоне",
+  "historyBig": "Большой предпросмотр",
+  "historySnooze": "Отложить: открыть позже",
+  "openedN": "{count, plural, one {Открыта # вкладка} few {Открыты # вкладки} many {Открыто # вкладок} other {Открыто # вкладки}}"
 }

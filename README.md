@@ -305,12 +305,25 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 - Archived pages also show up in [search](#search) with an Archived icon.
 - Because the archive is a normal bookmarks folder, it **syncs with your Chrome account** like any bookmark and **is kept if you remove Tabazing**. You can also manage it in Chrome's bookmark manager.
 
+### History
+
+The **clock** button right of Settings opens your Chrome browsing history over the switcher, newest first.
+
+- It shows **50 pages** at a time; **Show 50 more** at the bottom (or **↓** past the last row) adds the next 50.
+- Each page is a card with its **preview** when Tabazing has one, and otherwise just the **page's icon**.
+- **Open** a page by clicking it, or select it with the arrow keys and press **Enter**: its tab if one is open, otherwise a new tab beside the page you came from.
+- **Big preview:** the card's **expand** button, **Shift+click**, or **Space**; **← →** step through the history, **Enter** opens that page, **Esc** goes back to the list.
+- **Remove from history:** the card's **trash** button, or **Del** (⌘⌫). This removes every visit to that page from Chrome's history.
+- **⋯** (or right-click, or Shift+F10): **Open**, **Open in a new window**, **Open in the background** (Tabazing stays), **Big preview**, **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: open it later**, **Archive** and **Remove from history**.
+- Close it with **Esc** or its ×.
+
 ### Recently closed
 
 - Below your open tabs, a **Recently closed** section shows what you closed in the last few hours (up to 8 items, including up to 2 whole windows). Click one to reopen it. Tabs Chrome still remembers come back with their back/forward history.
 - **Show more** under the section (a button, reachable with Tab) shows everything Tabazing knows you closed in the last 7 days, up to 24 items; **Show fewer** goes back.
 - Settings → **Show Recently closed** hides the section (search still finds closed tabs).
 - **Search reaches further back:** it finds anything closed in the **last 7 days**, using Chrome's own list plus Tabazing's local log of closed tabs.
+- Each closed entry has a **trash** button at the end of its header (shown while the mouse is on the card): it takes the entry off the list, as **Remove from list** does (Undo puts it back).
 - Each closed tab has its **note** button and **⋯** (or right-click it, or Shift+F10): **Reopen**, **Reopen in a new window**, **Reopen in the background** (Tabazing stays open and the tab joins your open tabs; it opens afresh, so the menu says "without its history" where Reopen would bring that back), **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: reopen later**, **Archive** and **Remove from list** (also **Del**; Undo puts it back). A closed window offers Reopen window, Copy links, Bookmark… and Remove from list.
 
 ### Tab groups
@@ -446,7 +459,7 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 | `sessions` | List recently closed tabs and windows, and restore them with their history. |
 | `alarms` | Wake up at the right time to reopen snoozed tabs. |
 | `bookmarks` | Keep the "Tabs Archive" folder, and search your bookmarks. |
-| `history` | Search your browsing history from the search box. |
+| `history` | Search your browsing history from the search box, show it in the History view, and remove a page from it when you ask. |
 | `tabGroups` | Show your tab groups (their names and colours) as tiles, and keep a tab in its group when Undo reopens it. |
 
 ---

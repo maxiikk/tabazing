@@ -91,10 +91,10 @@ describe('renderCard: open tabs', () => {
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.alttab \.search, html\.alttab \.qbtn\.note \{ display: none !important; \}/);
     expect(css).toMatch(/html\.alttab #github-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
-    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
+    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 5; \}/); // narrow: the search's column stays, empty
     await boot({ tabs: ABC() });
     const head = [...tid('header').children].filter((n) => n.tagName === 'BUTTON').map((n) => n.dataset.testid);
-    expect(head).toEqual(['settings-btn', 'newtab', 'github-btn', 'keys-btn', 'archive-btn']); // github-btn starts the end group
+    expect(head).toEqual(['settings-btn', 'history-btn', 'newtab', 'github-btn', 'keys-btn', 'archive-btn']); // github-btn starts the end group
   });
 
   it('the star and × sit in one box over the end of the header (they take no room while hidden)', async () => {

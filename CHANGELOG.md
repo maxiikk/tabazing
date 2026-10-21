@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.7.0] - 2026-10-21
+
+### Added
+
+- A History button right of Settings opens your browsing history, newest first, 50 pages at a time with **Show 50 more** at the bottom. Each page shows its preview when Tabazing has one, otherwise its icon; open it, see it big, remove it from Chrome's history with its trash button (or Del), or use its ⋯ menu to open it in a new window or behind, copy, star, note, bookmark, snooze or archive it.
+- Recently closed entries have a trash button that takes them off the list.
+
+### Changed
+
+- A recently closed tab's star moved into its ⋯ menu, to make room for the trash button.
+
 ## [6.6.3] - 2026-10-20
 
 ### Changed
@@ -447,7 +458,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.6.3]: https://github.com/maxiikk/tabazing/compare/b995760...HEAD
+[6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...HEAD
+[6.6.3]: https://github.com/maxiikk/tabazing/compare/b995760...7e24214
 [6.6.2]: https://github.com/maxiikk/tabazing/compare/4185787...b995760
 [6.6.1]: https://github.com/maxiikk/tabazing/compare/d99194d...4185787
 [6.6.0]: https://github.com/maxiikk/tabazing/compare/61fca4a...d99194d

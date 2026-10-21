@@ -577,5 +577,22 @@
   "palRemoveFromGroup": "Remove this tab from its group",
   "palUngroup": "Ungroup this tab’s group",
   "palCloseGroup": "Close this tab’s group",
-  "palKwGroup": "tab group groups tile ungroup"
+  "palKwGroup": "tab group groups tile ungroup",
+  "historyBtn": "Browsing history",
+  "historyTitle": "History",
+  "historySub": "Chrome’s browsing history, newest first",
+  "historyClose": "Close the history",
+  "historyEmpty": "No history yet.",
+  "historyNone": "Chrome’s history isn’t available.",
+  "historyMore": "Show {count} more",
+  "historyOpenTip": "Open {title}",
+  "historyRemove": "Remove from history",
+  "historyRemoved": "Removed from history",
+  "historyRemoveErr": "Couldn’t remove it from the history",
+  "historyOpen": "Open",
+  "historyNewWindow": "Open in a new window",
+  "historyBehind": "Open in the background",
+  "historyBig": "Big preview",
+  "historySnooze": "Snooze: open it later",
+  "openedN": "{count, plural, one {Opened # tab} other {Opened # tabs}}"
 }
