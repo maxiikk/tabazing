@@ -407,7 +407,7 @@ describe('typing anywhere', () => {
     expect(sw.state.done).toBe(false);
     key('Escape', { target: lang });
     expect(tid('settings')).toBe(null);
-    expect(document.activeElement).toBe(tid('settings-btn')); // what opened it
+    expect(document.activeElement).toBe(tid('menu-btn')); // what opened it
     expect(sw.state.done).toBe(false);
   });
 });

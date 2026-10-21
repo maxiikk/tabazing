@@ -376,3 +376,42 @@ describe('opening from the box', () => {
     expect(sw.googleUrl('a&b c/?')).toBe('https://www.google.com/search?q=a%26b%20c%2F%3F');
   });
 });
+
+describe('searching by what a page is', () => {
+  it('open tabs by their state: pinned, asleep, playing, muted, starred, with a note, in a group; with other words too', async () => {
+    const sw = await bootSwitcher({ tabs: [
+      tab('Plain', 'https://plain.example/'), { ...tab('Docs', 'https://docs.example/'), pinned: true }, { ...tab('Radio', 'https://radio.example/'), audible: true },
+      { ...tab('Old', 'https://old.example/'), discarded: true }, { ...tab('Quiet', 'https://quiet.example/'), mutedInfo: { muted: true } },
+      { ...tab('Youtube pinned', 'https://youtube.example/'), pinned: true },
+    ] });
+    const titles = (q) => { sw.state.query = q; sw.deriveSearch(); return sw.state.found.map((e) => e.tab.title).sort(); };
+    expect(titles('pinned')).toEqual(['Docs', 'Youtube pinned']);
+    expect(titles('pinned docs')).toEqual(['Docs']);
+    expect(titles('asleep')).toEqual(['Old']);
+    expect(titles('playing')).toEqual(['Radio']);
+    expect(titles('muted')).toEqual(['Quiet']);
+    expect(titles('plain')).toEqual(['Plain']); // and the rest as before: a state's words aren't typos ("playing")
+    expect(titles('pinn')).toEqual(['Docs', 'Youtube pinned']); // from their start
+    expect(titles('pi')).not.toContain('Docs'); // (three letters at least for a state: Docs is found only by it)
+  });
+
+  it('pages by where they are: recently closed, archived, bookmarked, in the history (the dropdown)', async () => {
+    sw = await bootSwitcher({ tabs: [tab('Start', 'https://start.com/')] });
+    sw.state.closed = [{ id: 'l1', kind: 'tab', url: 'https://gone.example/', title: 'Gone page', ts: Date.now(), count: 1, fields: [['Gone page', 'https://gone.example/']] }];
+    sw.state.archived = [{ id: '9', title: 'Kept page', url: 'https://kept.example/', t: 1 }];
+    sw.state.marks = [{ id: '5', title: 'Marked page', url: 'https://marked.example/', path: '' }];
+    sw.state.history = [visit('Seen page', 'https://seen.example/')];
+    const kinds = (q) => { sw.state.query = q; sw.deriveSearch(); return sw.ddRows().filter((r) => r.kind).map((r) => r.kind); };
+    expect(kinds('closed')).toEqual(['closed']);
+    expect(kinds('archived')).toEqual(['archived']);
+    expect(kinds('bookmarked')).toEqual(['mark']);
+    expect(kinds('history')).toEqual(['visit']);
+  });
+
+  it('in Spanish, by the Spanish words and the English ones', async () => {
+    sw = await bootSwitcher({ tabs: [tab('Plain', 'https://plain.example/'), { ...tab('Docs', 'https://docs.example/'), pinned: true }], prefs: { lang: 'es' } });
+    const titles = (q) => { sw.state.query = q; sw.deriveSearch(); return sw.state.found.map((e) => e.tab.title); };
+    expect(titles('fijada')).toEqual(['Docs']);
+    expect(titles('pinned')).toEqual(['Docs']);
+  });
+});

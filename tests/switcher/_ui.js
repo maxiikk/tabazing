@@ -3,7 +3,7 @@
 // keyboard), and every booted module is retired after its test: each boot imports the module afresh, and
 // the old copy's window listeners would otherwise keep reacting to the next test's keys.
 import { vi, afterEach } from 'vitest';
-import { bootSwitcher, waitFor } from '../helpers/switcher.js';
+import { bootSwitcher, waitFor, tick } from '../helpers/switcher.js';
 
 const booted = [];
 afterEach(() => {
@@ -20,12 +20,10 @@ export async function boot(opts = {}) {
     },
   });
   booted.push(sw);
-  // "Recently closed" etc. are drawn once the opening animation is over (~340 ms): do that redraw now
-  // instead, so it can't land in the middle of a test and replace the cards (or close a big preview).
+  // What arrives right after the first draw ("Recently closed" etc.) is drawn now, so it can't land in the
+  // middle of a test and replace the cards (or close a big preview).
   if (opts.settle !== false) {
-    await waitFor(() => sw.introWait || !document.documentElement.classList.contains('intro'), { timeout: 1000 }).catch(() => {});
-    clearTimeout(sw.introWait);
-    document.documentElement.classList.remove('intro');
+    await tick(10);
     sw.refresh();
   }
   return sw;

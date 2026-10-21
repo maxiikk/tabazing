@@ -164,7 +164,7 @@ describe('the archive overlay', () => {
     const cards = tids('card-archived', o);
     expect(cards.map((c) => tid('card-title', c).textContent)).toEqual(['New one', 'Mid one', 'Old one']);
     expect(tid('card-preview', cards[2]).src).toBe(PV);
-    expect(tid('card-no-preview-label', cards[0]).textContent).toBe(t('archivedLabel'));
+    expect(tid('card-tile-favicon', tid('card-no-preview', cards[0]))).not.toBe(null); // no preview: its icon
     expect(tid('card-archived-ago', cards[0]).textContent).not.toBe('');
     expect(cards.map((c) => c.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
     expect(document.activeElement).toBe(tid('archive-close', o));
@@ -174,6 +174,7 @@ describe('the archive overlay', () => {
     const { sw } = await bootArchived(OLD, { prefs: { cardSize: 'list' } });
     const o = await openOverlay(sw);
     expect(tid('card-thumb', o)).toBe(null);
+    expect(tid('card-no-preview', o)).toBe(null);
   });
 
   it('closes with its red × or Esc, back to the Archive button that opened it', async () => {
@@ -182,7 +183,7 @@ describe('the archive overlay', () => {
     tid('archive-close', o).click();
     expect(tid('archive-overlay')).toBe(null);
     expect(sw.archiveOpen()).toBe(false);
-    expect(document.activeElement).toBe(tid('archive-btn'));
+    expect(document.activeElement).toBe(tid('menu-btn'));
     o = await openOverlay(sw);
     const e = key('Escape');
     expect(e.defaultPrevented).toBe(true);
@@ -277,14 +278,17 @@ describe('archive keys', () => {
     expect(sw.state.archSel).toBe(1);
   });
 
-  it('↓ goes to the card below', async () => {
+  it('↓ ↑ move one row at a time (a list), Home / End to the ends', async () => {
     const { sw } = await bootArchived();
-    const o = await openOverlay(sw);
-    const at = (top) => () => ({ top, bottom: top + 50, left: 0, right: 100, width: 100, height: 50 });
-    const cards = tids('card-archived', o);
-    [0, 0, 100].forEach((top, i) => { cards[i].getBoundingClientRect = at(top); });
+    await openOverlay(sw);
     key('ArrowDown');
+    expect(sw.state.archSel).toBe(1);
+    key('End');
     expect(sw.state.archSel).toBe(2);
+    key('ArrowUp');
+    expect(sw.state.archSel).toBe(1);
+    key('Home');
+    expect(sw.state.archSel).toBe(0);
   });
 
   it('Enter opens the selected card', async () => {

@@ -8,15 +8,12 @@
 <body>
   <div id="app" hidden data-testid="app">
     <header class="bar" data-testid="header">
-      <button id="settings-btn" class="ghost" type="button" data-i18n-title="settings" data-i18n-aria="settings" data-testid="settings-btn"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm5.6 3.2-.1-1.6 1.3-1-1.3-2.3-1.6.5a5 5 0 0 0-1.4-.8L10.2 2H7.6l-.3 1.6a5 5 0 0 0-1.4.8l-1.6-.5L3 6.2l1.3 1-.1 1.6-1.2 1 1.3 2.3 1.6-.5c.4.3.9.6 1.4.8l.3 1.6h2.6l.3-1.6c.5-.2 1-.5 1.4-.8l1.6.5 1.3-2.3z" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linejoin="round"/></svg><span data-i18n="settings" data-testid="settings-btn-label">Settings</span></button>
+      <!-- The menu: a drawer from the left with History, Bookmarks, Archive and Settings (switcher.js openDrawer). -->
+      <button id="menu-btn" class="ghost icon" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="drawer" data-i18n-title="menuBtn" data-i18n-aria="menuBtn" data-testid="menu-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><path d="M2.5 4h11M2.5 8h11M2.5 12h11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
       <button id="newtab" class="ghost" type="button" data-testid="newtab">
         <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
         <span data-i18n="newTab" data-testid="newtab-label">New tab</span>
       </button>
-      <!-- Chrome's browsing history, with previews (switcher.js openHistory). -->
-      <button id="history-btn" class="ghost icon" type="button" aria-haspopup="dialog" data-i18n-title="historyBtn" data-i18n-aria="historyBtn" data-testid="history-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 2.5v2.8h2.8M8 5v3.2l2.2 1.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <!-- Every Chrome bookmark, as a tree with previews, to open, edit, note and tidy (switcher.js openBookmarks). -->
-      <button id="bookmarks-btn" class="ghost icon" type="button" aria-haspopup="dialog" data-i18n-title="bmvBtn" data-i18n-aria="bmvBtn" data-testid="bookmarks-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><path d="M4 2.5h8v11L8 10.6l-4 2.9z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg></button>
       <label class="search" data-testid="search-box">
         <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         <input id="search" type="search" data-i18n-aria="searchAria" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="open-grid snoozed-grid closed-grid" data-testid="search">
@@ -35,8 +32,24 @@
       <button id="github-btn" class="ghost icon" type="button" data-i18n-title="githubTitle" data-i18n-aria="githubTitle" data-testid="github-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg></button>
       <!-- Every keyboard and mouse shortcut, in a card that opens below (switcher.js openShortcuts). -->
       <button id="keys-btn" class="ghost icon" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="keys-popover" data-i18n-title="keysTitle" data-i18n-aria="keysTitle" data-testid="keys-btn"><svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true"><circle cx="8" cy="8" r="6.3" stroke="currentColor" stroke-width="1.3" fill="none"/><path d="M8 7.2v4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="4.9" r=".95" fill="currentColor"/></svg></button>
-      <button id="archive-btn" class="ghost" type="button" data-i18n-title="archiveBtnTitle" data-testid="archive-btn"><span data-i18n="archiveBtn" data-testid="archive-btn-label">Archive</span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </header>
+    <!-- The menu (☰): a drawer over the dimmed switcher, from the left. Its buttons open Tabazing's dialogs. -->
+    <div id="drawer-back" class="drawerback" hidden data-testid="drawer-back">
+      <nav id="drawer" class="drawer" aria-labelledby="drawer-h" data-testid="drawer">
+        <div class="drawerhead" data-testid="drawer-head">
+          <img class="drawerlogo" src="../icons/icon32.png" alt="" data-testid="drawer-logo">
+          <h2 id="drawer-h" data-i18n="extShortName" data-testid="drawer-title">Tabazing</h2>
+          <button id="drawer-close" class="setx" type="button" data-i18n-title="menuClose" data-i18n-aria="menuClose" data-testid="drawer-close"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
+        </div>
+        <ul class="drawerlist" data-testid="drawer-list">
+        <li data-testid="history-btn-item"><button id="history-btn" class="draweritem" type="button" aria-haspopup="dialog" data-i18n-title="historyBtn" data-testid="history-btn"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9M2.5 2.5v2.8h2.8M8 5v3.2l2.2 1.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="dlabel" data-i18n="historyTitle" data-testid="history-btn-label"></span><kbd id="history-btn-key" data-testid="history-btn-key"></kbd></button></li>
+        <li data-testid="bookmarks-btn-item"><button id="bookmarks-btn" class="draweritem" type="button" aria-haspopup="dialog" data-i18n-title="bmvBtn" data-testid="bookmarks-btn"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path d="M4 2.5h8v11L8 10.6l-4 2.9z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg><span class="dlabel" data-i18n="bmvTitle" data-testid="bookmarks-btn-label"></span><kbd id="bookmarks-btn-key" data-testid="bookmarks-btn-key"></kbd></button></li>
+        <li data-testid="archive-btn-item"><button id="archive-btn" class="draweritem" type="button" aria-haspopup="dialog" data-i18n-title="archiveBtnTitle" data-testid="archive-btn"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path d="M1.8 3h12.4v3H1.8zM2.8 6v7h10.4V6M6.3 8.6h3.4" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="dlabel" data-i18n="archiveBtn" data-testid="archive-btn-label"></span><kbd id="archive-btn-key" data-testid="archive-btn-key" hidden></kbd></button></li>
+          <li class="drawersep" role="separator" data-testid="drawer-separator"></li>
+        <li data-testid="settings-btn-item"><button id="settings-btn" class="draweritem" type="button" aria-haspopup="dialog" data-i18n-title="settings" data-testid="settings-btn"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path d="M8 5.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8Zm5.6 3.2-.1-1.6 1.3-1-1.3-2.3-1.6.5a5 5 0 0 0-1.4-.8L10.2 2H7.6l-.3 1.6a5 5 0 0 0-1.4.8l-1.6-.5L3 6.2l1.3 1-.1 1.6-1.2 1 1.3 2.3 1.6-.5c.4.3.9.6 1.4.8l.3 1.6h2.6l.3-1.6c.5-.2 1-.5 1.4-.8l1.6.5 1.3-2.3z" stroke="currentColor" stroke-width="1.1" fill="none" stroke-linejoin="round"/></svg><span class="dlabel" data-i18n="settings" data-testid="settings-btn-label"></span><kbd id="settings-btn-key" data-testid="settings-btn-key" hidden></kbd></button></li>
+        </ul>
+      </nav>
+    </div>
 
     <div id="tools" class="tools" data-testid="tools">
       <div class="setup" data-testid="setup-actions">

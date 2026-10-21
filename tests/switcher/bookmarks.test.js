@@ -41,11 +41,12 @@ async function find(text) {
 const submit = (testid) => tid(testid).dispatchEvent(new Event('submit', { cancelable: true }));
 
 describe('the bookmarks button', () => {
-  it('sits right of History, a labelled icon button that opens a dialog; Ctrl+Shift+O opens and closes it', async () => {
+  it('is in the menu (☰), after History, with its icon, name and key; Ctrl+Shift+O opens and closes it', async () => {
     const sw = await boot({ tabs: AB });
     const b = tid('bookmarks-btn');
-    expect(tid('history-btn').nextElementSibling).toBe(b);
-    expect(b.getAttribute('aria-label')).toBe(t('bmvBtn'));
+    expect(tid('history-btn-item').nextElementSibling).toBe(tid('bookmarks-btn-item'));
+    expect(tid('bookmarks-btn-label').textContent).toBe(t('bmvTitle'));
+    expect(tid('bookmarks-btn-key').textContent).toBe('Ctrl+Shift+O');
     expect(b.getAttribute('aria-haspopup')).toBe('dialog');
     key('O', { code: 'KeyO', ctrlKey: true, shiftKey: true });
     await waitFor(() => sw.bookmarksOpen());
@@ -156,7 +157,7 @@ describe('the search box', () => {
     expect(sw.bookmarksOpen()).toBe(true);
     key('Escape');
     expect(sw.bookmarksOpen()).toBe(false);
-    expect(document.activeElement).toBe(tid('bookmarks-btn'));
+    expect(document.activeElement).toBe(tid('menu-btn'));
   });
 });
 

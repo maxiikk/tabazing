@@ -50,7 +50,7 @@ describe('Tab', () => {
   it('wraps around at the ends instead of leaving the page (which would close the switcher)', async () => {
     const sw = await boot({ tabs: ABC });
     const list = sw.tabbables(tid('app'));
-    expect(list[0]).toBe(tid('settings-btn'));
+    expect(list[0]).toBe(tid('menu-btn'));
     expect(list).toContain(tid('search'));
     list[0].focus();
     expect(key('Tab', { shiftKey: true }).defaultPrevented).toBe(true);
@@ -67,7 +67,7 @@ describe('Tab', () => {
     sw.toast('Closed', null, { label: 'Undo', fn: () => {} });
     sw.showAlert('Problem', 'Fix', () => {});
     const list = sw.tabbables(tid('app'));
-    for (const id of ['settings-btn', 'newtab', 'search', 'archive-btn', 'select-sort', 'star-filter', 'window-all', 'window-merge', 'toast-action', 'alert-btn']) {
+    for (const id of ['menu-btn', 'newtab', 'search', 'keys-btn', 'select-sort', 'star-filter', 'window-all', 'window-merge', 'toast-action', 'alert-btn']) {
       expect(list, id).toContain(tid(id));
     }
     // The merge button is a real button beside the window's (not inside it).
@@ -160,7 +160,7 @@ describe('Settings', () => {
     await openSettings();
     key('Escape');
     expect(tid('settings')).toBe(null);
-    expect(focused()).toBe(tid('settings-btn'));
+    expect(focused()).toBe(tid('menu-btn'));
     expect(sw.state.done).toBe(false);
   });
 
@@ -169,13 +169,13 @@ describe('Settings', () => {
     await openSettings();
     await sw.openSettings(tid('settings-btn'));
     expect(tid('settings')).toBe(null);
-    expect(focused()).toBe(tid('settings-btn'));
+    expect(focused()).toBe(tid('menu-btn'));
     await openSettings();
     const back = tid('settings-backdrop');
     back.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     back.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(tid('settings')).toBe(null);
-    expect(focused()).toBe(tid('settings-btn'));
+    expect(focused()).toBe(tid('menu-btn'));
     expect(sw.state.done).toBe(false);
   });
 
@@ -490,7 +490,7 @@ describe('dialogs, the archive and the big preview keep the focus', () => {
     expect(tid('archive-overlay').contains(focused())).toBe(true);
     key('Escape');
     expect(inert()).toEqual([]);
-    expect(focused()).toBe(tid('archive-btn'));
+    expect(focused()).toBe(tid('menu-btn'));
   });
 
   it('in the archive, Ctrl+Z runs the toast\'s Undo', async () => {
@@ -599,5 +599,70 @@ describe('where menus and small cards open (switcher.js dropFrom)', () => {
     await boot({ tabs: ABC });
     cardOf('B').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 210, clientY: 120 }));
     expect(at(tid('menu'))).toMatchObject({ left: 210, top: 122, up: false });
+  });
+});
+
+describe('the menu (☰)', () => {
+  const items = () => [...tid('drawer').querySelectorAll('button.draweritem')];
+  it('a drawer from the left with History, Bookmarks, Archive and Settings, each with its icon and name', async () => {
+    await boot({ tabs: ABC });
+    expect(tid('header').firstElementChild).toBe(tid('menu-btn'));
+    for (const id of ['settings-btn', 'archive-btn', 'history-btn', 'bookmarks-btn']) expect(tid('header').contains(tid(id)), id).toBe(false);
+    expect(tid('drawer-back').hidden).toBe(true);
+    expect(tid('menu-btn').getAttribute('aria-expanded')).toBe('false');
+    tid('menu-btn').click();
+    expect(tid('drawer-back').hidden).toBe(false);
+    expect(tid('menu-btn').getAttribute('aria-expanded')).toBe('true');
+    expect(items().map((b) => b.dataset.testid)).toEqual(['history-btn', 'bookmarks-btn', 'archive-btn', 'settings-btn']);
+    expect(items().every((b) => b.querySelector('svg') && b.querySelector('.dlabel').textContent)).toBe(true);
+    expect(focused()).toBe(tid('history-btn'));
+    for (const id of REST) expect(tid(id).hasAttribute('inert'), id).toBe(true);
+  });
+
+  it('↓ ↑ move between its buttons; Esc closes it, back to ☰; so do × and a press beside it (not closing Tabazing)', async () => {
+    const sw = await boot({ tabs: ABC });
+    tid('menu-btn').click();
+    key('ArrowDown');
+    expect(focused()).toBe(tid('bookmarks-btn'));
+    key('ArrowUp'); key('ArrowUp');
+    expect(focused()).toBe(tid('settings-btn'));
+    key('Escape');
+    expect(tid('drawer-back').hidden).toBe(true);
+    expect(focused()).toBe(tid('menu-btn'));
+    tid('menu-btn').click();
+    tid('drawer-close').click();
+    expect(tid('drawer-back').hidden).toBe(true);
+    tid('menu-btn').click();
+    tid('drawer-back').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(tid('drawer-back').hidden).toBe(true);
+    expect(sw.state.done).toBe(false);
+  });
+
+  it('a button closes it and opens its dialog, which gives the focus back to ☰', async () => {
+    const sw = await boot({ tabs: ABC });
+    tid('menu-btn').click();
+    tid('settings-btn').click();
+    await waitFor(() => tid('settings'));
+    expect(tid('drawer-back').hidden).toBe(true);
+    key('Escape');
+    expect(focused()).toBe(tid('menu-btn'));
+    tid('menu-btn').click();
+    tid('history-btn').click();
+    await waitFor(() => sw.historyOpen());
+    expect(tid('drawer-back').hidden).toBe(true);
+  });
+});
+
+describe('the History, Bookmarks and Archive dialogs', () => {
+  it('open as Settings does: a panel over the dimmed switcher; a press on the backdrop closes it, not Tabazing', async () => {
+    const sw = await boot({ tabs: ABC });
+    await sw.openBookmarks();
+    expect(tid('bookmarks-panel').getAttribute('role')).toBe('dialog');
+    tid('bookmarks-overlay').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    expect(sw.bookmarksOpen()).toBe(false);
+    expect(sw.state.done).toBe(false);
+    const css = readFileSync(resolve(process.cwd(), 'styles/switcher.css'), 'utf8').replace(/\r\n/g, '\n');
+    expect(css).toMatch(/\n\.arch \{[^}]*background: var\(--md-scrim\)/);
+    expect(css).toMatch(/\n\.archpanel \{[^}]*border-radius: var\(--r-xl\)/);
   });
 });

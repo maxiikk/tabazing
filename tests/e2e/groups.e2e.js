@@ -65,4 +65,21 @@ describe('tab groups in Chrome', () => {
     }, g);
     expect(back).toBe(g);
   });
+
+  it('a tab moved just after the last tab of a group and grouped joins it at its end (what dropping on a tile does)', async () => {
+    const { win, g } = await setUp(srv.main);
+    const order = await ext.run(async ({ win, g }) => {
+      const [a] = (await chrome.tabs.query({ windowId: win })).sort((x, y) => x.index - y.index);
+      const members = (await chrome.tabs.query({ groupId: g })).sort((x, y) => x.index - y.index);
+      const last = members[members.length - 1];
+      const cur = await chrome.tabs.get(a.id);
+      let index = last.index + 1;
+      if (cur.index < index) index--;
+      await chrome.tabs.move(a.id, { windowId: win, index });
+      await chrome.tabs.group({ tabIds: [a.id], groupId: g });
+      return null;
+    }, { win, g });
+    expect(order).toBe(null);
+    expect((await strip(win)).map((x) => x.replace(/^.*\/p\//, ''))).toEqual(['w1*', 'w2*', 'w3*', 'a*', 'b']);
+  });
 });

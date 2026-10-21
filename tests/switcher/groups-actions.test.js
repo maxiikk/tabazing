@@ -298,6 +298,24 @@ describe('dragging ("By order")', () => {
     g.dispatchEvent(dragEvent('drop', 50));
     await waitFor(() => chrome._data.tabs.find((x) => x.title === 'A').groupId === GROUP);
     expect(toastText()).toBe(t('groupAddedN', { count: 1, name: 'Work' }));
+    // appended: after the group's last tab (A was before the group)
+    const strip = chrome._data.tabs.filter((x) => x.windowId === 1).sort((x, y) => x.index - y.index).map((x) => x.title + (x.groupId === GROUP ? '*' : ''));
+    expect(strip.filter((x) => x !== 'about:blank')).toEqual(['W1*', 'W2*', 'W3*', 'A*', 'B']);
+  });
+
+  it('ticked tabs dropped on a tile all go to its end, in their order; a pinned one is unpinned first', async () => {
+    const tabs = [{ title: 'P', url: 'https://p.example/', pinned: true }, ...TABS()];
+    const sw = await boot({ tabs, ...byOrder() });
+    sw.pick(sw.state.entries.find((e) => e.kind === 'tab' && e.tab.title === 'P'));
+    sw.pick(sw.state.entries.find((e) => e.kind === 'tab' && e.tab.title === 'B'));
+    const b = rect(cardOf('B')), g = rect(tile());
+    b.dispatchEvent(dragEvent('dragstart'));
+    g.dispatchEvent(dragEvent('dragover', 50));
+    g.dispatchEvent(dragEvent('drop', 50));
+    await waitFor(() => chrome._data.tabs.filter((x) => x.groupId === GROUP).length === 5);
+    const strip = chrome._data.tabs.filter((x) => x.windowId === 1).sort((x, y) => x.index - y.index).map((x) => x.title + (x.groupId === GROUP ? '*' : ''));
+    expect(strip.filter((x) => x !== 'about:blank')).toEqual(['A', 'W1*', 'W2*', 'W3*', 'P*', 'B*']);
+    expect(chrome._data.tabs.find((x) => x.title === 'P').pinned).toBe(false);
   });
 
   it('a tile dropped on a tab moves the whole group there', async () => {

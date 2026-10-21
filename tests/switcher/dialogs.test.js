@@ -77,7 +77,7 @@ describe('the tour', () => {
     expect(tid('tour-step-number').textContent).toBe('1');
     for (let i = 1; i < n; i++) tid('tour-next').click();
     expect(tid('dialog-title').textContent).toBe(t('tourSetTitle'));
-    expect(tid('settings-btn').classList.contains('tour-hl')).toBe(true);
+    expect(tid('menu-btn').classList.contains('tour-hl')).toBe(true);
     expect(tid('tour-next')).toBe(null);
     expect(tid('tour-skip')).toBe(null);
     tid('tour-done').click();
@@ -377,7 +377,7 @@ describe('Settings', () => {
     const sw = await boot({ tabs: AB });
     const closed = () => {
       expect(tid('settings')).toBe(null);
-      expect(document.activeElement).toBe(tid('settings-btn'));
+      expect(document.activeElement).toBe(tid('menu-btn'));
       expect(tid('header').hasAttribute('inert')).toBe(false);
     };
     await open();

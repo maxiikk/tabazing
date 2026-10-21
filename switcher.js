@@ -48,7 +48,7 @@ const el = {
   acts: $('acts'), actsN: $('acts-n'), actsBtns: $('acts-btns'), selAll: $('sel-all'), selNone: $('sel-none'), actsHint: $('acts-hint'),
   body: $('body'),
   toast: $('toast'), clip: $('clip'), modal: $('modal'), dialog: $('dialog'),
-  live: $('live-status'), liveAlert: $('live-alert'), archiveBtn: $('archive-btn'),
+  live: $('live-status'), liveAlert: $('live-alert'), archiveBtn: $('archive-btn'), menuBtn: $('menu-btn'), drawerBack: $('drawer-back'),
   player: $('player'), playerPic: $('player-pic'), playerTitle: $('player-title'), playerSub: $('player-sub'),
   playerPrev: $('player-prev'), playerToggle: $('player-toggle'), playerNext: $('player-next'), playerMore: $('player-more'),
   palette: $('palette'), palInput: $('palette-input'), palList: $('palette-list'), palFoot: $('palette-foot'),
@@ -422,7 +422,7 @@ async function loadClosed(before) {
 // entries, few whole windows; while searching, anything from the last 7 days.
 // "Show more" (state.closedMore) reaches as far as a search does.
 function closedFor(q) {
-  if (q) return state.closed.filter((c) => c.fields.some(([title, url]) => matches(q, title, url, noteOf(url)))).slice(0, LIMITS.RECENTLY_CLOSED_SEARCH);
+  if (q) return state.closed.filter((c) => c.fields.some(([title, url]) => matches(q, title, url, noteOf(url), pageStatus(url, 'closed')))).slice(0, LIMITS.RECENTLY_CLOSED_SEARCH);
   if (state.closedMore) return state.closed.slice(0, LIMITS.RECENTLY_CLOSED_SEARCH);
   const cutoff = Date.now() - LIMITS.RECENTLY_CLOSED_MAX_AGE_S * 1000;
   let windows = 0;
@@ -504,17 +504,40 @@ function scoreWord(w, f) {
   if (w.length >= 4 && !/\d/.test(w) && f.words.some((x) => typoNear(w, x))) return 1;
   return 0;
 }
+// A field may be a page's state ({ status }: pageStatus, tabStatus): its words count only as typed, from their start
+// (three letters or more), never as a typo, so "plain" doesn't find the tabs that are "playing".
 function searchScore(q, ...fields) {
-  const fs = fields.filter(Boolean).map(fieldOf);
+  const fs = [], st = [];
+  for (const f of fields) if (f && typeof f === 'object') st.push(...f.status.split(/\s+/).filter(Boolean)); else if (f) fs.push(fieldOf(f));
   let total = 0;
   for (const w of q.split(/\s+/).filter(Boolean)) {
-    const best = Math.max(0, ...fs.map((f) => wordScore(w, f)));
+    let best = Math.max(0, ...fs.map((f) => wordScore(w, f)));
+    if (!best && w.length >= 3) { const lw = w.toLowerCase(); if (st.some((s) => s.startsWith(lw))) best = 1; }
     if (!best) return 0;
     total += best;
   }
   return total;
 }
 const matches = (q, ...fields) => searchScore(q, ...fields) > 0;
+// What a page is, in words the searches find it by, in the page's language and in English (as the palette's actions
+// are): pinned, asleep, playing, muted, starred, with a note, in a group, and where it is (closed, archived, snoozed,
+// bookmarked, in the history). One more field to search: "pinned youtube" finds the pinned YouTube tabs, "asleep" the
+// sleeping ones. (No word for "open": every tab is.)
+const STATUS = {
+  pinned: { label: 'statusPinned' }, asleep: { label: 'statusAsleep' }, playing: { label: 'statusPlaying' }, muted: { label: 'statusMuted' },
+  starred: { label: 'statusStarred' }, note: { label: 'statusNote' }, grouped: { label: 'statusGrouped' }, closed: { label: 'statusClosed' },
+  archived: { label: 'statusArchived' }, snoozed: { label: 'statusSnoozed' }, bookmarked: { label: 'statusBookmarked' }, visited: { label: 'statusVisited' },
+};
+let statusMemo = { lang: null, words: {} };
+function statusText(...kinds) {
+  const lang = getLocale();
+  if (statusMemo.lang !== lang) statusMemo = { lang, words: {} };
+  const word = (k) => (statusMemo.words[k] ??= lang === 'en' ? t(STATUS[k].label) : t(STATUS[k].label) + ' ' + inEnglish(() => t(STATUS[k].label)));
+  return kinds.filter(Boolean).map(word).join(' ');
+}
+const tabStatus = (x) => ({ status: statusText(x.pinned && 'pinned', x.discarded && 'asleep', x.audible && 'playing', isMuted(x) && 'muted',
+  isStarred(urlOf(x)) && 'starred', noteOf(urlOf(x)) && 'note', x.groupId >= 0 && 'grouped') });
+const pageStatus = (url, where = null) => ({ status: statusText(where, isStarred(url) && 'starred', noteOf(url) && 'note') });
 // Where a tab matched decides its place first: its note (3), then its title (2), then its address (1);
 // within each, how well it matched. A field counts if any word typed is found in it.
 // A title that starts with what was typed (or with its first word) comes before one that has it elsewhere.
@@ -607,7 +630,7 @@ function searchFor(q) {
   if (!q) return { found: [], foundClosed: [] };
   const score = new Map(), tier = new Map();
   const found = state.tabs
-    .filter((x) => { const s = searchScore(q, x.title, urlOf(x), noteOf(urlOf(x))); if (s > 0) { score.set(x.id, s); tier.set(x.id, matchTier(q, x)); } return s > 0; })
+    .filter((x) => { const s = searchScore(q, x.title, urlOf(x), noteOf(urlOf(x)), tabStatus(x)); if (s > 0) { score.set(x.id, s); tier.set(x.id, matchTier(q, x)); } return s > 0; })
     .sort((a, b) => tier.get(b.id) - tier.get(a.id) || score.get(b.id) - score.get(a.id)) // stable: recent use within
     .map((tab) => ({ kind: 'tab', key: 't' + tab.id, tab, preview: state.previews[tab.id] || null }));
   return { found, foundClosed: closedFor(q) };
@@ -634,8 +657,8 @@ function deriveHits() {
   const found = new Set(state.found.map((e) => e.key));
   state.hits = new Set(state.entries.filter((e) => (e.kind === 'tab' ? found.has(e.key)
     : e.kind === 'group' ? e.tabs.some((x) => found.has('t' + x.id)) || matches(q, groupName(e.group))
-    : e.kind === 'closed' ? e.item.fields.some(([title, url]) => matches(q, title, url, noteOf(url)))
-    : matches(q, e.item.title, e.item.url, noteOf(e.item.url)))).map((e) => e.key));
+    : e.kind === 'closed' ? e.item.fields.some(([title, url]) => matches(q, title, url, noteOf(url), pageStatus(url, 'closed')))
+    : matches(q, e.item.title, e.item.url, noteOf(e.item.url), pageStatus(e.item.url, e.kind === 'snoozed' ? 'snoozed' : null)))).map((e) => e.key));
 }
 // Mark the cards on screen as matching or not (a keystroke doesn't build them again).
 function markHits() {
@@ -698,7 +721,7 @@ function derive() {
     // Starred pages no tab has open right now: reopen them from here.
     const openUrls = new Set(state.tabs.map((t) => normalizeUrl(urlOf(t))));
     closed = Object.entries(state.stars)
-      .filter(([k, st]) => !openUrls.has(k) && (!q || matches(q, st.ti, st.u, noteOf(st.u))))
+      .filter(([k, st]) => !openUrls.has(k) && (!q || matches(q, st.ti, st.u, noteOf(st.u), pageStatus(st.u))))
       .sort((a, b) => b[1].t - a[1].t)
       .map(([k, st]) => ({ kind: 'star', key: 'st' + k, item: { id: k, url: st.u, title: st.ti, ts: st.t }, preview: state.starPreviews[k] || null }));
   } else if (pref('showClosed')) {
@@ -707,7 +730,7 @@ function derive() {
 
   // Snoozed tabs (soonest first) get their own section; not while a filter narrows things to open tabs.
   const snoozed = state.starOnly || state.filter || state.dupesView || inGroup !== null || !pref('showSnoozed') ? [] : state.snoozed
-    .filter((x) => !q || matches(q, x.title, x.url, noteOf(x.url)))
+    .filter((x) => !q || matches(q, x.title, x.url, noteOf(x.url), pageStatus(x.url, 'snoozed')))
     .sort((a, b) => a.at - b.at)
     .map((x) => ({ kind: 'snoozed', key: 'z' + x.id, item: { id: x.id, url: x.url, title: x.title, ts: x.at, snooze: x }, preview: state.snoozePreviews[normalizeUrl(x.url)] || null }));
 
@@ -955,7 +978,6 @@ function renderCard(entry, index) {
   card._i = index; // its place in state.entries (select() and the mouse find cards by it)
   if (index === state.sel) selCard = card;
   if (entry.kind === 'tab') card.setAttribute('aria-checked', String(picked)); // ticked for a quick action (any number)
-  card.style.setProperty('--i', index); // its place in the opening cascade (switcher.css, .intro)
 
   const head = h('div', 'head', null, 'card-head');
   const fav = h('img', 'fav', null, 'card-favicon');
@@ -1334,7 +1356,6 @@ function render(only) {
     el.closedGrid.replaceChildren(...closed.map((e, i) => renderCard(e, i + state.openCount + state.snoozeCount)));
     shots = shotsNext; // the screenshots this draw used: the rest can go
     shotsNext = null;
-    drawWait = null; // whatever was waiting for drawLater() is drawn now
     cardList = [...document.querySelectorAll('#scroller .card')];
   }
   el.snoozedSection.hidden = snoozedPart.length === 0;
@@ -2098,26 +2119,13 @@ async function moveBack(tabs) {
   return regroup(tabs.map((x) => ({ x, tab: { id: x.id } }))); // (moving a tab to another window takes it out of its group)
 }
 
-// Run `fn` now, or once the opening animation is over (a redraw during it would restart it on every card).
-let introWait = null;
-function afterIntro(fn) {
-  if (!document.documentElement.classList.contains('intro')) return fn();
-  clearTimeout(introWait);
-  introWait = setTimeout(() => { if (!state.done) fn(); }, 340);
-}
 // Does this card show one of these tab ids (its own, or one in its group tile's picture)?
 const showsTab = (e, ids) => (e.kind === 'tab' ? ids.has(e.tab.id) : e.kind === 'group' && e.tabs.slice(0, 4).some((x) => ids.has(x.id)));
-// Draw what arrived meanwhile once the opening animation is over: some tabs' cards (`ids`, new previews), or
-// everything (refresh). What is still waiting adds up, since a later afterIntro() replaces an earlier one.
-let drawWait = null; // null | 'all' | Set of tab ids
+// Draw what arrived meanwhile: some tabs' cards (`ids`, new previews), or everything (refresh).
 function drawLater(ids) {
-  drawWait = !ids || drawWait === 'all' ? 'all' : new Set([...(drawWait || NONE), ...ids]);
-  afterIntro(() => {
-    const w = drawWait;
-    drawWait = null;
-    if (w === 'all') refresh();
-    else if (w) redraw((e) => showsTab(e, w));
-  });
+  if (!ids) return refresh();
+  const set = new Set(ids);
+  redraw((e) => showsTab(e, set));
 }
 
 // Reload the tab list after Chrome has acted (pin, mute, move...), keeping the selection.
@@ -2350,7 +2358,7 @@ function ddRows(text = state.query) {
     if (x.rank < cur.rank) best.set(key, { ...x, s: Math.max(s, cur.s) });
     else cur.s = Math.max(s, cur.s);
   };
-  for (const e of found) add(urlKey(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab))), { kind: 'tab', entry: e });
+  for (const e of found) add(urlKey(urlOf(e.tab)), searchScore(q, e.tab.title, urlOf(e.tab), noteOf(urlOf(e.tab)), tabStatus(e.tab)), { kind: 'tab', entry: e });
   // Tab groups by their name (Enter opens the group), just above their tabs that match as well.
   if (pref('showGroups')) {
     for (const g of state.groups.values()) {
@@ -2360,15 +2368,15 @@ function ddRows(text = state.query) {
     }
   }
   for (const c of foundClosed) {
-    const s = Math.max(0, ...c.fields.map(([title, url]) => searchScore(q, title, url, noteOf(url))));
+    const s = Math.max(0, ...c.fields.map(([title, url]) => searchScore(q, title, url, noteOf(url), pageStatus(url, 'closed'))));
     add(c.kind === 'window' ? 'w:' + c.id : urlKey(c.url), s, { kind: 'closed', c });
   }
   // A note is found wherever its page turns up (archived, bookmarked, visited), as on an open tab.
-  for (const a of state.archived || NONE) { const s = searchScore(q, a.title, a.url, noteOf(a.url)); if (s > 0) add(urlKey(a.url), s, { kind: 'archived', a }); }
+  for (const a of state.archived || NONE) { const s = searchScore(q, a.title, a.url, noteOf(a.url), pageStatus(a.url, 'archived')); if (s > 0) add(urlKey(a.url), s, { kind: 'archived', a }); }
   // Bookmarks and history only while Settings -> Search includes them.
   const marks = pref('searchBookmarks'), hist = pref('searchHistory');
-  if (marks) for (const { it: b, s } of scoreBig('marks', state.marks || NONE, q, (b) => searchScore(q, b.title, b.url, b.path, noteOf(b.url), bmNoteOf(b.id)))) add(urlKey(b.url), s, { kind: 'mark', b });
-  if (hist) for (const { it: x, s } of scoreBig('history', historyItems(typed), q, (x) => searchScore(q, x.title, x.url, noteOf(x.url)))) add(urlKey(x.url), s, { kind: 'visit', x });
+  if (marks) for (const { it: b, s } of scoreBig('marks', state.marks || NONE, q, (b) => searchScore(q, b.title, b.url, b.path, noteOf(b.url), bmNoteOf(b.id), pageStatus(b.url, 'bookmarked')))) add(urlKey(b.url), s, { kind: 'mark', b });
+  if (hist) for (const { it: x, s } of scoreBig('history', historyItems(typed), q, (x) => searchScore(q, x.title, x.url, noteOf(x.url), pageStatus(x.url, 'visited')))) add(urlKey(x.url), s, { kind: 'visit', x });
   // In the group view the group's own tabs come first.
   const mine = (r) => (state.inGroup !== null && r.kind === 'tab' && r.entry.tab.groupId === state.inGroup ? 1 : 0);
   const rows = [...best.values()].sort((a, b) => mine(b) - mine(a) || b.s - a.s || a.rank - b.rank || a.order - b.order).slice(0, DD_MAX);
@@ -3058,11 +3066,23 @@ async function moveGroup(id, target, after) {
   await chrome.tabGroups.move(id, { windowId: win, index });
   await reload();
 }
-// Tabs into a group (dropped on its tile, or "Add to group"). Chrome moves them next to it, into its window.
+// Tabs into a group (dropped on its tile, or "Add to group"), appended: each goes after the group's last tab (into its
+// window, in the tab strip's order), then joins it. A pinned tab is unpinned first (a group holds none).
 async function addToGroup(ids, g) {
-  const tabs = state.tabs.filter((x) => ids.includes(x.id) && x.groupId !== g.id);
+  const tabs = state.tabs.filter((x) => ids.includes(x.id) && x.groupId !== g.id).sort((a, b) => a.windowId - b.windowId || a.index - b.index);
   if (!tabs.length) return;
-  await chrome.tabs.group({ tabIds: tabs.map((x) => x.id), groupId: g.id });
+  for (const x of tabs) {
+    if (x.pinned) await chrome.tabs.update(x.id, { pinned: false });
+    const members = (await chrome.tabs.query({ groupId: g.id })).sort((a, b) => a.index - b.index);
+    const last = members[members.length - 1];
+    if (last) {
+      const cur = await chrome.tabs.get(x.id);
+      let index = last.index + 1;
+      if (cur.windowId === last.windowId && cur.index < index) index--; // it leaves its old place first
+      await chrome.tabs.move(x.id, { windowId: last.windowId, index });
+    }
+    await chrome.tabs.group({ tabIds: [x.id], groupId: g.id });
+  }
   state.picked.clear();
   toast(t('groupAddedN', { count: tabs.length, name: groupName(g) }));
   await reload();
@@ -3440,9 +3460,10 @@ async function openArchived(item) {
 // The archive overlay (the Archive button, top right): every archived tab, over the switcher. The red ×
 // or Esc closes it; clicking a card opens that tab, its × (or Del) takes it out of the archive without
 // opening it. Arrows move, Enter opens. `sel` is the card to select (redrawn after a removal).
-const ARCH = '.arch:not(.hist):not(.bmv)'; // the archive overlay (the history's and the bookmarks' share its look, .arch)
+const ARCH = '.arch.archv'; // the archive dialog (the history's and the bookmarks' share its look, .arch)
 const archiveOpen = () => !!document.querySelector(ARCH);
 async function openArchive(sel = 0) {
+  closeDrawer(false);
   closePops();
   closeBig();
   hideTip();
@@ -3452,13 +3473,10 @@ async function openArchive(sel = 0) {
   if (state.done) return;
   let back = document.querySelector(ARCH);
   if (!back) {
-    back = h('div', 'arch', null, 'archive-overlay');
-    back.setAttribute('role', 'dialog');
-    back.setAttribute('aria-modal', 'true');
-    back.setAttribute('aria-labelledby', 'arch-h');
-    back.addEventListener('click', (e) => e.stopPropagation()); // its empty space doesn't close the switcher
+    back = viewDialog('archv', 'archive-overlay', 'arch-h', closeArchive).back;
     el.app.append(back);
   }
+  const panel = back.firstChild;
   const head = h('div', 'archhead', null, 'archive-header');
   const title = h('h2', 'archtitle', t('archiveTitle'), 'archive-title');
   title.id = 'arch-h';
@@ -3474,43 +3492,44 @@ async function openArchive(sel = 0) {
   if (!chrome.bookmarks) body.append(h('p', 'empty', t('ddNoMarks'), 'archive-no-bookmarks'));
   else if (!state.archived.length) body.append(h('p', 'empty', t('archiveEmpty'), 'archive-empty'));
   else {
-    const grid = h('div', 'grid' + (state.cardSize === 'default' ? '' : ' ' + state.cardSize), null, 'archive-grid');
+    const grid = h('div', 'histlist', null, 'archive-grid');
     grid.setAttribute('role', 'listbox');
     grid.setAttribute('aria-labelledby', 'arch-h');
     grid.append(...state.archived.map((item, i) => archiveCard(item, i)));
     body.append(grid);
   }
-  back.replaceChildren(head, body);
+  panel.replaceChildren(head, body);
   updateInert();
   archSelect(sel);
   x.focus({ preventScroll: true });
 }
+// An archived page as a row: its preview (or its icon), its title, its site and when it was archived, and its button
+// that takes it out of the archive. A click (Enter) opens it, and takes it out.
 function archiveCard(item, i) {
   const entry = { kind: 'archived', item, url: item.url, preview: state.archivePreviews[normalizeUrl(item.url)] || null };
   const title = item.title || hostOf(item.url) || t('untitled');
-  const card = h('div', 'card', null, 'card-archived');
-  card.id = 'arch-' + item.id;
-  card.setAttribute('role', 'option');
-  card.title = t('archiveOpenTip', { title }) + '\n' + item.url;
-  const head = h('div', 'head', null, 'card-head');
-  const fav = h('img', 'fav', null, 'card-favicon');
-  fav.src = favicon(item.url);
-  fav.alt = '';
-  head.append(fav, h('span', 'title', title, 'card-title'));
+  const row = h('div', 'bmvrow mark', null, 'card-archived');
+  row.id = 'arch-' + item.id;
+  row.setAttribute('role', 'option');
+  row.title = t('archiveOpenTip', { title }) + '\n' + item.url;
+  const pic = h('div', 'bmvpic' + (entry.preview ? '' : ' bare'), null, entry.preview ? 'card-thumb' : 'card-no-preview');
+  const img = h('img', entry.preview ? 'shot' : 'fav', null, entry.preview ? 'card-preview' : 'card-tile-favicon');
+  img.src = entry.preview ? entry.preview.img : favicon(item.url);
+  img.alt = '';
+  pic.append(img);
+  const text = h('div', 'bmvtext', null, 'card-text');
+  const sub = h('span', 'bmvsub', siteOf(item.url) || item.url, 'card-archived-site');
   const ago = timeAgo(item.t / 1000);
-  if (ago) head.append(h('span', 'tag', ago, 'card-archived-ago'));
-  const x = h('button', 'x', null, 'card-unarchive');
-  x.type = 'button';
-  x.title = t('archiveRemove') + (IS_MAC ? ' (⌘⌫)' : ' (Del)');
-  x.setAttribute('aria-label', t('archiveRemove'));
-  x.append(svgOf(ICON.close));
-  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) dropArchived(item, i).catch((err) => toast(t('errUnarchive'), err)); });
-  head.append(x);
-  card.append(head);
-  if (state.cardSize !== 'list') card.append(thumbFor(entry, { label: entry.preview ? '' : t('archivedLabel'), sub: hostOf(item.url), icon: ICON.archive }));
-  mouseOnly(card); // its × is Del
-  card.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
-  return card;
+  if (ago) sub.append(' · ', h('span', '', ago, 'card-archived-ago'));
+  text.append(h('span', 'bmvtitle', title, 'card-title'), sub);
+  const acts = h('div', 'bmvacts', null, 'card-quick-actions');
+  const x = deleteButton(t('archiveRemove'), 'card-unarchive', () => dropArchived(item, i).catch((err) => toast(t('errUnarchive'), err)));
+  x.classList.add('qbtn');
+  acts.append(x);
+  row.append(...(state.cardSize === 'list' ? [] : [pic]), text, acts); // (Settings -> Card size: List, no pictures)
+  mouseOnly(row); // its button is Del
+  row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
+  return row;
 }
 // Take a page out of the archive without opening it (the × on its card, or Del). Undo puts it back.
 async function dropArchived(item, i) {
@@ -3519,7 +3538,7 @@ async function dropArchived(item, i) {
   toast(t('archiveRemoved'), null, { label: t('undo'), fn: async () => { await addArchived([item]); if (archiveOpen()) await openArchive(i); } });
 }
 function archSelect(i, scroll = true) {
-  const cards = [...document.querySelectorAll(ARCH + ' .card')];
+  const cards = [...document.querySelectorAll(ARCH + ' [role=option]')];
   if (!cards.length) return;
   state.archSel = Math.max(0, Math.min(cards.length - 1, i));
   cards.forEach((c, k) => c.setAttribute('aria-selected', String(k === state.archSel)));
@@ -3529,7 +3548,7 @@ function archSelect(i, scroll = true) {
 function closeArchive() {
   document.querySelectorAll(ARCH).forEach((n) => n.remove());
   updateInert();
-  el.archiveBtn.focus({ preventScroll: true }); // back to what opened it
+  viewBack(el.archiveBtn).focus({ preventScroll: true }); // back to what opened it
 }
 // While the archive is open it has the keyboard.
 function archiveKey(e) {
@@ -3540,7 +3559,7 @@ function archiveKey(e) {
   if (k === 'Escape') return closeArchive();
   // Ctrl+Z (⌘Z): the Undo of the note at the bottom ("Removed from the archive · Undo").
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
-  const cards = [...document.querySelectorAll(ARCH + ' .card')];
+  const cards = [...document.querySelectorAll(ARCH + ' [role=option]')];
   if (!cards.length) return;
   if (k === 'Delete' || (IS_MAC && e.metaKey && k === 'Backspace')) {
     if (e.repeat) return;
@@ -3551,11 +3570,60 @@ function archiveKey(e) {
     if (!keysAllowed()) return finish('cancel');
     return openArchived(state.archived[state.archSel]);
   }
-  if (k === 'ArrowRight' || k === 'ArrowLeft') return archSelect(state.archSel + (k === 'ArrowRight' ? 1 : -1));
-  if (k === 'ArrowDown' || k === 'ArrowUp') { const j = cardToward(cards, state.archSel, k === 'ArrowDown' ? 1 : -1); if (j >= 0) archSelect(j); }
+  if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(k)) return archSelect(state.archSel + (k === 'ArrowRight' || k === 'ArrowDown' ? 1 : -1)); // a list: one row at a time
+  if (k === 'Home' || k === 'End') return archSelect(k === 'Home' ? 0 : cards.length - 1);
 }
 
-// ---- the browsing history (the clock button right of New tab, Ctrl+H): Chrome's history over the switcher, newest
+// ---- the menu (☰, top left): a drawer from the left, over the dimmed switcher, with History, Bookmarks, Archive and
+// Settings. A press on one closes it and opens that dialog; Esc, × or a press beside it close it (back to ☰). ↑ ↓ move
+// between its buttons. A dialog opened from it gives the focus back to ☰ when it closes.
+const drawerOpen = () => !el.drawerBack.hidden;
+function openDrawer() {
+  if (drawerOpen()) return closeDrawer();
+  closePops();
+  hideTip();
+  state.dd.hidden = true;
+  renderDropdown();
+  el.drawerBack.hidden = false;
+  el.menuBtn.setAttribute('aria-expanded', 'true');
+  updateInert();
+  $('history-btn').focus({ preventScroll: true });
+}
+function closeDrawer(refocus = true) {
+  if (!drawerOpen()) return;
+  el.drawerBack.hidden = true;
+  el.menuBtn.setAttribute('aria-expanded', 'false');
+  updateInert();
+  if (refocus) el.menuBtn.focus({ preventScroll: true });
+}
+// Where the focus goes back to when a dialog closes: the button that opened it while it can have the focus (shown),
+// else ☰ (the button was in the menu, closed since).
+const viewBack = (b) => (b && b.isConnected && b.getClientRects().length && !b.closest('[hidden]') ? b : el.menuBtn);
+function drawerKey(e) {
+  const k = e.key;
+  if (MODIFIERS.has(k)) return;
+  const items = [...el.drawerBack.querySelectorAll('button.draweritem')];
+  const i = items.indexOf(document.activeElement);
+  if (k === 'Escape') { e.preventDefault(); e.stopPropagation(); return closeDrawer(); }
+  if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); return items[(i + (k === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+  if (k === 'Home' || k === 'End') { e.preventDefault(); return items[k === 'Home' ? 0 : items.length - 1].focus(); }
+  if (k === 'Enter' || k === ' ' || k === 'Tab') return; // its buttons' own
+  e.preventDefault(); // (nothing else reaches the switcher behind it)
+}
+// The History, Bookmarks and Archive dialogs, as Settings: a dimmed backdrop (a press on it closes the dialog) and a
+// panel with a title bar. Returns { back, panel }.
+function viewDialog(cls, testid, labelledby, close) {
+  const back = h('div', 'arch ' + cls, null, testid);
+  back.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === back && pointerAllowed()) close(); }); // (never closes the switcher)
+  const panel = h('div', 'archpanel', null, testid.replace('-overlay', '-panel'));
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-modal', 'true');
+  panel.setAttribute('aria-labelledby', labelledby);
+  back.append(panel);
+  return { back, panel };
+}
+
+// ---- the browsing history (in the menu, Ctrl+H): Chrome's history over the switcher, newest
 // first and by day, 50 pages at a time ("Show 50 more" at the bottom, or ↓ past the last one). A list of rows (or
 // cards: the bar's layout button), each with its preview when Tabazing has one, else its icon. A click (Enter) opens
 // a page (its tab, when one is open), a middle-click (Ctrl+Enter) opens it behind, Shift+click (Space) shows it big,
@@ -3589,7 +3657,7 @@ async function fetchHistory(limit, text = '', start = 0) {
   const [pool, theirs] = await Promise.all([histPool.list, chrome.history.search({ text, startTime: start, maxResults: 500 }).catch(() => [])]);
   const byUrl = new Map();
   for (const x of [...pool.items, ...theirs.filter((y) => openable(y.url)).map(hist)]) if (!byUrl.has(x.url) || byUrl.get(x.url).t < x.t) byUrl.set(x.url, x);
-  const found = [...byUrl.values()].filter((x) => matches(text, x.title, hostOf(x.url), x.url, noteOf(x.url))).sort((a, b) => b.t - a.t);
+  const found = [...byUrl.values()].filter((x) => matches(text, x.title, hostOf(x.url), x.url, noteOf(x.url), pageStatus(x.url, 'visited'))).sort((a, b) => b.t - a.t);
   return { items: found.slice(0, limit), more: found.length > limit, capped: pool.all >= HISTORY_POOL };
 }
 // A page of the history as an entry: what the rows, the menu and the big preview read.
@@ -3624,6 +3692,7 @@ function confirmDialog({ title, text, testid, actions }) {
   if (main) main.focus({ preventScroll: true });
 }
 async function openHistory() {
+  closeDrawer(false);
   closePops();
   closeBig();
   hideTip();
@@ -3635,11 +3704,7 @@ async function openHistory() {
   const view = await getView().catch(() => ({}));
   if (state.done) return;
   document.querySelectorAll('.hist').forEach((n) => n.remove());
-  const back = h('div', 'arch hist', null, 'history-overlay');
-  back.setAttribute('role', 'dialog');
-  back.setAttribute('aria-modal', 'true');
-  back.setAttribute('aria-labelledby', 'hist-h');
-  back.addEventListener('click', (e) => e.stopPropagation()); // its empty space doesn't close the switcher
+  const { back, panel } = viewDialog('hist', 'history-overlay', 'hist-h', closeHistory);
   const head = h('div', 'archhead', null, 'history-header');
   const title = h('h2', 'archtitle', t('historyTitle'), 'history-title');
   title.id = 'hist-h';
@@ -3698,7 +3763,7 @@ async function openHistory() {
   more.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) moreHistory().catch((err) => toast(t('actFailed'), err)); });
   const empty = h('p', 'empty', '', 'history-empty');
   body.append(notice, empty, list, more);
-  back.append(head, tools, body);
+  panel.append(head, tools, body);
   el.app.append(back);
   state.hist = { items: [], limit: HISTORY_PAGE, more: false, sel: 0, back, list, body, count, moreBtn: more, empty, x, q: '', find: find.input, picked: new Set(), anchor: -1,
     layout: view.histLayout === 'grid' ? 'grid' : 'list', range, layoutBtn: layout, selBar: sel, selN, notice };
@@ -3929,7 +3994,7 @@ function closeHistory() {
   document.querySelectorAll('.hist').forEach((n) => n.remove());
   state.hist = null;
   updateInert();
-  $('history-btn').focus({ preventScroll: true }); // back to what opened it
+  viewBack($('history-btn')).focus({ preventScroll: true }); // back to what opened it
 }
 // Out of Chrome's history (every visit to them), and off the list here; the search forgets them too. Undo puts them
 // back (as a visit now: Chrome can't bring the old visits back).
@@ -4132,6 +4197,7 @@ const BMV_CONFIRM_DELETE = 10;
 const BMV_EAGER = 80; // the rows whose previews are read at once (the others when they scroll into view)
 let bmvIO = null;
 async function openBookmarks() {
+  closeDrawer(false);
   if (!chrome.bookmarks) return toast(t('ddNoMarks'));
   closePops();
   closeBig();
@@ -4144,11 +4210,7 @@ async function openBookmarks() {
   if (state.done) return;
   state.bmNotes = notes;
   document.querySelectorAll('.bmv').forEach((n) => n.remove());
-  const back = h('div', 'arch bmv', null, 'bookmarks-overlay');
-  back.setAttribute('role', 'dialog');
-  back.setAttribute('aria-modal', 'true');
-  back.setAttribute('aria-labelledby', 'bmv-h');
-  back.addEventListener('click', (e) => e.stopPropagation());
+  const { back, panel } = viewDialog('bmv', 'bookmarks-overlay', 'bmv-h', closeBookmarks);
   const head = h('div', 'archhead', null, 'bookmarks-header');
   const title = h('h2', 'archtitle', t('bmvTitle'), 'bookmarks-title');
   title.id = 'bmv-h';
@@ -4199,7 +4261,7 @@ async function openBookmarks() {
   treeEl.setAttribute('aria-multiselectable', 'true');
   const empty = h('p', 'empty', '', 'bookmarks-empty');
   body.append(empty, treeEl);
-  back.append(head, tools, body);
+  panel.append(head, tools, body);
   el.app.append(back);
   const B = state.bmv = {
     back, body, tree: treeEl, empty, count, find: find.input, sel, selN, x, q: '', cur: 0, curId: null, rows: [], open: new Set(), picked: new Set(), anchorId: null,
@@ -4279,7 +4341,7 @@ function bmvRows() {
     if (n.top) continue;
     if (B.filter === 'dupes' && !bmvDupeCount(n)) continue;
     if (B.filter && !n.url) continue;
-    const found = !q || (n.url ? matches(q, n.title, hostOf(n.url), n.url, bmNoteOf(n.id)) : matches(q, n.title));
+    const found = !q || (n.url ? matches(q, n.title, hostOf(n.url), n.url, bmNoteOf(n.id), { status: statusText('bookmarked', isStarred(n.url) && 'starred', bmNoteOf(n.id) && 'note') }) : matches(q, n.title));
     if (!found) continue;
     hit.add(n.id);
     for (let p = B.byId.get(n.parentId); p; p = B.byId.get(p.parentId)) hit.add(p.id);
@@ -4402,7 +4464,7 @@ function bmvRow({ n, depth }, i) {
     chev.append(svgOf(ICON.chevron));
     const ic = h('span', 'bmvfold', null, 'bmv-folder-icon');
     ic.append(svgOf(ICON[n.archive ? 'archive' : 'folder']));
-    row.append(chev, pick || h('span', 'bmvpick spacer', null, 'bmv-pick-spacer'), ic, titleEl, h('span', 'tag', t('bmvItems', { count: n.kids.length }), 'bmv-count'));
+    row.append(...[chev, pick, ic].filter(Boolean), titleEl, h('span', 'tag', t('bmvItems', { count: n.kids.length }), 'bmv-count'));
     if (n.archive) row.append(h('span', 'tag snz', t('bmvArchiveTag'), 'bmv-archive-tag'));
     acts.append(act('bmv-add-here', 'plus', t('bmvAddHere'), () => bmvEdit(null, { parentId: n.id })));
     if (!n.fixed) acts.append(act('bmv-rename', 'brush', t('bmvRename'), () => bmvEdit(n)), act('bmv-delete', 'trash', t('bmvDeleteFolder'), () => bmvDelete([n]), ' del'));
@@ -4655,7 +4717,7 @@ function closeBookmarks() {
   document.querySelectorAll('.bmv').forEach((n) => n.remove());
   state.bmv = null;
   updateInert();
-  $('bookmarks-btn').focus({ preventScroll: true });
+  viewBack($('bookmarks-btn')).focus({ preventScroll: true });
 }
 // A bookmark's note: the note card, writing to the bookmark's own notes (not the page's).
 function bmvNote(n, anchor) {
@@ -5309,7 +5371,7 @@ function closeBig() {
 // inert: Tab, clicks and screen readers stay in it. Not the toast (its Undo works over the archive), the live
 // regions, or a select's list (a menu: Settings opens them over itself).
 function updateInert() {
-  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .setback')
+  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .setback')
     || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || (state.palette && el.palette);
   for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu') && !n.classList.contains('pop'));
 }
@@ -5322,7 +5384,7 @@ function tabbables(root) {
   return [...root.querySelectorAll(TABBABLE)].filter((n) => n.tabIndex >= 0 && !n.disabled && !n.closest('[hidden], [inert]') && (!n.checkVisibility || n.checkVisibility()));
 }
 function focusLayer() {
-  return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || document.querySelector('#app > .menu')
+  return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .menu')
     || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
@@ -5548,7 +5610,7 @@ const PAL_ACTIONS = [
   { id: 'open-archive', group: 'tabazing', icon: 'archive', ui: true, title: () => t('palOpenArchive'), kw: () => t('palKwOpenArchive'), err: () => t('errArchiveOpen'), run: () => openArchive() },
   { id: 'open-history', group: 'tabazing', icon: 'history', ui: true, when: () => !!chrome.history, title: () => t('palOpenHistory'), kw: () => t('palKwOpenHistory'), sub: () => (IS_MAC ? '⌘Y' : 'Ctrl+H'), err: () => t('actFailed'), run: () => openHistory() },
   { id: 'open-bookmarks', group: 'tabazing', icon: 'bookmark', ui: true, when: () => !!chrome.bookmarks, title: () => t('palOpenBookmarks'), kw: () => t('palKwOpenBookmarks'), sub: () => (IS_MAC ? '⌘⌥B' : 'Ctrl+Shift+O'), err: () => t('bmvErr'), run: () => openBookmarks() },
-  { id: 'settings', group: 'tabazing', icon: 'gear', ui: true, title: () => t('palSettings'), kw: () => t('palKwSettings'), run: () => openSettings($('settings-btn')) },
+  { id: 'settings', group: 'tabazing', icon: 'gear', ui: true, title: () => t('palSettings'), kw: () => t('palKwSettings'), run: () => openSettings(el.menuBtn) },
   { id: 'keys', group: 'tabazing', icon: 'keyboard', ui: true, title: () => t('keysTitle'), kw: () => t('palKwKeys'), run: () => openShortcuts() },
   { id: 'theme-dark', group: 'tabazing', icon: 'moon', after: 'switcher', when: () => pref('theme') !== 'dark', title: () => t('palThemeDark'), kw: () => t('palKwTheme'), run: () => setTheme('dark') },
   { id: 'theme-light', group: 'tabazing', icon: 'sun', after: 'switcher', when: () => pref('theme') !== 'light', title: () => t('palThemeLight'), kw: () => t('palKwTheme'), run: () => setTheme('light') },
@@ -5718,6 +5780,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   if (archiveOpen()) closeArchive();
   if (historyOpen()) closeHistory();
   if (bookmarksOpen()) closeBookmarks();
+  closeDrawer(false);
   if (state.modal) closeDialog();
   stopHolding();
   state.palette = { from, saved, hi: 0, items: [] };
@@ -5889,13 +5952,13 @@ const TOUR_ALL = [
   { id: 'palette', title: () => t('tourPaletteTitle'), hl: '.search', body: () => [para(t('tourPaletteBody', { key: PALETTE_KEY })), keyRows([[K('>'), K('Ctrl+K', '⌘K')], t('keyPaletteIn')])] },
   { id: 'groups', title: () => t('tourGroupsTitle'), hl: '.gtile', when: () => !!document.querySelector('.gtile'), body: () => [para(t('tourGroupsBody'))] },
   { id: 'cards', title: () => t('tourCardsTitle'), hl: '.card[aria-selected="true"]', body: () => [para(t('tourCardsBody')), para(t('tourCardsMouse', { key: IS_MAC ? '⌘' : 'Ctrl' }))] },
-  { id: 'later', title: () => t('tourLaterTitle'), hl: '#archive-btn', body: () => [para(t('tourLaterBody'))] },
-  { id: 'views', title: () => t('tourViewsTitle'), hl: '#history-btn', body: () => [para(t('tourViewsBody')), keyRows([[K('Ctrl+H', '⌘Y')], t('keyHistory')], [[K('Ctrl+Shift+O', '⌘⌥B')], t('keyBookmarks')])] },
+  { id: 'later', title: () => t('tourLaterTitle'), hl: '#menu-btn', body: () => [para(t('tourLaterBody'))] },
+  { id: 'views', title: () => t('tourViewsTitle'), hl: '#menu-btn', body: () => [para(t('tourViewsBody')), keyRows([[K('Ctrl+H', '⌘Y')], t('keyHistory')], [[K('Ctrl+Shift+O', '⌘⌥B')], t('keyBookmarks')])] },
   { id: 'many', title: () => t('tourManyTitle'), hl: '.card[aria-selected="true"] .pick', picking: true, body: () => [para(t('tourManyBody', { key: IS_MAC ? '⌘' : 'Ctrl' }))] },
   { id: 'sort', title: () => t('tourSortTitle'), hl: '.sortbox', body: () => [para(t('tourSortBody'))] },
   { id: 'windows', title: () => t('tourWinTitle'), hl: '#wins', when: () => !el.wins.hidden, body: () => [para(t('tourWinBody'))] },
   { id: 'player', title: () => t('tourPlayerTitle'), hl: '#player', when: () => !el.player.hidden, body: () => [para(t('tourPlayerBody'))] },
-  { id: 'settings', title: () => t('tourSetTitle'), hl: '#settings-btn', body: () => [para(t('tourSetBody'))] },
+  { id: 'settings', title: () => t('tourSetTitle'), hl: '#menu-btn', body: () => [para(t('tourSetBody'))] },
 ];
 let TOUR = TOUR_ALL;
 let tourAt = 0;
@@ -6274,8 +6337,9 @@ let settingsTab = 'look';
 let settingsAnchor = null; // what opened Settings: it gets the focus back
 const settingsOpen = () => !!document.querySelector('#app > .setback');
 
-async function openSettings(anchor = $('settings-btn'), redraw = false) {
+async function openSettings(anchor = el.menuBtn, redraw = false) {
   if (settingsOpen() && !redraw) return closeSettings();
+  closeDrawer(false);
   closePops();
   const [stored, view] = await Promise.all([getPrefs().catch(() => ({})), redraw ? null : getView().catch(() => null)]);
   if (state.done || (settingsOpen() && !redraw)) return; // (a second click while the first was still reading)
@@ -6351,8 +6415,7 @@ function closeSettings() {
   document.querySelectorAll('.menu').forEach((m) => m.close()); // a select's list
   back.remove();
   updateInert();
-  const a = settingsAnchor || $('settings-btn');
-  if (a && a.isConnected) a.focus({ preventScroll: true });
+  viewBack(settingsAnchor).focus({ preventScroll: true });
 }
 
 // Show one category: its tab selected (the only one Tab reaches, as in any tab list), its panel shown.
@@ -6731,6 +6794,7 @@ function onKeyDown(e) {
   }
   if (state.modal) return dialogKey(e);
   if (viewKey(e)) return;
+  if (drawerOpen()) return drawerKey(e);
   if (bookmarksOpen()) return bmvKey(e);
   if (historyOpen()) return historyKey(e);
   if (archiveOpen()) return archiveKey(e);
@@ -6875,7 +6939,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || bookmarksOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || bookmarksOpen() || drawerOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -6985,7 +7049,14 @@ function listen() {
   el.sort.addEventListener('click', (e) => e.stopPropagation());
   el.sort.addEventListener('change', () => { setSort(el.sort.value); el.search.focus(); });
   const on = (node, fn) => node.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(e); });
-  on($('settings-btn'), (e) => openSettings(e.currentTarget));
+  on(el.menuBtn, () => openDrawer());
+  on($('drawer-close'), () => closeDrawer());
+  el.drawerBack.addEventListener('click', (e) => { e.stopPropagation(); if (e.target === el.drawerBack && pointerAllowed()) closeDrawer(); }); // beside it: closes it, not the switcher
+  $('drawer').addEventListener('click', (e) => e.stopPropagation());
+  // the shortcuts the menu's buttons have (as the browser's own: the history, the bookmark manager)
+  $('history-btn-key').textContent = IS_MAC ? '⌘Y' : 'Ctrl+H';
+  $('bookmarks-btn-key').textContent = IS_MAC ? '⌘⌥B' : 'Ctrl+Shift+O';
+  on($('settings-btn'), () => openSettings(el.menuBtn));
   on($('archive-btn'), () => openArchive().catch((err) => toast(t('errArchiveOpen'), err)));
   on($('history-btn'), () => openHistory().catch((err) => toast(t('actFailed'), err)));
   on($('bookmarks-btn'), () => openBookmarks().catch((err) => toast(t('bmvErr'), err)));
@@ -7177,8 +7248,6 @@ function getLaunch() {
   derive(); // (the cards' entries carry their previews)
   state.media = await mediaRead;
   el.app.hidden = false;
-  document.documentElement.classList.add('intro'); // the opening animation, on the first draw only, not on every redraw
-  setTimeout(() => { if (!state.done) document.documentElement.classList.remove('intro'); }, 320); // once it has popped in
   render();
   loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); });
   if (CTX.mode === 'overlay') {
@@ -7204,13 +7273,13 @@ export {
   CTX, $, el, IS_MAC, state, ICON, urlOf, favicon, hostOf, h, load, loadExtras, loadStarPreviews, hashOf,
   loadClosed, closedFor, fieldIndex, fieldOf, typoDistance, typoMemo, typoNear, inOrder, wordScore, scoreWord,
   searchScore, matches, queryWords, fieldHit, matchTier, highlight, hlSpan, isStarred, siteOf, byTitle,
-  winRank, FILTERS, SORTERS, sectionsFor, deriveSearch, derive, GRID_GAP, CARD_SIZES, cardWidth, renderWindows,
+  winRank, FILTERS, SORTERS, STATUS, statusText, tabStatus, pageStatus, sectionsFor, deriveSearch, derive, GRID_GAP, CARD_SIZES, cardWidth, renderWindows,
   windowTag, thumbFor, starButton, canCapture, captureButton, DAY_MS, tabAge, renderCard, finishCard,
   renderSection, renderTools, render, renderCount, tipTruncated, setTop, toTop, refresh, select, stepKey,
   cycle, selectKey, moveSpatial, cardToward, toggleSection, setSort, setFilter, toggleStarFilter, star,
   captureOne, setScope, cycleScope, finish, choose, closeTab, forgetTab, pickBox, pick, pickPool,
   selectAll, clearPicks, targets, ACTIONS, renderActs, renderDupesBar, dupesView, toastTimer, toast,
-  undoRecord, pushUndo, undoLast, reopenAt, introWait, afterIntro, reload, closeMany, copyText, copyLinks,
+  undoRecord, pushUndo, undoLast, reopenAt, reload, closeMany, copyText, copyLinks,
   moveToWindow, googleUrl, asUrl, openFromBox, DD_MAX, DD_SOURCES, loadMarks, hist, loadHistory, histTimer,
   searchHistory, histMemo, historyItems, urlKeys, urlKey, bigHits, fullTimer, scoreBig, fullPass, NONE, ddRows,
   searchFrame, flushSearch, ddShown, ddMove, ddHighlight, ddPics, ddPic, renderDropdown, ddActivate,
@@ -7218,7 +7287,7 @@ export {
   clearDrop, dropAfter, dragToMove, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
-  viewKey, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
+  viewKey, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
   refreshHistory, setHistoryLayout, histPick, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   bmvMove, bmvSort, bmvNudge, bmvOpenAll, bmvImportStars, bmvFilter, bmvFind, bmvOpenSiblings, bmvMoveDialog,
@@ -7232,7 +7301,7 @@ export {
   watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAct, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTpl, svgOf, PREFS_FALLBACK, loadPreviews, FIRST_PREVIEWS,
-  firstShown, loadSnoozePreviews, shots, shotImg, redrawCards, redraw, topOf, cardList, selCard, cardAt, drawWait,
+  firstShown, loadSnoozePreviews, shots, shotImg, redrawCards, redraw, topOf, cardList, selCard, cardAt,
   drawLater, dupeMemo, dupeIds, resizeFrame, relayout, switchToTab, currentMedia, mediaPreview, mediaPics, mediaPic,
   loadMediaPreviews, DOUBLE_PRESS_MS, paintToggle, playerSig, renderPlayer, renderMedia, mediaLoading, refreshMedia, mediaDo, playerDo,
   pickMedia, goToMedia, mediaOrder, openMediaList, renderMediaList, mediaRow, mediaButton,

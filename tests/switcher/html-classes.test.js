@@ -19,7 +19,7 @@ const elementClasses = new Set([
 
 describe('whole-page mode classes on <html>', () => {
   it('the scan finds them (sanity check)', () => {
-    for (const c of ['palette-open', 'light', 'intro', 'alttab']) expect(pageModes.has(c), c).toBe(true);
+    for (const c of ['palette-open', 'light', 'alttab']) expect(pageModes.has(c), c).toBe(true);
     expect(elementClasses.has('palette')).toBe(true); // the palette panel
     expect(elementClasses.size).toBeGreaterThan(100);
   });

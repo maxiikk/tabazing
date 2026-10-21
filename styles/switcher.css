@@ -122,7 +122,7 @@ button { font: inherit; color: inherit; }
 /* ---------- top bar ---------- */
 .bar { display: flex; align-items: center; gap: 10px; padding: 16px 40px 8px; min-height: 68px; }
 .ghost svg { color: var(--md-on-surface-variant); flex: none; }
-.ghost.icon { width: 36px; padding: 0; color: var(--md-on-surface-variant); } /* the bookmarks, the history, the GitHub button, and ⓘ: the shortcuts card */
+.ghost.icon { width: 36px; padding: 0; color: var(--md-on-surface-variant); } /* ☰ (the menu), the GitHub button, and ⓘ: the shortcuts card */
 .ghost.icon:hover, .ghost.icon[aria-expanded="true"] { color: var(--md-on-surface); }
 .ghost.icon[aria-expanded="true"] { background: var(--md-surface-container-highest); border-color: var(--md-outline); }
 #newtab svg { color: inherit; }
@@ -175,9 +175,9 @@ html.alttab .player { display: none !important; }
 /* A narrow window (.bar.narrow, below 1100 px: switcher.js layoutHeader): the header becomes a grid and the media
    player gets its own row under the search field, as wide as it. Below 900 px (.tight) the buttons around them keep
    only their icons (their words stay, for screen readers). The card area follows the header's height (setTop). */
-.bar.narrow { display: grid; grid-template-columns: auto auto auto auto minmax(0, 1fr) auto auto auto; gap: 8px 10px; }
+.bar.narrow { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; gap: 8px 10px; }
 .bar.narrow .search { flex: none; width: 100%; max-width: 560px; margin: 0 auto; }
-.bar.narrow .player { grid-column: 5; grid-row: 2; width: 100%; max-width: 560px; min-width: 0; margin: 0 auto; }
+.bar.narrow .player { grid-column: 3; grid-row: 2; width: 100%; max-width: 560px; min-width: 0; margin: 0 auto; }
 .bar.tight { padding-left: 16px; padding-right: 16px; gap: 8px; }
 .bar.tight .ghost > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .bar.tight .ghost { width: 36px; padding: 0; }
@@ -261,14 +261,8 @@ main {
   width: var(--w); padding: 7px 7px 9px; border-radius: var(--r-m); cursor: pointer; position: relative;
   background: var(--md-surface-container-low); border: 1px solid var(--line);
 }
-/* Opening (first draw only, html.intro): the whole switcher grows from 96% and fades in as one piece, quickly;
-   inside, the cards follow one after another in reading order (--i is a card's place, capped at the 15th). */
-html.intro body { animation: grow .16s var(--ease-out) both, fadein .14s ease both; transform-origin: 50% 40%; }
-.intro .card { animation: rise .2s var(--ease-out) both, fadein .16s ease both; animation-delay: calc(min(var(--i, 0), 14) * 6ms + 15ms); }
-@keyframes grow { from { transform: scale(.97); } to { transform: none; } }
-@keyframes rise { from { transform: translateY(8px); } to { transform: none; } }
+/* The switcher and its cards show at once as it opens: no opening animation. */
 @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { html.intro body, .intro .card { animation: none; } }
 @keyframes pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .card:hover { border-color: var(--md-outline); box-shadow: var(--el2); }
 /* The selected card (where the keyboard is) rises a little, its edge turns the accent and a soft halo of it goes
@@ -801,7 +795,7 @@ html.alttab .search, html.alttab .qbtn.note { display: none !important; }
 /* Without the search field (whose auto margins kept them apart) the header's two button groups still sit at its two
    ends: the first button of the end group takes the free room (a wide header), or keeps its own column (narrow). */
 html.alttab #github-btn { margin-left: auto; }
-html.alttab .bar.narrow #github-btn { grid-column: 6; }
+html.alttab .bar.narrow #github-btn { grid-column: 4; }
 
 /* the note's button ("Undo") */
 .toast .tact {
@@ -830,33 +824,63 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 /* snoozed tabs */
 .tag.snz { background: var(--md-secondary-container); color: var(--md-on-surface); }
 
-/* ---------- the archive (the Archive button, top right): a full-screen page over the switcher ---------- */
-#archive-btn svg { color: var(--md-primary); }
-.arch {
-  position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column;
-  background: var(--md-surface); /* opaque: the switcher doesn't show through */
-  animation: archin .22s var(--ease-out) both;
+/* ---------- the menu (☰): a drawer from the left over the dimmed switcher ---------- */
+.drawerback { position: fixed; inset: 0; z-index: 7; background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px); }
+.drawer {
+  position: absolute; top: 0; left: 0; bottom: 0; width: min(300px, 86vw); display: flex; flex-direction: column; gap: 4px; padding: 12px;
+  background: var(--md-surface-container-high); border-right: 1px solid var(--line); border-radius: 0 var(--r-xl) var(--r-xl) 0; box-shadow: var(--el5);
+  animation: drawer-in .24s var(--ease-out) both;
 }
-@keyframes archin { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-.archhead { position: relative; display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 12px 96px 12px 40px; border-bottom: 1px solid var(--line); }
-.archtitle { margin: 0; font-size: 20px; line-height: 28px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 10px; }
+@keyframes drawer-in { from { transform: translateX(-104%); } to { transform: none; } }
+.drawerhead { display: flex; align-items: center; gap: 10px; padding: 4px 2px 12px 8px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
+.drawerlogo { width: 28px; height: 28px; flex: none; }
+.drawerhead h2 { flex: 1; margin: 0; font-size: 17px; line-height: 24px; font-weight: 600; }
+.drawerlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.draweritem {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid transparent; border-radius: var(--r-s);
+  background: none; color: var(--md-on-surface); font-size: 14px; font-weight: 500; text-align: left; cursor: pointer;
+  transition: background-color .12s var(--ease), border-color .12s var(--ease);
+}
+.draweritem svg { flex: none; color: var(--md-on-surface-variant); }
+.draweritem:hover { background: var(--fill); }
+.draweritem:hover svg, .draweritem:focus-visible svg { color: var(--md-primary); }
+.draweritem:focus-visible { outline-offset: -1px; background: var(--fill); }
+.draweritem .dlabel { flex: 1; min-width: 0; }
+.draweritem kbd { font-size: 11px; opacity: .85; }
+.drawersep { height: 1px; margin: 6px 4px; background: var(--line); }
+@media (prefers-reduced-motion: reduce) { .drawer { animation: none; } }
+
+/* ---------- the History, Bookmarks and Archive dialogs: as Settings, a panel over the dimmed switcher ---------- */
+.arch {
+  position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px);
+}
+.archpanel {
+  width: min(920px, 94vw); height: min(700px, 90vh); display: flex; flex-direction: column; overflow: hidden; user-select: text;
+  background: var(--md-surface-container-high); border: 1px solid var(--line); border-radius: var(--r-xl); box-shadow: var(--el5);
+  animation: pop .2s var(--ease-out) both;
+}
+.archv .archpanel { width: min(760px, 94vw); }
+.archhead { display: flex; align-items: center; gap: 12px; min-height: 0; padding: 14px 12px 14px 22px; border-bottom: 1px solid var(--line); }
+.archtitle { margin: 0; font-size: 18px; line-height: 26px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
 .archtitle .n { font-size: 12px; font-weight: 600; color: var(--md-on-surface-variant); padding: 1px 8px; border-radius: var(--r-full); background: var(--fill); }
-.archsub { font-size: 13px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archsub { flex: 1; min-width: 0; font-size: 13px; color: var(--fg-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* its ×: as Settings' */
 .archx {
-  position: absolute; top: 16px; right: 40px; width: 36px; height: 36px; padding: 0; border: 1px solid var(--line); border-radius: var(--r-s);
-  background: var(--md-surface-container); color: var(--md-on-surface); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  flex: none; margin-left: auto; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: var(--r-s);
+  background: transparent; color: var(--md-on-surface-variant); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   transition: background-color .15s var(--ease), color .15s, border-color .15s;
 }
-.archx svg { width: 14px; height: 14px; }
-.archx:hover { background: var(--md-error-container); color: var(--md-on-error-container); border-color: transparent; } /* (focused, only its halo: it has the focus as the archive opens) */
-.archbody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 18px 40px 32px; scrollbar-width: thin; scrollbar-color: var(--md-outline) transparent; }
-.arch .grid { --w: 280px; }
+.archx svg { width: 12px; height: 12px; }
+.archx:hover { background: var(--fill); border-color: var(--line); color: var(--md-on-surface); }
+.archbody { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px 14px 18px; scrollbar-width: thin; scrollbar-color: var(--md-outline) transparent; }
+.arch .grid { --w: 230px; }
 /* the history (the clock beside Settings): the archive's page, its pages 50 at a time, "Show 50 more" under them */
 .hist .archtitle .n:empty { display: none; }
 .histmore { display: flex; margin: 24px auto 4px; min-width: 200px; }
 .histmore:disabled { opacity: .5; cursor: default; }
 /* the bar under the history's and the bookmarks' header: a search box, then their buttons */
-.bmvtools { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; padding: 12px 40px; border-bottom: 1px solid var(--line); }
+.bmvtools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
 .bmvsearch {
   flex: 1 1 320px; max-width: 560px; display: flex; align-items: center; gap: 10px; height: 38px; padding: 0 12px; cursor: text;
   border: 1px solid var(--line); border-radius: var(--r-m); background: var(--md-surface-container); color: var(--md-on-surface-variant);
@@ -869,26 +893,26 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .bmvsel { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 3px 4px 3px 12px; border-radius: var(--r-m); font-size: 13px; font-weight: 600;
   color: var(--md-primary); background: var(--md-secondary-container); border: 1px solid color-mix(in srgb, var(--md-primary) 40%, transparent); }
 /* the history as a list (by day) or as cards: a heading for each day, a note when a search can't reach everything */
-.histlist { display: grid; gap: 2px; max-width: 1100px; }
-.histday { margin: 18px 4px 6px; font-size: 13px; font-weight: 600; color: var(--md-on-surface-variant); }
+.histlist { display: grid; gap: 1px; }
+.histday { margin: 14px 8px 4px; font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--md-on-surface-variant); }
 .histlist > .histday:first-child, .histgrid > .histday:first-child { margin-top: 2px; }
 .histgrid > .histday { flex: 0 0 100%; margin: 14px 4px 0; }
 .histnote { margin: 0 0 12px; font-size: 12px; color: var(--fg-3); }
 .hist .card .bmvpick { flex: none; margin: 0 1px; }
 .hist .card:hover .bmvpick, .hist.picking .card .bmvpick, .hist .card .bmvpick.on { opacity: 1; }
 .hist .card.picked { background: var(--md-secondary-container); border-color: color-mix(in srgb, var(--md-primary) 55%, transparent); }
-.bmvpic.bare img.fav { width: 26px; height: 26px; }
+.bmvpic.bare img.fav { width: 20px; height: 20px; }
 .bmvtools .fs { height: 38px; }
 /* the bookmarks: a tree of folders and bookmarks */
-.bmvtree { display: grid; gap: 2px; max-width: 1100px; }
+.bmvtree { display: grid; gap: 1px; }
 .bmvrow {
-  position: relative; display: flex; align-items: center; gap: 12px; min-height: 42px; padding: 4px 8px 4px calc(8px + var(--d, 0) * 26px);
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 3px 8px 3px calc(8px + var(--d, 0) * 22px);
   border: 1px solid transparent; border-radius: var(--r-s); cursor: pointer; min-width: 0; transition: background-color .12s var(--ease), border-color .12s var(--ease);
 }
 .bmvrow:hover { background: var(--fill); }
 .bmvrow[aria-selected="true"] { background: var(--md-secondary-container); border-color: color-mix(in srgb, var(--md-primary) 45%, transparent); }
 .bmvrow.picked:not([aria-selected="true"]) { background: color-mix(in srgb, var(--md-primary) 9%, transparent); }
-.bmvrow.mark { min-height: 64px; }
+.bmvrow.mark { min-height: 50px; }
 .bmvchev { flex: none; display: inline-flex; width: 16px; justify-content: center; color: var(--md-on-surface-variant); transition: transform .2s var(--ease); }
 .bmvrow.shut .bmvchev { transform: rotate(-90deg); }
 .bmvfold { flex: none; display: inline-flex; color: var(--md-primary); }
@@ -900,7 +924,7 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .bmvpick svg { width: 12px; height: 12px; }
 .bmvrow:hover .bmvpick, .bmv.picking .bmvpick, .bmvpick.on, .bmvrow[aria-selected="true"] .bmvpick { opacity: 1; }
 .bmvpick.on { background: var(--md-primary); border-color: var(--md-primary); color: var(--md-on-primary); }
-.bmvpic { flex: none; width: 88px; height: 55px; border-radius: var(--r-xs); overflow: hidden; background: var(--md-surface-container-highest); border: 1px solid var(--line); display: grid; place-items: center; }
+.bmvpic { flex: none; width: 64px; height: 40px; border-radius: var(--r-xs); overflow: hidden; background: var(--md-surface-container-highest); border: 1px solid var(--line); display: grid; place-items: center; }
 .bmvpic img.shot { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
 .bmvpic img.fav { width: 22px; height: 22px; }
 .bmvtext { flex: 1 1 auto; min-width: 0; display: grid; gap: 1px; }
@@ -912,14 +936,13 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .bmvacts .qbtn { opacity: 0; box-shadow: none; }
 .bmvrow:hover .bmvacts .qbtn, .bmvacts .qbtn.note.on, .bmvacts .qbtn:focus-visible { opacity: 1; }
 .bmvacts .qbtn.del:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
-.bmvpick.spacer { visibility: hidden; pointer-events: none; }
 .bmvtline { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .bmvtline .bmvtitle { flex: 0 1 auto; }
 .bmvpath { color: var(--fg-3); }
 .bmvrow.archive .bmvfold { color: var(--md-on-surface-variant); }
 /* the rows far below aren't laid out until they come near (thousands of bookmarks stay quick) */
-.bmvtree > .bmvrow, .histlist > .bmvrow { content-visibility: auto; contain-intrinsic-size: auto 64px; }
-.bmvtree > .bmvrow.folder { contain-intrinsic-size: auto 42px; }
+.bmvtree > .bmvrow, .histlist > .bmvrow { content-visibility: auto; contain-intrinsic-size: auto 50px; }
+.bmvtree > .bmvrow.folder { contain-intrinsic-size: auto 36px; }
 /* dragging rows: where they will land */
 .bmvrow.dragging { opacity: .45; }
 .bmvrow.drop-into { border-color: var(--md-primary); background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
@@ -931,9 +954,9 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .biginfo span { overflow-wrap: anywhere; }
 /* narrow windows: a row keeps only its ⋯ (and a note's button) at its end, then drops its picture */
 @media (max-width: 760px) {
-  .bmvtools { padding: 10px 16px; }
-  .archbody { padding-left: 16px; padding-right: 16px; }
-  .archhead { padding-left: 16px; }
+  .arch { padding: 8px; }
+  .archpanel { width: 100%; height: 100%; }
+  .archsub { display: none; }
   .bmvacts > :not([data-testid="quick-more"]):not(.note.on) { display: none; }
   .bmvacts .qbtn[data-testid="quick-more"] { opacity: 1; }
   .bmvrow { padding-left: calc(8px + var(--d, 0) * 14px); }
@@ -998,7 +1021,6 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
   width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - max(32px, 22vh));
   display: flex; flex-direction: column; overflow: hidden;
   border-radius: var(--r-xl); background: var(--md-surface-container-high); border: 1px solid var(--line); box-shadow: var(--el5);
-  animation: fadein .14s ease both;
 }
 .palbar { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 18px; height: 58px; color: var(--md-on-surface-variant); border-bottom: 1px solid var(--line); }
 /* The box itself has no outline of its own: the bar shows where the focus is. */

@@ -37,8 +37,6 @@ export async function boot({ overlay = false, ...opts } = {}) {
   });
   cur = sw;
   await tick(10);
-  clearTimeout(sw.introWait);
-  document.documentElement.classList.remove('intro');
   sw.refresh();
   return sw;
 }

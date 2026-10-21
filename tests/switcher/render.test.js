@@ -91,10 +91,10 @@ describe('renderCard: open tabs', () => {
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.alttab \.search, html\.alttab \.qbtn\.note \{ display: none !important; \}/);
     expect(css).toMatch(/html\.alttab #github-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
-    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 6; \}/); // narrow: the search's column stays, empty
+    expect(css).toMatch(/html\.alttab \.bar\.narrow #github-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
     await boot({ tabs: ABC() });
     const head = [...tid('header').children].filter((n) => n.tagName === 'BUTTON').map((n) => n.dataset.testid);
-    expect(head).toEqual(['settings-btn', 'newtab', 'history-btn', 'bookmarks-btn', 'github-btn', 'keys-btn', 'archive-btn']); // github-btn starts the end group
+    expect(head).toEqual(['menu-btn', 'newtab', 'github-btn', 'keys-btn']); // github-btn starts the end group
   });
 
   it('the star and × sit in one box over the end of the header (they take no room while hidden)', async () => {
@@ -866,20 +866,14 @@ describe('toast', () => {
 });
 
 describe('small pieces', () => {
-  it('afterIntro: now, or once the opening animation is over', async () => {
-    const sw = await boot();
-    const fn = vi.fn();
-    sw.afterIntro(fn);
-    expect(fn).toHaveBeenCalledOnce();
-    document.documentElement.classList.add('intro');
-    const later = vi.fn();
-    sw.afterIntro(later);
-    sw.afterIntro(later); // a second call replaces the first
-    expect(later).not.toHaveBeenCalled();
-    await waitFor(() => later.mock.calls.length);
-    await tick(20);
-    expect(later).toHaveBeenCalledOnce();
-    document.documentElement.classList.remove('intro');
+  it('no opening animation: the switcher and the cards show at once (and the palette too)', async () => {
+    await boot();
+    expect(document.documentElement.classList.contains('intro')).toBe(false);
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8').replace(/\r\n/g, '\n');
+    expect(css).not.toMatch(/html\.intro|\.intro \.card/);
+    const i = css.indexOf('\n.palette {');
+    expect(css.slice(i, css.indexOf('}', i))).not.toMatch(/animation/);
   });
 
   it('applyTheme: light, dark, and anything else follows the system', async () => {

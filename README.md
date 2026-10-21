@@ -57,11 +57,13 @@ While you hold Alt after Alt+Q or Alt+W:
 
 **Closing it.** Press **Esc** or switch to another window. Tabazing also closes after you pick a tab. Clicking empty space (the backdrop, the header, between cards) does not close it, so a missed click never loses your place.
 
+**The menu.** The **☰** button at the top left opens a drawer from the left with **History**, **Bookmarks**, **Archive** and **Settings** (each with its icon and name; History and Bookmarks show their shortcuts). A press on one closes the drawer and opens that dialog; **Esc**, its **×** or a press beside it closes it. **↑ / ↓** move between its buttons. The header itself keeps only ☰, **New tab**, the search box (and the media player), GitHub and ⓘ.
+
 **The source.** The GitHub button at the top right, left of ⓘ, opens Tabazing's repository in a new tab.
 
-**All the shortcuts.** The **ⓘ** button at the top right (next to Archive) opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
+**All the shortcuts.** The **ⓘ** button at the top right opens a card that lists every keyboard and mouse shortcut, grouped into opening and switching, moving around, acting on cards, search, the command palette, and what Esc does. It takes the keyboard focus; **Tab** stays inside it, and **Esc**, its **×**, a click outside or ⓘ again closes it. Settings → **Shortcuts** lists the same keys, next to the Chrome shortcuts that open Tabazing.
 
-**A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px the Settings, New tab and Archive buttons show only their icons. The cards always start right below the header.
+**A narrow window.** The header wraps cleanly down to about 800 px wide: below 1100 px the media player moves to its own row under the search box, and below 900 px New tab shows only its icon. The cards always start right below the header.
 
 **Open when Chrome starts.** Turn this on in Settings and Tabazing shows all your tabs a few seconds after Chrome starts, once your tabs have been restored.
 
@@ -157,6 +159,7 @@ Type anywhere and the text goes into the search box, which says what it searches
 | History | Pages from your browsing history: the last 90 days, plus Chrome's own history search for older pages (unless Settings → Search → **Include history** is off). |
 
 - An icon at the right of each row shows where the result comes from. If the same page is found in several places, it is listed once, under the most useful source (an open tab comes before its bookmark, for example).
+- **By what a page is:** besides its title, address and note, a tab is found by its state: **pinned**, **asleep**, **playing**, **muted**, **starred**, with a **note**, in a **group**; and other pages by where they are: **closed** (recently closed), **archived**, **snoozed**, **bookmarked**, **history**. In your language and in English; with other words too ("pinned youtube"). These words count from their start and exactly (three letters or more), never as typos. The same goes for the command palette and the History and Bookmarks boxes.
 - **Typos are fine.** Words can match at the start of a word, as initials ("pr" finds "Pull request"), anywhere in a word, as letters in order ("gh" finds "GitHub"), or with one wrong, missing, extra or swapped letter (two in long words). Words that contain digits must be typed exactly. Search also looks at the **notes** you wrote on tabs.
 - **↑ / ↓** move through the list, **Enter** opens the highlighted row, and a click does the same. Pointing at a row doesn't move the highlight (as with the cards); the same goes for the command palette. Open tabs are switched to. Closed tabs are reopened with their back/forward history when Chrome still has it. Bookmarks and history entries switch to the tab if the page is already open, or open a new tab otherwise. A click elsewhere hides the list (typing brings it back); while it is hidden, Enter opens the selected card instead.
 - **Nothing found?** The list offers **Open \<address\>** when what you typed looks like a web address, and **Search Google for "…"**. **Shift+Enter** does this at any time.
@@ -240,7 +243,7 @@ Sort and the filter chips sit at the right end of the **Open tabs** heading, sin
 | Option | Order |
 |---|---|
 | **By recently used** (default) | Most recently used first, like Alt+Tab. |
-| **By order** | The same order as Chrome's tab strip, current window first. **Drag cards to move tabs**: drop on the left or right half of another card to place the tab before or after it. If you selected several tabs, they all move together. With all windows shown, you can drag a tab into another window. |
+| **By order** | The same order as Chrome's tab strip, current window first. **Drag cards to move tabs**: drop on the left or right half of another card to place the tab before or after it. If you selected several tabs, they all move together. With all windows shown, you can drag a tab into another window. Dropped on a tab group's tile, tabs join the group **at its end**, in their order (a pinned tab is unpinned first). |
 | **By name** | Title, A to Z. |
 
 Pinned tabs come first in every order (unless Settings → **Pinned tabs first** is off).
@@ -298,16 +301,16 @@ Snoozed tabs appear in a **Snoozed** section below your open tabs, soonest first
 The archive is for tabs you want to keep but not have open. Archiving a tab saves it as a bookmark in a **"Tabs Archive"** folder under **Other bookmarks**, then closes it.
 
 - **Archive a tab:** click the **box** button on its card, or select several tabs and choose **More → Archive**. A message offers **Undo**, which takes the tabs out of the archive and reopens them where they were.
-- **See the archive:** click **Archive** at the top right of Tabazing. The Archive overlay shows every archived tab, newest first, with its preview when one is available and when it was archived.
+- **See the archive:** choose **Archive** in the menu (☰). It opens as a dialog, like Settings, listing every archived tab as a compact row, newest first, with its preview when one is available (otherwise its icon) and when it was archived; **↑ / ↓**, **Home / End** move.
   - **Open** a page by clicking it, or select it with the arrow keys and press **Enter**. It opens in a new tab and is **taken out of the archive**.
-  - **Remove** a page without opening it with the **×** on its card, or **Del** (⌘⌫). Undo is offered.
+  - **Remove** a page without opening it with the trash button on its row, or **Del** (⌘⌫). Undo is offered.
   - Close the archive with **Esc** or the red ×.
 - Archived pages also show up in [search](#search) with an Archived icon.
 - Because the archive is a normal bookmarks folder, it **syncs with your Chrome account** like any bookmark and **is kept if you remove Tabazing**. You can also manage it in Chrome's bookmark manager.
 
 ### History
 
-The **clock** button right of New tab (or **Ctrl+H**, ⌘Y on a Mac, or the command palette's **Open the History view**) opens your Chrome browsing history over the switcher, newest first, under a heading for each day.
+**History** in the menu (☰; or **Ctrl+H**, ⌘Y on a Mac, or the command palette's **Open the History view**) opens your Chrome browsing history as a dialog, like Settings, newest first, under a heading for each day; a press beside it closes it.
 
 - It shows **50 pages** at a time; **Show 50 more** at the bottom (or **↓** past the last one) adds the next 50. The count says "50 shown" while there are more.
 - Each page shows its **preview** when Tabazing has one, and otherwise just the **page's icon**, with its site and the time of the visit; hover it for the last visit and how many visits. The **Cards** / **List** button switches between rows and cards (remembered).
@@ -322,7 +325,7 @@ The **clock** button right of New tab (or **Ctrl+H**, ⌘Y on a Mac, or the comm
 
 ### Bookmarks
 
-The **bookmark** button (after History, or **Ctrl+Shift+O**, ⌘⌥B on a Mac, or the command palette's **Open the Bookmarks view**) opens all your Chrome bookmarks as a tree over the switcher.
+**Bookmarks** in the menu (☰; or **Ctrl+Shift+O**, ⌘⌥B on a Mac, or the command palette's **Open the Bookmarks view**) opens all your Chrome bookmarks as a tree, in a dialog like Settings; a press beside it closes it.
 
 - **Folders** open and close with a click, or **→ / ←**; **\*** opens every folder beside the selected one. Chrome's own folders start open the first time; after that, the folders you left open, the selected row and the last search come back.
 - Each **bookmark** shows its **preview** when Tabazing has one (otherwise its icon), its site, and its **note**. Click it (or **Enter**) to open it: its tab if one is open, otherwise a new tab. A **middle-click** or **Ctrl+Enter** opens it behind Tabazing. **Shift+click**, **Space** or its expand button shows it big (with its address, folder and when it was added).
@@ -421,7 +424,7 @@ The **New tab** button in the header opens a new tab in the current window.
 
 ### Settings
 
-Click **Settings** (the gear at the top left). Settings opens as a dialog over the dimmed switcher, with its title and a **×** at the top, the categories down the left and the chosen category's settings on the right (they scroll inside on a short window). In a window narrower than about 640 px the categories become a row of tabs above the settings. **↑** / **↓** (and **←** / **→** when they are a row), **Home** and **End** move between the categories; **Tab** goes on into the settings. Tabazing opens Settings on the category you last used. **Esc**, the **×** or a click outside the dialog closes it, and the keyboard focus goes back to the gear. Every change is saved at once; a new language redraws Settings in it straight away.
+Choose **Settings** in the menu (☰, at the top left). Settings opens as a dialog over the dimmed switcher, with its title and a **×** at the top, the categories down the left and the chosen category's settings on the right (they scroll inside on a short window). In a window narrower than about 640 px the categories become a row of tabs above the settings. **↑** / **↓** (and **←** / **→** when they are a row), **Home** and **End** move between the categories; **Tab** goes on into the settings. Tabazing opens Settings on the category you last used. **Esc**, the **×** or a click outside the dialog closes it, and the keyboard focus goes back to the gear. Every change is saved at once; a new language redraws Settings in it straight away.
 
 | Category | Setting | Options |
 |---|---|---|

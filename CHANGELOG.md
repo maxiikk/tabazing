@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.10.0] - 2026-10-21
+
+### Added
+
+- A menu (☰) at the top left: a drawer from the left with History, Bookmarks, Archive and Settings, each with its icon and name.
+- Every search that finds tabs also finds them by what they are: pinned, asleep, playing, muted, starred, with a note, in a group; and other pages by where they are: closed, archived, snoozed, bookmarked, history (in your language and in English).
+
+### Changed
+
+- History, Bookmarks and Archive open as dialogs, like Settings, over the dimmed switcher, with compact rows; a press beside one closes it.
+- History, Bookmarks, Archive and Settings left the header for the menu, so the header keeps only the menu, New tab, the search box, GitHub and ⓘ.
+- Tabs dropped on a tab group's tile join it at its end, in their order (a pinned tab is unpinned first), and so do tabs added with "Add to group".
+- The switcher and the command palette show at once, with no opening animation.
+
 ## [6.9.1] - 2026-10-21
 
 ### Fixed
@@ -509,7 +523,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...HEAD
+[6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...HEAD
+[6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...4e66da4
 [6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...b54e1f5
 [6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...fcbc898
 [6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...55dba83

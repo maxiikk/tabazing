@@ -28,12 +28,13 @@ async function openHistory(sw) {
 const search = async (sw, text) => { tid('history-search').value = text; await sw.findHistory(text); };
 
 describe('the history button', () => {
-  it('sits right of New tab (then the bookmarks button), a labelled icon button that opens a dialog', async () => {
+  it('is in the menu (☰), first, with its icon, its name and its key', async () => {
     await boot({ tabs: AB });
     const b = tid('history-btn');
-    expect(tid('newtab').nextElementSibling).toBe(b);
-    expect(b.nextElementSibling).toBe(tid('bookmarks-btn'));
-    expect(b.getAttribute('aria-label')).toBe(t('historyBtn'));
+    expect(tid('drawer').contains(b)).toBe(true);
+    expect(tid('header').contains(b)).toBe(false);
+    expect(tid('history-btn-label').textContent).toBe(t('historyTitle'));
+    expect(tid('history-btn-key').textContent).toBe('Ctrl+H');
     expect(b.getAttribute('aria-haspopup')).toBe('dialog');
   });
 
@@ -53,7 +54,8 @@ describe('the history view', () => {
     seedHistory(120, 30 * 60000); // half an hour apart: today and the days before
     const sw = await boot({ tabs: AB });
     const o = await openHistory(sw);
-    expect(o.getAttribute('aria-modal')).toBe('true');
+    expect(tid('history-panel', o).getAttribute('role')).toBe('dialog');
+    expect(tid('history-panel', o).getAttribute('aria-modal')).toBe('true');
     expect(cards()).toHaveLength(50);
     expect(cards()[0].classList.contains('bmvrow')).toBe(true); // a list by default
     expect(titles().slice(0, 3)).toEqual(['Page 1', 'Page 2', 'Page 3']);
@@ -145,7 +147,7 @@ describe('the search box and the range', () => {
     expect(sw.historyOpen()).toBe(true);
     key('Escape');
     expect(sw.historyOpen()).toBe(false);
-    expect(document.activeElement).toBe(tid('history-btn'));
+    expect(document.activeElement).toBe(tid('menu-btn'));
   });
 
   it('the last search comes back next time, selected (typing replaces it)', async () => {
