@@ -126,6 +126,34 @@ describe('a tile and its tabs\' ticks', () => {
     key(' ', { ctrlKey: true });
     expect(sw.state.picked.size).toBe(3);
   });
+
+  it('Shift+→ / Shift+← on a selected tile move the selection off it, ticking nothing', async () => {
+    const sw = await boot({ tabs: TABS(), ctx: { dir: 0 }, ...withGroup() });
+    sw.selectKey('g' + GROUP);
+    expect(sw.state.entries[sw.state.sel].kind).toBe('group');
+    tid('scroller').focus();
+    key('ArrowRight', { shiftKey: true });
+    expect(sw.state.entries[sw.state.sel].kind).toBe('tab');
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('B');
+    expect(sw.state.picked.size).toBe(0);
+    sw.selectKey('g' + GROUP);
+    key('ArrowLeft', { shiftKey: true });
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('A');
+    expect(sw.state.picked.size).toBe(0);
+  });
+
+  it('Shift+← on a selected recently closed card moves the selection, ticking nothing', async () => {
+    const sw = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }], ctx: { dir: 0 }, beforeImport: () => {
+      chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 60, tab: { sessionId: 'c1', url: 'https://gone.example/', title: 'Gone' } }];
+    } });
+    const i = sw.state.entries.findIndex((e) => e.kind === 'closed');
+    expect(i).toBeGreaterThan(0);
+    sw.select(i);
+    tid('scroller').focus();
+    key('ArrowLeft', { shiftKey: true });
+    expect(sw.state.sel).not.toBe(i);
+    expect(sw.state.picked.size).toBe(0);
+  });
 });
 
 describe('a tile\'s gestures, as a card\'s', () => {
@@ -137,6 +165,20 @@ describe('a tile\'s gestures, as a card\'s', () => {
     toastButton().click();
     await waitFor(() => chrome._data.tabs.length === 5 && chrome._data.groups.length === 1);
     expect(chrome._data.groups[0]).toMatchObject({ title: 'Work' });
+  });
+
+  it('closing the selected tile selects its neighbour, not the first card', async () => {
+    const tabs = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }, ...work(2), { title: 'C', url: 'https://c.example/' }, { title: 'D', url: 'https://d.example/' }];
+    const sw = await boot({ tabs, ctx: { dir: 0 }, ...withGroup() });
+    expect(kinds(sw)).toEqual(['A', 'B', 'G', 'C', 'D']);
+    sw.selectKey('g' + GROUP);
+    key('Delete');
+    await tick(400);
+    expect(chrome._data.tabs.map((x) => x.title)).toEqual(['A', 'B', 'C', 'D']);
+    expect(kinds(sw)).toEqual(['A', 'B', 'C', 'D']);
+    const now = sw.state.entries[sw.state.sel];
+    expect(now.kind).toBe('tab');
+    expect(['B', 'C']).toContain(now.tab.title);
   });
 
   it('middle-click and its × close it too', async () => {

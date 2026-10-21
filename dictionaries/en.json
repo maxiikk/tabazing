@@ -161,6 +161,7 @@
   "notePh": "Write a note for this tab…",
   "noteClear": "Clear note",
   "noteHint": "Saved as you type. Empty it to remove the note.",
+  "urlTooLong": "This page's address is too long for Tabazing to keep a star or a note for it.",
   "ageDays": "{count, plural, one {# day ago} other {# days ago}}",
   "setAccent": "Accent colour",
   "setAccentCustom": "Pick any colour",

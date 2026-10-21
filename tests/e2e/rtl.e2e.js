@@ -1,6 +1,7 @@
 // Right to left in real Chrome (jsdom applies no CSS): in Hebrew the switcher is mirrored. The cards run from the
 // right, the menu button is at the top right and its drawer slides in from there, Settings has its categories on
-// the right, and ← goes to the next card. In English, all of it is back on the left.
+// the right, and ← goes to the next card; an English title keeps its punctuation in place ("Hello, world!", not
+// "!Hello, world") and still lines up on the right. In English, all of it is back on the left.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startServers, launch, sleep } from './harness.js';
 
@@ -13,6 +14,8 @@ beforeAll(async () => {
     const p = await browser.newPage();
     await p.goto(`${srv.main}/p/${name}`);
   }
+  srv.serve('/hello', Buffer.from('<!doctype html><meta charset="utf-8"><title>Hello, world!</title><body>x</body>'), 'text/html; charset=utf-8');
+  await (await browser.newPage()).goto(`${srv.main}/hello`);
 });
 afterAll(async () => { await browser?.close(); await srv?.close(); });
 
@@ -48,6 +51,16 @@ describe('right to left', () => {
     const menu = await box(f, 'menu-btn'), keys = await box(f, 'keys-btn');
     expect(menu.x).toBeGreaterThan(menu.vw / 2); // ☰ at the top right
     expect(keys.x).toBeLessThan(keys.vw / 2); // ⓘ and GitHub at the top left
+    // The card's title "Hello, world!": "!" drawn after (right of) the "H", the text against the title box's right side.
+    const hello = await f.evaluate(() => {
+      const title = [...document.querySelectorAll('[data-testid="card-title"]')].find((n) => n.textContent === 'Hello, world!');
+      const at = (i) => { const r = document.createRange(); r.setStart(title.firstChild, i); r.setEnd(title.firstChild, i + 1); return r.getBoundingClientRect(); };
+      const box = title.getBoundingClientRect(), all = document.createRange();
+      all.selectNodeContents(title);
+      return { h: at(0).x, bang: at(12).x, textRight: all.getBoundingClientRect().right, boxRight: box.right };
+    });
+    expect(hello.bang).toBeGreaterThan(hello.h);
+    expect(Math.abs(hello.textRight - hello.boxRight)).toBeLessThanOrEqual(2);
     const before = await selectedIndex(f);
     await page.keyboard.press('ArrowLeft');
     await sleep(200);

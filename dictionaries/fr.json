@@ -161,6 +161,7 @@
   "notePh": "Écrivez une note pour cet onglet…",
   "noteClear": "Effacer la note",
   "noteHint": "Enregistrée pendant la saisie. Videz-la pour supprimer la note.",
+  "urlTooLong": "L’adresse de cette page est trop longue pour que Tabazing y garde une étoile ou une note.",
   "ageDays": "{count, plural, one {il y a # jour} other {il y a # jours}}",
   "setAccent": "Couleur d’accent",
   "setAccentCustom": "Choisir une couleur",

@@ -25,6 +25,15 @@ describe('numbers', () => {
     for (const bad of ['', '1,2,3', '1.2.3', '1,23,456', '12,', '.5', 'abc', '1..2', '1,234.5.6']) expect(parseNumber(bad), bad).toBeNaN();
   });
 
+  it('parseNumber: thousands never start with 0, so a leading 0 is a decimal comma or nothing', () => {
+    for (const lang of ['en', 'he', 'ar', 'es']) expect(parseNumber('0,001', lang), lang).toBe(0.001);
+    expect(parseNumber('012,345', 'en')).toBe(12.345);
+    for (const lang of ['en', 'es', 'ru', 'de']) expect(parseNumber('0.001.000', lang), lang).toBeNaN();
+    for (const bad of ['0,001,000', '0,001.5', '012.345,6']) expect(parseNumber(bad), bad).toBeNaN();
+    expect(parseNumber('0.5')).toBe(0.5);
+    expect(parseNumber('0,5', 'es')).toBe(0.5);
+  });
+
   it('formatNumber: rounded to significant digits, scientific for the very big and very small, plain digits to copy', () => {
     expect(formatNumber(0.1 + 0.2, 'en')).toEqual({ shown: '0.3', plain: '0.3' });
     expect(formatNumber(1234567.891, 'en')).toEqual({ shown: '1,234,567.891', plain: '1234567.891' });
@@ -34,6 +43,13 @@ describe('numbers', () => {
     expect(formatNumber(1e21, 'en').shown).toBe('1E21');
     expect(formatNumber(1.5e-9, 'en').shown).toBe('1.5E-9');
     expect(formatNumber(-0, 'en').plain).toBe('0');
+  });
+
+  it('formatNumber: what is copied has no exponent, however big or small', () => {
+    expect(formatNumber(2 ** 70, 'en')).toEqual({ shown: '1.180591621E21', plain: '1180591620720000000000' });
+    expect(formatNumber(1e-7, 'en')).toEqual({ shown: '1E-7', plain: '0.0000001' });
+    expect(formatNumber(-1.5e-9, 'en').plain).toBe('-0.0000000015');
+    expect(formatNumber(1e21, 'en').plain).toBe('1000000000000000000000');
   });
 });
 
@@ -46,6 +62,9 @@ describe('arithmetic', () => {
     ['sqrt(16)', '4'], ['sqrt 16 + 1', '5'], ['√81', '9'], ['cbrt(27)', '3'], ['abs(-3)', '3'], ['round(2.5)', '3'], ['floor(2.7)', '2'], ['ceil(2.1)', '3'],
     ['sin(30)', '0.5'], ['cos(60)', '0.5'], ['tan(45)', '1'], ['ln(e)', '1'], ['log(1000)', '3'], ['exp(0)', '1'],
     ['pi', '3.14159265359'], ['π', '3.14159265359'], ['2pi', '6.28318530718'], ['3(4 + 1)', '15'], ['2 sqrt(9)', '6'],
+    ['round(-2.5)', '-3'], ['round(-2.4)', '-2'], ['round(-0.4)', '0'],
+    ['10 mod -3', '1'], ['10 mod +3', '1'], ['-10 mod 3', '-1'],
+    ['2e10 * 1', '20,000,000,000'], ['2e-3 + 0', '0.002'], ['1e+5 + 0', '100,000'], ['1.5e-7 * 2', '3E-7'], ['2e', '5.43656365692'], ['2e - 3', '2.43656365692'],
   ])('%s = %s', (s, want) => {
     const r = q(s);
     expect(r).toMatchObject({ kind: 'calc', value: want });
@@ -59,16 +78,49 @@ describe('arithmetic', () => {
     expect(v('80 * 15%')).toBe('12');
     expect(v('50%+10')).toBe('10.5');
     expect(v('15%')).toBe('0.15');
+    expect(v('50% of 50% of 80')).toBe('20');
+  });
+
+  it('a percentage plus or minus a percentage adds them plainly', () => {
+    expect(v('15% + 15%')).toBe('0.3');
+    expect(v('50% - 10%')).toBe('0.4');
+    expect(v('15% + 15% + 10%')).toBe('0.4');
+  });
+
+  it('"of" in every language, and only after a percentage ("Part 1 of 3" is a title)', () => {
+    expect(v('15% от 80', { lang: 'ru' })).toBe('12');
+    expect(v('15% de 80', { lang: 'es' })).toBe('12');
+    expect(v('15% de 80', { lang: 'fr' })).toBe('12');
+    expect(v('15% von 80', { lang: 'de' })).toBe('12');
+    expect(v('15% di 80', { lang: 'it' })).toBe('12');
+    expect(v('15% din 80', { lang: 'ro' })).toBe('12');
+    expect(v('15% του 80', { lang: 'el' })).toBe('12');
+    for (const s of ['3 of 4', '1 of 3', 'Part 1 of 3', '2 de 3', '2 от 3', '(15%) of 80']) expect(q(s), s).toBeNull();
+  });
+
+  it('float leftovers are 0, and trigonometry is exact where the answer is', () => {
+    for (const s of ['cos(90)', 'sin(180)', 'sin(360)', 'cos(270)', 'tan(180)', '0.3 - 0.1 - 0.2', '1.1 * 3 - 3.3']) expect(q(s), s).toMatchObject({ value: '0', copy: '0' });
+    expect(v('cos(180)')).toBe('-1');
+    expect(v('sin(-30)')).toBe('-0.5');
+    expect(v('sin(150)')).toBe('0.5');
+    expect(v('tan(135)')).toBe('-1');
+    expect(v('sin(45)')).toBe('0.707106781187');
+    expect(v('1/10000000')).toBe('1E-7'); // small, but not a leftover
+    for (const s of ['tan(90)', 'tan(270)', 'tan(-90)']) expect(q(s), s).toBeNull();
   });
 
   it('copies plain digits, shows the language’s', () => {
     expect(q('1000 * 1.5')).toMatchObject({ value: '1,500', copy: '1500' });
     expect(q('1,5 + 1', { lang: 'es' })).toMatchObject({ value: '2,5', copy: '2.5' });
     expect(sp(q('1000 * 1.5', { lang: 'ru' }).value)).toBe('1 500');
+    expect(q('2^70')).toMatchObject({ value: '1.180591621E21', copy: '1180591620720000000000' });
+    expect(q('1/10000000')).toMatchObject({ value: '1E-7', copy: '0.0000001' });
+    expect(q('1e-7 * 1').copy).toBe('0.0000001');
   });
 
   it('nothing for plain numbers, words, dates, phone numbers, or what isn’t finite', () => {
-    for (const s of ['42', '-5', '3.14', 'e', 'hello', 'covid-19', 'v2', '2026-10-18', '555-1234', '1/0', '0/0', 'sqrt(-1)', '10^400', 'log', '2 3', '(1 + 2', '1 + 2)', '+', '*2', '2 +', 'foo(2)']) {
+    for (const s of ['42', '-5', '3.14', 'e', 'hello', 'covid-19', 'v2', '2026-10-18', '555-1234', '1/0', '0/0', 'sqrt(-1)', '10^400', 'log', '2 3', '(1 + 2', '1 + 2)', '+', '*2', '2 +', 'foo(2)',
+    '10 mod', '1e-7', '2026-10-21 - 2026-01-01', '2024-01-05 + 3', '2024-01-05 * 2', '12/25/2024', '25/12/2024', '2024/12/25', '1/2/2024 + 1']) {
       expect(q(s), s).toBeNull();
     }
   });
@@ -104,6 +156,20 @@ describe('units', () => {
     expect(v('20 c')).toBe('68°F');
     expect(v('3 kg')).toBe('6.61387 lb');
     expect(q('3 days')).toBeNull(); // nothing obvious to convert to
+    expect(v('300 kelvin')).toBe('26.85°C'); // kelvin only when spelt out...
+    for (const s of ['4k', '10k', '100k', '5 k', '8K']) expect(q(s), s).toBeNull(); // ...a bare k is a thousand
+  });
+
+  it('kelvin when asked, months as "mo", offsets that cancel out are 0', () => {
+    expect(v('300 k in c')).toBe('26.85°C');
+    expect(v('300 kelvin in f')).toBe('80.33°F');
+    expect(v('1 yr in mo')).toBe('12 mo');
+    expect(v('1 mo in d')).toBe('30.4369 d');
+    expect(v('1 m in ft')).toBe('3.28084 ft'); // m is still the metre, min the minute, mi the mile
+    expect(v('1 min in s')).toBe('60 s');
+    expect(v('1 mi in km')).toBe('1.60934 km');
+    expect(q('-17.7777777778 c in f')).toMatchObject({ value: '0°F', copy: '0°F' });
+    expect(v('0,500 km')).toBe('0.310686 mi'); // 0.5 km, not 500
   });
 
   it('the expression and what is copied', () => {
@@ -117,10 +183,18 @@ describe('units', () => {
     expect(v('5 libras a kilos')).toBe('2.26796 kg');
     expect(v('10 км в милях'.replace('милях', 'миль'))).toBe('6.21371 mi');
     expect(v('2 часа в мин')).toBe('120 min');
+    const ru = (s) => v(s, { lang: 'ru' }).replace(',', '.');
+    expect(ru('5 кг в фунты')).toBe('11.0231 lb');
+    expect(ru('5 кг в фунтах')).toBe('11.0231 lb');
+    expect(ru('10 км в милях')).toBe('6.21371 mi');
+    expect(ru('1 миля в километры')).toBe('1.60934 km');
+    expect(ru('2 часа в минутах')).toBe('120 min');
+    expect(ru('1 галлон в литры')).toBe('3.78541 L');
+    expect(ru('3 ярда в футы')).toBe('9 ft');
   });
 
   it('different kinds don’t convert; unknown units are nothing', () => {
-    for (const s of ['10 km in kg', '5 lb in mi', '3 foo in bar', '10 km in', 'km in mi', '10 c in mph']) expect(q(s), s).toBeNull();
+    for (const s of ['10 km in kg', '5 lb in mi', '3 foo in bar', '10 km in', 'km in mi', '10 c in mph', '10 km in km', '10 c in c', '5 f in °f']) expect(q(s), s).toBeNull();
   });
 
   it('unitOf knows names, plurals, symbols and square forms', () => {
@@ -144,7 +218,7 @@ describe('number bases', () => {
   it('shows the other bases too, and leaves out the pointless and the impossible', () => {
     expect(q('255 in hex').alts).toEqual(['0b11111111', '0o377']);
     expect(q('255 in hex').expr).toBe('255 = 0xFF');
-    for (const s of ['255 in dec', '0xzz', '0b102', 'hex', 'hex zz', '99999999999999999999 in hex']) expect(q(s), s).toBeNull();
+    for (const s of ['255 in dec', '0xff in hex', 'hex 0xff', '0b1010 in bin', '0o17 in oct', '0xzz', '0b102', 'hex', 'hex zz', '99999999999999999999 in hex']) expect(q(s), s).toBeNull();
   });
 });
 
@@ -182,6 +256,9 @@ describe('time zones', () => {
     expect(sp(v('time in Halifax'))).toBe('Sun 9:00 AM'); // found among the browser's zones by its city
     expect(sp(v('time in UTC+3'))).toBe('Sun 3:00 PM');
     expect(sp(v('time in GMT-5'))).toBe('Sun 7:00 AM');
+    expect(q('time in utc−5')).toMatchObject({ zone: 'Etc/GMT+5', place: 'UTC-5' }); // the minus the offsets are shown with
+    expect(sp(v('Tokyo time?'))).toBe('Sun 9:00 PM'); // a question mark either way round
+    expect(sp(v('time in Tokyo?'))).toBe('Sun 9:00 PM');
     expect(sp(v('hora en Tokio', { lang: 'es' }))).toMatch(/^dom\.?,? 21:00$/);
     expect(sp(v('время в Москве'.replace('Москве', 'москва'), { lang: 'ru' }))).toMatch(/^вс,? 15:00$/);
   });
@@ -229,8 +306,16 @@ describe('dates', () => {
     expect(q('сегодня + 1 неделя', { lang: 'ru' }).copy).toBe('2026-10-25');
   });
 
+  it('years 1-99 are themselves, not 1900-1999', () => {
+    expect(q('0050-01-01 + 1 day').copy).toBe('0050-01-02');
+    expect(q('0050-01-31 + 1 month').copy).toBe('0050-02-28');
+    expect(v('days between 0099-01-01 and 0100-01-01')).toBe(365);
+    expect(q('2026-01-01 - 2025 years').copy).toBe('0001-01-01');
+  });
+
   it('nothing for impossible dates', () => {
     for (const s of ['2026-02-30 + 1 day', 'days until 2026-13-01', 'days until someday', '2026-10-18 + 3 parsecs']) expect(q(s), s).toBeNull();
+    for (const s of ['today + 8000 years', '2026-01-01 - 2027 years', '2026-01-01 - 2026 years', '9999-12-31 + 1 day']) expect(q(s), s).toBeNull(); // past 0001-9999
   });
 });
 

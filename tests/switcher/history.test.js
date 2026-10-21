@@ -4,7 +4,7 @@
 // card's delete button (where its star was).
 import { describe, it, expect } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, toastText, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, tabByTitle, toastText, toastButton } from './quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
@@ -178,6 +178,21 @@ describe('the search box and the range', () => {
     await waitFor(() => titles().length === 2);
   });
 
+  it('Enter right after typing (before the search\'s pause) opens what the typed text finds', async () => {
+    seedHistory(10);
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    expect(sel()).toBe('Page 1');
+    const box = tid('history-search');
+    box.value = 'Page 7';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    key('Enter', { target: box }); // no pause: the search hasn't run yet
+    await tick(300);
+    expect(chrome.tabs.create).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://p7.example/' }));
+    expect(sw.state.done).toBe(true);
+  });
+
   it('says when a search could only look through the newest 5000 visits', async () => {
     for (let i = 0; i < 5000; i++) chrome._data.history.push({ url: `https://many${i}.example/`, title: 'Many ' + i, lastVisitTime: NOW - i * 1000, visitCount: 1 });
     const sw = await boot({ tabs: AB });
@@ -226,6 +241,23 @@ describe('removing and ticking', () => {
     tid('history-remove-selected').click();
     await waitFor(() => cards().length === 3);
     expect(toastText()).toBe(t('historyRemovedN', { count: 2 }));
+  });
+
+  it('a Shift+click range starts again after a search replaced the list', async () => {
+    seedHistory(20);
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    tid('hist-pick', cards()[2]).click(); // ticked, then unticked: the range's start is set
+    tid('hist-pick', cards()[2]).click();
+    expect(sw.state.hist.picked.size).toBe(0);
+    tid('history-search').value = 'Page 1';
+    await sw.findHistory('Page 1');
+    expect(titles()).toContain('Page 1');
+    expect(cards().length).toBeGreaterThan(3);
+    tid('hist-pick', cards().at(-1)).dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+    expect(sw.state.hist.picked.size).toBe(1);
+    expect(cards().map((c) => c.getAttribute('aria-checked')).filter((x) => x === 'true')).toHaveLength(1);
+    expect(cards().at(-1).getAttribute('aria-checked')).toBe('true');
   });
 
   it('"Remove all from this site" asks first, with how many', async () => {
@@ -329,6 +361,22 @@ describe('the menu and the keys', () => {
     await waitFor(() => cards().length === 130);
   });
 
+  it('starring a page from its menu keeps the main selection where it was', async () => {
+    seedHistory(5);
+    const sw = await boot({ tabs: [...AB, { title: 'C', url: 'https://c.example/' }, { title: 'D', url: 'https://d.example/' }], ctx: { dir: 0 } });
+    sw.selectKey('t' + tabByTitle(sw, 'C').id);
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('C');
+    await openHistory(sw);
+    sw.historyMenu(sw.state.hist.items[1]);
+    menuItem(t('star')).click();
+    await waitFor(() => sw.isStarred('https://p2.example/'));
+    await tick(30);
+    key('Escape', { target: tid('history-search') });
+    expect(sw.historyOpen()).toBe(false);
+    expect(sw.state.entries[sw.state.sel].tab.title).toBe('C');
+    expect(tid('card-title', tids('card-tab').find((c) => c.getAttribute('aria-selected') === 'true')).textContent).toBe('C');
+  });
+
   it('while it is open the rest of the switcher is inert', async () => {
     seedHistory(1);
     const sw = await boot({ tabs: AB });
@@ -412,5 +460,43 @@ describe('a page\u2019s "last opened" tag and loading more by itself', () => {
       io.cb([{ isIntersecting: true, target: tid('history-more') }]);
       await waitFor(() => cards().length === 120);
     } finally { globalThis.IntersectionObserver = window.IntersectionObserver = IO; }
+  });
+
+  it('the 50 that come by scrolling leave the selection where it was; ↓ past the last page selects the first new one', async () => {
+    seedHistory(170);
+    const seen = [];
+    const IO = globalThis.IntersectionObserver;
+    globalThis.IntersectionObserver = window.IntersectionObserver = class { constructor(cb) { this.cb = cb; seen.push(this); } observe(n) { this.n = n; } unobserve() {} disconnect() {} takeRecords() { return []; } };
+    try {
+      const sw = await boot({ tabs: AB });
+      await openHistory(sw);
+      sw.histSelect(3, false);
+      expect(sel()).toBe('Page 4');
+      const io = seen.find((x) => x.n === tid('history-more'));
+      io.cb([{ isIntersecting: true, target: tid('history-more') }]); // scrolled to the bottom
+      await waitFor(() => cards().length === 100);
+      expect(sw.state.hist.sel).toBe(3);
+      expect(sel()).toBe('Page 4');
+      await sw.moreHistory({ select: false }); // what the observer asks for
+      expect(cards()).toHaveLength(150);
+      expect(sel()).toBe('Page 4');
+      sw.histSelect(149, false);
+      tid('history-search').focus();
+      key('ArrowDown'); // past the last page
+      await waitFor(() => cards().length === 170);
+      await waitFor(() => sw.state.hist.sel === 150);
+      expect(sel()).toBe('Page 151');
+    } finally { globalThis.IntersectionObserver = window.IntersectionObserver = IO; }
+  });
+
+  it('moreHistory(): the first of the new pages is selected', async () => {
+    seedHistory(70);
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    sw.histSelect(3, false);
+    await sw.moreHistory();
+    expect(cards()).toHaveLength(70);
+    expect(sw.state.hist.sel).toBe(50);
+    expect(sel()).toBe('Page 51');
   });
 });

@@ -542,6 +542,27 @@ describe('the search box and its dropdown', () => {
     expect(sw.ddPic('x', 'https://x.example/', { img: 'data:image/jpeg;base64,AAAA', t: 1 })).not.toBe(sw.ddPic('x', 'https://x.example/', null));
   });
 
+  it('the highlight stays on its row when late results (Chrome\'s history search) reorder the list; new text resets it', async () => {
+    // 200 days old: past the 90 days read up front, so only Chrome's search (after a pause) finds it, as the best match.
+    chrome._data.history.push({ url: 'https://old.example/', title: 'Alpha old page', lastVisitTime: Date.now() - 200 * 864e5, visitCount: 3 });
+    const sw = await boot({ tabs: [{ title: 'Xalphax', url: 'https://x.example/' }, { title: 'Yalphay', url: 'https://y.example/' }] });
+    const hiRow = () => document.querySelector('[data-testid^="dd-row-"][aria-selected="true"]');
+    const hiTitle = () => tid('dd-title', hiRow()).textContent;
+    type(sw, 'alpha');
+    await nextFrame();
+    expect(tids('dd-title').map((x) => x.textContent)).toEqual(['Xalphax', 'Yalphay']);
+    key('ArrowDown');
+    expect(hiTitle()).toBe('Yalphay');
+    await tick(300);
+    expect(tids('dd-title').map((x) => x.textContent)[0]).toBe('Alpha old page'); // came in late, first
+    expect(hiTitle()).toBe('Yalphay');
+    expect(sw.state.dd.items[sw.state.dd.hi].entry.tab.title).toBe('Yalphay');
+    type(sw, 'alph');
+    await nextFrame();
+    expect(sw.state.dd.hi).toBe(0);
+    expect(hiRow()).toBe(ddRows()[0]);
+  });
+
   it('bookmarks and history are read on the first search, once, and listed', async () => {
     chrome._addBookmark({ parentId: '1', title: 'Zebra docs', url: 'https://zebra.example/' });
     chrome._data.history = [{ url: 'https://yak.example/', title: 'Yak farm', lastVisitTime: Date.now() - 1000, visitCount: 3 }];
@@ -696,6 +717,27 @@ describe('ticking from the keyboard', () => {
     key('ArrowLeft', { shiftKey: true });
     key('ArrowLeft', { shiftKey: true }); // past the start: the other way
     expect(picked(sw)).toEqual(['Alpha', 'Bravo']);
+  });
+
+  it('Shift+→ at the last card stops there: no wrapping round to the first', async () => {
+    const sw = await boot({ tabs: many(), ctx: { dir: 0 }, prefs: { showClosed: false } });
+    sw.select(3); // Delta
+    tid('scroller').focus();
+    key('ArrowRight', { shiftKey: true });
+    expect(picked(sw)).toEqual(['Delta', 'Echo']);
+    key('ArrowRight', { shiftKey: true }); // at the last card
+    expect(picked(sw)).toEqual(['Delta', 'Echo']);
+    expect(selectedTitle()).toBe('Echo');
+  });
+
+  it('Shift+← at the first card stops there too', async () => {
+    const sw = await boot({ tabs: many(), ctx: { dir: 0 }, prefs: { showClosed: false } });
+    sw.select(1); // Bravo
+    tid('scroller').focus();
+    key('ArrowLeft', { shiftKey: true });
+    key('ArrowLeft', { shiftKey: true });
+    expect(picked(sw)).toEqual(['Alpha', 'Bravo']);
+    expect(selectedTitle()).toBe('Alpha');
   });
 
   it('a run keeps the ticks made before it; any other key ends it', async () => {

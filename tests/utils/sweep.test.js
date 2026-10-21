@@ -203,6 +203,23 @@ describe('runSweep', () => {
     expect(chrome.storage.session._data.get(KEY.MRU)).toEqual([a.id, x.id]);
   });
 
+  it("the MRU put back follows a tab Chrome replaced meanwhile (one card's capture too)", async () => {
+    const { a, b, c } = seed();
+    await chrome.storage.session.set({ [KEY.MRU]: [a.id, c.id, b.id] });
+    captureTab.mockImplementationOnce(async () => { chrome.tabs.onReplaced._emit(99, c.id); });
+    await sweep({ only: [b.id], quiet: true });
+    expect(chrome.storage.session._data.get(KEY.MRU)).toEqual([a.id, 99, b.id]);
+  });
+
+  it('...and leaves out a tab closed meanwhile', async () => {
+    const { a, b, c } = seed();
+    await chrome.storage.session.set({ [KEY.MRU]: [a.id, c.id, b.id] });
+    captureTab.mockImplementationOnce(() => chrome.tabs.remove(c.id));
+    await sweep({ only: [b.id], quiet: true });
+    expect(chrome.storage.session._data.get(KEY.MRU)).toEqual([a.id, b.id]);
+    expect(chrome.tabs.onRemoved.removeListener).toHaveBeenCalled(); // the run's own listeners go with it
+  });
+
   it('opens a progress popup centred on the focused window and closes it after', async () => {
     seed();
     await sweep();

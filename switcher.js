@@ -443,10 +443,15 @@ function closedFor(q) {
 // searching, the best matches come first. Scores are remembered (per field, and typo checks per pair of
 // words), so each keystroke only works out what the newest letters change.
 const fieldIndex = new Map(); // text -> { text, words, initials, scores } (titles and addresses repeat on every keystroke)
+// Lower case without accents, letter for letter (é → e, ά → α, ü → u): a word typed without its accents still finds
+// it, as Greek, French or German are often typed. Each letter stays one letter, so a place in it is the text's too.
+const foldMemo = new Map();
+const foldChar = (c) => { let f = foldMemo.get(c); if (f === undefined) { f = c.normalize('NFD').replace(/\p{M}+/gu, ''); if (f.length !== c.length) f = c; foldMemo.set(c, f); } return f; };
+const fold = (s) => { const lower = s.toLowerCase(); return /[^\x00-\x7f]/.test(lower) ? lower.replace(/[^\x00-\x7f]/g, foldChar) : lower; };
 function fieldOf(text) {
   let x = fieldIndex.get(text);
   if (!x) {
-    const lower = text.toLowerCase();
+    const lower = fold(text);
     const words = lower.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
     x = { text: lower, words, initials: words.map((w) => w[0]).join(''), scores: new Map() };
     if (fieldIndex.size > 50000) fieldIndex.clear(); // big enough for all of history and the bookmarks
@@ -510,11 +515,11 @@ function scoreWord(w, f) {
 // (three letters or more), never as a typo, so "plain" doesn't find the tabs that are "playing".
 function searchScore(q, ...fields) {
   const fs = [], st = [];
-  for (const f of fields) if (f && typeof f === 'object') st.push(...f.status.split(/\s+/).filter(Boolean)); else if (f) fs.push(fieldOf(f));
+  for (const f of fields) if (f && typeof f === 'object') st.push(...fold(f.status).split(/\s+/).filter(Boolean)); else if (f) fs.push(fieldOf(f));
   let total = 0;
-  for (const w of q.split(/\s+/).filter(Boolean)) {
+  for (const w of queryWords(q)) {
     let best = Math.max(0, ...fs.map((f) => wordScore(w, f)));
-    if (!best && w.length >= 3) { const lw = w.toLowerCase(); if (st.some((s) => s.startsWith(lw))) best = 1; }
+    if (!best && w.length >= 3 && st.some((s) => s.startsWith(w))) best = 1;
     if (!best) return 0;
     total += best;
   }
@@ -543,12 +548,12 @@ const pageStatus = (url, where = null) => ({ status: statusText(where, isStarred
 // Where a tab matched decides its place first: its note (3), then its title (2), then its address (1);
 // within each, how well it matched. A field counts if any word typed is found in it.
 // A title that starts with what was typed (or with its first word) comes before one that has it elsewhere.
-const queryWords = (q) => q.split(/\s+/).filter(Boolean);
+const queryWords = (q) => fold(q).split(/\s+/).filter(Boolean);
 const fieldHit = (q, text) => !!text && queryWords(q).some((w) => wordScore(w, fieldOf(text)) > 0);
 function matchTier(q, tab) {
   if (fieldHit(q, noteOf(urlOf(tab)))) return 4;
-  const title = (tab.title || '').toLowerCase().trim();
-  if (title && (title.startsWith(q) || title.startsWith(queryWords(q)[0]))) return 3;
+  const title = fold(tab.title || '').trim();
+  if (title && (title.startsWith(fold(q)) || title.startsWith(queryWords(q)[0]))) return 3;
   return fieldHit(q, tab.title) ? 2 : 1;
 }
 
@@ -557,7 +562,7 @@ function matchTier(q, tab) {
 function highlight(text, q) {
   const out = document.createDocumentFragment();
   if (!text) return out;
-  const lower = text.toLowerCase();
+  const lower = fold(text);
   const ranges = [];
   for (const w of queryWords(q)) {
     let found = false;
@@ -1618,15 +1623,19 @@ function toggleStarFilter() {
   toTop();
 }
 
+// Whether Tabazing can keep a star or a note for this address (it keeps them by address, up to a length).
+const canKeep = (url) => { const k = normalizeUrl(url); return !!k && k.length <= LIMITS.MAX_URL_KEY; };
 async function star(entry) {
   if (!entry || !entry.url || (entry.item && entry.item.kind === 'window')) return;
+  if (!canKeep(entry.url)) return toast(t('urlTooLong'));
   const on = await toggleStar(entry.url, entry.tab ? entry.tab.title : entry.item.title).catch(() => null);
   if (on === null || state.done) return;
   state.stars = await getStars().catch(() => state.stars);
   if (on) await loadStarPreviews();
   // Unstarring a starred-not-open card removes it from the list: keep the selection near it.
   const i = state.entries.indexOf(entry);
-  const next = !on && entry.kind === 'star' ? [state.entries[i + 1], state.entries[i - 1]].find((e) => e && e !== entry) : entry;
+  // (Starred in the history or bookmarks view: not a card, so the selection stays where it is.)
+  const next = i < 0 ? state.entries[state.sel] : !on && entry.kind === 'star' ? [state.entries[i + 1], state.entries[i - 1]].find((e) => e && e !== entry) : entry;
   // Only the Starred filter shows or hides cards by their star: else just the cards of that page change.
   const k = normalizeUrl(entry.url);
   if (state.starOnly) refresh({ keepKey: next && next.key });
@@ -1800,9 +1809,12 @@ function forgetTab(id, keepKey) {
   // Chrome's onRemoved can arrive before our own close call returns (and tabs close from elsewhere too):
   // if the tab that goes is the selected one, select its neighbour, so the view stays where it is
   // instead of jumping back to the first card.
-  const i = state.entries.findIndex((e) => e.kind === 'tab' && e.tab.id === id);
+  // (A group's tile goes with its last tab.)
+  const goes = (e) => (e.kind === 'tab' && e.tab.id === id)
+    || (e.kind === 'group' && e.tabs.some((x) => x.id === id) && e.tabs.every((x) => x.id === id || !state.tabs.some((y) => y.id === x.id)));
+  const i = state.entries.findIndex(goes);
   if (!keepKey && i >= 0 && i === state.sel) {
-    const next = [state.entries[i + 1], state.entries[i - 1]].find((e) => e && e.kind === 'tab');
+    const next = [state.entries[i + 1], state.entries[i - 1]].find((e) => e && (e.kind === 'tab' || e.kind === 'group'));
     keepKey = next && next.key;
   }
   state.tabs = state.tabs.filter((x) => x.id !== id);
@@ -1859,12 +1871,14 @@ function clearPicks() { const before = new Set(state.picked); state.picked.clear
 // keeps the ticks there were before it and lays its range over them, so stepping back shrinks the range again.
 function extendPick(k) {
   const from = state.entries[state.sel];
-  if (!from || from.kind !== 'tab') return;
-  if (!state.shiftBase) { state.shiftBase = new Set(state.picked); state.lastPick = from.tab.id; }
-  if (k === 'ArrowRight' || k === 'ArrowLeft') moveSpatial(ahead(k), 0);
+  if (!from) return;
+  const across = k === 'ArrowRight' || k === 'ArrowLeft';
+  if (across && !state.entries[state.sel + ahead(k)]) return; // at the first or last card: the range stays (no wrapping round)
+  if (from.kind === 'tab' && !state.shiftBase) { state.shiftBase = new Set(state.picked); state.lastPick = from.tab.id; }
+  if (across) moveSpatial(ahead(k), 0);
   else moveSpatial(0, k === 'ArrowDown' ? 1 : -1);
   const to = state.entries[state.sel];
-  if (!to || to.kind !== 'tab') return;
+  if (from.kind !== 'tab' || !to || to.kind !== 'tab') return; // from a tile or a closed card: it only moves
   const onScreen = state.entries.filter((e) => e.kind === 'tab').map((e) => e.tab.id);
   const a = onScreen.indexOf(state.lastPick), b = onScreen.indexOf(to.tab.id);
   if (a < 0) return;
@@ -2356,7 +2370,7 @@ function ddRows(text = state.query) {
   let order = 0;
   const add = (key, s, row) => {
     if (s <= 0) return;
-    const x = { ...row, s, rank: DD_SOURCES[row.kind].rank, order: order++ };
+    const x = { ...row, key, s, rank: DD_SOURCES[row.kind].rank, order: order++ };
     const cur = best.get(key);
     if (!cur) return best.set(key, x);
     if (x.rank < cur.rank) best.set(key, { ...x, s: Math.max(s, cur.s) });
@@ -2386,8 +2400,8 @@ function ddRows(text = state.query) {
   const rows = [...best.values()].sort((a, b) => mine(b) - mine(a) || b.s - a.s || a.rank - b.rank || a.order - b.order).slice(0, DD_MAX);
   if (!rows.length) {
     const url = asUrl(typed);
-    if (url) rows.push({ kind: 'url', url });
-    rows.push({ kind: 'google' });
+    if (url) rows.push({ kind: 'url', url, key: 'url:' + url });
+    rows.push({ kind: 'google', key: 'google' });
   }
   // No access to bookmarks or history: Chrome only turns on a new permission when the extension itself is
   // reloaded (an unpacked one picks up changed pages without that), so say so instead of skipping them silently.
@@ -2414,8 +2428,13 @@ const ddShown = () => !state.palette && !state.dd.hidden && state.dd.items.lengt
 function ddMove(d) {
   const n = state.dd.items.length;
   state.dd.hi = (((state.dd.hi + d) % n) + n) % n;
+  state.dd.hiKey = rowKey(state.dd.items[state.dd.hi]);
   ddHighlight();
 }
+// A result row's identity (its page, its action): the highlight moved onto a row stays on it when results that
+// come in late (Chrome's history, the bookmarks) reorder the list, so Enter opens the row that was chosen.
+const rowKey = (r) => (!r ? null : r.key || (r.kind === 'action' ? 'a:' + r.a.id : r.kind));
+const keepHighlight = (o) => { if (!o.hiKey) return; const j = o.items.findIndex((r) => rowKey(r) === o.hiKey); if (j >= 0) o.hi = j; };
 // Move the highlight without building the list again.
 function ddHighlight(scroll = true) {
   const dd = document.querySelector('.dd');
@@ -2549,6 +2568,7 @@ function renderDropdown() {
   let dd = document.querySelector('.dd');
   const rows = state.query.trim() ? ddRows() : [];
   state.dd.items = rows.filter((r) => r.kind);
+  keepHighlight(state.dd);
   if (state.dd.hi >= state.dd.items.length) state.dd.hi = 0;
   if (!ddShown()) { if (dd) dd.remove(); return syncCombo(); }
   if (!dd) {
@@ -3005,7 +3025,8 @@ function openBigGroup(entry) {
 // tile moves the whole group; tabs dropped on a tile go into that group.
 let drag = null; // what is being dragged: { ids } (tabs) or { group } (a group's tile)
 const clearDrop = () => document.querySelectorAll('.drop-before, .drop-after, .drop-into').forEach((n) => n.classList.remove('drop-before', 'drop-after', 'drop-into'));
-const dropAfter = (card, e) => { const r = card.getBoundingClientRect(); return e.clientX > r.left + r.width / 2; };
+// A drop on the card's half toward the end goes after it: its right half, or its left half right to left.
+const dropAfter = (card, e) => { const r = card.getBoundingClientRect(); return (e.clientX > r.left + r.width / 2) !== isRtl(); };
 function dragToMove(card, entry) {
   const tile = entry.kind === 'group';
   const own = cardTabs(entry).map((x) => x.id);
@@ -3726,15 +3747,16 @@ async function importBackup(input) {
   B.report.hidden = false;
   B.report.replaceChildren(h('p', 'pfine', t('backupWorking'), 'backup-working'));
   try {
-    let files;
+    let files = null;
     const list = [...input.files];
-    if (list.length === 1 && /\.zip$/i.test(list[0].name)) files = await unzipFiles(new Uint8Array(await list[0].arrayBuffer()));
+    if (list.length === 1 && /\.zip$/i.test(list[0].name)) files = await unzipFiles(new Uint8Array(await list[0].arrayBuffer())).catch(() => null); // (not a zip, or a damaged one)
     else {
       files = new Map();
       for (const f of list) if (/\.json$/i.test(f.name) && f.size <= 50 * 1024 * 1024) files.set(f.webkitRelativePath || f.name, await f.text());
     }
-    let data;
-    try { data = readBackup(files); } catch { B.report.replaceChildren(h('p', 'perr', t('backupBad'), 'backup-bad')); return; }
+    let data = null;
+    try { if (files) data = readBackup(files); } catch { /* no backup in it */ }
+    if (!data) { B.report.replaceChildren(h('p', 'perr', t('backupBad'), 'backup-bad')); return; }
     const done = await restoreBackup(data, { settings: B.setBox.checked });
     if (state.backup !== B) return;
     const lines = BACKUP_KINDS.map(({ key, label }) => h('li', '', t('backupLine', { what: t(label), added: done[key].added, updated: done[key].updated, skipped: done[key].skipped }), 'backup-report-line'));
@@ -3849,6 +3871,7 @@ function confirmDialog({ title, text, testid, actions }) {
 }
 async function openHistory() {
   closeDrawer(false);
+  if (settingsOpen()) closeSettings(); // (Ctrl+H over Settings: the history comes in its place)
   closePops();
   closeBig();
   hideTip();
@@ -3879,7 +3902,9 @@ async function openHistory() {
   const find = searchField('history-search', t('historySearch'), t('historySearchAria'));
   find.input.setAttribute('aria-controls', 'hist-list');
   let findTimer = null;
-  find.input.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => findHistory(find.input.value.trim()).catch(() => {}), 180); });
+  find.input.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => { findTimer = null; findHistory(find.input.value.trim()).catch(() => {}); }, 180); });
+  // The search the box still waits to run, at once (Enter right after typing opens what it finds); null if none waits.
+  const flushFind = () => { if (!findTimer) return null; clearTimeout(findTimer); findTimer = null; return findHistory(find.input.value.trim()).catch(() => {}); };
   const range = h('select', '', null, 'history-range');
   range.setAttribute('aria-label', t('historyRangeAria'));
   for (const { v, label } of [{ v: 'all', label: 'historyRangeAll' }, { v: 'today', label: 'historyRangeToday' }, { v: 'week', label: 'historyRangeWeek' }, { v: 'month', label: 'historyRangeMonth' }]) {
@@ -3921,13 +3946,13 @@ async function openHistory() {
   body.append(notice, empty, list, more);
   panel.append(head, tools, body);
   el.app.append(back);
-  state.hist = { items: [], limit: HISTORY_PAGE, more: false, sel: 0, back, list, body, count, moreBtn: more, empty, x, q: '', find: find.input, picked: new Set(), anchor: -1,
+  state.hist = { items: [], limit: HISTORY_PAGE, more: false, sel: 0, back, list, body, count, moreBtn: more, empty, x, q: '', find: find.input, picked: new Set(), anchor: -1, flushFind,
     layout: view.histLayout === 'grid' ? 'grid' : 'list', range, layoutBtn: layout, selBar: sel, selN, notice };
   fancySelect(range);
   // Reaching the bottom of the list loads the next 50 by itself ("Show 50 more" is there, and stays for the keyboard).
   state.hist.io = new IntersectionObserver((seen) => {
     const H = state.hist;
-    if (H && seen.some((x) => x.isIntersecting) && H.more && !H.busy) moreHistory().catch(() => {});
+    if (H && seen.some((x) => x.isIntersecting) && H.more && !H.busy) moreHistory({ select: false }).catch(() => {}); // (scrolled to: the selection stays)
   }, { root: body, rootMargin: '0px 0px 240px 0px' });
   state.hist.io.observe(more);
   // the last search comes back, selected: typing replaces it
@@ -3949,6 +3974,7 @@ async function refreshHistory({ keepQ = false } = {}) {
   if (state.hist !== H || H.q !== q) return; // typed on meanwhile
   H.items = [];
   H.picked.clear();
+  H.anchor = -1; // (a Shift+click range starts again in the new list)
   H.list.replaceChildren();
   H.more = res.more;
   H.notice.hidden = !(q && res.capped);
@@ -4021,7 +4047,8 @@ function setHistoryLayout(layout) {
   histSelect(H.sel, false);
 }
 // "Show 50 more": the next 50 visits, under the ones shown (the page stays where it was).
-async function moreHistory() {
+// `select`: the first of them is selected (↓ past the last page, "Show 50 more"), not when they come by scrolling.
+async function moreHistory({ select = true } = {}) {
   const H = state.hist;
   if (!H || H.busy || !H.more) return;
   H.busy = true;
@@ -4035,7 +4062,7 @@ async function moreHistory() {
     H.more = res.more;
     const first = H.items.length;
     const add = addHistory(res.items, previews);
-    if (add.length) histSelect(first, false);
+    if (add.length && select) histSelect(first, false);
     if (H.moreBtn.hidden && document.activeElement === H.moreBtn) H.find.focus({ preventScroll: true });
   } finally {
     H.busy = false;
@@ -4308,6 +4335,8 @@ function historyKey(e) {
   if (inBox && !nav) return; // typing
   if (!inBox && k.length === 1 && k !== ' ' && !C && !e.altKey) { H.find.focus({ preventScroll: true }); return; } // typing goes to the box
   stop();
+  const waiting = k === 'Enter' && H.flushFind();
+  if (waiting) { waiting.then(() => { if (state.hist === H) historyKey(e); }); return; } // the search typed first, then its first page
   if (C && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
   if (!H.items.length) return;
   const entry = H.items[H.sel];
@@ -4370,6 +4399,7 @@ let bmvIO = null;
 async function openBookmarks() {
   closeDrawer(false);
   if (!chrome.bookmarks) return toast(t('ddNoMarks'));
+  if (settingsOpen()) closeSettings();
   closePops();
   closeBig();
   hideTip();
@@ -4402,7 +4432,9 @@ async function openBookmarks() {
   find.input.setAttribute('aria-controls', 'bmv-tree');
   find.input.setAttribute('aria-expanded', 'true');
   let findTimer = null;
-  find.input.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => bmvFind(find.input.value), 100); });
+  find.input.addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => { findTimer = null; bmvFind(find.input.value); }, 100); });
+  // The search the box still waits to run, at once (Enter right after typing opens what it finds).
+  const flushFind = () => { if (findTimer) { clearTimeout(findTimer); findTimer = null; bmvFind(find.input.value); } };
   const tool = (testid, icon, label, fn, cls = 'act') => {
     const b = h('button', cls, null, testid);
     b.type = 'button';
@@ -4435,7 +4467,7 @@ async function openBookmarks() {
   panel.append(head, tools, body);
   el.app.append(back);
   const B = state.bmv = {
-    back, body, tree: treeEl, empty, count, find: find.input, sel, selN, x, q: '', cur: 0, curId: null, rows: [], open: new Set(), picked: new Set(), anchorId: null,
+    back, body, tree: treeEl, empty, count, find: find.input, flushFind, sel, selN, x, q: '', cur: 0, curId: null, rows: [], open: new Set(), picked: new Set(), anchorId: null,
     previews: {}, byId: new Map(), tops: [], filter: null, dupes: new Map(), dupesBtn: dupes, starsBtn: stars,
   };
   bmvIndex(B, tree);
@@ -5203,6 +5235,7 @@ function bmvKey(e) {
   if (!inBox && k.length === 1 && k !== ' ' && k !== '*' && !C && !e.altKey) { B.find.focus({ preventScroll: true }); return; } // typing goes to the box
   stop();
   if (C && !e.shiftKey && !e.altKey && e.code === 'KeyZ') { if (!e.repeat) toastUndo(); return; }
+  if (k === 'Enter') B.flushFind(); // typed just now: the search first, then what it found
   const r = B.rows[B.cur];
   if (C && (k === 'ArrowUp' || k === 'ArrowDown')) { if (r && !e.repeat) bmvNudge(r.n, k === 'ArrowDown' ? 1 : -1).catch((err) => toast(t('bmvErr'), err)); return; }
   if (k === 'ArrowDown' || k === 'ArrowUp') return bmvSelect(B.cur + (k === 'ArrowDown' ? 1 : -1));
@@ -5427,6 +5460,7 @@ function hideTipSoon() {
 // a tab closes Tabazing straight away. An empty box removes the note.
 // `io`: whose note it is, for a bookmark's (kept by the bookmark: { get, set, label, hint }); else the page's (url).
 function notePopover(url, anchor, io = null) {
+  if (!io && !canKeep(url)) { closePops(); return toast(t('urlTooLong')); } // (what was written would be lost)
   const get = io ? io.get : () => noteOf(url);
   const put = io ? io.set : (text) => setNote(url, text).then((notes) => { state.notes = notes; });
   const label = io ? io.label : t('noteTitle');
@@ -5910,6 +5944,7 @@ function renderPalette() {
   const ql = text.trim().toLowerCase();
   const rows = paletteItems(text);
   p.items = rows.filter((r) => r.kind);
+  keepHighlight(p);
   if (p.hi >= p.items.length) p.hi = 0;
   let n = -1;
   // The pointer doesn't move the highlight (only ↑ / ↓ do), as in the search's results: a click runs the row.
@@ -5943,6 +5978,7 @@ function palMove(d) {
   const n = p.items.length;
   if (!n) return;
   p.hi = (((p.hi + d) % n) + n) % n;
+  p.hiKey = rowKey(p.items[p.hi]);
   palHighlight();
 }
 
@@ -5958,6 +5994,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   if (historyOpen()) closeHistory();
   if (bookmarksOpen()) closeBookmarks();
   if (backupOpen()) closeBackup();
+  if (settingsOpen()) closeSettings();
   closeDrawer(false);
   if (state.modal) closeDialog();
   stopHolding();
@@ -5993,6 +6030,7 @@ function exitPalette() {
   el.search.value = state.query = p.saved;
   state.dd.hidden = !p.saved.trim();
   state.dd.hi = 0;
+  state.dd.hiKey = null;
   flushSearch();
   el.search.focus({ preventScroll: true });
 }
@@ -6047,6 +6085,7 @@ function paletteKey(e) {
 function onPaletteInput() {
   if (!state.palette) return;
   state.palette.hi = 0;
+  state.palette.hiKey = null;
   startSearch(el.palInput.value.trim());
   if (!palFrame) palFrame = requestAnimationFrame(() => { palFrame = 0; renderPalette(); });
 }
@@ -7206,7 +7245,7 @@ function listen() {
       el.search.value = state.query;
       return openPalette({ from: 'switcher', text: rest, saved: state.query });
     }
-    state.query = el.search.value; state.dd.hidden = false; state.dd.hi = 0;
+    state.query = el.search.value; state.dd.hidden = false; state.dd.hi = 0; state.dd.hiKey = null;
     startSearch(state.query.trim());
     if (!searchFrame) searchFrame = requestAnimationFrame(flushSearch); // once per frame, however fast the typing
   });
@@ -7446,6 +7485,9 @@ function getLaunch() {
     const r = await chrome.runtime.sendMessage({ type: MSG.READY });
     const extra = r && Number.isInteger(r.extra) ? r.extra : 0;
     for (let i = 0; i < Math.abs(extra); i++) qPress(Math.sign(extra));
+    // Keys pressed while it was still loading, as when it is open: Alt+E keeps it open, Alt+R opens the palette.
+    if (r && r.stay === true) stopHolding();
+    if (r && r.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' });
   } catch {}
 })();
 

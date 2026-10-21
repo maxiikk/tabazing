@@ -26,6 +26,12 @@
 :root { --ltr: 1; }
 :root[dir="rtl"] { --ltr: -1; }
 :root[dir="rtl"] svg.mirror { transform: scaleX(-1); } /* an arrow that means back points the other way */
+/* What pages and people wrote (titles, addresses, names, notes, what is typed) takes its own direction from its first
+   letter, so "Hello, world!" keeps its "!" at the end in Hebrew and "שלום (בדיקה)" its brackets in English. A
+   title still lines up with the interface: on the left, or on the right right to left. */
+.title, .ddtitle, .ddsub, .wlabel, .bmvtitle, .bmvsub, .bmvpath, .bmname, .bmpath, .gname, .mtitle, .msite, .tiph, .tipt { unicode-bidi: plaintext; text-align: left; }
+:root[dir="rtl"] :is(.title, .ddtitle, .ddsub, .wlabel, .bmvtitle, .bmvsub, .bmvpath, .bmname, .bmpath, .gname, .mtitle, .msite, .tiph, .tipt) { text-align: right; }
+.sub, .host, input:not([type]), input[type="text"], input[type="search"], input[type="url"], textarea { unicode-bidi: plaintext; }
 
 /* ---------- tokens: the dark scheme (the light one swaps them: html.light, at the end) ---------- */
 :root {

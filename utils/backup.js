@@ -11,26 +11,30 @@
 //   backup/snoozed.json         snoozed tabs: [{ url, title, at, pinned, group }]
 //
 // Restoring, per kind:
-//   - bookmarks: a folder is the existing one of the same name in the same place, else made; a bookmark whose
-//     address is bookmarked anywhere already is skipped (no duplicates), else made in its folder;
+//   - bookmarks: a bookmark already here is skipped (no duplicates): one of the same address (exactly: "#inbox" and
+//     "#sent" are two pages) in the same folder, else one anywhere (moved since). Each one here stands for one of the
+//     backup's, so a page kept in two folders comes back in both. The others are made in their folder: the existing
+//     one of the same name in the same place, else made, and only when something goes in it. One Chrome refuses
+//     is left out; managed bookmarks (an organization's) are never copied;
 //   - archive: a page not bookmarked anywhere goes into the archive folder;
 //   - notes on pages and on bookmarks: the backup's note goes on the page / bookmark, over the one there (the only
-//     thing a restore replaces); a bookmark's note is put on the bookmark of that address in that folder, or else on
-//     one of that address anywhere;
+//     thing a restore replaces), with its time; a bookmark's note is put on the bookmark of that address in that
+//     folder, or else on one of that address anywhere;
 //   - stars and snoozed tabs: added when the page has none yet; a snooze whose time has passed is left out (it would
 //     open at once);
-//   - settings: only with `settings: true`.
-// The caps on stars, notes and snoozed tabs never drop anything that is there: what doesn't fit is left out.
-import { mergeStars, mergeNotes, mergeBmNotes, mergeSnoozed, getStars, getNotes, getBmNotes, getSnoozed, getPrefs, updatePrefs } from './store.js';
+//   - settings: only with `settings: true`, and only the valid ones.
+// The caps on stars, notes and snoozed tabs never drop anything that is there: what doesn't fit is left out. An entry
+// that isn't one (no address, a note that isn't text) is counted as left out.
+import { mergeStars, mergeNotes, mergeBmNotes, mergeSnoozed, getStars, getNotes, getBmNotes, getSnoozed, getPrefs, updatePrefs, validPrefs } from './store.js';
 import { getArchived, addArchived, ARCHIVE_FOLDER } from './archive.js';
-import { normalizeUrl } from './ext.js';
 
 export const BACKUP_DIR = 'backup';
 export const BACKUP_FILES = ['info', 'settings', 'notes', 'bookmark-notes', 'stars', 'bookmarks', 'archive', 'snoozed'];
 const MAX_FILE = 50 * 1024 * 1024; // a backup file bigger than this isn't one of ours
+const MAX_DEPTH = 100; // folders in folders: deeper than this isn't a real bookmarks tree
 const urlOk = (u) => typeof u === 'string' && u.length > 0 && u.length <= 8192 && /^[a-z][\w+.-]*:/i.test(u);
 const text = (s, max = 1000) => (typeof s === 'string' ? s.slice(0, max) : '');
-const keyOf = (u) => normalizeUrl(u) || u;
+const canon = (u) => { try { return new URL(u).href; } catch { return u; } }; // as Chrome keeps it ("https://x.com" is "https://x.com/")
 const day = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 export const backupName = (d = new Date()) => `tabazing-backup-${day(d)}`;
 
@@ -104,16 +108,28 @@ export async function unzipFiles(bytes) {
   }
   return out;
 }
-/** The backup's JSON files by kind ({ notes: [...], ... }) from a Map(path -> text): the zip's, or a chosen folder's. */
+/**
+ * The backup's JSON files by kind ({ notes: [...], ... }) from a Map(path -> text): the zip's, or a chosen folder's.
+ * They are one folder's files: a folder holding several backups gives the newest one (by its info.json, else the
+ * name that sorts last: tabazing-backup-<date>), never a mix of them; a folder named "backup" before any other.
+ */
 export function readBackup(files) {
-  const out = {};
+  const dirs = new Map(); // folder ("" or "…/") -> { kind: data }
   for (const [path, body] of files) {
-    const m = /(?:^|\/)([\w-]+)\.json$/.exec(path.replace(/\\/g, '/'));
-    if (!m || !BACKUP_FILES.includes(m[1]) || body.length > MAX_FILE) continue;
-    try { out[m[1]] = JSON.parse(body); } catch { /* a broken file is left out */ }
+    const m = /^(.*\/)?([\w-]+)\.json$/.exec(path.replace(/\\/g, '/'));
+    if (!m || !BACKUP_FILES.includes(m[2]) || body.length > MAX_FILE) continue;
+    let data;
+    try { data = JSON.parse(body); } catch { continue; } // a broken file is left out
+    const dir = m[1] || '';
+    if (!dirs.has(dir)) dirs.set(dir, {});
+    dirs.get(dir)[m[2]] = data;
   }
-  if (!Object.keys(out).some((k) => k !== 'info')) throw new Error('no backup files');
-  return out;
+  const made = (d) => { const t = Date.parse(d.info && d.info.made); return Number.isFinite(t) ? t : 0; };
+  const named = (dir) => /(?:^|\/)backup\/$/.test(dir);
+  const found = [...dirs].filter(([, d]) => Object.keys(d).some((k) => k !== 'info'))
+    .sort(([a, x], [b, y]) => named(a) - named(b) || made(x) - made(y) || (a < b ? -1 : a > b ? 1 : 0));
+  if (!found.length) throw new Error('no backup files');
+  return found[found.length - 1][1];
 }
 
 // ---------------------------------------------------------------- export
@@ -159,97 +175,143 @@ const empty = () => ({ added: 0, updated: 0, skipped: 0 });
  * Add a backup's data to what is here (readBackup's output). Resolves to what happened, per kind:
  * { bookmarks, folders, archive, notes, bmNotes, stars, snoozed: { added, updated, skipped }, settings: boolean }.
  */
-export async function restoreBackup(b, { settings = false, now = Date.now() } = {}) {
+// One restore at a time, in every Tabazing page: two at once would each find the other's bookmarks missing and make
+// them too (a second Backup & Restore dialog, or another window's, waits for the first). Its own queue where there
+// are no Web Locks: store.js's single queue would have it wait for the merges it starts itself.
+let restoring = Promise.resolve();
+export function restoreBackup(b, opts = {}) {
+  if (globalThis.navigator && navigator.locks) return navigator.locks.request('tabazing:restore', () => restore(b, opts));
+  const run = restoring.then(() => restore(b, opts));
+  restoring = run.catch(() => {});
+  return run;
+}
+async function restore(b, { settings = false, now = Date.now() } = {}) {
   const report = { bookmarks: empty(), folders: empty(), archive: empty(), notes: empty(), bmNotes: empty(), stars: empty(), snoozed: empty(), settings: false };
   const list = (k) => (Array.isArray(b[k]) ? b[k] : []);
   // ---- bookmarks and folders
-  const where = new Map(); // normalized address -> [{ id, parentId }]
-  const remember = (n, parentId) => { const k = keyOf(n.url); if (!where.has(k)) where.set(k, []); where.get(k).push({ id: n.id, parentId }); };
+  // Every bookmark here and each one made, by its address as Chrome keeps it (so "#inbox" and "#sent" are two):
+  // { id, top, rel (the folder names under its top folder), used (it stands for one of the backup's) }.
+  const marks = new Map();
+  const keep = (id, url, top, rel) => { const k = canon(url), m = { id, top, rel: rel.join('\u0000'), used: false }; if (!marks.has(k)) marks.set(k, []); marks.get(k).push(m); return m; };
+  const marksOf = (url) => marks.get(canon(url)) || [];
   let tops = [];
   if (chrome.bookmarks) {
     const tree = await chrome.bookmarks.getTree();
-    const walk = (n) => { for (const c of n.children || []) { if (c.url) remember(c, n.id); else walk(c); } };
     tops = (tree[0] && tree[0].children) || [];
-    tops.forEach(walk);
-    const kids = async (id) => chrome.bookmarks.getChildren(id).catch(() => []);
-    const into = async (folderId, items, depth) => {
-      if (depth > 40) return;
-      let here = await kids(folderId);
-      for (const it of Array.isArray(items) ? items : []) {
-        if (!it || typeof it !== 'object') continue;
-        if (it.url !== undefined) {
-          if (!urlOk(it.url)) { report.bookmarks.skipped++; continue; }
-          if (where.has(keyOf(it.url))) { report.bookmarks.skipped++; continue; } // bookmarked already: no duplicate
-          const made = await chrome.bookmarks.create({ parentId: folderId, title: text(it.title, 2000), url: it.url });
-          remember(made, folderId);
-          report.bookmarks.added++;
-        } else if (Array.isArray(it.children)) {
-          const title = text(it.title, 2000);
-          let folder = here.find((c) => !c.url && c.title === title);
-          if (folder) report.folders.skipped++;
-          else { folder = await chrome.bookmarks.create({ parentId: folderId, title }); here = await kids(folderId); report.folders.added++; }
-          await into(folder.id, it.children, depth + 1);
-        }
-      }
-    };
+    const walk = (n, top, rel) => { for (const c of n.children || []) { if (c.url) keep(c.id, c.url, top, rel); else walk(c, top, [...rel, c.title || '']); } };
+    for (const top of tops) walk(top, top.id, []);
     // Chrome's own folders (the bookmarks bar, Other bookmarks, Mobile): by their kind, else their name, else Other.
+    // Managed bookmarks (set by an organization) are Chrome's to keep: never copied.
     const other = tops.find((n) => n.folderType === 'other') || tops.find((n) => n.id === '2') || tops[1] || tops[0];
     const topFor = (t) => tops.find((n) => t.type && (n.folderType === t.type || (t.type === 'bookmarks-bar' && n.id === '1') || (t.type === 'other' && n.id === '2') || (t.type === 'mobile' && n.id === '3')))
       || tops.find((n) => n.title === t.title) || other;
-    for (const t of list('bookmarks')) if (t && Array.isArray(t.children) && topFor(t)) await into(topFor(t).id, t.children, 0);
+    // The backup's bookmarks and folders in order, each with its place: { url, title, top, rel } or { folder, top, rel, empty }.
+    const plan = [];
+    const countMarks = (items) => (Array.isArray(items) ? items : []).reduce((n, it) => n + (!it || typeof it !== 'object' ? 0 : it.url !== undefined ? 1 : countMarks(it.children)), 0);
+    const collect = (items, top, rel) => {
+      for (const it of Array.isArray(items) ? items : []) {
+        if (!it || typeof it !== 'object') continue;
+        if (it.url !== undefined) {
+          if (urlOk(it.url)) plan.push({ url: it.url, title: text(it.title, 2000), top, rel });
+          else report.bookmarks.skipped++;
+        } else if (Array.isArray(it.children)) {
+          if (rel.length >= MAX_DEPTH) { report.bookmarks.skipped += countMarks(it.children); continue; } // (deeper than any real tree)
+          const path = [...rel, text(it.title, 2000)];
+          plan.push({ folder: true, top, rel: path, empty: !it.children.length });
+          collect(it.children, top, path);
+        }
+      }
+    };
+    for (const t of list('bookmarks')) {
+      if (!t || !Array.isArray(t.children)) continue;
+      if (t.type === 'managed' || !topFor(t)) { report.bookmarks.skipped += countMarks(t.children); continue; }
+      collect(t.children, topFor(t).id, []);
+    }
+    // Which are here already: first one of that address in that same folder, then one anywhere (moved since). Each
+    // bookmark here stands for one of the backup's: a page kept in two folders comes back in both.
+    const marked = plan.filter((x) => !x.folder);
+    for (const x of marked) { const m = marksOf(x.url).find((m) => !m.used && m.top === x.top && m.rel === x.rel.join('\u0000')); if (m) { m.used = true; x.at = m; } }
+    for (const x of marked) if (!x.at) { const m = marksOf(x.url).find((m) => !m.used); if (m) { m.used = true; x.at = m; } }
+    // The rest is made, in order. A folder is the one there of that name in that place, else made, and only when
+    // something goes in it (or it is empty in the backup too): a folder moved since doesn't come back empty.
+    const folderIds = new Map(); // top + names -> id
+    const folderFor = async (top, rel) => {
+      let id = top, key = top;
+      for (const name of rel) {
+        key += '\u0000' + name;
+        let next = folderIds.get(key);
+        if (!next) {
+          const there = (await chrome.bookmarks.getChildren(id).catch(() => [])).find((c) => !c.url && c.title === name);
+          if (there) next = there.id;
+          else {
+            try { next = (await chrome.bookmarks.create({ parentId: id, title: name })).id; } catch { return null; }
+            report.folders.added++;
+          }
+          folderIds.set(key, next);
+        }
+        id = next;
+      }
+      return id;
+    };
+    for (const x of plan) {
+      if (x.folder) { if (x.empty) await folderFor(x.top, x.rel); continue; }
+      if (x.at) { report.bookmarks.skipped++; continue; } // bookmarked already: no duplicate
+      const parentId = await folderFor(x.top, x.rel);
+      let made = null;
+      if (parentId) try { made = await chrome.bookmarks.create({ parentId, title: x.title, url: x.url }); } catch { /* one Chrome refuses: left out */ }
+      if (!made) { report.bookmarks.skipped++; continue; }
+      x.at = keep(made.id, made.url || x.url, x.top, x.rel);
+      x.at.used = true;
+      report.bookmarks.added++;
+    }
+    report.folders.skipped = Math.max(0, plan.filter((x) => x.folder).length - report.folders.added);
     // ---- the archive (pages not bookmarked anywhere yet)
-    const pages = list('archive').filter((x) => x && urlOk(x.url));
     const fresh = [];
-    for (const p of pages) {
-      if (where.has(keyOf(p.url)) || fresh.some((f) => keyOf(f.url) === keyOf(p.url))) { report.archive.skipped++; continue; }
+    for (const p of list('archive')) {
+      if (!p || !urlOk(p.url) || marksOf(p.url).length || fresh.some((f) => canon(f.url) === canon(p.url))) { report.archive.skipped++; continue; }
       fresh.push({ url: p.url, title: text(p.title, 2000) });
     }
     if (fresh.length) {
       const made = await addArchived(fresh);
-      for (const m of made) remember({ id: m.id, url: m.url }, null);
+      for (const m of made) keep(m.id, m.url, null, []);
       report.archive.added += made.length;
+      report.archive.skipped += fresh.length - made.length;
     }
-    // ---- notes on bookmarks: on the bookmark of that address in that folder, else one of that address anywhere
-    const pathOf = async (parentId) => {
-      const names = [];
-      for (let id = parentId, k = 0; id && k < 50; k++) {
-        const [n] = await chrome.bookmarks.get(id).catch(() => []);
-        if (!n || n.parentId === undefined || n.id === '0') break;
-        names.unshift(n.title || '');
-        id = n.parentId;
-      }
-      return names;
-    };
+    // ---- notes on bookmarks: on the bookmark of that address in that folder, else one of that address anywhere;
+    // never two of the backup's notes on one bookmark
     const changes = {};
     for (const x of list('bookmark-notes')) {
       if (!x || !urlOk(x.url) || typeof x.note !== 'string' || !x.note.trim()) { report.bmNotes.skipped++; continue; }
-      const there = where.get(keyOf(x.url)) || [];
-      if (!there.length) { report.bmNotes.skipped++; continue; }
-      let target = there[0];
-      if (Array.isArray(x.path) && there.length > 1) {
-        for (const c of there) if (c.parentId && (await pathOf(c.parentId)).join('\u0000') === x.path.map(String).join('\u0000')) { target = c; break; }
-      }
-      changes[target.id] = { n: text(x.note), u: x.url };
+      const path = Array.isArray(x.path) ? x.path.map(String) : null;
+      const top = path && (tops.find((n) => n.title === path[0]) || {}).id;
+      const rel = path && path.slice(1).join('\u0000');
+      const free = marksOf(x.url).filter((m) => !changes[m.id]);
+      const target = free.find((m) => path && m.rel === rel && m.top === top) || free.find((m) => path && m.rel === rel) || free[0];
+      if (!target) { report.bmNotes.skipped++; continue; }
+      changes[target.id] = { n: text(x.note), u: x.url, t: x.t };
     }
     const bm = await mergeBmNotes(changes);
     report.bmNotes.added += bm.added; report.bmNotes.updated += bm.updated; report.bmNotes.skipped += bm.skipped;
   } else {
-    report.bookmarks.skipped += list('bookmarks').length;
+    report.bookmarks.skipped += list('bookmarks').reduce((n, t) => n + (t && Array.isArray(t.children) ? t.children.length : 0), 0);
   }
-  // ---- notes on pages, stars, snoozed tabs
-  const n = await mergeNotes(list('notes').filter((x) => x && urlOk(x.url) && typeof x.note === 'string').map((x) => ({ url: x.url, note: x.note })));
-  Object.assign(report.notes, n);
-  const s = await mergeStars(list('stars').filter((x) => x && urlOk(x.url)).map((x) => ({ url: x.url, title: text(x.title, 300), t: Number.isFinite(x.t) ? x.t : now })));
-  Object.assign(report.stars, s);
-  const due = list('snoozed').filter((x) => x && urlOk(x.url) && Number.isFinite(x.at));
-  const later = due.filter((x) => x.at > now);
-  const z = await mergeSnoozed(later.map((x, i) => ({ id: `r${now.toString(36)}-${i}`, url: x.url, title: text(x.title, 300), at: x.at, windowId: null, pinned: x.pinned === true, t: now, group: x.group || null })));
-  Object.assign(report.snoozed, z);
-  report.snoozed.skipped += due.length - later.length; // (their time has passed)
-  // ---- settings, only when asked
+  // ---- notes on pages, stars, snoozed tabs (an entry that isn't one counts as left out)
+  const merge = async (kind, items, ok, fn) => {
+    const good = items.filter(ok);
+    Object.assign(report[kind], await fn(good));
+    report[kind].skipped += items.length - good.length;
+  };
+  const when = (t) => (Number.isFinite(t) && t > 0 && t <= now ? t : now);
+  await merge('notes', list('notes'), (x) => x && urlOk(x.url) && typeof x.note === 'string',
+    (good) => mergeNotes(good.map((x) => ({ url: x.url, note: x.note, t: when(x.t) }))));
+  await merge('stars', list('stars'), (x) => x && urlOk(x.url),
+    (good) => mergeStars(good.map((x) => ({ url: x.url, title: text(x.title, 300), t: when(x.t) }))));
+  await merge('snoozed', list('snoozed'), (x) => x && urlOk(x.url) && Number.isFinite(x.at) && x.at > now, // (one whose time has passed: left out)
+    (good) => mergeSnoozed(good.map((x, i) => ({ id: `r${now.toString(36)}-${i}`, url: x.url, title: text(x.title, 300), at: x.at, windowId: null, pinned: x.pinned === true, t: now, group: x.group || null }))));
+  // ---- settings, only when asked: the ones the backup has a valid value for (another is left as it is)
   if (settings && b.settings && typeof b.settings === 'object' && !Array.isArray(b.settings)) {
-    const known = Object.keys(await getPrefs()).filter((k) => k !== 'iconTips');
-    const patch = Object.fromEntries(Object.entries(b.settings).filter(([k]) => known.includes(k)));
+    const patch = validPrefs(b.settings);
+    delete patch.iconTips;
     await updatePrefs(patch);
     report.settings = true;
   }

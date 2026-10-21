@@ -161,6 +161,7 @@
   "notePh": "Scrivi una nota per questa scheda…",
   "noteClear": "Cancella nota",
   "noteHint": "Salvata mentre scrivi. Svuotala per rimuovere la nota.",
+  "urlTooLong": "L’indirizzo di questa pagina è troppo lungo perché Tabazing possa salvarne la stella o la nota.",
   "ageDays": "{count, plural, one {# giorno fa} other {# giorni fa}}",
   "setAccent": "Colore d’accento",
   "setAccentCustom": "Scegli un colore qualsiasi",

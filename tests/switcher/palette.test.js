@@ -169,6 +169,21 @@ describe('opening and leaving', () => {
     expect(sw.state.palette.from).toBe('switcher');
   });
 
+  it('the shortcut while Settings is open: Settings closes and the palette is usable', async () => {
+    const sw = await boot({ tabs: ABC });
+    tid('settings-btn').click();
+    await waitFor(() => tid('settings'));
+    await tick();
+    chrome.runtime.onMessage._emit({ type: MSG.CYCLE, dir: 0, hold: false, palette: true }, { id: chrome.runtime.id }, vi.fn());
+    await tick(10);
+    expect(sw.state.palette).toBeTruthy();
+    expect(shown()).toBe(true);
+    expect(tid('settings')).toBe(null);
+    expect(tid('settings-backdrop')).toBe(null);
+    expect(tid('palette').closest('[inert]')).toBe(null);
+    expect(document.activeElement).toBe(input());
+  });
+
   it('a click beside the panel leaves it, like Esc', async () => {
     const sw = await boot({ tabs: ABC });
     key('k', { code: 'KeyK', ctrlKey: true });
@@ -209,6 +224,24 @@ describe('the keyboard and the mouse', () => {
     await tick(20);
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'chrome://downloads', windowId: 1, active: true });
     expect(sw.state.done).toBe(true);
+  });
+
+  it('the highlight stays on its row when late results (Chrome\'s history search) reorder the list; new text resets it', async () => {
+    // 200 days old: past the 90 days read up front, so only Chrome's search (after a pause) finds it, as the best match.
+    chrome._data.history.push({ url: 'https://old.example/', title: 'Alpha old page', lastVisitTime: Date.now() - 200 * 864e5, visitCount: 3 });
+    const sw = await boot({ tabs: [{ title: 'Xalphax', url: 'https://x.example/' }, { title: 'Yalphay', url: 'https://y.example/' }] });
+    const hiRow = () => options().find((r) => r.getAttribute('aria-selected') === 'true');
+    sw.openPalette({ from: 'switcher', text: 'alpha' });
+    await tick(40);
+    expect(options().map(titleIn).slice(0, 2)).toEqual(['Xalphax', 'Yalphay']);
+    key('ArrowDown', { target: input() });
+    expect(titleIn(hiRow())).toBe('Yalphay');
+    await tick(300);
+    expect(options().map(titleIn)[0]).toBe('Alpha old page'); // came in late, first
+    expect(titleIn(hiRow())).toBe('Yalphay');
+    await type('alph');
+    expect(sw.state.palette.hi).toBe(0);
+    expect(hiRow()).toBe(options()[0]);
   });
 
   it('in an overlay that is not visible, clicks do nothing (pointerAllowed)', async () => {

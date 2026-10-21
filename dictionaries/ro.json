@@ -161,6 +161,7 @@
   "notePh": "Scrie o notă pentru această filă…",
   "noteClear": "Șterge nota",
   "noteHint": "Se salvează pe măsură ce scrii. Golește câmpul ca să elimini nota.",
+  "urlTooLong": "Adresa acestei pagini este prea lungă pentru ca Tabazing să păstreze o stea sau o notă pentru ea.",
   "ageDays": "{count, plural, one {acum # zi} few {acum # zile} other {acum # de zile}}",
   "setAccent": "Culoare de accent",
   "setAccentCustom": "Alege orice culoare",

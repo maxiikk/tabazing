@@ -129,6 +129,27 @@ describe('snoozed tabs', () => {
     expect((await s.takeDueSnoozed()).map((x) => x.id)).toEqual(['a']);
   });
 
+  it('takeDueSnoozed takes at most `max`, leaving out the ids in `skip`', async () => {
+    await s.addSnoozed([item('a', NOW - 3), item('b', NOW - 2), item('c', NOW - 1), item('d', NOW + 1000)]);
+    expect((await s.takeDueSnoozed(NOW, { max: 1, skip: ['a'] })).map((x) => x.id)).toEqual(['b']);
+    expect((await s.getSnoozed()).map((x) => x.id)).toEqual(['a', 'c', 'd']); // the rest stay until taken
+    expect(alarm().scheduledTime).toBe(NOW + 1000);
+    expect(await s.takeDueSnoozed(NOW, { skip: ['a', 'c'] })).toEqual([]);
+  });
+
+  it('putBackSnoozed returns a tab that could not be reopened, as it was, once', async () => {
+    await s.addSnoozed([item('a', NOW - 1, { windowId: 3 }), item('b', NOW + 5000)]);
+    const [a] = await s.takeDueSnoozed(NOW);
+    expect(alarm().scheduledTime).toBe(NOW + 5000);
+    expect((await s.putBackSnoozed(a)).map((x) => x.id)).toEqual(['b', 'a']);
+    expect((await s.getSnoozed()).find((x) => x.id === 'a')).toEqual(a);
+    expect(alarm().scheduledTime).toBe(NOW + 1000); // due: the next alarm tries again
+    L.set.mockClear();
+    expect(await s.putBackSnoozed(a)).toHaveLength(2); // there already: not doubled
+    expect(await s.putBackSnoozed({ id: 'bad' })).toHaveLength(2);
+    expect(L.set).not.toHaveBeenCalled();
+  });
+
   it('a failing alarms API does not fail the change', async () => {
     chrome.alarms.create.mockRejectedValueOnce(new Error('no'));
     expect(await s.addSnoozed([item('a', NOW + 1000)])).toHaveLength(1);

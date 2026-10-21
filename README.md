@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.13.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.13.1** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -162,6 +162,7 @@ Type anywhere and the text goes into the search box, which says what it searches
 
 - An icon at the right of each row shows where the result comes from. If the same page is found in several places, it is listed once, under the most useful source (an open tab comes before its bookmark, for example).
 - **By what a page is:** besides its title, address and note, a tab is found by its state: **pinned**, **asleep**, **playing**, **muted**, **starred**, with a **note**, in a **group**; and other pages by where they are: **closed** (recently closed), **archived**, **snoozed**, **bookmarked**, **history**. In your language and in English; with other words too ("pinned youtube"). These words count from their start and exactly (three letters or more), never as typos. The same goes for the command palette and the History and Bookmarks boxes.
+- **Accents are optional:** "eglise" finds "Église" and "καρτελα" "Καρτέλα".
 - **Typos are fine.** Words can match at the start of a word, as initials ("pr" finds "Pull request"), anywhere in a word, as letters in order ("gh" finds "GitHub"), or with one wrong, missing, extra or swapped letter (two in long words). Words that contain digits must be typed exactly. Search also looks at the **notes** you wrote on tabs.
 - **↑ / ↓** move through the list, **Enter** opens the highlighted row, and a click does the same. Pointing at a row doesn't move the highlight (as with the cards); the same goes for the command palette. Open tabs are switched to. Closed tabs are reopened with their back/forward history when Chrome still has it. Bookmarks and history entries switch to the tab if the page is already open, or open a new tab otherwise. A click elsewhere hides the list (typing brings it back); while it is hidden, Enter opens the selected card instead.
 - **Nothing found?** The list offers **Open \<address\>** when what you typed looks like a web address, and **Search Google for "…"**. **Shift+Enter** does this at any time.
@@ -431,11 +432,15 @@ The **New tab** button in the header opens a new tab in the current window.
 - **Download backup** downloads **`tabazing-backup-<date>.zip`** (as Chrome downloads anything: to your Downloads folder, or where you choose). It holds one folder, **`backup`**, with a JSON file for each kind of data: `notes.json` (the notes on tabs), `bookmark-notes.json` (the notes on bookmarks, each with its bookmark's address and folder), `stars.json`, `bookmarks.json` (all your bookmarks and folders), `archive.json`, `snoozed.json`, `settings.json` and `info.json` (the Tabazing version and the date). Previews are not included.
 - **Choose backup folder…** restores from the `backup` folder (unzip the backup first); **Choose .zip file…** restores from the zip itself.
 - **A restore only adds.** Nothing you have is ever deleted, and nothing is made twice:
-  - a bookmark whose address is bookmarked already (in any folder) is skipped; a folder goes into the one of the same name in the same place, so there is no second "Work";
+  - a bookmark that is here already is skipped: one of exactly that address (`…#inbox` and `…#sent` are two pages) in the same folder, or else in any folder (you moved it). Each bookmark you have stands for one in the backup, so a page you kept in two folders comes back in both;
+  - a folder goes into the one of the same name in the same place, so there is no second "Work", and a folder is only made when something goes into it (one you moved doesn't come back empty);
+  - a bookmark Chrome refuses (an address it calls invalid) is left out, and the rest is still restored; bookmarks managed by your organization are never copied;
   - a star, an archived tab or a snoozed tab that is there already is skipped (as is a snooze whose time has passed);
-  - a **note** in the backup goes over the note on the same page, and a **bookmark note** over the note on the same bookmark (the bookmark of that address in that folder, when it is bookmarked more than once);
+  - a **note** in the backup goes over the note on the same page, and a **bookmark note** over the note on the same bookmark (the bookmark of that address in that folder, when it is bookmarked more than once); notes keep the time they were written;
   - when the stars, notes or snoozed tabs are at their limit, what doesn't fit is left out: the ones you have stay.
-- **Settings** are restored only when you tick **Also restore Settings** (they then replace your current ones).
+- **Settings** are restored only when you tick **Also restore Settings** (they then replace your current ones; a value that isn't valid leaves that setting as it is).
+- A folder holding several backups gives the newest one, never a mix of them. A file that isn't a backup (or a damaged zip) says so, and changes nothing.
+- Two restores never run at once (from two windows, say): the second waits for the first, so it makes nothing twice.
 - Afterwards the dialog says, for each kind, how many were added, updated and skipped. Restoring the same backup again changes nothing.
 - The backup never leaves your computer by itself: it is a file you keep, like any download.
 

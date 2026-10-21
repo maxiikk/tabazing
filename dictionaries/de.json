@@ -161,6 +161,7 @@
   "notePh": "Schreib eine Notiz zu diesem Tab…",
   "noteClear": "Notiz löschen",
   "noteHint": "Wird beim Tippen gespeichert. Leere das Feld, um die Notiz zu entfernen.",
+  "urlTooLong": "Die Adresse dieser Seite ist zu lang: Tabazing kann dafür keinen Stern und keine Notiz speichern.",
   "ageDays": "{count, plural, one {vor # Tag} other {vor # Tagen}}",
   "setAccent": "Akzentfarbe",
   "setAccentCustom": "Beliebige Farbe wählen",

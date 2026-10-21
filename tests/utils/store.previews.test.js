@@ -98,6 +98,17 @@ describe('previewTimes / previewFresh', () => {
     vi.setSystemTime(NOW + 600);
     expect(await s.previewFresh('https://b.com/', 1500)).toBe(false);
   });
+
+  it('previewFresh: a preview "from the future" (the clock was set back) is not fresh', async () => {
+    vi.setSystemTime(NOW + 5000);
+    await s.savePreview('https://a.com/x', { img: img(), t: NOW + 4000 });
+    vi.setSystemTime(NOW + 1000); // the clock goes back 4 s
+    expect(await s.previewFresh('https://a.com/x', 1500)).toBe(false);
+    L._data.set(previewKey('https://b.com/'), { img: img(), t: NOW + 3000 });
+    expect(await s.previewFresh('https://b.com/', 1500)).toBe(false); // read from storage: the same
+    vi.setSystemTime(NOW - 1000); // back past the moment this context started
+    expect(await s.previewFresh('https://b.com/', 1500)).toBe(false);
+  });
 });
 
 describe('savePreview', () => {

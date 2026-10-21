@@ -159,6 +159,20 @@ describe('the search box', () => {
     expect(sw.bookmarksOpen()).toBe(false);
     expect(document.activeElement).toBe(tid('menu-btn'));
   });
+
+  it('Enter right after typing (before the search\'s pause) opens what the typed text finds', async () => {
+    seed();
+    const sw = await boot({ tabs: AB });
+    await open(sw);
+    expect(sel()).toBe('Bookmarks bar');
+    const box = tid('bookmarks-search');
+    box.value = 'recipes';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    key('Enter', { target: box }); // no pause: the search hasn't run yet
+    await waitFor(() => sw.state.done);
+    expect(chrome.tabs.create).toHaveBeenCalledTimes(1);
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://food.example/recipes', active: true }));
+  });
 });
 
 describe('editing and adding', () => {

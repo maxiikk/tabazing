@@ -116,8 +116,9 @@ describe('making a backup', () => {
   });
 
   it('readBackup takes the files from the folder chosen (any path before "backup/"), leaves broken or other files out', () => {
-    const got = b.readBackup(new Map([['Downloads/backup/notes.json', '[]'], ['backup/stars.json', '{bad json'], ['backup/notes.txt', 'x'], ['backup\\snoozed.json', '[]']]));
+    const got = b.readBackup(new Map([['Downloads/backup/notes.json', '[]'], ['Downloads/backup/stars.json', '{bad json'], ['Downloads/backup/notes.txt', 'x'], ['Downloads\\backup\\snoozed.json', '[]']]));
     expect(Object.keys(got).sort()).toEqual(['notes', 'snoozed']);
+    expect(Object.keys(b.readBackup(new Map([['notes.json', '[]']])))).toEqual(['notes']); // the backup folder itself chosen
     expect(() => b.readBackup(new Map([['backup/info.json', '{}']]))).toThrow(); // nothing to restore
     expect(() => b.readBackup(new Map([['photo.json', '{}']]))).toThrow();
   });
@@ -291,5 +292,128 @@ describe('restoring', () => {
     expect(allMarks()).toEqual(before.marks);
     expect(Object.keys(await store.getNotes())).toEqual(Object.keys(before.notes));
     expect(Object.keys(await store.getStars())).toEqual(Object.keys(before.stars));
+  });
+});
+
+describe('restoring: the hard cases', () => {
+  const sum = (x) => x.added + x.updated + x.skipped;
+  const roundTrip = async () => { const { files } = await b.makeBackup(); const data = b.readBackup(asFiles(files)); freshProfile(); return data; };
+
+  it('a folder of several backups gives the newest one, never a mix', () => {
+    const got = b.readBackup(new Map([
+      ['Downloads/tabazing-backup-2026-09-01/backup/info.json', JSON.stringify({ made: '2026-09-01T10:00:00Z' })],
+      ['Downloads/tabazing-backup-2026-09-01/backup/notes.json', '["old"]'],
+      ['Downloads/tabazing-backup-2026-09-01/backup/stars.json', '["old"]'],
+      ['Downloads/tabazing-backup-2026-10-21/backup/info.json', JSON.stringify({ made: '2026-10-21T10:00:00Z' })],
+      ['Downloads/tabazing-backup-2026-10-21/backup/notes.json', '["new"]'],
+    ]));
+    expect(got.notes).toEqual(['new']);
+    expect(got.stars).toBe(undefined); // not the older one's
+  });
+
+  it('addresses are told apart exactly: #inbox and #sent are two bookmarks, each with its own note', async () => {
+    const inbox = chrome._addBookmark({ parentId: '1', title: 'Inbox', url: 'https://mail.example/#inbox' });
+    chrome._addBookmark({ parentId: '1', title: 'Sent', url: 'https://mail.example/#sent' });
+    chrome._addBookmark({ parentId: '1', title: 'Slash', url: 'https://mail.example/a/' });
+    chrome._addBookmark({ parentId: '1', title: 'No slash', url: 'https://mail.example/a' });
+    const before = allMarks();
+    const data = await roundTrip();
+    await b.restoreBackup(data);
+    expect(allMarks()).toEqual(before);
+    // and a note for #sent never lands on #inbox
+    freshProfile();
+    const mine = chrome._addBookmark({ parentId: '1', title: 'Inbox', url: inbox.url });
+    await L.set({ bmNotes: { [mine.id]: { u: inbox.url, n: 'my inbox note', t: NOW } } });
+    await b.restoreBackup({ bookmarks: [{ type: 'bookmarks-bar', children: [{ title: 'Sent', url: 'https://mail.example/#sent' }] }],
+      'bookmark-notes': [{ url: 'https://mail.example/#sent', path: ['Bookmarks bar'], note: 'sent note' }] });
+    const notes = await store.getBmNotes();
+    expect(notes[mine.id].n).toBe('my inbox note');
+    expect(Object.values(notes).map((x) => x.n).sort()).toEqual(['my inbox note', 'sent note']);
+  });
+
+  it('a page kept in two folders comes back in both, each with its own note; again, nothing more', async () => {
+    const f1 = chrome._addBookmark({ parentId: '1', title: 'A' }), f2 = chrome._addBookmark({ parentId: '1', title: 'B' });
+    const x1 = chrome._addBookmark({ parentId: f1.id, title: 'X', url: 'https://x.example/' });
+    const x2 = chrome._addBookmark({ parentId: f2.id, title: 'X', url: 'https://x.example/' });
+    await L.set({ bmNotes: { [x1.id]: { u: x1.url, n: 'note A', t: NOW }, [x2.id]: { u: x2.url, n: 'note B', t: NOW } } });
+    const before = allMarks();
+    const data = await roundTrip();
+    const r = await b.restoreBackup(data);
+    expect(allMarks()).toEqual(before);
+    expect(r.bmNotes.added).toBe(2);
+    const notes = await store.getBmNotes();
+    const noteIn = async (folder) => { const [f] = (await chrome.bookmarks.getChildren('1')).filter((c) => c.title === folder); return notes[(await chrome.bookmarks.getChildren(f.id))[0].id].n; };
+    expect([await noteIn('A'), await noteIn('B')]).toEqual(['note A', 'note B']);
+    await b.restoreBackup(data);
+    expect(allMarks()).toEqual(before);
+  });
+
+  it('two restores at once make nothing twice', async () => {
+    const data = { bookmarks: [{ type: 'bookmarks-bar', children: [{ title: 'F', children: [{ title: 'A', url: 'https://a.example/' }] }, { title: 'B', url: 'https://b.example/' }] }],
+      archive: [{ url: 'https://arch.example/', title: 'Arch' }] };
+    await Promise.all([b.restoreBackup(data), b.restoreBackup(data)]);
+    expect(allMarks()).toEqual(['Bookmarks bar > B https://b.example/', 'Bookmarks bar > F > A https://a.example/', 'Other bookmarks > Tabs Archive > Arch https://arch.example/']);
+    expect(folders()).toEqual(['Bookmarks bar', 'Bookmarks bar > F', 'Other bookmarks', 'Other bookmarks > Tabs Archive']);
+  });
+
+  it('a folder moved since doesn\'t come back empty; one empty in the backup does', async () => {
+    const work = chrome._addBookmark({ parentId: '2', title: 'Work' });
+    chrome._addBookmark({ parentId: work.id, title: 'Wiki', url: 'https://wiki.example/' });
+    const r = await b.restoreBackup({ bookmarks: [{ type: 'bookmarks-bar', children: [{ title: 'Work', children: [{ title: 'Wiki', url: 'https://wiki.example/' }] }, { title: 'Empty', children: [] }] }] });
+    expect(folders()).toEqual(['Bookmarks bar', 'Bookmarks bar > Empty', 'Other bookmarks', 'Other bookmarks > Work']);
+    expect(r.folders).toEqual({ added: 1, updated: 0, skipped: 1 });
+    expect(r.bookmarks).toEqual({ added: 0, updated: 0, skipped: 1 });
+  });
+
+  it('a bookmark Chrome refuses is left out, and the rest is still restored', async () => {
+    const real = chrome.bookmarks.create;
+    chrome.bookmarks.create = async (p) => { if (p.url !== undefined) new URL(p.url); return real(p); }; // like Chrome: "Invalid URL."
+    let r;
+    try {
+      r = await b.restoreBackup({ bookmarks: [{ type: 'bookmarks-bar', children: [{ title: 'Bad', url: 'http://' }, { title: 'Good', url: 'https://good.example/' }] }],
+        notes: [{ url: 'https://n.example/', note: 'n' }] });
+    } finally { chrome.bookmarks.create = real; }
+    expect(allMarks()).toEqual(['Bookmarks bar > Good https://good.example/']);
+    expect(r.bookmarks).toEqual({ added: 1, updated: 0, skipped: 1 });
+    expect(Object.keys(await store.getNotes())).toEqual(['https://n.example/']);
+  });
+
+  it('managed bookmarks (an organization\'s) are never copied', async () => {
+    const r = await b.restoreBackup({ bookmarks: [{ type: 'managed', title: 'Company', children: [{ title: 'Intranet', url: 'https://intra.example/' }] }] });
+    expect(allMarks()).toEqual([]);
+    expect(r.bookmarks.skipped).toBe(1);
+  });
+
+  it('every entry is counted: broken ones and a second note for the same page as left out', async () => {
+    const r = await b.restoreBackup({ notes: [null, { url: 'bad', note: 'x' }, { url: 'https://ok.example/', note: 7 }, { url: 'https://ok.example/', note: 'fine' }, { url: 'https://ok.example/', note: 'again' }],
+      stars: ['x', { url: 5 }, { url: 'https://star.example/' }], snoozed: [{ url: 'https://z.example/', at: String(NOW + 1e7) }, { url: 'https://y.example/', at: NOW + 1e7 }],
+      archive: [{ url: 'nope' }, { url: 'https://a.example/' }] });
+    expect([sum(r.notes), sum(r.stars), sum(r.snoozed), sum(r.archive)]).toEqual([5, 3, 2, 2]);
+    expect(r.notes).toEqual({ added: 1, updated: 0, skipped: 4 });
+    expect((await store.getNotes())['https://ok.example/'].n).toBe('fine');
+  });
+
+  it('bookmarks deep in folders come back too', async () => {
+    let node = { title: 'leaf', url: 'https://deep.example/' };
+    for (let i = 45; i > 0; i--) node = { title: 'f' + i, children: [node] };
+    const r = await b.restoreBackup({ bookmarks: [{ type: 'bookmarks-bar', children: [node] }] });
+    expect(r.bookmarks.added).toBe(1);
+    expect(allMarks()).toHaveLength(1);
+  });
+
+  it('settings: only valid values; an invalid one leaves the current setting as it is', async () => {
+    await L.set({ prefs: { theme: 'dark', titleLines: 1, accent: '#F87171' } });
+    await b.restoreBackup({ settings: { theme: 'purple', titleLines: '1', accent: '#abcdef', showAge: false, lang: 'el', bogus: 1 }, notes: [] }, { settings: true });
+    const p = await store.getPrefs();
+    expect([p.theme, p.titleLines, p.accent, p.showAge, p.lang]).toEqual(['dark', 1, '#ABCDEF', false, 'el']);
+    expect('bogus' in p).toBe(false);
+  });
+
+  it('notes keep the time they were written', async () => {
+    const m = chrome._addBookmark({ parentId: '1', title: 'M', url: 'https://m.example/' });
+    await L.set({ notes: { 'https://n.example/': { u: 'https://n.example/', n: 'n', t: 1000 } }, bmNotes: { [m.id]: { u: m.url, n: 'b', t: 2000 } } });
+    await b.restoreBackup(await roundTrip());
+    expect((await store.getNotes())['https://n.example/'].t).toBe(1000);
+    expect(Object.values(await store.getBmNotes())[0].t).toBe(2000);
   });
 });

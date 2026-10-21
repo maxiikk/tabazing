@@ -168,7 +168,7 @@ describe('tab meta and the closed-tab log', () => {
     expect(S.set).toHaveBeenCalledTimes(2);
   });
 
-  it('rememberTab cleans what it stores, and skips tabs not worth logging', async () => {
+  it('rememberTab cleans what it stores, and stores nothing for tabs not worth logging', async () => {
     await s.rememberTab(tab({ title: 'x'.repeat(400), favIconUrl: 'data:image/png;base64,AA' }));
     expect(S._data.get(tabMetaKey(1))).toEqual({ u: 'https://a.com/x', ti: 'x'.repeat(300), f: '' });
     await s.rememberTab(tab({ id: 2, url: '', pendingUrl: 'https://p.com/' }));
@@ -176,6 +176,21 @@ describe('tab meta and the closed-tab log', () => {
     for (const bad of [tab({ id: 3, incognito: true }), tab({ id: 4, url: 'chrome://newtab/' }), tab({ id: 5, url: 'javascript:alert(1)' }),
       tab({ id: 6, url: chrome.runtime.getURL('markup/switcher.html') }), tab({ id: -1 }), null]) await s.rememberTab(bad);
     expect([...S._data.keys()].sort()).toEqual([tabMetaKey(1), tabMetaKey(2)]);
+  });
+
+  it('rememberTab of a tab now on a page not worth logging forgets the page it was on before (once)', async () => {
+    await s.rememberTab(tab());
+    for (const url of ['chrome://newtab/', 'about:blank', 'data:text/html,x', chrome.runtime.getURL('markup/switcher.html'), 'https://a.com/' + 'x'.repeat(LIMITS.MAX_URL_KEY)]) {
+      await s.rememberTab(tab());
+      expect(S._data.has(tabMetaKey(1))).toBe(true);
+      await s.rememberTab(tab({ url }));
+      expect(S._data.has(tabMetaKey(1))).toBe(false);
+    }
+    S.remove.mockClear();
+    await s.rememberTab(tab({ url: 'chrome://newtab/', title: 'New Tab' }));
+    expect(S.remove).not.toHaveBeenCalled(); // already gone: no write
+    await s.rememberTab(tab());
+    expect(S._data.get(tabMetaKey(1))).toMatchObject({ u: 'https://a.com/x' }); // back on a page: remembered again
   });
 
   it('rememberTabs writes many at once', async () => {

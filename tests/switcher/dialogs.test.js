@@ -626,6 +626,32 @@ describe('Settings', () => {
     expect(tid('header').hasAttribute('inert')).toBe(true);
   });
 
+  it('Ctrl+H over Settings: Settings closes and the history comes in its place, usable; Esc closes it', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    key('h', { code: 'KeyH', ctrlKey: true });
+    await waitFor(() => sw.historyOpen());
+    expect(tid('settings')).toBe(null);
+    expect(tid('settings-backdrop')).toBe(null);
+    expect(tid('history-overlay').hasAttribute('inert')).toBe(false);
+    key('Escape', { target: tid('history-search') });
+    expect(sw.historyOpen()).toBe(false);
+    expect(sw.state.done).toBe(false);
+  });
+
+  it('Ctrl+Shift+O over Settings: Settings closes and the bookmarks come in its place, usable; Esc closes them', async () => {
+    const sw = await boot({ tabs: AB });
+    await open();
+    key('O', { code: 'KeyO', ctrlKey: true, shiftKey: true });
+    await waitFor(() => sw.bookmarksOpen());
+    expect(tid('settings')).toBe(null);
+    expect(tid('settings-backdrop')).toBe(null);
+    expect(tid('bookmarks-overlay').hasAttribute('inert')).toBe(false);
+    key('Escape', { target: tid('bookmarks-search') });
+    expect(sw.bookmarksOpen()).toBe(false);
+    expect(sw.state.done).toBe(false);
+  });
+
   it('"Replay the tour" closes Settings and starts the tour', async () => {
     const sw = await boot({ tabs: AB });
     await open();

@@ -91,3 +91,19 @@ describe('right to left, the arrows go where they point', () => {
     expect(selectedTitle()).toBe('Bravo');
   });
 });
+
+describe('dragging right to left', () => {
+  const card = () => ({ getBoundingClientRect: () => ({ left: 0, right: 100, top: 0, bottom: 80, width: 100, height: 80, x: 0, y: 0 }) });
+
+  it('a drop on a card\'s left half goes after it, on its right half before it', async () => {
+    const sw = await boot({ tabs: ABC(), prefs: { lang: 'he' } });
+    expect(sw.dropAfter(card(), { clientX: 30 })).toBe(true);
+    expect(sw.dropAfter(card(), { clientX: 70 })).toBe(false);
+  });
+
+  it('left to right: its right half goes after it, its left half before it', async () => {
+    const sw = await boot({ tabs: ABC(), prefs: { lang: 'en' } });
+    expect(sw.dropAfter(card(), { clientX: 70 })).toBe(true);
+    expect(sw.dropAfter(card(), { clientX: 30 })).toBe(false);
+  });
+});

@@ -79,6 +79,14 @@ describe('opening selection', () => {
     await waitFor(() => selectedTitle() === 'Charlie');
     expect(sw.state.holding).toBe(true);
   });
+  it('Alt+E or Alt+R pressed while it was still loading (READY reply): it stays open, or the palette opens', async () => {
+    const sw = await boot({ tabs: ABC(), ctx: { hold: true, dir: 1 }, beforeImport: () => chrome.runtime.sendMessage.mockResolvedValue({ extra: 0, stay: true }) });
+    await waitFor(() => !sw.state.holding);
+    expect(sw.state.palette).toBeFalsy();
+    const sw2 = await boot({ tabs: ABC(), ctx: { hold: true, dir: 1 }, beforeImport: () => chrome.runtime.sendMessage.mockResolvedValue({ extra: 0, palette: true }) });
+    await waitFor(() => !!sw2.state.palette);
+    expect(tid('palette').hidden).toBe(false);
+  });
   it('a resume note (back from capturing one tab): search, scope, star filter and selection come back; no first-run', async () => {
     const sw = await boot({
       tabs: ABC(), ctx: { dir: 1 },

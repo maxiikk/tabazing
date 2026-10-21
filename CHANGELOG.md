@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.13.1] - 2026-10-21
+
+### Fixed
+
+- Backup & Restore never doubles anything any more: two restores at once (two windows, or the dialog closed and opened again) waited for nothing and made every bookmark twice.
+- Restore: bookmarks of addresses that differ only after "#" (such as `#inbox` and `#sent`) were taken for one; the second wasn't brought back, and its note could overwrite the other's.
+- Restore: a page bookmarked in two folders came back in one of them only, with the other one's note.
+- Restore: a folder you had moved came back empty in its old place.
+- Restore: one bookmark Chrome refuses stopped the whole restore halfway; it is now left out and the rest restored. Bookmarks managed by an organization are no longer copied.
+- Restore: notes kept the time they were restored instead of the time they were written; a setting with an invalid value reset that setting to its default.
+- Restore: a folder holding several backups mixed them; a damaged or non-zip file said "Couldn't restore" instead of "That isn't a Tabazing backup"; broken entries and repeated notes were missing from the counts; bookmarks more than 40 folders deep were dropped.
+- Arabic and Hebrew: English titles and addresses keep their punctuation where it belongs ("Hello, world!" showed as "!Hello, world"); dragging a card put it on the wrong side.
+- The search, the palette and the bookmarks finder find words typed without their accents ("eglise" finds "Église", "καρτελα" "Καρτέλα").
+- The highlighted search result no longer jumps to another row when history or bookmark results arrive late, so Enter opens the one you chose; in the history and bookmarks views, Enter right after typing opens what the text finds.
+- Ctrl+H, Ctrl+Shift+O or Alt+R with Settings open opened a view or the palette that couldn't be used; Settings now closes first.
+- Alt+R or Alt+E pressed while the switcher was still opening was ignored.
+- Shift+→ on the last card wrapped round and replaced the ticked range; Shift+arrows on a group tile or closed card did nothing.
+- Closing the selected group tile, or starring a page in the history or bookmarks view, sent the selection back to the first card; loading more history by scrolling moved the selection.
+- History: a Shift+click after a new search ticked a range from the old list.
+- A star or note on a very long address (over 2048 characters) was dropped without a word; Tabazing now says it can't keep one.
+- A tab that went to the New Tab page (or another page Tabazing doesn't list) was logged as closing the page it had been on.
+- A tab taken out of a group right after it changed could be remembered in the group (and reopen in it).
+- Setting the computer's clock back made Alt+Q do nothing until the clock caught up.
+- Capturing previews undid the "recent" order of a tab that Chrome replaced, or closed, meanwhile.
+- A snoozed tab whose window closed just as it woke was lost; it now opens in another window, or waits for the next try.
+- Quick answers: `cos(90)`, `0.3 - 0.1 - 0.2` and the like show 0, not a tiny leftover; `tan(90)` gives nothing; scientific notation (`2e10`, `1e-7`) is a number, not e; `10 mod -3` is 1; `0,001` is not a thousand; years before 100 and after 9999; dates in a sum, slashed dates (`12/25/2024`) and "Part 1 of 3" no longer give nonsense; `4k` is not −269 °C; `10 c in c` and `0xff in hex` give nothing; `mo` is a month; `15% + 15%` is 30%; `round(-2.5)` is −3; a copied number never has an exponent; "of" in every language (`15% von 80`, `15% от 80`), `Tokyo time?`, `UTC−5` with a real minus sign, and more Russian unit names.
+
 ## [6.13.0] - 2026-10-21
 
 ### Added
@@ -579,7 +606,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...HEAD
+[6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...HEAD
+[6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...e092117
 [6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...ff28464
 [6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...2315e98
 [6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...e93bf5c

@@ -20,8 +20,19 @@ describe('search scoring', () => {
     expect(sw.fieldOf('Pull Request #12 - GitHub')).toBe(f);
   });
 
-  it('fieldOf keeps non-Latin letters as words', () => {
-    expect(sw.fieldOf('Привет, мир — café').words).toEqual(['привет', 'мир', 'café']);
+  it('fieldOf keeps non-Latin letters as words, without their accents', () => {
+    expect(sw.fieldOf('Привет, мир — café').words).toEqual(['привет', 'мир', 'cafe']);
+    expect(sw.fieldOf('Église Übersicht Καρτέλα Română ș').words).toEqual(['eglise', 'ubersicht', 'καρτελα', 'romana', 's']);
+    expect(sw.fieldOf('עברית العربية').words).toEqual(['עברית', 'العربية']);
+  });
+
+  it('a word typed with or without its accents finds it, from its start', () => {
+    expect(sw.searchScore('ιστορικο', 'Ιστορικό του Chrome')).toBe(5);
+    expect(sw.searchScore('ιστορικό', 'Ιστορικο')).toBe(5);
+    expect(sw.searchScore('eglise', 'Église Saint-Paul')).toBe(5);
+    expect(sw.searchScore('übers', 'Ubersicht')).toBe(5);
+    expect(sw.searchScore('επισκεψ', 'Ιστορικό επισκέψεων')).toBe(5);
+    expect(sw.matches('zzz', 'Église')).toBe(false);
   });
 
   it('typoDistance counts edits and swaps, giving up past max', () => {
@@ -105,6 +116,12 @@ describe('highlight', () => {
   const html = (text, q) => { const d = document.createElement('div'); d.append(sw.highlight(text, q)); return d; };
   // The output as text pieces and [marked] pieces
   const parts = (text, q) => [...html(text, q).childNodes].map((n) => (n.nodeType === 3 ? n.data : [n.dataset.testid, n.textContent]));
+
+  it('marks a word typed without its accents, as the text writes it', () => {
+    expect(parts('Το Ιστορικό σας', 'ιστορικο')).toEqual(['Το ', ['search-highlight', 'Ιστορικό'], ' σας']);
+    expect(parts('Café Église', 'eglise')).toEqual(['Café ', ['search-highlight', 'Église']]);
+    expect(parts('😀 Café', 'cafe')).toEqual(['😀 ', ['search-highlight', 'Café']]); // what comes before keeps its length
+  });
 
   it('marks every place a word appears, keeping the original case', () => {
     expect(parts('GitHub Pull pull', 'pull')).toEqual(['GitHub ', ['search-highlight', 'Pull'], ' ', ['search-highlight', 'pull']]);
@@ -225,8 +242,8 @@ describe('the dropdown rows', () => {
   });
 
   it('nothing found: open the address (when it is one), and a Google search', () => {
-    expect(go('example.org')).toEqual([{ kind: 'url', url: 'https://example.org' }, { kind: 'google' }]);
-    expect(go('qqq zzz')).toEqual([{ kind: 'google' }]);
+    expect(go('example.org')).toEqual([{ kind: 'url', url: 'https://example.org', key: 'url:https://example.org' }, { kind: 'google', key: 'google' }]);
+    expect(go('qqq zzz')).toEqual([{ kind: 'google', key: 'google' }]);
     expect(go('')).toEqual([]);
   });
 

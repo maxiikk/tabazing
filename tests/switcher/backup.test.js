@@ -163,6 +163,19 @@ describe('restoring', () => {
     expect(JSON.stringify(await chrome.storage.local.get(null))).toBe(before);
   });
 
+  it('a .zip that isn\'t one (or is damaged): says it isn\'t a backup, changes nothing', async () => {
+    await seeded();
+    const sw = await boot({ tabs: AB });
+    await openBackup(sw);
+    const before = JSON.stringify(await chrome.storage.local.get(null));
+    choose(tid('backup-zip-input'), [fileOf('tabazing-backup-2026-10-21.zip', 'just some text, not a zip')]);
+    await waitFor(() => tid('backup-bad'));
+    expect(tid('backup-error')).toBe(null);
+    choose(tid('backup-zip-input'), [fileOf('tabazing-backup-2026-10-21.zip', zipFiles(backup()).slice(0, 60))]); // cut short
+    await waitFor(() => tid('backup-bad'));
+    expect(JSON.stringify(await chrome.storage.local.get(null))).toBe(before);
+  });
+
   it('choosing keeps Tabazing open while the system\'s file dialog has the focus', async () => {
     const sw = await boot({ tabs: AB });
     await openBackup(sw);

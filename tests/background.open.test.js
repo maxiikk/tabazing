@@ -100,6 +100,16 @@ describe('trigger', () => {
     expect(cycleCalls().map((m) => m.dir)).toEqual([1, -1]);
   });
 
+  it('a clock set back does not block the shortcut until it catches up', async () => {
+    const { tab } = seed();
+    chrome.runtime.sendMessage.mockResolvedValue({ ok: true }); // a switcher is open: only moves
+    bg().trigger(1, tab);
+    vi.setSystemTime(Date.now() - 3600 * 1000);
+    bg().trigger(-1, tab);
+    await flush();
+    expect(cycleCalls().map((m) => m.dir)).toEqual([1, -1]);
+  });
+
   it('logs instead of throwing when opening fails', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     seed();
@@ -263,6 +273,27 @@ describe('openSwitcher', () => {
     const { respond } = send({ type: MSG.READY }, fromSwitcherPage());
     expect(respond).toHaveBeenCalledWith({ extra: 1 });
     expect(bg().opening).toBeNull();
+  });
+
+  it('an Alt+R (palette) or Alt+E (stay open) pressed while it loads is handed over by READY too', async () => {
+    const { tab } = seed('chrome://newtab/');
+    await bg().openSwitcher(-1, tab, 'key', true);
+    await bg().openSwitcher(-1, tab, 'key', true);
+    await bg().openSwitcher(0, tab);                     // Alt+E
+    await bg().openSwitcher(0, tab, 'key', false, true); // Alt+R
+    expect(chrome.windows.create).toHaveBeenCalledTimes(1);
+    expect(send({ type: MSG.READY }, fromSwitcherPage()).respond).toHaveBeenCalledWith({ extra: -1, palette: true, stay: true });
+    await bg().openSwitcher(1, tab);
+    await bg().openSwitcher(0, tab, 'key', false, true); // just the palette this time
+    expect(send({ type: MSG.READY }, fromSwitcherPage()).respond).toHaveBeenCalledWith({ extra: 0, palette: true });
+  });
+
+  it('the opening lock does not outlast a clock set back', async () => {
+    const { tab } = seed('chrome://newtab/');
+    await bg().openSwitcher(1, tab);
+    vi.setSystemTime(Date.now() - 3600 * 1000);
+    await bg().openSwitcher(1, tab);
+    expect(chrome.windows.create).toHaveBeenCalledTimes(2);
   });
 
   it('opens again once the opening lock has run out', async () => {

@@ -55,6 +55,37 @@ describe('note button', () => {
   });
 });
 
+describe('an address too long to keep (over 2048 characters)', () => {
+  const LONG = 'https://long.example/path?q=' + 'a'.repeat(2100);
+  const tabs = [...AB, { title: 'Long', url: LONG }];
+
+  it('a note: the toast says it can\'t be kept and the note box doesn\'t open (nothing typed is lost)', async () => {
+    const sw = await boot({ tabs });
+    sw.notePopover(LONG, tid('quick-note', cardOf('Long')));
+    expect(tid('note-popover')).toBe(null);
+    expect(toastText()).toBe(t('urlTooLong'));
+    tid('quick-note', cardOf('Long')).click(); // the card's own button too
+    expect(tid('note-popover')).toBe(null);
+    expect(await notes()).toEqual({});
+  });
+
+  it('a star: the toast says it can\'t be kept, and it isn\'t starred', async () => {
+    const sw = await boot({ tabs });
+    await sw.star(entryByTitle(sw, 'Long'));
+    expect(toastText()).toBe(t('urlTooLong'));
+    expect(sw.isStarred(LONG)).toBe(false);
+    expect((await chrome.storage.local.get('stars')).stars || {}).toEqual({});
+  });
+
+  it('a normal address still gets its note box and its star', async () => {
+    const sw = await boot({ tabs });
+    sw.notePopover('https://a.example/', tid('quick-note', cardOf('A')));
+    expect(tid('note-popover')).not.toBe(null);
+    await sw.star(entryByTitle(sw, 'B'));
+    expect(sw.isStarred('https://b.example/')).toBe(true);
+  });
+});
+
 describe('note card', () => {
   it('opens from the button, saves while typing, and marks the button', async () => {
     await boot({ tabs: AB });

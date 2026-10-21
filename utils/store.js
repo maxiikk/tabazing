@@ -107,16 +107,18 @@ export async function previewTimes() {
 // Is the page's preview at most `ms` old? Asked on every Alt+Q, so it is answered from the saves this
 // context made itself (only the worker saves previews) rather than by reading a ~40 KB image. Only a
 // context younger than `ms` can have missed a save that recent: that one reads storage.
+// A time "in the future" (the system clock was set back since) counts as long ago: not fresh.
 const loadedAt = Date.now();
 const savedAt = new Map(); // normalized url -> capture time, latest saves only
+const within = (age, ms) => age >= 0 && age <= ms;
 export async function previewFresh(url, ms) {
   const k = keyOf(url);
   if (!k) return false;
   const now = Date.now();
-  if (savedAt.has(k)) return now - savedAt.get(k) <= ms;
-  if (now - loadedAt > ms) return false;
+  if (savedAt.has(k)) return within(now - savedAt.get(k), ms);
+  if (!within(now - loadedAt, ms)) return false;
   const p = await getPreview(url);
-  return !!p && now - p.t <= ms;
+  return !!p && within(now - p.t, ms);
 }
 function noteSaved(k, t) {
   savedAt.delete(k);
@@ -344,10 +346,15 @@ const metaOf = (tab, group = null) => {
   return { u: url, ti: String(tab.title || '').slice(0, 300), f: icon, ...(g ? { g } : {}) };
 };
 
-// Call whenever a tab's url, title, icon or group may have changed.
+// Call whenever a tab's url, title, icon or group may have changed. A tab now on a page that isn't logged
+// (New Tab, about:blank, our own pages...) forgets the page it showed before: closing it now closes nothing worth logging.
 export function rememberTab(tab, group = null) {
   const m = metaOf(tab, group);
-  if (!m) return Promise.resolve();
+  if (!m) {
+    if (!tab || !isId(tab.id) || lastMeta.get(tab.id) === '') return Promise.resolve();
+    lastMeta.set(tab.id, ''); // '': known to have nothing stored
+    return serial(() => S.remove(tabMetaKey(tab.id)));
+  }
   const json = JSON.stringify(m);
   if (lastMeta.get(tab.id) === json) return Promise.resolve();
   lastMeta.set(tab.id, json);
@@ -509,14 +516,28 @@ export function mergeSnoozed(items) {
   });
 }
 // The background, when the alarm goes off (or at start-up, for any that came due while Chrome was closed).
-export function takeDueSnoozed(now = Date.now()) {
+// `max`: take at most this many (the background takes one at a time, so a worker stopped halfway loses none
+// it hadn't opened yet); `skip`: ids not to take (ones that already failed to open in this run).
+export function takeDueSnoozed(now = Date.now(), { max = Infinity, skip = [] } = {}) {
   return withLock('snoozed', async () => {
     const list = await getSnoozed();
-    const due = list.filter((x) => x.at <= now);
-    const rest = list.filter((x) => x.at > now);
+    const due = list.filter((x) => x.at <= now && !skip.includes(x.id)).slice(0, max);
+    const rest = list.filter((x) => !due.includes(x));
     if (due.length) await L.set({ [KEY.SNOOZED]: rest });
     await scheduleSnoozeAlarm(rest);
     return due;
+  });
+}
+// A due tab that could not be reopened goes back into the list, as it was (same id), for the next alarm to
+// try again. One that is there already (put back twice, or snoozed again meanwhile) is not doubled.
+export function putBackSnoozed(item) {
+  return withLock('snoozed', async () => {
+    const list = await getSnoozed();
+    if (!isSnooze(item) || list.some((x) => x.id === item.id)) return list;
+    list.push(item);
+    await L.set({ [KEY.SNOOZED]: list });
+    await scheduleSnoozeAlarm(list);
+    return list;
   });
 }
 
@@ -571,20 +592,24 @@ export function setNote(url, text) {
   });
 }
 
-// A restore: these notes ([{ url, note }]) on their pages, over the ones there; a page without a note gets one while
-// there is room (no note that is there goes). Empty ones are left out. Resolves to { added, updated, skipped }.
+// A restore: these notes ([{ url, note, t }]) on their pages, over the ones there; a page without a note gets one while
+// there is room (no note that is there goes). Empty ones are left out, and a second one for the same page (only the
+// first counts). A note keeps its time `t` (when it was written), if it has one. Resolves to { added, updated, skipped }.
 export function mergeNotes(items) {
   return withLock('notes', async () => {
     const notes = await getNotes();
     const out = { added: 0, updated: 0, skipped: 0 };
+    const seen = new Set();
     let count = Object.keys(notes).length;
     for (const x of items) {
       const k = keyOf(x.url);
       const n = String(x.note || '').trim().slice(0, LIMITS.NOTE_MAX);
-      if (!k || !n) { out.skipped++; continue; }
-      if (notes[k]) { if (notes[k].n === n) out.skipped++; else { notes[k] = { u: x.url, n, t: Date.now() }; out.updated++; } continue; }
+      if (!k || !n || seen.has(k)) { out.skipped++; continue; }
+      seen.add(k);
+      const t = isTime(x.t) && x.t <= Date.now() ? x.t : Date.now();
+      if (notes[k]) { if (notes[k].n === n) out.skipped++; else { notes[k] = { u: x.url, n, t }; out.updated++; } continue; }
       if (count >= LIMITS.MAX_NOTES) { out.skipped++; continue; }
-      notes[k] = { u: x.url, n, t: Date.now() };
+      notes[k] = { u: x.url, n, t };
       count++;
       out.added++;
     }
@@ -622,8 +647,8 @@ export function putBmNotes(changes) {
   });
 }
 export const setBmNote = (id, text, url = '') => putBmNotes({ [id]: { n: text, u: url } });
-// A restore: these notes ({ [id]: { n, u } }) on their bookmarks, over the ones there; none that is there goes (no
-// trimming: what doesn't fit is left out). Resolves to { added, updated, skipped }.
+// A restore: these notes ({ [id]: { n, u, t } }) on their bookmarks, over the ones there; none that is there goes (no
+// trimming: what doesn't fit is left out). A note keeps its time `t`, if it has one. Resolves to { added, updated, skipped }.
 export function mergeBmNotes(changes) {
   return withLock('bmNotes', async () => {
     const notes = await getBmNotes();
@@ -633,9 +658,10 @@ export function mergeBmNotes(changes) {
       const n = String((c && c.n) || '').trim().slice(0, LIMITS.NOTE_MAX);
       if (!/^\w{1,40}$/.test(id) || !n) { out.skipped++; continue; }
       const u = String((c && c.u) || '').slice(0, LIMITS.MAX_URL_KEY);
-      if (notes[id]) { if (notes[id].n === n) out.skipped++; else { notes[id] = { u, n, t: Date.now() }; out.updated++; } continue; }
+      const t = c && isTime(c.t) && c.t <= Date.now() ? c.t : Date.now();
+      if (notes[id]) { if (notes[id].n === n) out.skipped++; else { notes[id] = { u, n, t }; out.updated++; } continue; }
       if (count >= LIMITS.MAX_NOTES) { out.skipped++; continue; }
-      notes[id] = { u, n, t: Date.now() };
+      notes[id] = { u, n, t };
       count++;
       out.added++;
     }
@@ -754,7 +780,20 @@ export function hideClosed(keys, show = false) {
 
 // ---------- settings (storage.local) ----------
 export async function getPrefs() {
-  const v = (await L.get(KEY.PREFS))[KEY.PREFS] || {};
+  return cleanPrefs((await L.get(KEY.PREFS))[KEY.PREFS] || {});
+}
+// Of these settings (a backup's), the ones with a valid value, as they are kept: { theme: 'purple', accent: '#abcdef' }
+// gives { accent: '#ABCDEF' }. Unknown names are left out.
+export function validPrefs(v) {
+  const base = cleanPrefs({}), out = {};
+  for (const [k, x] of Object.entries(v || {})) {
+    if (!(k in base)) continue;
+    const kept = cleanPrefs({ [k]: x })[k];
+    if (kept !== base[k] || x === base[k]) out[k] = kept; // (an invalid value gives the default)
+  }
+  return out;
+}
+function cleanPrefs(v) {
   const on = (x) => x !== false; // switches that default to on: only an explicit `false` turns one off
   return {
     lang: v.lang === 'auto' || LANGS.includes(v.lang) ? v.lang : 'auto', startup: v.startup === true,

@@ -19,7 +19,7 @@ import {
   rememberTab, rememberTabs, forgetTabMeta, logClosedTab, flushClosedTabs, cleanupClosedLog,
   setOverlayTab, clearOverlayTab, createLaunch, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPrefs,
-  takeDueSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
+  takeDueSnoozed, putBackSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
 } from './utils/store.js';
 import { dayOf } from './utils/review.js';
 import { loadLang } from './utils/i18n.js';
@@ -89,9 +89,14 @@ chrome.tabs.onActivated.addListener(async ({ tabId, windowId }) => {
 chrome.tabs.onCreated.addListener((tab) => { remember(tab); quietAt = Date.now(); updateBadge(); });
 
 // What the closed-tabs log needs of a tab, with its group's name and colour when it is in one.
+// A grouped tab waits for its group, one out of a group doesn't: an older snapshot can come in after a newer
+// one, and is then dropped (only the latest remember() of each tab writes).
+const rememberSeq = new Map(); // tabId -> number of its latest remember()
 function remember(tab) {
+  const n = (rememberSeq.get(tab.id) || 0) + 1;
+  rememberSeq.set(tab.id, n);
   const g = tab.groupId >= 0 && chrome.tabGroups ? chrome.tabGroups.get(tab.groupId).catch(() => null) : null;
-  Promise.resolve(g).then((group) => rememberTab(tab, groupOf(group))).catch(() => {});
+  Promise.resolve(g).then((group) => { if (rememberSeq.get(tab.id) === n) return rememberTab(tab, groupOf(group)); }).catch(() => {});
 }
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.url || info.title || info.favIconUrl || info.groupId !== undefined) remember(tab);
@@ -133,6 +138,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   quietAt = Date.now(); // Chrome now shows the closed tab's neighbour: not a Ctrl+Tab step
   updateBadge();
   removeFromMru(tabId);
+  rememberSeq.delete(tabId); // a remember() still waiting for its group writes nothing now
   markDiscarded(tabId, false).catch(() => {});
   logClosedTab(tabId).catch(() => {});
   forgetMedia(tabId).catch(() => {});
@@ -144,6 +150,7 @@ if (chrome.runtime.onSuspend) chrome.runtime.onSuspend.addListener(() => { flush
 
 chrome.tabs.onReplaced.addListener((addedId, removedId) => {
   replaceInMru(removedId, addedId);
+  rememberSeq.delete(removedId);
   forgetTabMeta(removedId).catch(() => {});
   moveDiscarded(removedId, addedId).catch(() => {});
   chrome.tabs.get(addedId).then(remember).catch(() => {});
@@ -368,18 +375,21 @@ function injectPageScripts(tabs) {
 }
 
 // ------------------------------------------------------------ opening the switcher
-let opening = null;   // { t, extra } while a switcher is loading (dedupes rapid presses)
+let opening = null;   // { t, extra, palette, stay } while a switcher is loading (dedupes rapid presses, keeps them for READY)
 let watchdog = null;  // { token, timer } for an overlay that hasn't reported READY yet
 let overlayOpen = null; // { tabId, win, ctx } of the last overlay opened (MSG.FALLBACK reopens it as a popup)
 let lastTrigger = 0;
+// Less than `ms` ago. A time after now (the system clock was set back since) counts as long ago, or one
+// press too soon would block every press until the clock caught up again.
+const within = (age, ms) => age >= 0 && age < ms;
 
 // `hold`: opened by Alt+Q / Alt+W, which work like Alt+Tab (letting go of Alt switches to the selected
 // tab). Alt+E, the toolbar icon and the rest open it to stay. dir 0 (Alt+E) moves nothing.
 // `palette`: Alt+R, straight into the command palette (dir 0, never held).
 function trigger(dir, tab, via = 'key', hold = false, palette = false) {
   // Both Chrome's shortcut and the in-page listener may see the same press;
-  // this also rate-limits a misbehaving sender.
-  if (Date.now() - lastTrigger < 120) return;
+  // this also rate-limits a misbehaving sender. A last press "in the future" (the clock was set back) is long ago.
+  if (within(Date.now() - lastTrigger, 120)) return;
   lastTrigger = Date.now();
   openSwitcher(dir, tab, via, hold, palette).catch((e) => console.warn('[Tabazing] could not open the switcher:', e && e.message));
 }
@@ -393,12 +403,15 @@ async function openSwitcher(dir, fromTab, via = 'key', hold = false, palette = f
     if (r && r.ok) return;
   } catch { /* no switcher open */ }
 
-  // 2. Still loading from a press a moment ago? Queue the move for it.
-  if (opening && Date.now() - opening.t < LIMITS.OPENING_LOCK_MS) {
+  // 2. Still loading from a press a moment ago? Queue the move for it, and an Alt+R (palette) or Alt+E
+  //    (stay open), which move nothing: READY hands them all over.
+  if (opening && within(Date.now() - opening.t, LIMITS.OPENING_LOCK_MS)) {
     opening.extra += dir;
+    if (palette) opening.palette = true;
+    else if (dir === 0) opening.stay = true;
     return;
   }
-  opening = { t: Date.now(), extra: 0 };
+  opening = { t: Date.now(), extra: 0, palette: false, stay: false };
   chrome.storage.session.set({ [KEY.LAST_OPEN]: Date.now() }).catch(() => {});
 
   let tab = fromTab;
@@ -497,22 +510,42 @@ prepareActiveTabs();
 // ---------------------------------------------------------------- snoozed tabs
 // Reopen the tabs whose time has come, in the window they were snoozed from (or the last one used),
 // in the background. Also at every worker start, for any that came due while Chrome was closed.
+// Taken from the list one at a time, so a worker stopped halfway loses none it hadn't got to; one that can't
+// be opened anywhere goes back into the list, for the next alarm (each is tried once per run).
 async function wakeSnoozed() {
-  const due = await takeDueSnoozed(Date.now()).catch(() => []);
-  for (const x of due) {
-    let windowId = x.windowId;
-    if (windowId !== null) { try { await chrome.windows.get(windowId); } catch { windowId = null; } }
-    if (windowId === null) { try { windowId = (await chrome.windows.getLastFocused({ windowTypes: ['normal'] })).id; } catch {} }
-    try {
-      // Reopened unannounced: noted so the switcher can say which tabs are back (until they are looked at).
-      if (windowId === null || windowId === undefined) await markWoken(((await chrome.windows.create({ url: x.url })).tabs || [])[0]?.id);
-      else {
-        const tab = await chrome.tabs.create({ url: x.url, windowId, active: false, pinned: x.pinned });
-        await markWoken(tab.id);
-        if (x.group && !x.pinned) await putInGroup([tab.id], x.group, windowId).catch(() => {}); // back in its group
-      }
-    } catch {}
+  const now = Date.now();
+  const failed = [];
+  for (;;) {
+    const [x] = await takeDueSnoozed(now, { max: 1, skip: failed }).catch(() => []);
+    if (!x) return;
+    if (await wakeOne(x)) continue;
+    failed.push(x.id);
+    await putBackSnoozed(x).catch(() => {});
   }
+}
+const lastNormalWindow = () => chrome.windows.getLastFocused({ windowTypes: ['normal'] }).then((w) => (w && Number.isInteger(w.id) ? w.id : null)).catch(() => null);
+// Open one snoozed tab: in its window, else the last one used, else a new window. Resolves to whether it opened.
+async function wakeOne(x) {
+  let windowId = x.windowId;
+  if (windowId !== null) { try { await chrome.windows.get(windowId); } catch { windowId = null; } }
+  if (windowId === null) windowId = await lastNormalWindow();
+  // Reopened unannounced: noted so the switcher can say which tabs are back (until they are looked at).
+  const inWindow = async (id) => {
+    const tab = await chrome.tabs.create({ url: x.url, windowId: id, active: false, pinned: x.pinned });
+    await markWoken(tab.id).catch(() => {});
+    if (x.group && !x.pinned) await putInGroup([tab.id], x.group, id).catch(() => {}); // back in its group
+  };
+  if (Number.isInteger(windowId)) {
+    try { await inWindow(windowId); return true; } catch {}
+    // The window closed in between (or refused the tab): another one, if there is one.
+    const other = await lastNormalWindow();
+    if (Number.isInteger(other) && other !== windowId) { try { await inWindow(other); return true; } catch {} }
+  }
+  try {
+    const w = await chrome.windows.create({ url: x.url });
+    await markWoken(((w && w.tabs) || [])[0]?.id).catch(() => {});
+    return true;
+  } catch { return false; }
 }
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === SNOOZE_ALARM) wakeSnoozed(); });
 wakeSnoozed();
@@ -715,7 +748,11 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     case MSG.READY:
       if (!fromSwitcher(sender)) return;
       disarmWatchdog();
-      respond({ extra: opening ? Math.max(-20, Math.min(20, opening.extra)) : 0 });
+      // `palette` / `stay`: an Alt+R / Alt+E pressed while it loaded (only added when there was one).
+      respond({
+        extra: opening ? Math.max(-20, Math.min(20, opening.extra)) : 0,
+        ...(opening && opening.palette ? { palette: true } : {}), ...(opening && opening.stay ? { stay: true } : {}),
+      });
       opening = null;
       return;
     case MSG.SWEEP: {
@@ -807,7 +844,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
 export {
   SWITCHER_URL, EXT_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
-  trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed,
+  trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed, wakeOne, lastNormalWindow,
   WATCH_FIRST_MS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
   flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MS, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

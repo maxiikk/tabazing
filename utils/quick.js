@@ -8,17 +8,21 @@
 // A result: { kind, value, copy, expr, ... }
 //   kind   'calc' | 'unit' | 'base' | 'color' | 'time' | 'date' | 'days' | 'currency'
 //   value  what the row shows big, formatted for `lang` (Intl.NumberFormat / DateTimeFormat); for 'days', `count` instead
-//   copy   what Enter copies: numbers as plain digits with a dot ("1234.5", no grouping, pastes anywhere),
-//          a unit result with its symbol, a date as YYYY-MM-DD, anything else as shown
+//   copy   what Enter copies: numbers as plain digits with a dot ("1234.5", no grouping, no exponent: 1/10000000
+//          copies "0.0000001"; pastes anywhere), a unit result with its symbol, a date as YYYY-MM-DD, anything else as shown
 //   expr   the whole thing ("80 + 15% = 92"), for the row's "copy expression" button
 //   alts   (colour, base) the same value in other notations; swatch (colour) '#rrggbb'; place, zone (time)
 // 'currency' has nothing else: exchange rates need the internet, which Tabazing never uses.
 //
 // Precision: calculations are rounded to 12 significant digits (0.1 + 0.2 shows 0.3), conversions to 6
-// ("10 km in mi" -> 6.21371). From 1e15 up, and below 1e-6, numbers show in scientific notation.
+// ("10 km in mi" -> 6.21371). From 1e15 up, and below 1e-6, numbers show in scientific notation. A sum that
+// cancels out to float leftovers is 0 (0.3 - 0.1 - 0.2 = 0, not -2.78E-17). Typed "2e10" / "1e-7" are numbers
+// (a lone "2e" is still 2 × e).
 // Numbers may use thousands separators: "1,234.5" and "1.234,5" both work; a lone comma is the decimal mark
 // ("1,5" = 1.5), except where the decimal mark is a dot (English, Hebrew, Arabic): there "1,234" (groups of three) is a thousand.
-// Trigonometry is in degrees: sin(30) = 0.5.
+// Thousands never start with 0: "0,500" is 0.5 everywhere, "0.001.000" is nothing.
+// Trigonometry is in degrees, exact where the answer is: sin(30) = 0.5, cos(90) = 0, tan(90) is nothing.
+// Dates run from 0001-01-01 to 9999-12-31; an expression with a date in it ("2024-01-05 + 3", "12/25/2024") isn't arithmetic.
 
 const MAX_LEN = 200;
 
@@ -62,7 +66,8 @@ export function parseNumber(str, lang = 'en') {
   return Number(out);
 }
 const COMMA_GROUPS = new Set(['en', 'he', 'ar']); // the languages that group with commas and use a decimal dot
-const grouped = (s, sep) => new RegExp(`^\\d{1,3}(\\${sep}\\d{3})+$`).test(s) || (!s.includes(sep) && /^\d+$/.test(s));
+// Groups of three after a first group that doesn't start with 0 ("0,001" and "012,345" aren't thousands).
+const grouped = (s, sep) => new RegExp(`^[1-9]\\d{0,2}(\\${sep}\\d{3})+$`).test(s) || (!s.includes(sep) && /^\d+$/.test(s));
 
 const formatters = new Map();
 function nf(lang, opts) {
@@ -81,7 +86,19 @@ export function formatNumber(x, lang = 'en', sig = 12) {
   const a = Math.abs(r);
   const sci = a !== 0 && (a >= 1e15 || a < 1e-6);
   const shown = sci ? nf(lang, { notation: 'scientific', maximumSignificantDigits: Math.min(sig, 10) }).format(r) : nf(lang, { maximumSignificantDigits: sig }).format(r);
-  return { shown, plain: Object.is(r, -0) ? '0' : String(r) };
+  return { shown, plain: Object.is(r, -0) ? '0' : plainDigits(r) };
+}
+// String() without its exponent: 1.5e+21 -> "1500000000000000000000", 1e-7 -> "0.0000001".
+function plainDigits(x) {
+  const s = String(x), m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(s);
+  if (!m) return s;
+  const digits = m[2] + (m[3] || ''), exp = Number(m[4]);
+  return m[1] + (exp >= 0 ? digits.padEnd(exp + 1, '0') : '0.' + '0'.repeat(-exp - 1) + digits);
+}
+// a + b, or 0 when what is left is float noise against the size of a and b (1.1 * 3 - 3.3 leaves 4.4E-16).
+function addExact(a, b, tol = 1e-12) {
+  const r = a + b;
+  return Math.abs(r) < Math.max(Math.abs(a), Math.abs(b)) * tol ? 0 : r;
 }
 
 // ---------------------------------------------------------------- currency
@@ -170,7 +187,7 @@ function base(s) {
   if ((m = /^(\S+) (?:in|to|as|into|en|a|в) (\w+)$/i.exec(s)) && BASES[m[2].toLowerCase()]) { num = readInt(m[1]); to = BASES[m[2].toLowerCase()]; }
   else if ((m = /^(\w+) (\S+)$/i.exec(s)) && BASES[m[1].toLowerCase()]) { num = readInt(m[2]); to = BASES[m[1].toLowerCase()]; }
   else if (/^-?0[xbo]/i.test(s)) { num = readInt(s); to = 10; }
-  if (!num || (to === num.base && num.base === 10)) return null;
+  if (!num || to === num.base) return null; // "0xff in hex" says nothing new
   const value = inBase(num.n, to);
   const alts = [10, 16, 2, 8].filter((b) => b !== to && b !== num.base).map((b) => inBase(num.n, b));
   return { kind: 'base', value, copy: value, expr: `${inBase(num.n, num.base)} = ${value}`, alts };
@@ -222,12 +239,12 @@ export function resolveZone(name, localZ = 'UTC') {
   const n = String(name || '').trim().toLowerCase().replace(/[?.!]+$/, '');
   if (!n) return null;
   if (/^(here|local|aquí|aqui|здесь)$/.test(n)) return { zone: localZ, place: placeName(localZ) };
-  const off = /^(?:utc|gmt)\s*([+-])\s*(\d{1,2})$/.exec(n);
+  const off = /^(?:utc|gmt)\s*([+\-−])\s*(\d{1,2})$/.exec(n); // "−" as the offsets are shown
   if (off) {
-    const h = Number(off[2]);
+    const h = Number(off[2]), sign = off[1] === '+' ? '+' : '-';
     if (h > 14) return null;
-    const zone = h === 0 ? 'UTC' : `Etc/GMT${off[1] === '+' ? '-' : '+'}${h}`;
-    return validZone(zone) ? { zone, place: `UTC${off[1]}${h}` } : null;
+    const zone = h === 0 ? 'UTC' : `Etc/GMT${sign === '+' ? '-' : '+'}${h}`;
+    return validZone(zone) ? { zone, place: `UTC${sign}${h}` } : null;
   }
   const alias = ZONE_ALIAS[n];
   if (alias) return validZone(alias) ? { zone: alias, place: alias === 'UTC' ? 'UTC' : titleCase(n.length <= 4 ? placeName(alias) : n) } : null;
@@ -283,7 +300,7 @@ function readClock(m) {
 function timeZone(s, { lang, now, zone: localZ }) {
   let m, target, at = now, from = null;
   if ((m = new RegExp(`^(?:what(?:'s| is) the )?${TIME_WORD}(?: ${IN})? (.+)$`, 'i').exec(s))) target = resolveZone(m[1], localZ);
-  else if ((m = new RegExp(`^(.+?) ${TIME_WORD}$`, 'i').exec(s))) target = resolveZone(m[1], localZ);
+  else if ((m = new RegExp(`^(.+?) ${TIME_WORD}\\??$`, 'i').exec(s))) target = resolveZone(m[1], localZ);
   else if ((m = new RegExp(`^(${CLOCK})(?: (.+?))? ${IN} (.+)$`, 'i').exec(s))) {
     const clock = readClock(m.slice(1));
     if (!clock) return null;
@@ -305,6 +322,9 @@ function timeZone(s, { lang, now, zone: localZ }) {
 // ---------------------------------------------------------------- dates
 const DAY = 864e5;
 const TODAY = /^(today|hoy|сегодня|now)$/i, TOMORROW = /^(tomorrow|mañana|manana|завтра)$/i, YESTERDAY = /^(yesterday|ayer|вчера)$/i;
+// UTC midnight of y-mo-d; unlike Date.UTC, years 0-99 stay themselves (not 1900-1999).
+const utc = (y, mo, d) => new Date(0).setUTCFullYear(y, mo, d);
+const inRange = (t) => { const y = new Date(t).getUTCFullYear(); return y >= 1 && y <= 9999; }; // what YYYY-MM-DD can write
 // A day as a UTC midnight (dates have no time zone here: "today" is today where you are).
 function readDate(w, today) {
   if (TODAY.test(w)) return today;
@@ -313,7 +333,7 @@ function readDate(w, today) {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(w);
   if (!m) return null;
   const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
-  const t = Date.UTC(y, mo, d);
+  const t = utc(y, mo, d);
   const back = new Date(t);
   return back.getUTCMonth() === mo && back.getUTCDate() === d && y >= 1 ? t : null; // 2026-02-30 is no date
 }
@@ -327,8 +347,8 @@ function addTo(t, n, unitName) {
   if (unitName === 'week') return t + n * 7 * DAY;
   const d = new Date(t), months = unitName === 'year' ? n * 12 : n;
   const y = d.getUTCFullYear(), mo = d.getUTCMonth() + months;
-  const last = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate();
-  return Date.UTC(y, mo, Math.min(d.getUTCDate(), last));
+  const last = new Date(utc(y, mo + 1, 0)).getUTCDate();
+  return utc(y, mo, Math.min(d.getUTCDate(), last));
 }
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 function dateCalc(s, { lang, now, zone }) {
@@ -353,7 +373,7 @@ function dateCalc(s, { lang, now, zone }) {
     const u = DATE_UNITS.find(([re]) => re.test(m[4]));
     if (d === null || !u) return null;
     const t = addTo(d, (m[2] === '-' ? -1 : 1) * Number(m[3]), u[1]);
-    if (!Number.isFinite(t) || Math.abs(t) > 8.64e15) return null;
+    if (!Number.isFinite(t) || !inRange(t)) return null;
     const value = dtf(lang, { timeZone: 'UTC', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).format(t);
     return { kind: 'date', value, copy: iso(t), expr: `${s} = ${iso(t)}` };
   }
@@ -365,27 +385,27 @@ function dateCalc(s, { lang, now, zone }) {
 const U = [
   ['length', 'mm', 1e-3, 'mm', 'millimeter', 'millimeters', 'millimetre', 'millimetres', 'мм', 'milímetros', 'milimetros'],
   ['length', 'cm', 1e-2, 'cm', 'centimeter', 'centimeters', 'centimetre', 'centimetres', 'см', 'centímetros', 'centimetros'],
-  ['length', 'm', 1, 'm', 'meter', 'meters', 'metre', 'metres', 'м', 'metro', 'metros', 'метр', 'метров', 'метра'],
-  ['length', 'km', 1e3, 'km', 'kilometer', 'kilometers', 'kilometre', 'kilometres', 'км', 'kilómetros', 'kilometros', 'kilómetro', 'километр', 'километров', 'километра'],
-  ['length', 'in', 0.0254, 'in', 'inch', 'inches', '"', 'pulgadas', 'pulgada', 'дюйм', 'дюймов', 'дюйма'],
-  ['length', 'ft', 0.3048, 'ft', 'foot', 'feet', "'", 'pies', 'pie', 'фут', 'футов', 'фута'],
-  ['length', 'yd', 0.9144, 'yd', 'yard', 'yards', 'yardas', 'ярд', 'ярдов'],
-  ['length', 'mi', 1609.344, 'mi', 'mile', 'miles', 'millas', 'milla', 'миля', 'миль', 'мили'],
-  ['length', 'nmi', 1852, 'nmi', 'nautical mile', 'nautical miles', 'millas náuticas', 'морская миля', 'морских миль'],
+  ['length', 'm', 1, 'm', 'meter', 'meters', 'metre', 'metres', 'м', 'metro', 'metros', 'метр', 'метров', 'метра', 'метры', 'метрах'],
+  ['length', 'km', 1e3, 'km', 'kilometer', 'kilometers', 'kilometre', 'kilometres', 'км', 'kilómetros', 'kilometros', 'kilómetro', 'километр', 'километров', 'километра', 'километры', 'километрах'],
+  ['length', 'in', 0.0254, 'in', 'inch', 'inches', '"', 'pulgadas', 'pulgada', 'дюйм', 'дюймов', 'дюйма', 'дюймы', 'дюймах'],
+  ['length', 'ft', 0.3048, 'ft', 'foot', 'feet', "'", 'pies', 'pie', 'фут', 'футов', 'фута', 'футы', 'футах'],
+  ['length', 'yd', 0.9144, 'yd', 'yard', 'yards', 'yardas', 'ярд', 'ярдов', 'ярда', 'ярды', 'ярдах'],
+  ['length', 'mi', 1609.344, 'mi', 'mile', 'miles', 'millas', 'milla', 'миля', 'миль', 'мили', 'милях'],
+  ['length', 'nmi', 1852, 'nmi', 'nautical mile', 'nautical miles', 'millas náuticas', 'морская миля', 'морских миль', 'морские мили', 'морских милях'],
   ['mass', 'mg', 1e-6, 'mg', 'milligram', 'milligrams', 'мг'],
-  ['mass', 'g', 1e-3, 'g', 'gram', 'grams', 'gramme', 'grammes', 'г', 'гр', 'gramos', 'gramo', 'грамм', 'граммов'],
-  ['mass', 'kg', 1, 'kg', 'kilogram', 'kilograms', 'kilo', 'kilos', 'кг', 'kilogramos', 'килограмм', 'килограммов'],
-  ['mass', 't', 1000, 't', 'tonne', 'tonnes', 'ton', 'tons', 'toneladas', 'тонна', 'тонн', 'т'],
-  ['mass', 'oz', 0.028349523125, 'oz', 'ounce', 'ounces', 'onzas', 'onza', 'унция', 'унций'],
-  ['mass', 'lb', 0.45359237, 'lb', 'lbs', 'pound', 'pounds', 'libras', 'libra', 'фунт', 'фунтов', 'фунта'],
+  ['mass', 'g', 1e-3, 'g', 'gram', 'grams', 'gramme', 'grammes', 'г', 'гр', 'gramos', 'gramo', 'грамм', 'граммов', 'грамма', 'граммы', 'граммах'],
+  ['mass', 'kg', 1, 'kg', 'kilogram', 'kilograms', 'kilo', 'kilos', 'кг', 'kilogramos', 'килограмм', 'килограммов', 'килограмма', 'килограммы', 'килограммах'],
+  ['mass', 't', 1000, 't', 'tonne', 'tonnes', 'ton', 'tons', 'toneladas', 'тонна', 'тонн', 'тонны', 'тоннах', 'т'],
+  ['mass', 'oz', 0.028349523125, 'oz', 'ounce', 'ounces', 'onzas', 'onza', 'унция', 'унций', 'унции', 'унциях'],
+  ['mass', 'lb', 0.45359237, 'lb', 'lbs', 'pound', 'pounds', 'libras', 'libra', 'фунт', 'фунтов', 'фунта', 'фунты', 'фунтах'],
   ['mass', 'st', 6.35029318, 'st', 'stone', 'stones'],
   ['temp', '°C', 0, 'c', '°c', 'ºc', 'celsius', 'centigrade', 'degc', 'цельсия', '°с', 'с'],
   ['temp', '°F', 0, 'f', '°f', 'ºf', 'fahrenheit', 'degf', 'фаренгейта'],
-  ['temp', 'K', 0, 'k', 'kelvin', 'kelvins', 'кельвин', 'кельвинов'],
+  ['temp', 'K', 0, 'k', 'kelvin', 'kelvins', 'кельвин', 'кельвинов', 'кельвина'],
   ['volume', 'mL', 1e-3, 'ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres', 'мл', 'mililitros'],
   ['volume', 'cL', 1e-2, 'cl', 'centiliter', 'centilitre'],
   ['volume', 'dL', 1e-1, 'dl', 'deciliter', 'decilitre'],
-  ['volume', 'L', 1, 'l', 'liter', 'liters', 'litre', 'litres', 'л', 'litros', 'litro', 'литр', 'литров', 'литра'],
+  ['volume', 'L', 1, 'l', 'liter', 'liters', 'litre', 'litres', 'л', 'litros', 'litro', 'литр', 'литров', 'литра', 'литры', 'литрах'],
   ['volume', 'm³', 1000, 'm3', 'cubic meter', 'cubic meters', 'cubic metre', 'cubic metres', 'м3'],
   ['volume', 'tsp', 0.00492892159375, 'tsp', 'teaspoon', 'teaspoons'],
   ['volume', 'tbsp', 0.01478676478125, 'tbsp', 'tablespoon', 'tablespoons'],
@@ -393,12 +413,12 @@ const U = [
   ['volume', 'cup', 0.2365882365, 'cup', 'cups', 'tazas', 'taza'],
   ['volume', 'pt', 0.473176473, 'pt', 'pint', 'pints', 'pintas'],
   ['volume', 'qt', 0.946352946, 'qt', 'quart', 'quarts'],
-  ['volume', 'gal', 3.785411784, 'gal', 'gallon', 'gallons', 'galones', 'galón', 'галлон', 'галлонов'],
+  ['volume', 'gal', 3.785411784, 'gal', 'gallon', 'gallons', 'galones', 'galón', 'галлон', 'галлонов', 'галлона', 'галлоны', 'галлонах'],
   ['area', 'mm²', 1e-6, 'mm2'],
   ['area', 'cm²', 1e-4, 'cm2', 'см2'],
   ['area', 'm²', 1, 'm2', 'square meter', 'square meters', 'square metre', 'square metres', 'sqm', 'м2', 'metros cuadrados'],
   ['area', 'km²', 1e6, 'km2', 'square kilometer', 'square kilometers', 'square kilometre', 'square kilometres', 'км2'],
-  ['area', 'ha', 1e4, 'ha', 'hectare', 'hectares', 'hectáreas', 'hectareas', 'га', 'гектар', 'гектаров'],
+  ['area', 'ha', 1e4, 'ha', 'hectare', 'hectares', 'hectáreas', 'hectareas', 'га', 'гектар', 'гектаров', 'гектара', 'гектары', 'гектарах'],
   ['area', 'ac', 4046.8564224, 'ac', 'acre', 'acres'],
   ['area', 'in²', 0.00064516, 'in2', 'sq in', 'square inch', 'square inches'],
   ['area', 'ft²', 0.09290304, 'ft2', 'sq ft', 'sqft', 'square foot', 'square feet'],
@@ -407,13 +427,13 @@ const U = [
   ['speed', 'm/s', 1, 'm/s', 'mps', 'meters per second', 'metres per second', 'м/с'],
   ['speed', 'km/h', 1 / 3.6, 'km/h', 'kmh', 'kph', 'km per hour', 'kilometers per hour', 'kilometres per hour', 'км/ч'],
   ['speed', 'mph', 0.44704, 'mph', 'mi/h', 'miles per hour'],
-  ['speed', 'kn', 0.514444444444, 'kn', 'kt', 'knot', 'knots', 'nudos', 'узел', 'узлов'],
+  ['speed', 'kn', 0.514444444444, 'kn', 'kt', 'knot', 'knots', 'nudos', 'узел', 'узлов', 'узла', 'узлы', 'узлах'],
   ['speed', 'ft/s', 0.3048, 'ft/s', 'fps', 'feet per second'],
-  ['data', 'bit', 0.125, 'bit', 'bits', 'бит'],
+  ['data', 'bit', 0.125, 'bit', 'bits', 'бит', 'бита', 'биты', 'битах'],
   ['data', 'kbit', 125, 'kbit', 'kbits', 'kilobit', 'kilobits', 'кбит'],
   ['data', 'Mbit', 125e3, 'mbit', 'mbits', 'megabit', 'megabits', 'мбит'],
   ['data', 'Gbit', 125e6, 'gbit', 'gbits', 'gigabit', 'gigabits', 'гбит'],
-  ['data', 'B', 1, 'b', 'byte', 'bytes', 'байт', 'байта', 'байтов'],
+  ['data', 'B', 1, 'b', 'byte', 'bytes', 'байт', 'байта', 'байтов', 'байты', 'байтах'],
   ['data', 'kB', 1e3, 'kb', 'kilobyte', 'kilobytes', 'кб'],
   ['data', 'MB', 1e6, 'mb', 'megabyte', 'megabytes', 'мб'],
   ['data', 'GB', 1e9, 'gb', 'gigabyte', 'gigabytes', 'гб'],
@@ -425,13 +445,13 @@ const U = [
   ['data', 'TiB', 1024 ** 4, 'tib', 'tebibyte', 'tebibytes'],
   ['data', 'PiB', 1024 ** 5, 'pib', 'pebibyte', 'pebibytes'],
   ['time', 'ms', 1e-3, 'ms', 'millisecond', 'milliseconds', 'мс'],
-  ['time', 's', 1, 's', 'sec', 'secs', 'second', 'seconds', 'segundos', 'segundo', 'с', 'сек', 'секунд', 'секунды'],
-  ['time', 'min', 60, 'min', 'mins', 'minute', 'minutes', 'minutos', 'minuto', 'мин', 'минут', 'минуты'],
-  ['time', 'h', 3600, 'h', 'hr', 'hrs', 'hour', 'hours', 'horas', 'hora', 'ч', 'час', 'часа', 'часов'],
-  ['time', 'd', 86400, 'd', 'day', 'days', 'días', 'dias', 'día', 'дн', 'день', 'дня', 'дней'],
-  ['time', 'wk', 604800, 'wk', 'week', 'weeks', 'semanas', 'semana', 'нед', 'неделя', 'недели', 'недель'],
-  ['time', 'mo', 2629746, 'month', 'months', 'meses', 'mes', 'месяц', 'месяца', 'месяцев'],
-  ['time', 'yr', 31556952, 'yr', 'year', 'years', 'años', 'año', 'год', 'года', 'лет'],
+  ['time', 's', 1, 's', 'sec', 'secs', 'second', 'seconds', 'segundos', 'segundo', 'с', 'сек', 'секунд', 'секунда', 'секунды', 'секундах'],
+  ['time', 'min', 60, 'min', 'mins', 'minute', 'minutes', 'minutos', 'minuto', 'мин', 'минут', 'минута', 'минуты', 'минутах'],
+  ['time', 'h', 3600, 'h', 'hr', 'hrs', 'hour', 'hours', 'horas', 'hora', 'ч', 'час', 'часа', 'часов', 'часы', 'часах'],
+  ['time', 'd', 86400, 'd', 'day', 'days', 'días', 'dias', 'día', 'дн', 'день', 'дня', 'дней', 'дни', 'днях'],
+  ['time', 'wk', 604800, 'wk', 'week', 'weeks', 'semanas', 'semana', 'нед', 'неделя', 'недели', 'недель', 'неделях'],
+  ['time', 'mo', 2629746, 'mo', 'month', 'months', 'meses', 'mes', 'месяц', 'месяца', 'месяцев', 'месяцы', 'месяцах'],
+  ['time', 'yr', 31556952, 'yr', 'year', 'years', 'años', 'año', 'год', 'года', 'лет', 'годы', 'годах'],
 ];
 const UNITS = new Map();
 for (const [family, sym, factor, ...names] of U) {
@@ -452,8 +472,10 @@ export function unitOf(name) {
 }
 function convert(x, a, b) {
   if (a.family !== 'temp') return (x * a.factor) / b.factor;
-  const c = a.sym === '°C' ? x : a.sym === '°F' ? (x - 32) * 5 / 9 : x - 273.15;
-  return b.sym === '°C' ? c : b.sym === '°F' ? c * 9 / 5 + 32 : c + 273.15;
+  // The offsets cancel out exactly enough at 6 digits: -17.7777777778 °C is 0 °F, not -4.0E-11.
+  const add = (p, q) => addExact(p, q, 1e-10);
+  const c = a.sym === '°C' ? x : a.sym === '°F' ? add(x, -32) * 5 / 9 : add(x, -273.15);
+  return b.sym === '°C' ? c : b.sym === '°F' ? add(c * 9 / 5, 32) : add(c, 273.15);
 }
 const NUM = /^(-?\d[\d.,]*)\s*(.*)$/;
 function unit(s, { lang }) {
@@ -475,13 +497,14 @@ function unit(s, { lang }) {
     const a = unitOf(words.slice(0, i).join(' ')), b = unitOf(words.slice(i).join(' '));
     if (a && b && a.family === b.family) { from = a; to = b; }
   }
-  // ...or a unit alone, to its usual counterpart ("10 km" -> miles).
+  // ...or a unit alone, to its usual counterpart ("10 km" -> miles). A bare "k" is a thousand ("10k"),
+  // not kelvin: kelvin goes to °C only when it is spelt out ("300 kelvin").
   if (!from) {
     const a = unitOf(m[2]);
-    if (!a || !DEFAULT_TO[a.sym]) return null;
+    if (!a || !DEFAULT_TO[a.sym] || /^k$/i.test(m[2])) return null;
     from = a; to = bySym.get(DEFAULT_TO[a.sym]);
   }
-  if (from.family !== 'temp' && from.sym === to.sym) return null;
+  if (from.sym === to.sym) return null; // "10 km in km", "10 c in c"
   const y = convert(x, from, to);
   if (!Number.isFinite(y)) return null;
   const out = formatNumber(y, lang, 6), inp = formatNumber(x, lang, 12);
@@ -491,18 +514,34 @@ function unit(s, { lang }) {
 }
 
 // ---------------------------------------------------------------- arithmetic
-// Grammar (lowest first):  sum := product (('+' | '-') product)*      a + b% is a plus b percent of a
-//                          product := unary (('*' | '/' | '%' | 'of' | implicit) unary)*   '%' here is modulo
+// Grammar (lowest first):  sum := product (('+' | '-') product)*      a + b% is a plus b percent of a (15% + 15% = 30%)
+//                          product := unary (('*' | '/' | '%' | 'mod' | 'of' | implicit) unary)*   '%' here is modulo
+//                                     'of' only after a percentage ("15% of 80"; "Part 1 of 3" is nothing)
 //                          unary := ('-' | '+') unary | power         so -2^2 = -4
 //                          power := postfix ('^' unary)?              right-associative: 2^3^2 = 2^9
 //                          postfix := primary '%'?                    15% = 0.15 (marked as a percentage)
 //                          primary := number | pi | π | e | func primary | '(' sum ')' | '√' primary
+// Degrees, exact where the answer is (sin 180 = 0, not 1.2E-16); tan 90 has none.
+function sinDeg(x) {
+  const r = ((x % 360) + 360) % 360;
+  if (r % 90 === 0) return [0, 1, 0, -1][r / 90];
+  if (r % 60 === 30) return r < 180 ? 0.5 : -0.5; // 30, 150, 210, 330
+  return Math.sin((r * Math.PI) / 180);
+}
+function tanDeg(x) {
+  const r = ((x % 180) + 180) % 180;
+  if (r === 90) return NaN;
+  if (r % 45 === 0) return [0, 1, NaN, -1][r / 45];
+  return Math.tan((r * Math.PI) / 180);
+}
 const FUNCS = {
-  sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, round: Math.round, floor: Math.floor, ceil: Math.ceil,
-  sin: (x) => Math.sin((x * Math.PI) / 180), cos: (x) => Math.cos((x * Math.PI) / 180), tan: (x) => Math.tan((x * Math.PI) / 180),
+  sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil,
+  round: (x) => Math.sign(x) * Math.round(Math.abs(x)), // half away from zero: round(-2.5) = -3
+  sin: sinDeg, cos: (x) => sinDeg(x + 90), tan: tanDeg,
   ln: Math.log, log: Math.log10, exp: Math.exp,
 };
 const CONSTS = { pi: Math.PI, 'π': Math.PI, e: Math.E };
+const OF = new Set(['of', 'de', 'от', 'von', 'di', 'din', 'του']); // "15% of 80" in en, es/fr, ru, de, it, ro, el
 function tokenize(s, lang) {
   const out = [];
   const src = s.replace(/[−–]/g, '-').replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/\*\*/g, '^');
@@ -510,15 +549,16 @@ function tokenize(s, lang) {
     const c = src[i];
     if (c === ' ') { i++; continue; }
     let m;
-    if ((m = /^\d[\d.,]*/.exec(src.slice(i)))) {
-      const n = parseNumber(m[0], lang);
-      if (!Number.isFinite(n)) return null;
-      out.push({ t: 'num', v: n });
+    if ((m = /^(\d[\d.,]*)(?:e([+-]?\d+))?/i.exec(src.slice(i)))) { // "2e10", "1e-7"; "2e" alone is 2 × e
+      const n = parseNumber(m[1], lang), x = m[2] ? Number(m[2]) : 0;
+      const v = x < 0 ? n / 10 ** -x : n * 10 ** x; // dividing keeps 1.5e-7 exact
+      if (!Number.isFinite(v)) return null;
+      out.push({ t: 'num', v });
       i += m[0].length;
-    } else if ((m = /^[a-zπ]+/i.exec(src.slice(i)))) {
+    } else if ((m = /^\p{L}+/u.exec(src.slice(i)))) {
       const w = m[0].toLowerCase();
-      if (w === 'of' || w === 'de' || w === 'от') out.push({ t: 'of' });
-      else if (w === 'mod') out.push({ t: 'op', v: '%' });
+      if (OF.has(w)) out.push({ t: 'of' });
+      else if (w === 'mod') out.push({ t: 'op', v: 'mod' });
       else if (FUNCS[w]) out.push({ t: 'fn', v: w });
       else if (w in CONSTS) out.push({ t: 'num', v: CONSTS[w], c: true });
       else return null;
@@ -539,8 +579,8 @@ function parseExpr(tokens) {
     while (isOp('+') || isOp('-')) {
       const op = tokens[i++].v; ops++;
       const b = product();
-      const v = b.pct ? a.v * b.v : b.v; // 80 + 15% = 92
-      a = { v: op === '+' ? a.v + v : a.v - v };
+      const v = b.pct && !a.pct ? a.v * b.v : b.v; // 80 + 15% = 92, but 15% + 15% = 30%
+      a = { v: addExact(a.v, op === '+' ? v : -v), pct: a.pct && b.pct };
     }
     return a;
   }
@@ -548,13 +588,15 @@ function parseExpr(tokens) {
     let a = unary();
     for (;;) {
       const tk = peek();
-      if (tk && tk.t === 'op' && (tk.v === '*' || tk.v === '/' || tk.v === '%')) {
+      if (tk && tk.t === 'op' && (tk.v === '*' || tk.v === '/' || tk.v === '%' || tk.v === 'mod')) {
+        i++; ops++;
+        const b = unary(); // "mod" is always modulo, so "10 mod -3" works
+        a = { v: tk.v === '*' ? a.v * b.v : tk.v === '/' ? a.v / b.v : a.v % b.v };
+      } else if (tk && tk.t === 'of') { // 15% of 80; "1 of 3" is a title, not a product
+        if (!a.pct) throw new Error('of');
         i++; ops++;
         const b = unary();
-        a = { v: tk.v === '*' ? a.v * b.v : tk.v === '/' ? a.v / b.v : a.v % b.v };
-      } else if (tk && tk.t === 'of') { // 15% of 80
-        i++; ops++;
-        a = { v: a.v * unary().v };
+        a = { v: a.v * b.v, pct: b.pct }; // 50% of 50% is 25%
       } else if (tk && (tk.t === '(' || tk.t === 'fn' || (tk.t === 'num' && tk.c))) { // 2pi, 3(4 + 1), 2 sqrt 9
         ops++;
         a = { v: a.v * unary().v };
@@ -597,8 +639,11 @@ function parseExpr(tokens) {
   if (i !== tokens.length) throw new Error('trailing');
   return { v: r.v, ops };
 }
+// YYYY-MM-DD, YYYY/MM/DD, or DD/MM/YYYY (MM/DD/YYYY) written without spaces, anywhere in the text.
+const DATE_LIKE = /(?:^|[^\d.,])(?:\d{4}([-/])\d{1,2}\1\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})(?![\d.,])/;
 function calc(s, { lang }) {
   if (/^\d+(-\d+)+$/.test(s)) return null; // a date or a phone number ("555-1234"), not a sum: "7 - 3" has spaces
+  if (DATE_LIKE.test(s)) return null; // "2026-10-21 - 2026-01-01", "2024-01-05 + 3", "12/25/2024": dates, not sums
   const tokens = tokenize(s, lang);
   if (!tokens || !tokens.length) return null;
   const lone = tokens.length === 1 && tokens[0].c && /^(pi|π)$/i.test(s);

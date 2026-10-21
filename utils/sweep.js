@@ -61,9 +61,19 @@ export async function runSweep({ only = null, force = false, quiet = false } = {
   let win = null;
   const originals = new Map(); // windowId -> tab it was showing
   let focusedWin = null;
-  const mruBefore = await getMru();
+  // The MRU is put back in the order it had, but tabs keep changing while the sweep runs: one Chrome replaces
+  // (prerendering, a discarded tab coming back) goes back under its new id, one closed meanwhile stays out.
+  const replaced = new Map(); // old id -> new id
+  const removed = new Set();
+  const onReplaced = (addedId, removedId) => { replaced.set(removedId, addedId); };
+  const onRemoved = (tabId) => { removed.add(tabId); };
+  const current = (id) => { for (let i = 0; i < 10 && replaced.has(id); i++) id = replaced.get(id); return id; }; // replaced again: the last id
+  chrome.tabs.onReplaced.addListener(onReplaced);
+  chrome.tabs.onRemoved.addListener(onRemoved);
+  let mruBefore = null;
   let done = 0;
   try {
+    mruBefore = await getMru();
     const jobs = await sweepJobs({ only, force });
     if (!jobs.length) { await progress({ running: false, done: 0, total: 0 }); return 0; }
     const wins = await chrome.windows.getAll({ populate: true, windowTypes: ['normal'] });
@@ -104,11 +114,13 @@ export async function runSweep({ only = null, force = false, quiet = false } = {
     }
   } finally {
     for (const [windowId, tabId] of originals) {
-      try { await chrome.tabs.update(tabId, { active: true }); } catch {}
+      try { await chrome.tabs.update(current(tabId), { active: true }); } catch {}
     }
     if (focusedWin !== null) { try { await chrome.windows.update(focusedWin, { focused: true }); } catch {} }
     if (win && win.id !== undefined) { try { await chrome.windows.remove(win.id); } catch {} }
-    await setMru(mruBefore).catch(() => {});
+    if (mruBefore) await setMru([...new Set(mruBefore.map(current))].filter((id) => !removed.has(id))).catch(() => {});
+    chrome.tabs.onReplaced.removeListener(onReplaced);
+    chrome.tabs.onRemoved.removeListener(onRemoved);
     await progress({ running: false, done: 0, total: 0 });
     sweeping = false;
   }

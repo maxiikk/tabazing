@@ -390,6 +390,19 @@ describe('tabs.onCreated / onUpdated / onRemoved / onReplaced', () => {
     }
   });
 
+  it('a tab that ends on a blank page logs nothing when it closes, not the page it showed before', async () => {
+    const { tab } = seed('https://a.com/');
+    chrome.tabs.onUpdated._emit(tab.id, { title: 'A' }, { ...tab, title: 'A' });
+    await flush();
+    expect(S().get('m:' + tab.id)).toMatchObject({ u: 'https://a.com/' });
+    await chrome.tabs.update(tab.id, { url: 'chrome://newtab/' }); // Chrome says { url } in onUpdated
+    await flush();
+    expect(S().has('m:' + tab.id)).toBe(false);
+    await chrome.tabs.remove(tab.id);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(L().get(KEY.CLOSED_LOG) || []).toEqual([]);
+  });
+
   it('onReplaced swaps the ids in the MRU and slept list and remembers the new tab', async () => {
     const { tab, w } = seed('https://a.com/');
     const added = chrome._addTab({ windowId: w.id, url: 'https://b.com/' });
@@ -466,6 +479,54 @@ describe('snoozed tabs', () => {
     expect(chrome.tabs.create).toHaveBeenCalledTimes(2);
   });
 
+  it('a tab its window refuses (closed in between) opens in another window', async () => {
+    const { w } = seed();
+    const w2 = chrome._addWindow();
+    L().set(KEY.SNOOZED, [snooze({ windowId: w.id })]);
+    chrome.tabs.create.mockRejectedValueOnce(new Error(`No window with id: ${w.id}.`));
+    chrome.windows.getLastFocused.mockResolvedValueOnce({ id: w2.id });
+    await bg().wakeSnoozed();
+    expect(chrome.tabs.create.mock.calls.map(([o]) => o.windowId)).toEqual([w.id, w2.id]);
+    expect(chrome.windows.create).not.toHaveBeenCalled();
+    expect(L().get(KEY.SNOOZED)).toEqual([]);
+  });
+
+  it('...or, with no other window, in a new one', async () => {
+    const { w } = seed();
+    L().set(KEY.SNOOZED, [snooze({ windowId: w.id })]);
+    chrome.tabs.create.mockRejectedValueOnce(new Error('no'));
+    await bg().wakeSnoozed();
+    expect(chrome.tabs.create).toHaveBeenCalledTimes(1); // the last focused window is the one that refused
+    expect(chrome.windows.create).toHaveBeenCalledWith({ url: 'https://later.com/' });
+    expect(L().get(KEY.SNOOZED)).toEqual([]);
+  });
+
+  it('one that cannot be opened anywhere stays snoozed (same id, once), and the next alarm tries again', async () => {
+    const { w } = seed();
+    L().set(KEY.SNOOZED, [snooze({ windowId: w.id }), snooze({ id: 'b', url: 'https://two.com/', windowId: w.id })]);
+    chrome.tabs.create.mockRejectedValueOnce(new Error('no'));
+    chrome.windows.create.mockRejectedValueOnce(new Error('no'));
+    await bg().wakeSnoozed();
+    const urls = () => chrome.tabs.create.mock.calls.map(([o]) => o.url);
+    expect(urls()).toEqual(['https://later.com/', 'https://two.com/']); // tried once in this run, the rest went on
+    expect(L().get(KEY.SNOOZED).map((x) => x.id)).toEqual(['a']);
+    expect(chrome._data.alarms.get(SNOOZE_ALARM)).toBeDefined();
+    await chrome.alarms.onAlarm._emit({ name: SNOOZE_ALARM })[0];
+    await flush();
+    expect(urls()).toEqual(['https://later.com/', 'https://two.com/', 'https://later.com/']);
+    expect(L().get(KEY.SNOOZED)).toEqual([]);
+  });
+
+  it('takes them one at a time: a worker stopped while one opens loses none of the others', async () => {
+    const { w } = seed();
+    L().set(KEY.SNOOZED, [snooze({ windowId: w.id }), snooze({ id: 'b', url: 'https://two.com/', windowId: w.id })]);
+    chrome.tabs.create.mockReturnValueOnce(new Promise(() => {})); // never settles: the worker stops here
+    bg().wakeSnoozed();
+    await flush(10);
+    expect(chrome.tabs.create).toHaveBeenCalledTimes(1);
+    expect(L().get(KEY.SNOOZED).map((x) => x.id)).toEqual(['b']);
+  });
+
   it('nothing due: nothing opens', async () => {
     await bg().wakeSnoozed();
     expect(chrome.tabs.create).not.toHaveBeenCalled();
@@ -520,6 +581,15 @@ describe('tab groups', () => {
     await vi.advanceTimersByTimeAsync(200);
     await flush(10);
     expect(L().get(KEY.CLOSED_LOG)[0]).toMatchObject({ url: 'https://a.com/', group: { id: 41, title: 'Reading', color: 'green' } });
+  });
+
+  it('a tab leaving its group right after another change is remembered out of the group (the older write is dropped)', async () => {
+    const { w, tab } = seed('https://a.com/');
+    chrome._addGroup({ id: 43, title: 'Work', color: 'blue', windowId: w.id });
+    chrome.tabs.onUpdated._emit(tab.id, { title: 'T' }, { ...tab, title: 'T', groupId: 43 }); // waits for its group
+    chrome.tabs.onUpdated._emit(tab.id, { groupId: -1 }, { ...tab, title: 'T', groupId: -1 });
+    await flush(10);
+    expect(S().get('m:' + tab.id)).toEqual({ u: 'https://a.com/', ti: 'T', f: '' });
   });
 
   it('a group renamed: its tabs\' entries follow', async () => {
