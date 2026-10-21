@@ -406,3 +406,14 @@ describe('a tile\'s menu', () => {
     await tick(50);
   });
 });
+
+describe('a tile looks like a tab group (styles/switcher.css)', () => {
+  it('framed in the group colour, its name on a chip of that colour, its picture in a frame of it', async () => {
+    const { readFileSync } = await import('node:fs');
+    const css = readFileSync('styles/switcher.css', 'utf8').replace(/\r\n/g, '\n');
+    expect(css).toMatch(/\.card\.gtile \{ border: 2px solid var\(--gc\);/);
+    expect(css).toMatch(/\.gtile \.head \.title, html\.lines2[^{]*\{[^}]*background: var\(--gc\); color: var\(--on-gc\);/);
+    expect(css).toMatch(/\.gtile \.gmosaic \{[^}]*box-shadow: 0 0 0 2px color-mix\(in srgb, var\(--gc\) 70%/);
+    expect(css).toMatch(/html\.light \[data-gc\] \{ --on-gc: #fff; \}/);
+  });
+});

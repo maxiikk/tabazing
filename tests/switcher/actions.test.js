@@ -646,6 +646,7 @@ describe('drag to reorder', () => {
 
   it('dragging one card onto the left half of another moves it there', async () => {
     const sw = await boot({ tabs: ABC });
+    sw.state.sort = 'order'; // (By order: cards move before / after others)
     const [a, c] = [tabByTitle(sw, 'A'), tabByTitle(sw, 'C')];
     const from = rect(document.body.appendChild(document.createElement('div')));
     const to = rect(document.body.appendChild(document.createElement('div')));
@@ -669,6 +670,7 @@ describe('drag to reorder', () => {
 
   it("dragover on a card that is itself being dragged doesn't mark a drop", async () => {
     const sw = await boot({ tabs: ABC });
+    sw.state.sort = 'order'; // (By order: cards move before / after others)
     const card = rect(document.body.appendChild(document.createElement('div')));
     sw.dragToMove(card, entryByTitle(sw, 'A'));
     card.dispatchEvent(dragEvent('dragstart'));

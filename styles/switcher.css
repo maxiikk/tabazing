@@ -1099,7 +1099,7 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
 .gtile { --stack: color-mix(in srgb, var(--gc) 45%, transparent); }
 .gtile .thumb { overflow: visible; background: transparent; }
 .gtile .gmosaic { display: grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--r-s); grid-auto-flow: dense;
-  background: color-mix(in srgb, var(--gc) 14%, var(--md-surface-container)); box-shadow: 0 0 0 1px var(--stack); }
+  background: color-mix(in srgb, var(--gc) 26%, var(--md-surface-container)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gc) 70%, transparent); }
 .gcell { position: relative; min-width: 0; min-height: 0; border-radius: var(--r-xs); overflow: hidden; background: var(--md-surface-container-highest); display: flex; align-items: center; justify-content: center; }
 .gcell img.shot { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
 .gcell img.gfav { width: 22px; height: 22px; }
@@ -1110,14 +1110,31 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
 .gtile .gmosaic.n3 > .gcell:first-child { grid-row: span 2; }
 .gcell img.gfav { flex: none; }
 .gtile .gmosaic .pill { right: 10px; bottom: 10px; }
-.gtile .head .title { font-weight: 600; }
-.gtile .head .gdot { width: 10px; height: 10px; }
+/* A tile says it is a tab group, and which one, at a glance: framed in the group's colour, its name on a chip of that
+   colour (with a stack-of-tabs icon, as Chrome labels a group), its picture in a frame of it. --on-gc: the chip's text. */
+[data-gc] { --on-gc: #10131a; }
+html.light [data-gc] { --on-gc: #fff; }
+.card.gtile { border: 2px solid var(--gc); padding: 6px 6px 8px; background: color-mix(in srgb, var(--gc) 16%, var(--md-surface-container-low)); }
+.card.gtile:hover { border-color: var(--gc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc) 30%, transparent), var(--el2); }
+.card.gtile[aria-selected="true"], .card.gtile.picked[aria-selected="true"] { border-color: var(--gc); box-shadow: 0 0 0 3px var(--ring), 0 0 0 7px var(--halo), var(--el3); }
+.gtile .head .gdot { display: none; } /* (the chip is in its colour) */
+.gtile .head .title, html.lines2 .grid:not(.small):not(.list) .gtile .head .title {
+  flex: 0 1 auto; display: inline-block; min-width: 0; max-width: 100%; padding: 0 10px 0 8px; border-radius: var(--r-full);
+  background: var(--gc); color: var(--on-gc); font-size: 13px; font-weight: 700; line-height: 22px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-line-clamp: unset;
+}
+.gtile .head .title::before {
+  content: ''; display: inline-block; width: 13px; height: 13px; margin-right: 6px; vertical-align: -2px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 5.5h10v8H3zM4.5 3.5h7M6 1.8h4' stroke='black' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 5.5h10v8H3zM4.5 3.5h7M6 1.8h4' stroke='black' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.gtile .tag.gcount { background: color-mix(in srgb, var(--gc) 22%, transparent); color: var(--md-on-surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gc) 55%, transparent); }
 html.lines2 .grid:not(.small):not(.list) .gtile .head .gdot { margin-top: 5px; } /* (two-line titles: the header is top-aligned) */
 .tag.gcount { flex: none; }
 .grid.list .gtile .peek { margin-left: 0; opacity: .85; }
 .grid.list .gtile .quick { position: static; flex: none; }
 /* A tab's group, as a chip (on the cards while groups show as single tabs, in the search's results). */
-.gtag { background: color-mix(in srgb, var(--gc) 20%, transparent) !important; color: var(--md-on-surface) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gc) 50%, transparent) !important; }
+.gtag { background: var(--gc) !important; color: var(--on-gc) !important; box-shadow: none !important; font-weight: 700; }
 /* The group view: the cards sit on a raised paper with a border in the group's colour, under a floating app bar (the
    way back, the group's colour, name and count, Sort and the filters) that stays at the top while the cards scroll. */
 .open-title { display: flex; align-items: center; gap: 12px; min-width: 0; }

@@ -65,4 +65,23 @@ describe('the History and Bookmarks views in Chrome', () => {
     expect(await ext.run((ids) => chrome.bookmarks.get(ids.mark).then(([m]) => m.parentId), ids)).toBe(ids.folder);
     await page.close();
   });
+
+  it('a tab dragged onto a tab group tile joins the group, in the default order (by recent use)', async () => {
+    const pages = [];
+    for (const n of ['Loose', 'G1', 'G2']) { const p = await browser.newPage(); await p.goto(`${srv.main}/p/${n}`); pages.push(p); }
+    const g = await ext.run(async () => {
+      const ids = (await chrome.tabs.query({})).filter((t) => /\/p\/G\d/.test(t.url)).map((t) => t.id);
+      const id = await chrome.tabs.group({ tabIds: ids });
+      await chrome.tabGroups.update(id, { title: 'Drop group', color: 'green' });
+      return id;
+    });
+    const { page, f } = await openSwitcher('Home2');
+    const at = (sel) => f.evaluate((sel) => { const n = sel === 'tile' ? document.querySelector('[data-testid="card-group"]') : [...document.querySelectorAll('[data-testid="card-tab"]')].find((c) => c.querySelector('[data-testid="card-title"]').textContent === 'Loose'); const b = n.getBoundingClientRect(); return { x: b.x + b.width / 2, y: b.y + b.height / 2 }; }, sel);
+    await page.setDragInterception(true);
+    await page.mouse.dragAndDrop(await at('tab'), await at('tile'), { delay: 100 });
+    await sleep(1200);
+    expect(await ext.run(async () => (await chrome.tabs.query({ title: 'Loose' }))[0].groupId)).toBe(g);
+    for (const p of pages) await p.close().catch(() => {});
+    await page.close();
+  });
 });

@@ -318,6 +318,25 @@ describe('dragging ("By order")', () => {
     expect(chrome._data.tabs.find((x) => x.title === 'P').pinned).toBe(false);
   });
 
+  it('in any other order too (by recent use, the default), a tab dragged onto a tile goes into the group', async () => {
+    const sw = await boot({ tabs: TABS(), ...withGroup() });
+    expect(sw.state.sort).toBe('recent');
+    const a = rect(cardOf('A')), b = rect(cardOf('B')), g = rect(tile());
+    expect(a.draggable).toBe(true);
+    expect(g.draggable).toBe(false); // a group moves only By order
+    a.dispatchEvent(dragEvent('dragstart'));
+    const onTab = dragEvent('dragover', 50);
+    b.dispatchEvent(onTab);
+    expect(onTab.defaultPrevented).toBe(false); // nothing to drop on but a group
+    const over = dragEvent('dragover', 50);
+    g.dispatchEvent(over);
+    expect(over.defaultPrevented).toBe(true);
+    expect(g.classList.contains('drop-into')).toBe(true);
+    g.dispatchEvent(dragEvent('drop', 50));
+    await waitFor(() => chrome._data.tabs.find((x) => x.title === 'A').groupId === GROUP);
+    expect(chrome.tabs.move).toHaveBeenCalled(); // (to the group's end)
+  });
+
   it('a tile dropped on a tab moves the whole group there', async () => {
     const sw = await boot({ tabs: TABS(), ...byOrder() });
     await sw.moveGroup(GROUP, entryByTitle(sw, 'B'), true); // after B

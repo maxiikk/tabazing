@@ -1083,7 +1083,6 @@ function renderGroupCard(entry, index) {
   card.setAttribute('aria-label', t('groupAria', { name, tabs: t('tabs', { count: n }) }));
   card._i = index;
   if (index === state.sel) selCard = card;
-  card.style.setProperty('--i', index);
   const head = h('div', 'head', null, 'card-head');
   if (index < 9) head.append(h('span', 'knum', String(index + 1), 'card-number'));
   head.append(pickBox(entry, on), h('span', 'gdot', null, 'card-group-dot'), h('span', 'title', name, 'card-title'), h('span', 'tag gcount', t('tabs', { count: n }), 'card-group-count'));
@@ -1219,7 +1218,8 @@ function finishCard(card, entry) {
     select(card._i, { scroll: false });
     cardMenu(entry, { at: { x: e.clientX, y: e.clientY } });
   });
-  if ((entry.kind === 'tab' || entry.kind === 'group') && state.sort === 'order' && !state.dupesView) dragToMove(card, entry);
+  // Drag: a tab onto a group's tile, in any order (into the group); By order, also cards before / after others (moves).
+  if ((entry.kind === 'tab' || entry.kind === 'group') && !state.dupesView) dragToMove(card, entry);
   // Middle-click (the mouse wheel) closes the tab. Pressing the wheel would start Chrome's auto-scroll
   // first, which swallows the click, so that is turned off on cards.
   card.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
@@ -3005,7 +3005,8 @@ const dropAfter = (card, e) => { const r = card.getBoundingClientRect(); return 
 function dragToMove(card, entry) {
   const tile = entry.kind === 'group';
   const own = cardTabs(entry).map((x) => x.id);
-  card.draggable = true;
+  const reorder = state.sort === 'order'; // the strip's own order is shown: cards move before / after each other
+  card.draggable = !tile || reorder; // (a group's tile moves the group: only By order)
   card.addEventListener('dragstart', (e) => {
     drag = tile ? { group: entry.group.id } : { ids: state.picked.has(entry.tab.id) ? [...state.picked] : [entry.tab.id] };
     e.dataTransfer.effectAllowed = 'move';
@@ -3015,6 +3016,7 @@ function dragToMove(card, entry) {
   card.addEventListener('dragend', () => { drag = null; card.classList.remove('dragging'); clearDrop(); });
   card.addEventListener('dragover', (e) => {
     if (!drag || (drag.ids ? drag.ids.some((id) => own.includes(id)) : tile && drag.group === entry.group.id)) return;
+    if (!reorder && !(drag.ids && tile)) return; // another order than the strip's: only into a group
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     const cls = drag.ids && tile ? 'drop-into' : dropAfter(card, e) ? 'drop-after' : 'drop-before';
@@ -3027,7 +3029,7 @@ function dragToMove(card, entry) {
     e.preventDefault();
     const what = drag, after = dropAfter(card, e);
     clearDrop();
-    if (!what || !pointerAllowed()) return;
+    if (!what || !pointerAllowed() || (!reorder && !(what.ids && tile))) return;
     const done = what.ids && tile ? addToGroup(what.ids, entry.group) : what.ids ? moveTabs(what.ids, entry.tab, after) : moveGroup(what.group, entry, after);
     done.catch((err) => toast(t('errMove'), err));
   });

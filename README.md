@@ -143,7 +143,7 @@ All of these, and the mouse shortcuts below, are also listed in the **ⓘ** card
 | Shift+click a tick box | Tick every tab between the last one you ticked and this one. |
 | Right-click a card, or its **⋯** | The card's menu (everything it can do). |
 | Middle-click (press the wheel) | Close the tab. |
-| Drag a card | Move the tab in the tab strip. Only works when sorted **By order** (see below). |
+| Drag a card | Onto a tab group's tile: put the tab in that group, at its end (in any sort). Sorted **By order** (see below), also: move the tab in the tab strip. |
 | Alt + mouse wheel | Step through cards while holding Alt after Alt+Q or Alt+W. |
 
 ### Search
@@ -353,7 +353,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 ### Tab groups
 
-- Chrome's tab groups show among your cards as one **tile** each, in the group's colour, where the group's first tab would be (sorted by name: where the group's name goes). Its picture is the group's first tabs, as many as it has up to four (one fills the picture, two sit side by side, three are one big and two small, four are two by two), with **+N** for the rest; its header has the group's name (an unnamed group is called by its colour, "Blue group") and how many tabs it has.
+- Chrome's tab groups show among your cards as one **tile** each, framed in the group's colour with its name on a chip of that colour (as Chrome labels a group), where the group's first tab would be (sorted by name: where the group's name goes). Its picture is the group's first tabs, as many as it has up to four (one fills the picture, two sit side by side, three are one big and two small, four are two by two), with **+N** for the rest; its header has the group's name (an unnamed group is called by its colour, "Blue group") and how many tabs it has.
 - Small pills on the tile say what its tabs are doing: **Current tab** (the tab you're on is in it), how many play sound (or are muted), sleep, have a note or a star, **Collapsed** when it is collapsed in Chrome's tab strip, and its window when all windows are shown.
 - A tile works like a card: **click** (or Enter, or its number) opens the group, **Space** or **Shift+click** shows all its tabs' pictures big (Enter there opens it), **Ctrl+click** (⌘-click), its tick box or Ctrl+Space tick all its tabs (some ticked shows a dash), **Del**, its **×** or a middle-click close the group (**Undo** brings the tabs back in a group of the same name and colour), right-click or **⋯** open its menu.
 - **Inside a group** Tabazing shows only its tabs, framed in its colour, with the group's name as the heading: everything works there as usual (search lists the group's tabs first), and **New tab** (the header's or the palette's) opens the tab in the group.

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.10.1] - 2026-10-21
+
+### Changed
+
+- A tab group's tile stands out: framed in the group's colour, its name on a chip of that colour with a tab-group icon, its picture in a frame of it. A tab's group tag is in the group's colour too.
+
+### Fixed
+
+- Dragging a tab onto a tab group's tile puts it in the group whatever the sort (it only worked when sorted By order); moving cards before or after others stays a By order thing.
+
 ## [6.10.0] - 2026-10-21
 
 ### Added
@@ -523,7 +533,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...HEAD
+[6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...HEAD
+[6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...14a2776
 [6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...4e66da4
 [6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...b54e1f5
 [6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...fcbc898
