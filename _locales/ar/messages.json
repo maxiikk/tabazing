@@ -1,0 +1,26 @@
+{
+   "actionTitle": {
+      "message": "Tabazing (Alt+Q)"
+   },
+   "cmdOpen": {
+      "message": "فتح Tabazing على البطاقة السابقة في القائمة (مع الالتفاف)؛ اترك Alt للتبديل"
+   },
+   "cmdPalette": {
+      "message": "فتح لوحة أوامر Tabazing: إجراءات وعمليات حسابية وتحويلات وبحث"
+   },
+   "cmdReverse": {
+      "message": "فتح Tabazing على البطاقة التالية في القائمة (مع الالتفاف)؛ اترك Alt للتبديل"
+   },
+   "cmdStay": {
+      "message": "فتح Tabazing وإبقاؤه مفتوحًا"
+   },
+   "extDesc": {
+      "message": "Alt+Tab لعلامات تبويب Chrome: معاينات مباشرة وبحث فوري وعلامات التبويب المغلقة مؤخرًا. مجاني وخاص، ولا شيء يغادر جهازك."
+   },
+   "extName": {
+      "message": "Tabazing: مبدل علامات تبويب مرئي مع معاينات مباشرة"
+   },
+   "extShortName": {
+      "message": "Tabazing"
+   }
+}

@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 
-/** The languages there are dictionaries for: ['en', 'es', 'ru']. */
+/** The languages there are dictionaries for: ['ar', 'de', 'el', 'en', …]. */
 export const languages = () => readdirSync(join(ROOT, 'dictionaries')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
 /** The keys manifest.json asks Chrome for (__MSG_key__). */
 export const manifestKeys = () => [...new Set([...read('manifest.json').matchAll(/__MSG_(\w+)__/g)].map((m) => m[1]))].sort();

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.13.0] - 2026-10-21
+
+### Added
+
+- Seven more languages: Greek, German, Italian, French, Arabic, Hebrew and Romanian, next to English, Spanish and Russian. Choose one in Settings → Appearance → Language, or leave it on Auto to follow Chrome.
+- In Arabic and Hebrew, Tabazing runs right to left: the cards, the menu, Settings and every dialog are mirrored, and ← / → still go where they point (← is the next card).
+
+### Changed
+
+- In Hebrew and Arabic, a quick answer reads "1,234" as a thousand, as in English (these languages use a decimal point).
+
 ## [6.12.3] - 2026-10-21
 
 ### Changed
@@ -568,7 +579,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...HEAD
+[6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...HEAD
+[6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...ff28464
 [6.12.2]: https://github.com/maxiikk/tabazing/compare/e93bf5c...2315e98
 [6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...e93bf5c
 [6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...7b1c4c2

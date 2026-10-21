@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { LANGS, loadLang, setLang, uiLang, timeAgo, localizePage } from '../../utils/i18n.js';
+import { LANGS, loadLang, setLang, uiLang, isRtl, timeAgo, localizePage } from '../../utils/i18n.js';
 import { t } from '../../utils/translations.js';
 import EN from '../../dictionaries/en.json';
 import RU from '../../dictionaries/ru.json';
@@ -9,14 +9,14 @@ afterEach(() => { setLang('en'); vi.useRealTimers(); vi.doUnmock('../../dictiona
 
 describe('LANGS', () => {
   it('is the frozen list of shipped languages', () => {
-    expect(LANGS).toEqual(['en', 'ru', 'es']);
+    expect(LANGS).toEqual(['en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']);
     expect(Object.isFrozen(LANGS)).toBe(true);
   });
 });
 
 describe('language choice', () => {
   it('starts in Chrome\'s language, falling back to English', async () => {
-    for (const [ui, want] of [['ru-RU', 'ru'], ['ES', 'es'], ['fr', 'en'], ['', 'en'], [undefined, 'en']]) {
+    for (const [ui, want] of [['ru-RU', 'ru'], ['ES', 'es'], ['fr', 'fr'], ['de-AT', 'de'], ['el', 'el'], ['he-IL', 'he'], ['ar-EG', 'ar'], ['ro', 'ro'], ['it-CH', 'it'], ['pt-BR', 'en'], ['', 'en'], [undefined, 'en']]) {
       vi.resetModules();
       chrome.i18n.getUILanguage.mockReturnValue(ui);
       expect((await import('../../utils/i18n.js')).uiLang(), String(ui)).toBe(want);
@@ -28,7 +28,7 @@ describe('language choice', () => {
     expect(t('newTab')).toBe(RU.newTab);
     chrome._data.lang = 'es-419';
     expect(setLang('auto')).toBe('es');
-    expect(setLang('de')).toBe('es');
+    expect(setLang('pt')).toBe('es');
     expect(setLang(undefined)).toBe('es');
     chrome._data.lang = 'ja';
     expect(setLang('auto')).toBe('en');
@@ -53,6 +53,25 @@ describe('language choice', () => {
     chrome._data.lang = 'es';
     chrome.storage.local.get.mockRejectedValueOnce(new Error('gone'));
     expect(await loadLang()).toBe('es');
+  });
+});
+
+describe('right to left', () => {
+  it('Arabic and Hebrew are written right to left, the others left to right', () => {
+    for (const l of LANGS) { setLang(l); expect(isRtl(), l).toBe(l === 'ar' || l === 'he'); }
+  });
+  it('localizePage turns the page round for them, and back', () => {
+    setLang('he');
+    localizePage();
+    expect(document.documentElement.lang).toBe('he');
+    expect(document.documentElement.dir).toBe('rtl');
+    setLang('ar');
+    localizePage();
+    expect(document.documentElement.dir).toBe('rtl');
+    setLang('el');
+    localizePage();
+    expect(document.documentElement.lang).toBe('el');
+    expect(document.documentElement.dir).toBe('ltr');
   });
 });
 

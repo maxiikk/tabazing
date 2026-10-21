@@ -1,0 +1,26 @@
+{
+   "actionTitle": {
+      "message": "Tabazing (Alt+Q)"
+   },
+   "cmdOpen": {
+      "message": "Apri Tabazing sul riquadro precedente dell’elenco (a ciclo); rilascia Alt per cambiare scheda"
+   },
+   "cmdPalette": {
+      "message": "Apri la palette dei comandi di Tabazing: azioni, calcoli, conversioni e ricerca"
+   },
+   "cmdReverse": {
+      "message": "Apri Tabazing sul riquadro successivo dell’elenco (a ciclo); rilascia Alt per cambiare scheda"
+   },
+   "cmdStay": {
+      "message": "Apri Tabazing e lascialo aperto"
+   },
+   "extDesc": {
+      "message": "Alt+Tab per le schede di Chrome: anteprime dal vivo, ricerca istantanea e schede chiuse. Gratis, privato, nulla esce dal tuo PC."
+   },
+   "extName": {
+      "message": "Tabazing: selettore visivo di schede con anteprime dal vivo"
+   },
+   "extShortName": {
+      "message": "Tabazing"
+   }
+}

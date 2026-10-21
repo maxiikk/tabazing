@@ -90,7 +90,7 @@ describe('renderCard: open tabs', () => {
     const { readFileSync } = await import('node:fs');
     const css = readFileSync('styles/switcher.css', 'utf8');
     expect(css).toMatch(/html\.alttab \.search, html\.alttab \.qbtn\.note \{ display: none !important; \}/);
-    expect(css).toMatch(/html\.alttab #keys-btn \{ margin-left: auto; \}/); // the wide header: it takes the free room
+    expect(css).toMatch(/html\.alttab #keys-btn \{ margin-inline-start: auto; \}/); // the wide header: it takes the free room
     expect(css).toMatch(/html\.alttab \.bar\.narrow #keys-btn \{ grid-column: 4; \}/); // narrow: the search's column stays, empty
     await boot({ tabs: ABC() });
     const head = [...tid('header').children].filter((n) => n.tagName === 'BUTTON').map((n) => n.dataset.testid);

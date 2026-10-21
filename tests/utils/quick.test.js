@@ -20,6 +20,8 @@ describe('numbers', () => {
     expect(parseNumber('1,234', 'en')).toBe(1234); // English: groups of three are thousands...
     expect(parseNumber('1,234', 'es')).toBe(1.234); // ...elsewhere a lone comma is the decimal mark
     expect(parseNumber('1,234', 'ru')).toBe(1.234);
+    for (const lang of ['he', 'ar']) expect(parseNumber('1,234', lang), lang).toBe(1234); // a decimal dot, as in English
+    for (const lang of ['el', 'de', 'it', 'fr', 'ro']) expect(parseNumber('1,234', lang), lang).toBe(1.234);
     for (const bad of ['', '1,2,3', '1.2.3', '1,23,456', '12,', '.5', 'abc', '1..2', '1,234.5.6']) expect(parseNumber(bad), bad).toBeNaN();
   });
 

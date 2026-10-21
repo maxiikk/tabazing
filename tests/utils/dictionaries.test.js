@@ -5,14 +5,21 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import EN from '../../dictionaries/en.json';
+import EL from '../../dictionaries/el.json';
+import DE from '../../dictionaries/de.json';
+import IT from '../../dictionaries/it.json';
+import FR from '../../dictionaries/fr.json';
 import ES from '../../dictionaries/es.json';
 import RU from '../../dictionaries/ru.json';
+import AR from '../../dictionaries/ar.json';
+import HE from '../../dictionaries/he.json';
+import RO from '../../dictionaries/ro.json';
 import { LANGS } from '../../utils/i18n.js';
 import { messageArguments, formatMessage } from '../../utils/translations.js';
 import { languages, localeFile, manifestKeys as chromeKeys } from '../../scripts/i18n.js';
 
 const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
-const BOOKS = { en: EN, es: ES, ru: RU };
+const BOOKS = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, ar: AR, he: HE, ro: RO };
 
 describe('the dictionaries folder', () => {
   it('has a dictionary for every language the extension offers, and nothing else', () => {

@@ -20,10 +20,17 @@
 // A key missing in the language falls back to English, then to the key itself (easy to spot); a value missing
 // from `params` leaves its {placeholder} in the text.
 import EN from '../dictionaries/en.json' with { type: 'json' };
+import EL from '../dictionaries/el.json' with { type: 'json' };
+import DE from '../dictionaries/de.json' with { type: 'json' };
+import IT from '../dictionaries/it.json' with { type: 'json' };
+import FR from '../dictionaries/fr.json' with { type: 'json' };
 import ES from '../dictionaries/es.json' with { type: 'json' };
 import RU from '../dictionaries/ru.json' with { type: 'json' };
+import AR from '../dictionaries/ar.json' with { type: 'json' };
+import HE from '../dictionaries/he.json' with { type: 'json' };
+import RO from '../dictionaries/ro.json' with { type: 'json' };
 
-const DICTIONARIES = { en: EN, es: ES, ru: RU };
+const DICTIONARIES = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, ar: AR, he: HE, ro: RO };
 /** The languages there is a dictionary for. */
 export const LANGUAGES = Object.freeze(Object.keys(DICTIONARIES));
 

@@ -1,0 +1,26 @@
+{
+   "actionTitle": {
+      "message": "Tabazing (Alt+Q)"
+   },
+   "cmdOpen": {
+      "message": "Deschide Tabazing pe cardul anterior din listă (o ia de la capăt); eliberează Alt pentru a comuta"
+   },
+   "cmdPalette": {
+      "message": "Deschide paleta de comenzi Tabazing: acțiuni, calcule, conversii și căutare"
+   },
+   "cmdReverse": {
+      "message": "Deschide Tabazing pe cardul următor din listă (o ia de la capăt); eliberează Alt pentru a comuta"
+   },
+   "cmdStay": {
+      "message": "Deschide Tabazing și lasă-l deschis"
+   },
+   "extDesc": {
+      "message": "Alt+Tab pentru filele Chrome: previzualizări live, căutare instantă și file închise recent. Gratuit, privat, totul rămâne la tine."
+   },
+   "extName": {
+      "message": "Tabazing: comutator vizual de file cu previzualizări live"
+   },
+   "extShortName": {
+      "message": "Tabazing"
+   }
+}

@@ -21,7 +21,7 @@
 import { MSG, KEY, FRAME_MSG, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
 import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPrefs, updatePrefs, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBmNotes, putBmNotes, setBmNote } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
-import { timeAgo, localizePage, setLang, uiLang } from './utils/i18n.js';
+import { timeAgo, localizePage, setLang, uiLang, isRtl } from './utils/i18n.js';
 import { t, getLocale, setLocale } from './utils/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/ext.js';
 import { applyAccent, ACCENTS } from './utils/accent.js';
@@ -168,7 +168,7 @@ const ICON = {
   next: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M12.5 3v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3 3.6v8.8a.5.5 0 0 0 .8.4l6.3-4.4a.5.5 0 0 0 0-.8L3.8 3.2a.5.5 0 0 0-.8.4Z" fill="currentColor"/></svg>',
   play: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.5 2.9v10.2a.6.6 0 0 0 .9.5l8-5.1a.6.6 0 0 0 0-1L5.4 2.4a.6.6 0 0 0-.9.5Z" fill="currentColor"/></svg>',
   pause: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="3.8" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/><rect x="9.2" y="2.8" width="3" height="10.4" rx=".8" fill="currentColor"/></svg>',
-  back: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  back: '<svg class="mirror" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   folder: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.8 4.2c0-.6.5-1 1-1h3.4l1.4 1.6h5.6c.6 0 1 .4 1 1v6.4c0 .6-.4 1-1 1H2.8c-.5 0-1-.4-1-1z" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linejoin="round"/></svg>',
   goto: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   // the command palette's
@@ -1564,6 +1564,8 @@ function selectKey(key) {
   select(i);
 }
 
+// ← / → by where they point on screen: +1 toward the next card. Right-to-left (Arabic, Hebrew), the next one is on the left.
+const ahead = (k) => ((k === 'ArrowRight') !== isRtl() ? 1 : -1);
 function moveSpatial(dx, dy) {
   const cards = [...document.querySelectorAll('#scroller .card')];
   if (!cards[state.sel]) return;
@@ -1859,7 +1861,7 @@ function extendPick(k) {
   const from = state.entries[state.sel];
   if (!from || from.kind !== 'tab') return;
   if (!state.shiftBase) { state.shiftBase = new Set(state.picked); state.lastPick = from.tab.id; }
-  if (k === 'ArrowRight' || k === 'ArrowLeft') moveSpatial(k === 'ArrowRight' ? 1 : -1, 0);
+  if (k === 'ArrowRight' || k === 'ArrowLeft') moveSpatial(ahead(k), 0);
   else moveSpatial(0, k === 'ArrowDown' ? 1 : -1);
   const to = state.entries[state.sel];
   if (!to || to.kind !== 'tab') return;
@@ -3574,7 +3576,7 @@ function archiveKey(e) {
     if (!keysAllowed()) return finish('cancel');
     return openArchived(state.archived[state.archSel]);
   }
-  if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(k)) return archSelect(state.archSel + (k === 'ArrowRight' || k === 'ArrowDown' ? 1 : -1)); // a list: one row at a time
+  if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(k)) return archSelect(state.archSel + (k === 'ArrowDown' ? 1 : k === 'ArrowUp' ? -1 : ahead(k))); // a list: one row at a time
   if (k === 'Home' || k === 'End') return archSelect(k === 'Home' ? 0 : cards.length - 1);
 }
 
@@ -4327,7 +4329,7 @@ function historyKey(e) {
   if (k === 'End') return histSelect(H.items.length - 1);
   if (k === 'PageDown' || k === 'PageUp') return histSelect(H.sel + (k === 'PageDown' ? 10 : -10));
   const grid = H.layout === 'grid';
-  if (k === 'ArrowRight' || k === 'ArrowLeft') { if (grid) histSelect(H.sel + (k === 'ArrowRight' ? 1 : -1)); return; }
+  if (k === 'ArrowRight' || k === 'ArrowLeft') { if (grid) histSelect(H.sel + ahead(k)); return; }
   if (k === 'ArrowDown' || k === 'ArrowUp') {
     const down = k === 'ArrowDown';
     const j = grid && !inBox ? cardToward(H.items.map((x) => x.el), H.sel, down ? 1 : -1) : H.sel + (down ? 1 : -1) < H.items.length ? H.sel + (down ? 1 : -1) : -1;
@@ -5211,7 +5213,7 @@ function bmvKey(e) {
   if (!r) return;
   if (k === 'ArrowRight' || k === 'ArrowLeft') {
     const n = r.n, open = !n.url && (B.q.trim() || B.filter || B.open.has(n.id));
-    if (k === 'ArrowRight') { if (!n.url && !open) return bmvToggle(n.id, true); if (!n.url && n.kids.length) return bmvSelect(B.cur + 1); return; }
+    if (ahead(k) > 0) { if (!n.url && !open) return bmvToggle(n.id, true); if (!n.url && n.kids.length) return bmvSelect(B.cur + 1); return; }
     if (!n.url && open && !B.q.trim() && !B.filter) return bmvToggle(n.id, false);
     const up = B.rows.findIndex((x) => x.n.id === n.parentId);
     if (up >= 0) bmvSelect(up);
@@ -6618,8 +6620,9 @@ function settingsTabKey(e) {
   if (i < 0 || e.altKey || e.ctrlKey || e.metaKey) return;
   const across = list.getAttribute('aria-orientation') === 'horizontal';
   const k = e.key, n = tabs.length;
-  const j = k === 'ArrowDown' || (across && k === 'ArrowRight') ? (i + 1) % n
-    : k === 'ArrowUp' || (across && k === 'ArrowLeft') ? (i - 1 + n) % n
+  const side = across && (k === 'ArrowRight' || k === 'ArrowLeft') ? ahead(k) : 0;
+  const j = k === 'ArrowDown' || side > 0 ? (i + 1) % n
+    : k === 'ArrowUp' || side < 0 ? (i - 1 + n) % n
     : k === 'Home' ? 0 : k === 'End' ? n - 1 : -1;
   if (j < 0) return;
   e.preventDefault();
@@ -6657,7 +6660,7 @@ function settingsPanes(prefs, anchor) {
     for (const [v, text] of options) { const o = h('option', '', text, 'settings-' + testid + '-' + v); o.value = v; if (v === chosen) o.selected = true; s.append(o); }
     return s;
   };
-  const lang = select('language', t('setLang'), [['auto', t('setLangAuto')], ['en', 'English'], ['ru', 'Русский'], ['es', 'Español']], prefs.lang);
+  const lang = select('language', t('setLang'), [['auto', t('setLangAuto')], ['en', 'English'], ['el', 'Ελληνικά'], ['de', 'Deutsch'], ['it', 'Italiano'], ['fr', 'Français'], ['es', 'Español'], ['ru', 'Русский'], ['ar', 'العربية'], ['he', 'עברית'], ['ro', 'Română']], prefs.lang);
   lang.id = 'set-lang';
   lang.addEventListener('change', async () => {
     await updatePrefs({ lang: lang.value }).catch(() => {});
@@ -6920,8 +6923,9 @@ function dialogKey(e) {
   if (e.target instanceof Element && e.target.closest('.menu')) return; // a select's list over the dialog: its own keys
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); return state.modal === 'tour' ? endTour() : askLater(); }
   if (state.modal === 'tour' && !e.altKey && !e.ctrlKey && !e.metaKey) {
-    if (e.key === 'ArrowRight') { e.preventDefault(); tourAt < TOUR.length - 1 ? tourStep(tourAt + 1) : endTour(); }
-    else if (e.key === 'ArrowLeft') { e.preventDefault(); tourStep(tourAt - 1); }
+    const d = e.key === 'ArrowRight' || e.key === 'ArrowLeft' ? ahead(e.key) : 0;
+    if (d > 0) { e.preventDefault(); tourAt < TOUR.length - 1 ? tourStep(tourAt + 1) : endTour(); }
+    else if (d < 0) { e.preventDefault(); tourStep(tourAt - 1); }
   }
 }
 
@@ -6960,7 +6964,7 @@ function onKeyDown(e) {
       const list = hist ? state.hist.items : bmk ? state.bmv.rows.filter((r) => r.n.url).map((r) => bmEntry(r.n)) : state.entries;
       const n = list.length, i = list.indexOf(bigEntry);
       if (n && i >= 0) {
-        const j = (((i + (e.key === 'ArrowRight' ? 1 : -1)) % n) + n) % n;
+        const j = (((i + ahead(e.key)) % n) + n) % n;
         if (hist) histSelect(j); else if (bmk) bmvSelect(state.bmv.rows.findIndex((r) => r.n === list[j].node)); else select(j);
         openBig(list[j]);
       }
@@ -7025,7 +7029,7 @@ function onKeyDown(e) {
   if (altOnly && !e.shiftKey && e.code === 'KeyR') { e.preventDefault(); if (!e.repeat) openPalette({ from: 'switcher' }); return; }
   if (altOnly && e.code === 'KeyS') { e.preventDefault(); if (!e.repeat) star(state.entries[state.sel]); return; }
   if (altOnly && e.code === 'KeyP') { e.preventDefault(); if (!e.repeat) captureOne(state.entries[state.sel]); return; }
-  if (e.ctrlKey && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return cycleScope(k === 'ArrowRight' ? 1 : -1); }
+  if (e.ctrlKey && (k === 'ArrowLeft' || k === 'ArrowRight')) { e.preventDefault(); return cycleScope(ahead(k)); }
   // Shift+F10 or the menu key: the selected card's menu (everything its buttons do, and ticking it).
   if ((k === 'F10' && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) || k === 'ContextMenu') {
     e.preventDefault();
@@ -7090,8 +7094,7 @@ function onKeyDown(e) {
       if (!el.search.value && !e.altKey && !e.ctrlKey && !e.metaKey && state.entries[state.sel]) { e.preventDefault(); openBig(state.entries[state.sel]); }
       return;
     case 'Tab': e.preventDefault(); return cycle(e.shiftKey ? -1 : 1); // (Alt held: see the top)
-    case 'ArrowRight': if (!typing) { e.preventDefault(); moveSpatial(1, 0); } return;
-    case 'ArrowLeft': if (!typing) { e.preventDefault(); moveSpatial(-1, 0); } return;
+    case 'ArrowRight': case 'ArrowLeft': if (!typing) { e.preventDefault(); moveSpatial(ahead(k), 0); } return;
     case 'ArrowDown': e.preventDefault(); return ddShown() ? ddMove(1) : moveSpatial(0, 1);
     case 'ArrowUp': e.preventDefault(); return ddShown() ? ddMove(-1) : moveSpatial(0, -1);
     default:

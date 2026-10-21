@@ -96,7 +96,7 @@ describe('formatMessage: quoting and errors', () => {
 
 describe('t', () => {
   it('knows its languages and switches between them', () => {
-    expect([...LANGUAGES].sort()).toEqual(['en', 'es', 'ru']);
+    expect([...LANGUAGES].sort()).toEqual(['ar', 'de', 'el', 'en', 'es', 'fr', 'he', 'it', 'ro', 'ru']);
     expect(setLocale('ru')).toBe('ru');
     expect(getLocale()).toBe('ru');
     expect(setLocale('xx')).toBe('en');

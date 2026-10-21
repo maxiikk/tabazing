@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.12.3** (from `manifest.json`). Available in English, Spanish and Russian.
+Current version: **6.13.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -179,7 +179,7 @@ One box for doing things, not just finding tabs, like the command palettes of co
 A panel opens at the top centre with one box and one list; the switcher behind it is dimmed. As you type, the list mixes, best match first:
 
 - **A quick answer** (a calculator icon): a sum or a conversion, shown big. **Enter** copies the result, **Shift+Enter** (or the copy button on the row) the whole expression, such as `10 km = 6.21371 mi`.
-- **Actions**, found by their name and other words for them ("refresh" finds Reload) in your language and in English, so "new tab" works in Spanish and Russian too. Typos are fine, as in the search. An action comes before a search result that matches as well.
+- **Actions**, found by their name and other words for them ("refresh" finds Reload) in your language and in English, so "new tab" works in every language. Typos are fine, as in the search. An action comes before a search result that matches as well.
 - **Search results**: exactly what the search dropdown shows for the same text (open tabs, recently closed, archived, bookmarks, history), with the same icons and pictures.
 
 With nothing typed it lists the most useful actions first, then the ones you ran recently (tagged **Recent**), then all the others. Only what can be done right now is listed (no "Merge windows" with one window, no media controls when nothing plays).
@@ -445,7 +445,7 @@ Choose **Settings** in the menu (☰, at the top left). Settings opens as a dial
 
 | Category | Setting | Options |
 |---|---|---|
-| Appearance | **Language** | Auto (Chrome's language), English, Español, Русский. |
+| Appearance | **Language** | Auto (Chrome's language), English, Ελληνικά, Deutsch, Italiano, Français, Español, Русский, العربية, עברית, Română. |
 | | **Theme** | Match system (default), Dark, Light. In the light theme the selected card's edge, focus rings and other outlines use a darkened accent so they stay visible. |
 | | **Accent colour** | A set of colour swatches, or **Pick any colour**. |
 | | **Card size** | Default, Small, List (one line per tab, no screenshot). |
@@ -538,7 +538,7 @@ npm run test:watch                       # re-run on change
 
 ### Translations
 
-All the text lives in `dictionaries/` — one JSON file per language (`en.json`, `es.json`, `ru.json`), a flat list of `"key": "message"` pairs. To change a string, edit it there, in every language.
+All the text lives in `dictionaries/` — one JSON file per language (`en`, `el`, `de`, `it`, `fr`, `es`, `ru`, `ar`, `he`, `ro`), a flat list of `"key": "message"` pairs. To change a string, edit it there, in every language.
 
 Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `t(key, params)` from `utils/translations.js`:
 
@@ -553,6 +553,8 @@ t('tabs', { count: 5 });            // "5 tabs" — in Russian "5 вкладок
 ```
 
 A counted phrase is one plural message that picks its form from the count (`#` is the count), using each language's own plural rules. Tabazing implements the ICU syntax it needs itself (placeholders, `plural`, `selectordinal`, `select`, `number`), so there is no library to bundle.
+
+Arabic and Hebrew are written right to left: `localizePage()` sets `dir="rtl"` on the page, and the styles use start / end rather than left / right (`margin-inline-start`, `inset-inline-end`, `text-align: start`), so the layout turns round by itself. The **←** / **→** keys keep pointing where they go on screen: right to left, **←** is the next card.
 
 `_locales/` is generated from the dictionaries and only holds what Chrome itself shows (the extension's name, description, shortcut names and toolbar title). After changing one of those, run:
 

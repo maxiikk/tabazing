@@ -16,6 +16,7 @@ import { emptyReview } from './review.js';
 import { isAccent, DEFAULT_ACCENT } from './accent.js';
 import { getArchived } from './archive.js';
 import { cleanGroup } from './groups.js';
+import { LANGS } from './i18n.js';
 
 const S = chrome.storage.session;
 const L = chrome.storage.local;
@@ -756,7 +757,7 @@ export async function getPrefs() {
   const v = (await L.get(KEY.PREFS))[KEY.PREFS] || {};
   const on = (x) => x !== false; // switches that default to on: only an explicit `false` turns one off
   return {
-    lang: ['auto', 'en', 'ru', 'es'].includes(v.lang) ? v.lang : 'auto', startup: v.startup === true,
+    lang: v.lang === 'auto' || LANGS.includes(v.lang) ? v.lang : 'auto', startup: v.startup === true,
     cardSize: ['small', 'list'].includes(v.cardSize) ? v.cardSize : 'default', accent: isAccent(v.accent) ? v.accent.toUpperCase() : DEFAULT_ACCENT,
     allWindows: v.allWindows === true, theme: ['dark', 'light'].includes(v.theme) ? v.theme : 'system',
     pinnedFirst: on(v.pinnedFirst), showClosed: on(v.showClosed), showSnoozed: on(v.showSnoozed), showAge: on(v.showAge), showGroups: on(v.showGroups), groupWrap: v.groupWrap === true,

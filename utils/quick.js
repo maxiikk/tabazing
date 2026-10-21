@@ -17,7 +17,7 @@
 // Precision: calculations are rounded to 12 significant digits (0.1 + 0.2 shows 0.3), conversions to 6
 // ("10 km in mi" -> 6.21371). From 1e15 up, and below 1e-6, numbers show in scientific notation.
 // Numbers may use thousands separators: "1,234.5" and "1.234,5" both work; a lone comma is the decimal mark
-// ("1,5" = 1.5), except in English, where "1,234" (groups of three) is a thousand.
+// ("1,5" = 1.5), except where the decimal mark is a dot (English, Hebrew, Arabic): there "1,234" (groups of three) is a thousand.
 // Trigonometry is in degrees: sin(30) = 0.5.
 
 const MAX_LEN = 200;
@@ -53,7 +53,7 @@ export function parseNumber(str, lang = 'en') {
     if (extra !== undefined || !grouped(int, group)) return NaN;
     out = int.split(group).join('') + '.' + frac;
   } else if (commas) {
-    if (commas > 1 || (lang === 'en' && grouped(s, ','))) { if (!grouped(s, ',')) return NaN; out = s.split(',').join(''); }
+    if (commas > 1 || (COMMA_GROUPS.has(lang) && grouped(s, ','))) { if (!grouped(s, ',')) return NaN; out = s.split(',').join(''); }
     else out = s.replace(',', '.');
   } else if (dots > 1) {
     if (!grouped(s, '.')) return NaN;
@@ -61,6 +61,7 @@ export function parseNumber(str, lang = 'en') {
   }
   return Number(out);
 }
+const COMMA_GROUPS = new Set(['en', 'he', 'ar']); // the languages that group with commas and use a decimal dot
 const grouped = (s, sep) => new RegExp(`^\\d{1,3}(\\${sep}\\d{3})+$`).test(s) || (!s.includes(sep) && /^\d+$/.test(s));
 
 const formatters = new Map();

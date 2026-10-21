@@ -5,7 +5,9 @@
 // user chooses one in Settings. Call loadLang() (or setLang) once before the first t().
 import { LANGUAGES, setLocale, t } from './translations.js';
 
-export const LANGS = Object.freeze(['en', 'ru', 'es']);
+export const LANGS = Object.freeze(['en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']);
+/** The languages written right to left: the pages turn round for them (dir="rtl"). */
+const RTL = new Set(['ar', 'he']);
 
 const chromeLang = () => {
   const l = (chrome.i18n.getUILanguage() || 'en').slice(0, 2).toLowerCase();
@@ -29,8 +31,10 @@ export async function loadLang() {
 }
 /** Switch right away (Settings). */
 export const setLang = (pref) => use(pref === 'auto' ? chromeLang() : pref);
-/** The language the interface is in now: 'en' | 'ru' | 'es'. Also what the website pages are opened in. */
+/** The language the interface is in now: one of LANGS. Also what the website pages are opened in. */
 export const uiLang = () => cur;
+/** Whether that language is written right to left (Arabic, Hebrew). */
+export const isRtl = () => RTL.has(cur);
 
 /** "5 min ago" in this language. `sec` is a Unix time in seconds. */
 export function timeAgo(sec) {
@@ -42,9 +46,10 @@ export function timeAgo(sec) {
   return rtf.format(-Math.round(s / 86400), 'day');
 }
 
-/** Fill the static page: data-i18n (text), data-i18n-title, data-i18n-placeholder, data-i18n-aria. */
+/** Fill the static page (its lang and dir too): data-i18n (text), data-i18n-title, data-i18n-placeholder, data-i18n-aria. */
 export function localizePage(root = document) {
   document.documentElement.lang = cur;
+  document.documentElement.dir = isRtl() ? 'rtl' : 'ltr';
   for (const n of root.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
   for (const n of root.querySelectorAll('[data-i18n-title]')) n.title = t(n.dataset.i18nTitle);
   for (const n of root.querySelectorAll('[data-i18n-placeholder]')) n.placeholder = t(n.dataset.i18nPlaceholder);

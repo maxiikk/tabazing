@@ -274,7 +274,7 @@ describe('prefs', () => {
   });
 
   it('accepts every valid value', async () => {
-    for (const lang of ['auto', 'en', 'ru', 'es']) { L._data.set(KEY.PREFS, { lang }); expect((await s.getPrefs()).lang).toBe(lang); }
+    for (const lang of ['auto', 'en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']) { L._data.set(KEY.PREFS, { lang }); expect((await s.getPrefs()).lang).toBe(lang); }
     for (const cardSize of ['small', 'list']) { L._data.set(KEY.PREFS, { cardSize }); expect((await s.getPrefs()).cardSize).toBe(cardSize); }
     for (const theme of ['dark', 'light', 'system']) { L._data.set(KEY.PREFS, { theme }); expect((await s.getPrefs()).theme).toBe(theme); }
     L._data.set(KEY.PREFS, { startup: true, allWindows: true, accent: '#abcdef', groupWrap: true });
@@ -284,7 +284,7 @@ describe('prefs', () => {
   });
 
   it('replaces every invalid field with its default', async () => {
-    L._data.set(KEY.PREFS, { lang: 'de', startup: 'true', cardSize: 'huge', accent: 'red', allWindows: 1, theme: 'neon', junk: 1 });
+    L._data.set(KEY.PREFS, { lang: 'pt', startup: 'true', cardSize: 'huge', accent: 'red', allWindows: 1, theme: 'neon', junk: 1 });
     expect(await s.getPrefs()).toEqual(defaults);
     L._data.set(KEY.PREFS, { accent: '#abc' });
     expect((await s.getPrefs()).accent).toBe(DEFAULT_ACCENT);
