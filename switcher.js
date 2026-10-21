@@ -26,6 +26,7 @@ import { t, getLocale, setLocale } from './utils/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/ext.js';
 import { applyAccent, ACCENTS } from './utils/accent.js';
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './utils/archive.js';
+import { makeBackup, restoreBackup, readBackup, unzipFiles, zipFiles, backupName } from './utils/backup.js';
 import { loadMedia, mediaAction } from './utils/media.js';
 import { asUrl, googleUrl } from './utils/web.js';
 import { quick } from './utils/quick.js';
@@ -121,6 +122,7 @@ const state = {
   hist: null,           // the history overlay while it is open: its pages (entries), the selected one, its parts
   bmv: null,            // the bookmarks overlay while it is open: the tree by id, open folders, picked bookmarks, the rows shown
   bmNotes: {},          // notes on bookmarks, by bookmark id (utils/store.js getBmNotes)
+  backup: null,         // the Backup & Restore dialog while it is open
   urlTabs: new Map(),   // normalized URL -> ids of the tabs open there (load())
   pvPending: new Set(), // tab ids whose previews aren't read yet (boot: the first cards' come first)
   media: [],            // what plays in the tabs, playing first (utils/media.js mediaEntries): the player and its list
@@ -3625,6 +3627,137 @@ function viewDialog(cls, testid, labelledby, close) {
   return { back, panel };
 }
 
+// ---- Backup & Restore (in the menu): everything Tabazing keeps, downloaded as one zip (utils/backup.js), and back
+// from the backup folder (or the zip). A restore only adds: what is here stays, nothing is made twice; the backup's
+// notes go on the same pages and bookmarks. A dialog like Settings; after a restore it says what it did, per kind.
+const backupOpen = () => !!document.querySelector('.backv');
+// What a restore did, per kind, in that order (`label`: the kind's name).
+const BACKUP_KINDS = [
+  { key: 'bookmarks', label: 'backupKindBookmarks' }, { key: 'folders', label: 'backupKindFolders' }, { key: 'archive', label: 'backupKindArchive' },
+  { key: 'notes', label: 'backupKindNotes' }, { key: 'bmNotes', label: 'backupKindBmNotes' }, { key: 'stars', label: 'backupKindStars' }, { key: 'snoozed', label: 'backupKindSnoozed' },
+];
+function openBackup() {
+  closePops();
+  closeDrawer(false);
+  hideTip();
+  document.querySelectorAll('.backv').forEach((n) => n.remove());
+  const { back, panel } = viewDialog('backv', 'backup-overlay', 'bk-h', closeBackup);
+  const head = h('div', 'archhead', null, 'backup-header');
+  const title = h('h2', 'archtitle', t('backupTitle'), 'backup-title');
+  title.id = 'bk-h';
+  const x = h('button', 'archx', null, 'backup-close');
+  x.type = 'button';
+  x.append(svgOf(ICON.close));
+  x.title = t('backupClose') + ' (Esc)';
+  x.setAttribute('aria-label', t('backupClose'));
+  x.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) closeBackup(); });
+  head.append(title, h('span', 'archsub', t('backupSub'), 'backup-sub'), x);
+  const body = h('div', 'archbody backbody', null, 'backup-body');
+  // back up
+  const name = backupName();
+  const out = h('section', 'backsec', null, 'backup-export');
+  const outBtn = button('backup-export-btn', t('backupExport'), 'primary', () => exportBackup(outBtn).catch((err) => toast(t('backupExportErr'), err)));
+  out.append(h('h3', '', t('backupExportH'), 'backup-export-title'), para(t('backupExportText', { name: name + '.zip' })), outBtn);
+  // restore
+  const inn = h('section', 'backsec', null, 'backup-import');
+  const folder = h('input', 'fs-native', null, 'backup-folder-input');
+  folder.type = 'file';
+  folder.webkitdirectory = true;
+  folder.multiple = true;
+  folder.tabIndex = -1;
+  const zip = h('input', 'fs-native', null, 'backup-zip-input');
+  zip.type = 'file';
+  zip.accept = '.zip,application/zip';
+  zip.tabIndex = -1;
+  // The system's file dialog takes the focus: that is not the user leaving Tabazing (asking), until it closes.
+  const choose = (input) => { asking = true; input.value = ''; input.click(); };
+  for (const input of [folder, zip]) {
+    input.addEventListener('cancel', () => { asking = false; window.focus(); });
+    input.addEventListener('change', () => { asking = false; window.focus(); importBackup(input).catch(() => {}); });
+  }
+  const setLabel = h('label', 'check', null, 'backup-settings-label');
+  const setBox = h('input', '', null, 'backup-settings');
+  setBox.type = 'checkbox';
+  setLabel.append(setBox, h('span', '', t('backupSettings'), 'backup-settings-text'));
+  const row = h('div', 'row', null, 'backup-import-buttons');
+  row.append(button('backup-folder-btn', t('backupChooseFolder'), 'primary', () => choose(folder)), button('backup-zip-btn', t('backupChooseZip'), '', () => choose(zip)));
+  const report = h('div', 'backreport', null, 'backup-report');
+  report.hidden = true;
+  inn.append(h('h3', '', t('backupImportH'), 'backup-import-title'), para(t('backupImportText')), setLabel, row, folder, zip, report);
+  body.append(out, inn);
+  panel.append(head, body);
+  el.app.append(back);
+  state.backup = { back, x, setBox, report, busy: false };
+  updateInert();
+  outBtn.focus({ preventScroll: true });
+}
+function closeBackup() {
+  document.querySelectorAll('.backv').forEach((n) => n.remove());
+  state.backup = null;
+  updateInert();
+  viewBack($('backup-btn')).focus({ preventScroll: true });
+}
+// The zip, downloaded (as the browser downloads: its own place, or where you choose).
+async function exportBackup(btn) {
+  btn.disabled = true;
+  try {
+    const { files, counts } = await makeBackup({ version: chrome.runtime.getManifest ? chrome.runtime.getManifest().version : '' });
+    const name = backupName() + '.zip';
+    const url = URL.createObjectURL(new Blob([zipFiles(files)], { type: 'application/zip' }));
+    const a = h('a', '', null, 'backup-download');
+    a.href = url;
+    a.download = name;
+    asking = true; // a "Save as" dialog may take the focus for a moment
+    setTimeout(() => { if (document.hasFocus()) asking = false; }, 1500);
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    toast(t('backupExported', { name, notes: counts.notes + counts.bmNotes, stars: counts.stars, bookmarks: counts.bookmarks }));
+  } finally { btn.disabled = false; }
+}
+// The chosen folder's files (or the zip's), read and restored; what was done shown in the dialog.
+async function importBackup(input) {
+  const B = state.backup;
+  if (!B || B.busy || !input.files || !input.files.length) return;
+  B.busy = true;
+  B.report.hidden = false;
+  B.report.replaceChildren(h('p', 'pfine', t('backupWorking'), 'backup-working'));
+  try {
+    let files;
+    const list = [...input.files];
+    if (list.length === 1 && /\.zip$/i.test(list[0].name)) files = await unzipFiles(new Uint8Array(await list[0].arrayBuffer()));
+    else {
+      files = new Map();
+      for (const f of list) if (/\.json$/i.test(f.name) && f.size <= 50 * 1024 * 1024) files.set(f.webkitRelativePath || f.name, await f.text());
+    }
+    let data;
+    try { data = readBackup(files); } catch { B.report.replaceChildren(h('p', 'perr', t('backupBad'), 'backup-bad')); return; }
+    const done = await restoreBackup(data, { settings: B.setBox.checked });
+    if (state.backup !== B) return;
+    const lines = BACKUP_KINDS.map(({ key, label }) => h('li', '', t('backupLine', { what: t(label), added: done[key].added, updated: done[key].updated, skipped: done[key].skipped }), 'backup-report-line'));
+    if (done.settings) lines.push(h('li', '', t('backupSettingsDone'), 'backup-report-settings'));
+    const ul = h('ul', '', null, 'backup-report-list');
+    ul.append(...lines);
+    B.report.replaceChildren(h('p', 'backdone', t('backupDone'), 'backup-done'), ul);
+    state.marks = null; // the search reads them again
+    await reload();
+    if (done.settings) { const p = await getPrefs(); state.prefs = p; applyAccent(p.accent); applyTheme(p.theme); } // (the language: at the next open)
+  } catch (err) {
+    if (state.backup === B) B.report.replaceChildren(h('p', 'perr', t('backupErr'), 'backup-error'));
+    console.warn('[Tabazing] restore failed:', err && err.message);
+  } finally { B.busy = false; }
+}
+function backupKey(e) {
+  const k = e.key;
+  if (MODIFIERS.has(k)) return;
+  if (k === 'Escape') { e.preventDefault(); e.stopPropagation(); return closeBackup(); }
+  const target = e.target instanceof Element ? e.target : null;
+  if (target && target.closest('.backv') && (k === 'Enter' || k === ' ') && target.matches('button, input')) return; // its buttons and box
+  if (k === 'Tab') return;
+  e.preventDefault(); // (nothing reaches the switcher behind it)
+}
+
 // ---- the browsing history (in the menu, Ctrl+H): Chrome's history over the switcher, newest
 // first and by day, 50 pages at a time ("Show 50 more" at the bottom, or ↓ past the last one). A list of rows (or
 // cards: the bar's layout button), each with its preview when Tabazing has one, else its icon. A click (Enter) opens
@@ -5412,7 +5545,7 @@ function closeBig() {
 // inert: Tab, clicks and screen readers stay in it. Not the toast (its Undo works over the archive), the live
 // regions, or a select's list (a menu: Settings opens them over itself).
 function updateInert() {
-  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .setback')
+  const top = document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .backv') || document.querySelector('#app > .setback')
     || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || (state.palette && el.palette);
   for (const n of el.app.children) n.toggleAttribute('inert', !!top && n !== top && n !== el.toast && !n.classList.contains('live') && !n.classList.contains('menu') && !n.classList.contains('pop'));
 }
@@ -5425,7 +5558,7 @@ function tabbables(root) {
   return [...root.querySelectorAll(TABBABLE)].filter((n) => n.tabIndex >= 0 && !n.disabled && !n.closest('[hidden], [inert]') && (!n.checkVisibility || n.checkVisibility()));
 }
 function focusLayer() {
-  return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .menu')
+  return document.querySelector('#app > .bigback') || (!el.modal.hidden && el.modal) || (drawerOpen() && el.drawerBack) || document.querySelector('#app > .menu') || document.querySelector('#app > .backv')
     || document.querySelector('#app > .setback') || document.querySelector('#app > .pop') || (state.palette && el.palette) || document.querySelector('#app > .bmv') || document.querySelector('#app > .hist') || document.querySelector('#app > .arch') || el.app;
 }
 function keepFocusIn(e) {
@@ -5821,6 +5954,7 @@ function openPalette({ from = 'switcher', text = '', saved = el.search.value } =
   if (archiveOpen()) closeArchive();
   if (historyOpen()) closeHistory();
   if (bookmarksOpen()) closeBookmarks();
+  if (backupOpen()) closeBackup();
   closeDrawer(false);
   if (state.modal) closeDialog();
   stopHolding();
@@ -6836,6 +6970,7 @@ function onKeyDown(e) {
   if (state.modal) return dialogKey(e);
   if (viewKey(e)) return;
   if (drawerOpen()) return drawerKey(e);
+  if (backupOpen()) return backupKey(e);
   if (bookmarksOpen()) return bmvKey(e);
   if (historyOpen()) return historyKey(e);
   if (archiveOpen()) return archiveKey(e);
@@ -6980,7 +7115,7 @@ function qPress(d, hold = true) {
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MSG.RELEASED).
 function altReleased() {
   if (!state.holding) return;
-  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || bookmarksOpen() || drawerOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
+  if (state.modal || document.querySelector('.bigback') || archiveOpen() || historyOpen() || bookmarksOpen() || drawerOpen() || backupOpen() || settingsOpen() || el.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.sel) : finish('cancel');
 }
@@ -7098,6 +7233,7 @@ function listen() {
   $('history-btn-key').textContent = IS_MAC ? '⌘Y' : 'Ctrl+H';
   $('bookmarks-btn-key').textContent = IS_MAC ? '⌘⌥B' : 'Ctrl+Shift+O';
   on($('settings-btn'), () => openSettings(el.menuBtn));
+  on($('backup-btn'), () => openBackup());
   on($('archive-btn'), () => openArchive().catch((err) => toast(t('errArchiveOpen'), err)));
   on($('history-btn'), () => openHistory().catch((err) => toast(t('actFailed'), err)));
   on($('bookmarks-btn'), () => openBookmarks().catch((err) => toast(t('bmvErr'), err)));
@@ -7328,7 +7464,7 @@ export {
   clearDrop, dropAfter, dragToMove, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
   openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
-  viewKey, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
+  viewKey, backupOpen, openBackup, closeBackup, exportBackup, importBackup, backupKey, BACKUP_KINDS, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
   refreshHistory, setHistoryLayout, histPick, agoShort, agoTag, showTip, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   bmvMove, bmvSort, bmvNudge, bmvOpenAll, bmvImportStars, bmvFilter, bmvFind, bmvOpenSiblings, bmvMoveDialog,

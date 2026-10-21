@@ -613,7 +613,7 @@ describe('the menu (☰)', () => {
     tid('menu-btn').click();
     expect(tid('drawer-back').hidden).toBe(false);
     expect(tid('menu-btn').getAttribute('aria-expanded')).toBe('true');
-    expect(items().map((b) => b.dataset.testid)).toEqual(['history-btn', 'bookmarks-btn', 'archive-btn', 'settings-btn']);
+    expect(items().map((b) => b.dataset.testid)).toEqual(['history-btn', 'bookmarks-btn', 'archive-btn', 'backup-btn', 'settings-btn']);
     expect(items().every((b) => b.querySelector('svg') && b.querySelector('.dlabel').textContent)).toBe(true);
     expect(focused()).toBe(tid('history-btn'));
     for (const id of REST) expect(tid(id).hasAttribute('inert'), id).toBe(true);

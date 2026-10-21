@@ -422,6 +422,21 @@ Sleeping a tab unloads it from memory. It keeps its place and reloads when you o
 
 The **New tab** button in the header opens a new tab in the current window.
 
+### Backup & Restore
+
+**Backup & Restore** in the menu (☰) opens a dialog, like Settings, for keeping everything Tabazing knows in a file of your own, and bringing it back (on this computer or another).
+
+- **Download backup** downloads **`tabazing-backup-<date>.zip`** (as Chrome downloads anything: to your Downloads folder, or where you choose). It holds one folder, **`backup`**, with a JSON file for each kind of data: `notes.json` (the notes on tabs), `bookmark-notes.json` (the notes on bookmarks, each with its bookmark's address and folder), `stars.json`, `bookmarks.json` (all your bookmarks and folders), `archive.json`, `snoozed.json`, `settings.json` and `info.json` (the Tabazing version and the date). Previews are not included.
+- **Choose backup folder…** restores from the `backup` folder (unzip the backup first); **Choose .zip file…** restores from the zip itself.
+- **A restore only adds.** Nothing you have is ever deleted, and nothing is made twice:
+  - a bookmark whose address is bookmarked already (in any folder) is skipped; a folder goes into the one of the same name in the same place, so there is no second "Work";
+  - a star, an archived tab or a snoozed tab that is there already is skipped (as is a snooze whose time has passed);
+  - a **note** in the backup goes over the note on the same page, and a **bookmark note** over the note on the same bookmark (the bookmark of that address in that folder, when it is bookmarked more than once);
+  - when the stars, notes or snoozed tabs are at their limit, what doesn't fit is left out: the ones you have stay.
+- **Settings** are restored only when you tick **Also restore Settings** (they then replace your current ones).
+- Afterwards the dialog says, for each kind, how many were added, updated and skipped. Restoring the same backup again changes nothing.
+- The backup never leaves your computer by itself: it is a file you keep, like any download.
+
 ### Settings
 
 Choose **Settings** in the menu (☰, at the top left). Settings opens as a dialog over the dimmed switcher, with its title and a **×** at the top, the categories down the left and the chosen category's settings on the right (they scroll inside on a short window). In a window narrower than about 640 px the categories become a row of tabs above the settings. **↑** / **↓** (and **←** / **→** when they are a row), **Home** and **End** move between the categories; **Tab** goes on into the settings. Tabazing opens Settings on the category you last used. **Esc**, the **×** or a click outside the dialog closes it, and the keyboard focus goes back to the gear. Every change is saved at once; a new language redraws Settings in it straight away.

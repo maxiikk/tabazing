@@ -489,6 +489,24 @@ export function removeSnoozed(ids) {
     return list;
   });
 }
+// A restore (utils/backup.js): snoozed tabs added unless one of the same page is snoozed already; none that is there
+// goes, so what doesn't fit under the cap is left out. Resolves to { added, updated, skipped }.
+export function mergeSnoozed(items) {
+  return withLock('snoozed', async () => {
+    const list = await getSnoozed();
+    const have = new Set(list.map((x) => keyOf(x.url) || x.url));
+    const out = { added: 0, updated: 0, skipped: 0 };
+    for (const x of items) {
+      const k = keyOf(x.url) || x.url;
+      if (!isSnooze(x) || have.has(k) || list.length >= LIMITS.MAX_SNOOZED) { out.skipped++; continue; }
+      list.push(x);
+      have.add(k);
+      out.added++;
+    }
+    if (out.added) { await L.set({ [KEY.SNOOZED]: list }); await scheduleSnoozeAlarm(list); }
+    return out;
+  });
+}
 // The background, when the alarm goes off (or at start-up, for any that came due while Chrome was closed).
 export function takeDueSnoozed(now = Date.now()) {
   return withLock('snoozed', async () => {
@@ -552,6 +570,28 @@ export function setNote(url, text) {
   });
 }
 
+// A restore: these notes ([{ url, note }]) on their pages, over the ones there; a page without a note gets one while
+// there is room (no note that is there goes). Empty ones are left out. Resolves to { added, updated, skipped }.
+export function mergeNotes(items) {
+  return withLock('notes', async () => {
+    const notes = await getNotes();
+    const out = { added: 0, updated: 0, skipped: 0 };
+    let count = Object.keys(notes).length;
+    for (const x of items) {
+      const k = keyOf(x.url);
+      const n = String(x.note || '').trim().slice(0, LIMITS.NOTE_MAX);
+      if (!k || !n) { out.skipped++; continue; }
+      if (notes[k]) { if (notes[k].n === n) out.skipped++; else { notes[k] = { u: x.url, n, t: Date.now() }; out.updated++; } continue; }
+      if (count >= LIMITS.MAX_NOTES) { out.skipped++; continue; }
+      notes[k] = { u: x.url, n, t: Date.now() };
+      count++;
+      out.added++;
+    }
+    if (out.added || out.updated) await L.set({ [KEY.NOTES]: notes });
+    return out;
+  });
+}
+
 // ---------- notes on bookmarks (storage.local) ----------
 // Keyed by the bookmark's id, not by an address: a bookmark's note stays with that bookmark (when its address is
 // edited too), and has nothing to do with the note on a tab, which is about the page the tab shows.
@@ -581,6 +621,27 @@ export function putBmNotes(changes) {
   });
 }
 export const setBmNote = (id, text, url = '') => putBmNotes({ [id]: { n: text, u: url } });
+// A restore: these notes ({ [id]: { n, u } }) on their bookmarks, over the ones there; none that is there goes (no
+// trimming: what doesn't fit is left out). Resolves to { added, updated, skipped }.
+export function mergeBmNotes(changes) {
+  return withLock('bmNotes', async () => {
+    const notes = await getBmNotes();
+    const out = { added: 0, updated: 0, skipped: 0 };
+    let count = Object.keys(notes).length;
+    for (const [id, c] of Object.entries(changes || {})) {
+      const n = String((c && c.n) || '').trim().slice(0, LIMITS.NOTE_MAX);
+      if (!/^\w{1,40}$/.test(id) || !n) { out.skipped++; continue; }
+      const u = String((c && c.u) || '').slice(0, LIMITS.MAX_URL_KEY);
+      if (notes[id]) { if (notes[id].n === n) out.skipped++; else { notes[id] = { u, n, t: Date.now() }; out.updated++; } continue; }
+      if (count >= LIMITS.MAX_NOTES) { out.skipped++; continue; }
+      notes[id] = { u, n, t: Date.now() };
+      count++;
+      out.added++;
+    }
+    if (out.added || out.updated) await L.set({ [KEY.BM_NOTES]: notes });
+    return out;
+  });
+}
 
 // ---------- stars (storage.local) ----------
 // Pages the user starred, keyed by normalized URL (tab ids don't survive a restart).
@@ -593,6 +654,24 @@ export async function getStars() {
     for (const [k, e] of Object.entries(v)) if (k && isStar(e)) out[k] = { u: e.u, ti: String(e.ti || '').slice(0, 300), t: e.t };
   }
   return out;
+}
+// A restore: these pages ([{ url, title, t }]) starred unless they are already; no star that is there goes (what doesn't
+// fit under the cap is left out). Resolves to { added, updated, skipped }.
+export function mergeStars(items) {
+  return withLock('stars', async () => {
+    const stars = await getStars();
+    const out = { added: 0, updated: 0, skipped: 0 };
+    let count = Object.keys(stars).length;
+    for (const x of items) {
+      const k = keyOf(x.url);
+      if (!k || stars[k] || count >= LIMITS.MAX_STARS || x.url.length > LIMITS.MAX_URL_KEY) { out.skipped++; continue; }
+      stars[k] = { u: x.url, ti: String(x.title || '').slice(0, 300), t: isTime(x.t) ? x.t : Date.now() };
+      count++;
+      out.added++;
+    }
+    if (out.added) await L.set({ [KEY.STARS]: stars });
+    return out;
+  });
 }
 // Star or unstar a page. Returns the new state (true = starred).
 export function toggleStar(url, title) {

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.12.0] - 2026-10-21
+
+### Added
+
+- Backup & Restore in the menu (☰): **Download backup** downloads `tabazing-backup-<date>.zip`, a `backup` folder with your notes, bookmark notes, stars, bookmarks, archive, snoozed tabs and settings as JSON files.
+- Restore from the backup folder or the zip. A restore only adds: nothing you have is deleted, nothing is made twice, and the backup's notes go over the notes on the same pages and bookmarks. It says what was added, updated and skipped; settings only when you ask.
+
 ## [6.11.0] - 2026-10-21
 
 ### Added
@@ -543,7 +550,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...HEAD
+[6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...HEAD
+[6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...be73ae8
 [6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...e8b898b
 [6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...14a2776
 [6.9.1]: https://github.com/maxiikk/tabazing/compare/b54e1f5...4e66da4

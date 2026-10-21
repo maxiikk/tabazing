@@ -861,6 +861,19 @@ html.alttab .bar.narrow #github-btn { grid-column: 4; }
   animation: pop .2s var(--ease-out) both;
 }
 .archv .archpanel { width: min(760px, 94vw); }
+/* Backup & Restore: a smaller dialog, its two parts one under the other */
+.backv .archpanel { width: min(580px, 94vw); height: auto; max-height: 90vh; }
+.backbody { padding: 18px 22px 22px; display: grid; gap: 22px; }
+.backsec { display: grid; gap: 10px; justify-items: start; }
+.backsec h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--md-on-surface); }
+.backsec p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--md-on-surface-variant); }
+.backsec .row { margin-top: 2px; }
+.backsec + .backsec { padding-top: 18px; border-top: 1px solid var(--line); }
+.backsec .check { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--md-on-surface); cursor: pointer; }
+.backreport { width: 100%; padding: 12px 14px; border-radius: var(--r-m); background: var(--md-surface-container); border: 1px solid var(--line); font-size: 13px; }
+.backreport ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; color: var(--md-on-surface-variant); }
+.backreport .backdone { margin: 0; font-weight: 600; color: var(--md-primary); }
+.backreport .perr { margin: 0; color: var(--md-error); }
 .archhead { display: flex; align-items: center; gap: 12px; min-height: 0; padding: 14px 12px 14px 22px; border-bottom: 1px solid var(--line); }
 .archtitle { margin: 0; font-size: 18px; line-height: 26px; font-weight: 600; display: inline-flex; align-items: baseline; gap: 10px; flex: none; }
 .archtitle .n { font-size: 12px; font-weight: 600; color: var(--md-on-surface-variant); padding: 1px 8px; border-radius: var(--r-full); background: var(--fill); }
