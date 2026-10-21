@@ -80,7 +80,7 @@
   "tour2Title": "Move",
   "keyPick": "select a card",
   "keyOpen": "open the selected card or search result",
-  "keyClose": "close the tab",
+  "keyClose": "close the tab; a recently closed or snoozed one leaves its list",
   "keyLeave": "close Tabazing",
   "tour3Title": "Search",
   "tour3Body": "Just type, typos are fine. It searches your open and closed tabs, history, bookmarks and the archive.",

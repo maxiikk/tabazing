@@ -239,6 +239,16 @@ describe('the archive overlay', () => {
     expect(archivedUrls()).toContain('https://mid.example/');
   });
 
+  it('a middle-click on a card takes it out too, without opening it', async () => {
+    const { sw } = await bootArchived();
+    const o = await openOverlay(sw);
+    tids('card-archived', o)[1].dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
+    await waitFor(() => tids('card-archived').length === 2);
+    expect(archivedUrls()).toEqual(['https://old.example/', 'https://new.example/']);
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
+    expect(toastText()).toBe(t('archiveRemoved'));
+  });
+
   it('dropArchived redraws an open overlay without that page', async () => {
     const { sw } = await bootArchived();
     await openOverlay(sw);

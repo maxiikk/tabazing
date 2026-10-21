@@ -80,7 +80,7 @@
   "tour2Title": "Moverse",
   "keyPick": "elegir una tarjeta",
   "keyOpen": "abrir la tarjeta o el resultado elegido",
-  "keyClose": "cerrar la pestaña",
+  "keyClose": "cerrar la pestaña; una cerrada recientemente o pospuesta sale de su lista",
   "keyLeave": "cerrar Tabazing",
   "tour3Title": "Buscar",
   "tour3Body": "Solo escribe; las erratas no importan. Busca en tus pestañas abiertas y cerradas, el historial, los marcadores y el archivo.",

@@ -80,7 +80,7 @@
   "tour2Title": "Se déplacer",
   "keyPick": "sélectionner une carte",
   "keyOpen": "ouvrir la carte ou le résultat sélectionné",
-  "keyClose": "fermer l’onglet",
+  "keyClose": "fermer l’onglet ; un onglet récemment fermé ou mis en veille quitte sa liste",
   "keyLeave": "fermer Tabazing",
   "tour3Title": "Rechercher",
   "tour3Body": "Tapez, simplement : les fautes de frappe sont tolérées. La recherche porte sur vos onglets ouverts et fermés, l’historique, les favoris et l’archive.",

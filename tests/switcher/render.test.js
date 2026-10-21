@@ -227,6 +227,32 @@ describe('renderCard: closed, snoozed and starred cards', () => {
     await waitFor(() => sw.state.done);
     expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://far.example/', windowId: 1, active: true });
   });
+
+  it('middle-click: a recently closed card leaves the list, a snoozed one its snooze, a starred one opens behind', async () => {
+    const middle = (c) => {
+      const md = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 1 });
+      c.dispatchEvent(md);
+      expect(md.defaultPrevented).toBe(true); // no auto-scroll
+      c.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
+    };
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000) - 120, tab: { sessionId: 'x1', url: 'https://gone.example/', title: 'Gone' } }];
+    await chrome.storage.local.set({ snoozed: [{ id: 'z1', url: 'https://later.example/', title: 'Later', at: Date.now() + 3600e3, windowId: 1, pinned: false, t: Date.now() }] });
+    const sw = await boot({ tabs: ABC() });
+    middle(cards(tid('closed-grid'))[0]);
+    await waitFor(() => !cards(tid('closed-grid')).length);
+    expect(tid('toast').firstChild.textContent).toBe(t('closedRemoved'));
+    middle(cards(tid('snoozed-grid'))[0]);
+    await waitFor(() => !cards(tid('snoozed-grid')).length);
+    expect(sw.state.snoozed).toEqual([]);
+    expect(chrome.tabs.create).not.toHaveBeenCalled();
+    await chrome.storage.local.set({ stars: { 'https://far.example/': { u: 'https://far.example/', ti: 'Far', t: Date.now() } } });
+    await sw.reload();
+    sw.toggleStarFilter();
+    middle(cards(tid('closed-grid'))[0]);
+    await waitFor(() => chrome.tabs.create.mock.calls.length);
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://far.example/', windowId: 1, active: false });
+    expect(sw.state.done).toBe(false);
+  });
 });
 
 describe('finishCard: the mouse on a card', () => {

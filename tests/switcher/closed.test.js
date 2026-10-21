@@ -130,6 +130,27 @@ describe('notes, whatever state the page is in', () => {
     expect(tid('dd-note', row)).toBe(null);
   });
 
+  it('a middle-click on a closed result takes it off the list; on a bookmark or a visited page, opens it behind', async () => {
+    const MARK = 'https://mark.example/', SEEN = 'https://seen.example/';
+    const middle = (row) => row.dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
+    const sw = await boot({ ...withClosed(), beforeImport: async () => {
+      chrome._data.closed = [closedTab()];
+      chrome._addBookmark({ title: 'Gone mark', url: MARK });
+      chrome._data.history = [{ url: SEEN, title: 'Gone seen', lastVisitTime: Date.now() - 1000, visitCount: 1 }];
+    } });
+    await search(sw, 'gone');
+    await waitFor(() => tids('dd-row-closed').length && tids('dd-row-mark').length && tids('dd-row-visit').length);
+    middle(tids('dd-row-closed')[0]);
+    await waitFor(() => !titles(sw).length && !tids('dd-row-closed').length);
+    expect(toastText()).toBe(t('closedRemoved'));
+    middle(tids('dd-row-mark')[0]);
+    await waitFor(() => chrome.tabs.create.mock.calls.length === 1);
+    middle(tids('dd-row-visit')[0]);
+    await waitFor(() => chrome.tabs.create.mock.calls.length === 2);
+    expect(chrome.tabs.create.mock.calls.map(([o]) => [o.url, o.active])).toEqual([[MARK, false], [SEEN, false]]);
+    expect(sw.state.done).toBe(false);
+  });
+
   it('bookmarked and visited pages are found by their notes too', async () => {
     const MARK = 'https://mark.example/', SEEN = 'https://seen.example/';
     const sw = await boot({ tabs: AB, beforeImport: async () => {

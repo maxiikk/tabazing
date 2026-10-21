@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.15.0] - 2026-10-21
+
+### Added
+
+- Middle-click (press the mouse wheel on) a recently closed tab to take it off the list; Undo puts it back.
+- Middle-click a snoozed tab to cancel its snooze, and a starred page that isn’t open to open it in the background.
+- Middle-click a page in the Archive to take it out of the archive, as its × does.
+- In the search results, middle-click a tab or a tab group to close it, a recently closed tab to take it off the list, and a bookmark or a visited page to open it in the background.
+
 ## [6.14.0] - 2026-10-21
 
 ### Added
@@ -620,7 +629,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...HEAD
+[6.15.0]: https://github.com/maxiikk/tabazing/compare/1f3e285...HEAD
+[6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...1f3e285
 [6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...19f50c5
 [6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...e092117
 [6.12.3]: https://github.com/maxiikk/tabazing/compare/2315e98...ff28464

@@ -80,7 +80,7 @@
   "tour2Title": "Bewegen",
   "keyPick": "eine Karte auswählen",
   "keyOpen": "ausgewählte Karte oder Suchergebnis öffnen",
-  "keyClose": "Tab schließen",
+  "keyClose": "Tab schließen; ein kürzlich geschlossener oder zurückgestellter verlässt seine Liste",
   "keyLeave": "Tabazing schließen",
   "tour3Title": "Suche",
   "tour3Body": "Einfach lostippen, Tippfehler sind kein Problem. Durchsucht werden offene und geschlossene Tabs, Verlauf, Lesezeichen und das Archiv.",

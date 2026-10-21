@@ -80,7 +80,7 @@
   "tour2Title": "Navigare",
   "keyPick": "selectează un card",
   "keyOpen": "deschide cardul sau rezultatul selectat",
-  "keyClose": "închide fila",
+  "keyClose": "închide fila; una închisă recent sau amânată iese din lista ei",
   "keyLeave": "închide Tabazing",
   "tour3Title": "Căutare",
   "tour3Body": "Scrie pur și simplu, greșelile de tastare nu contează. Caută în filele deschise și închise, istoric, marcaje și arhivă.",

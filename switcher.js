@@ -1199,6 +1199,13 @@ function deleteButton(label, testid, fn) {
   return b;
 }
 
+// Middle-click (the mouse wheel) on `node` runs `fn`. Pressing the wheel would start Chrome's auto-scroll first,
+// which swallows the click, so that is turned off on it.
+function onMiddleClick(node, fn) {
+  node.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
+  node.addEventListener('auxclick', (e) => { if (e.button !== 1) return; e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) fn(); });
+}
+
 function headButtons(...btns) {
   const box = h('span', 'hbtns' + (btns.length > 1 ? ' two' : ''), null, 'card-head-buttons');
   box.append(...btns);
@@ -1235,12 +1242,9 @@ function finishCard(card, entry) {
   // after other cards. A page that isn't open: onto the open tabs, a tile or a window, to open it there.
   if ((entry.kind === 'tab' || entry.kind === 'group') && !state.dupesView) dragToMove(card, entry);
   else if (entry.kind === 'closed' || entry.kind === 'snoozed' || entry.kind === 'star') dragToOpen(card, entry);
-  // Middle-click (the mouse wheel) closes the tab. Pressing the wheel would start Chrome's auto-scroll
-  // first, which swallows the click, so that is turned off on cards.
-  card.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
-  card.addEventListener('auxclick', (e) => {
-    if (e.button === 1 && (entry.kind === 'tab' || entry.kind === 'group')) { e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) closeTab(entry); }
-  });
+  // Middle-click (the mouse wheel): what Del does - a tab (or a tile's tabs) closes, a recently closed page leaves the
+  // list, a snoozed one its snooze; a starred page that isn't open opens behind Tabazing, as a link would.
+  onMiddleClick(card, () => (entry.kind === 'star' ? historyBehind(entry.item).catch((err) => toast(t('actFailed'), err)) : closeTab(entry)));
   // Hovering doesn't select: the selection (the lifted card, what Enter opens) stays where the keyboard put it;
   // a click switches to the tab.
   return card;
@@ -2595,6 +2599,7 @@ function renderDropdown() {
     const i = ++n;
     const row = ddRowEl(r, q, i === state.dd.hi, 'dd-' + i);
     row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) ddActivate(r); });
+    onMiddleClick(row, () => ddMiddle(r));
     return row;
   }));
   syncCombo();
@@ -2624,6 +2629,16 @@ async function ddActivate(r, text = state.query.trim()) {
   if (r.kind === 'visit') return openPage(r.x.url);
   return openFromBox(text); // 'url' and 'google'
 
+}
+// A middle-click on a result: as on its card, a tab (or a group's tabs) closes and a recently closed page leaves the
+// list; a bookmark or a visited page opens behind Tabazing, which stays.
+function ddMiddle(r) {
+  if (state.done) return;
+  if (r.kind === 'tab') return closeTab(r.entry);
+  if (r.kind === 'group') return closeTab(groupEntry(r.g));
+  if (r.kind === 'closed') return forgetClosed({ item: r.c });
+  const url = r.kind === 'mark' ? r.b.url : r.kind === 'visit' ? r.x.url : null;
+  if (url) historyBehind({ url }).catch((err) => toast(t('actFailed'), err));
 }
 // A recently closed page from Tabazing's own log (no history to restore): a new tab in the window Tabazing was
 // opened from, back in the tab group it was in (Chrome's own restore does that itself).
@@ -3699,6 +3714,7 @@ function archiveCard(item, i) {
   row.append(...(state.cardSize === 'list' ? [] : [pic]), text, acts); // (Settings -> Card size: List, no pictures)
   mouseOnly(row); // its button is Del
   row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
+  onMiddleClick(row, () => dropArchived(item, i).catch((err) => toast(t('errUnarchive'), err))); // as its ×
   return row;
 }
 // Take a page out of the archive without opening it (the × on its card, or Del). Undo puts it back.
@@ -4286,7 +4302,6 @@ function historyItem(entry) {
   el.title = t('historyOpenTip', { title }) + '\n' + entry.info.join('\n');
   entry.el = entry.card = el;
   mouseOnly(el); // the keyboard has Enter, Space, Del, Ctrl+Space and the menu (Shift+F10)
-  el.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // (no auto-scroll on a middle-click)
   el.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!pointerAllowed()) return;
@@ -4295,7 +4310,7 @@ function historyItem(entry) {
     if (e.shiftKey) { if (H.picked.size) return histPick(entry, { range: true }); histSelect(i, false); return openBig(entry); }
     openPage(c.url);
   });
-  el.addEventListener('auxclick', (e) => { if (e.button !== 1) return; e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) historyBehind(c).catch((err) => toast(t('actFailed'), err)); });
+  onMiddleClick(el, () => historyBehind(c).catch((err) => toast(t('actFailed'), err)));
   el.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -4849,7 +4864,6 @@ function bmvRow({ n, depth }, i) {
     if (i >= BMV_EAGER && bmvIO) bmvIO.observe(row);
   }
   mouseOnly(row);
-  row.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
   row.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!pointerAllowed()) return;
@@ -4860,7 +4874,7 @@ function bmvRow({ n, depth }, i) {
     if (e.shiftKey) { bmvSelect(i, false); return openBig(bmEntry(n)); }
     openPage(n.url);
   });
-  row.addEventListener('auxclick', (e) => { if (e.button !== 1 || !n.url) return; e.preventDefault(); e.stopPropagation(); if (pointerAllowed()) historyBehind(bmEntry(n).item).catch((err) => toast(t('actFailed'), err)); });
+  onMiddleClick(row, () => { if (n.url) historyBehind(bmEntry(n).item).catch((err) => toast(t('actFailed'), err)); });
   row.addEventListener('contextmenu', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -7645,7 +7659,7 @@ export {
   searchScore, matches, queryWords, fieldHit, matchTier, highlight, hlSpan, isStarred, siteOf, byTitle,
   winRank, FILTERS, SORTERS, STATUS, statusText, tabStatus, pageStatus, sectionsFor, deriveSearch, derive, GRID_GAP, CARD_SIZES, cardWidth, renderWindows,
   windowTag, thumbFor, starButton, canCapture, captureButton, DAY_MS, tabAge, renderCard, finishCard,
-  renderSection, renderTools, render, renderCount, tipTruncated, setTop, toTop, refresh, select, stepKey,
+  onMiddleClick, ddMiddle, renderSection, renderTools, render, renderCount, tipTruncated, setTop, toTop, refresh, select, stepKey,
   cycle, selectKey, moveSpatial, cardToward, toggleSection, setSort, setFilter, toggleStarFilter, star,
   captureOne, setScope, cycleScope, finish, choose, closeTab, forgetTab, pickBox, pick, pickPool,
   selectAll, clearPicks, targets, ACTIONS, renderActs, renderDupesBar, dupesView, toastTimer, toast,

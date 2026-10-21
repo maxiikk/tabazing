@@ -80,7 +80,7 @@
   "tour2Title": "Spostarsi",
   "keyPick": "seleziona un riquadro",
   "keyOpen": "apri il riquadro o il risultato selezionato",
-  "keyClose": "chiudi la scheda",
+  "keyClose": "chiudi la scheda; una chiusa di recente o posticipata esce dal suo elenco",
   "keyLeave": "chiudi Tabazing",
   "tour3Title": "Cerca",
   "tour3Body": "Basta scrivere, anche con errori di battitura. Cerca nelle schede aperte e chiuse, nella cronologia, nei preferiti e nell’archivio.",
