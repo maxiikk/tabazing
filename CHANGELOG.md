@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.12.1] - 2026-10-21
+
+### Changed
+
+- History: the full date on a page's "last opened" tag shows only after the pointer stays on the tag for half a second.
+
 ## [6.12.0] - 2026-10-21
 
 ### Added
@@ -550,7 +556,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...HEAD
+[6.12.1]: https://github.com/maxiikk/tabazing/compare/7b1c4c2...HEAD
+[6.12.0]: https://github.com/maxiikk/tabazing/compare/be73ae8...7b1c4c2
 [6.11.0]: https://github.com/maxiikk/tabazing/compare/e8b898b...be73ae8
 [6.10.1]: https://github.com/maxiikk/tabazing/compare/14a2776...e8b898b
 [6.10.0]: https://github.com/maxiikk/tabazing/compare/4e66da4...14a2776

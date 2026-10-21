@@ -371,6 +371,25 @@ describe('a page\u2019s "last opened" tag and loading more by itself', () => {
     expect(tags[1].title).toBe(''); // its own tooltip, not the row's
   });
 
+  it('the date tooltip opens only after 500 ms on the tag; leaving sooner, it never opens', async () => {
+    chrome._data.history.push({ url: 'https://new.example/', title: 'New', lastVisitTime: NOW - 5 * 60000, visitCount: 1 });
+    const sw = await boot({ tabs: AB });
+    await openHistory(sw);
+    expect(sw.DATE_TIP_DELAY_MS).toBe(500);
+    const tag = tid('card-history-ago', cards()[0]);
+    tag.dispatchEvent(new MouseEvent('mouseenter'));
+    await tick(300);
+    tag.dispatchEvent(new MouseEvent('mouseleave'));
+    await tick(400);
+    expect(tid('history-date-tooltip')).toBe(null);
+    const from = Date.now();
+    tag.dispatchEvent(new MouseEvent('mouseenter'));
+    await tick(350);
+    expect(tid('history-date-tooltip')).toBe(null);
+    await waitFor(() => tid('history-date-tooltip'));
+    expect(Date.now() - from).toBeGreaterThanOrEqual(480);
+  });
+
   it('agoShort: minutes, hours, days, weeks, months, years', async () => {
     const sw = await boot({ tabs: AB });
     const ago = (ms) => sw.agoShort(Date.now() - ms);

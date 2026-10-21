@@ -3827,7 +3827,7 @@ function agoTag(ts) {
   const tag = h('span', 'tag histago', agoShort(ts), 'card-history-ago');
   tag.title = ''; // (not the row's tooltip: its own)
   tag.setAttribute('aria-label', t('historyLastOpened') + ': ' + fullTime(ts));
-  tag.addEventListener('mouseenter', () => showTip(tag, t('historyLastOpened'), fullTime(ts), 'history-date-tooltip'));
+  tag.addEventListener('mouseenter', () => showTip(tag, t('historyLastOpened'), fullTime(ts), 'history-date-tooltip', DATE_TIP_DELAY_MS));
   tag.addEventListener('mouseleave', hideTipSoon);
   return tag;
 }
@@ -5381,15 +5381,16 @@ function noteButton(entry) {
 // own waits about half a second), below the button, or above it when there is no room. It stays while
 // the pointer is on it (to read or select a long note), and Esc hides it.
 const TIP_DELAY_MS = 150;
+const DATE_TIP_DELAY_MS = 500; // the history's "last opened" tag: only when the pointer stays on it
 let tipTimer = null;
 let tipHide = null;
 function noteTip(b) {
   if (document.querySelector('.notepop')) return;
   showTip(b, t('noteTitle'), b.dataset.note, 'note-tooltip');
 }
-// Our tooltip under (or over) `b`, a moment after the pointer reaches it: a heading and a text. It stays while the
-// pointer is on it. `testid` names its parts (`testid`, -title, -text).
-function showTip(b, title, text, testid) {
+// Our tooltip under (or over) `b`, a moment (`delay` ms) after the pointer reaches it: a heading and a text. It stays
+// while the pointer is on it. `testid` names its parts (`testid`, -title, -text).
+function showTip(b, title, text, testid, delay = TIP_DELAY_MS) {
   clearTimeout(tipTimer);
   clearTimeout(tipHide);
   if (!text) return;
@@ -5407,7 +5408,7 @@ function showTip(b, title, text, testid) {
     const below = r.bottom + 8 + th <= window.innerHeight - 8;
     tip.style.top = (below ? r.bottom + 8 : Math.max(8, r.top - th - 8)) + 'px';
     tip.classList.add(below ? 'below' : 'above');
-  }, TIP_DELAY_MS);
+  }, delay);
 }
 function hideTip() {
   clearTimeout(tipTimer);
@@ -7468,7 +7469,7 @@ export {
   refreshHistory, setHistoryLayout, histPick, agoShort, agoTag, showTip, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   bmvMove, bmvSort, bmvNudge, bmvOpenAll, bmvImportStars, bmvFilter, bmvFind, bmvOpenSiblings, bmvMoveDialog,
-  quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
+  quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, DATE_TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
   openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,
   goReview, askStep1, askStep2, askLater, showAlert, requestHostAccess, missingPreviews, updateSweepButton,
