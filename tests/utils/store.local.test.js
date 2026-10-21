@@ -223,6 +223,7 @@ describe('stars', () => {
   });
 });
 
+const VIEWS = { histQ: '', histLayout: 'list', histRange: 'all', bmvQ: '', bmvOpen: [], bmvSel: '' }; // the History and Bookmarks views' own
 describe('view', () => {
   it('SORTS lists the sort orders', () => {
     expect(s.SORTS).toEqual(['recent', 'order', 'name']);
@@ -235,11 +236,15 @@ describe('view', () => {
   });
 
   it('getView validates', async () => {
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '' });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '', ...VIEWS });
     L._data.set(KEY.VIEW, { sort: 'name', collapsed: ['a', 3, 'x'.repeat(301), 'b'], settingsTab: 'keys', markFolder: '12' });
-    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'], settingsTab: 'keys', markFolder: '12' });
+    expect(await s.getView()).toEqual({ sort: 'name', collapsed: ['a', 'b'], settingsTab: 'keys', markFolder: '12', ...VIEWS });
     L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a', settingsTab: 'colours', markFolder: 'no such id!' });
-    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '' });
+    expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '', ...VIEWS });
+    L._data.set(KEY.VIEW, { histQ: 'x'.repeat(300), histLayout: 'grid', histRange: 'week', bmvQ: 7, bmvOpen: ['1', 'bad id!', 5, '22'], bmvSel: '9' });
+    expect(await s.getView()).toMatchObject({ histQ: 'x'.repeat(200), histLayout: 'grid', histRange: 'week', bmvQ: '', bmvOpen: ['1', '22'], bmvSel: '9' });
+    L._data.set(KEY.VIEW, { histLayout: 'tiles', histRange: 'year', bmvSel: 'no!' });
+    expect(await s.getView()).toMatchObject({ histLayout: 'list', histRange: 'all', bmvSel: '' });
     L._data.set(KEY.VIEW, { settingsTab: ['keys'] });
     expect((await s.getView()).settingsTab).toBe('look');
     L._data.set(KEY.VIEW, { collapsed: Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i) });
@@ -247,7 +252,7 @@ describe('view', () => {
   });
 
   it('updateView merges and keeps the newest MAX_COLLAPSED', async () => {
-    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [], settingsTab: 'look', markFolder: '' });
+    expect(await s.updateView({ sort: 'order' })).toEqual({ sort: 'order', collapsed: [], settingsTab: 'look', markFolder: '', ...VIEWS });
     const collapsed = Array.from({ length: LIMITS.MAX_COLLAPSED + 5 }, (_, i) => 'c' + i);
     const next = await s.updateView({ collapsed });
     expect(next.sort).toBe('order');
@@ -345,4 +350,16 @@ describe('"Recently closed" entries removed from the list', () => {
     expect(Object.keys(kept)).toHaveLength(LIMITS.MAX_CLOSED_HIDDEN);
     expect(kept.k0).toBe(NOW); // the newest stay
   });
+});
+
+describe('notes on bookmarks', () => {
+  it('are kept by bookmark id, not by address; an empty text removes one', async () => {
+    let notes = await s.putBmNotes({ 11: { n: ' read later ', u: 'https://a.example/' }, 12: { n: 'other', u: 'https://a.example/' } });
+    expect(notes[11]).toMatchObject({ n: 'read later', u: 'https://a.example/' });
+    expect(notes[12].n).toBe('other'); // the same address, its own note
+    notes = await s.setBmNote('11', '');
+    expect(notes[11]).toBe(undefined);
+    expect(Object.keys(await s.getBmNotes())).toEqual(['12']);
+  });
+
 });

@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.9.0] - 2026-10-21
+
+### Added
+
+- History: a heading for each day, rows with previews (or cards, remembered), a time range (today, 7 or 30 days), and Clear browsing data….
+- History: tick several pages (Shift+click for a range, Ctrl+A for all) to open, copy or remove them together; Undo after removing; "More from this site" and "Remove all from this site" (it asks first).
+- Bookmarks: drag rows to move them, Ctrl+↑ ↓ to reorder, Move to… for ticked rows, and sort a folder by name or date added, all with Undo.
+- Bookmarks: tick folders too, Shift+click for a range, Ctrl+A for all; the bar opens, moves, copies or deletes them.
+- Bookmarks: Open all in a new window or in a new tab group; Duplicates shows the addresses bookmarked more than once; Bookmark your stars into a "Tabazing stars" folder.
+- Bookmarks: the edit dialog has the note too and says where a page is bookmarked already; edits, new bookmarks and new folders have Undo.
+- Ctrl+H (⌘Y) opens the History view and Ctrl+Shift+O (⌘⌥B) the Bookmarks view, from the switcher or from each other; the command palette has both too, and the ⓘ card, Settings → Shortcuts and the tour explain their keys.
+- Both views: a middle-click or Ctrl+Enter opens a page behind Tabazing; Home, End, PgUp and PgDn move; matched words are marked; the big preview of a page without a picture shows what is known about it.
+- Notes on bookmarks are found by the main search and the command palette.
+
+### Changed
+
+- Both views start with the focus in their search box, and bring back the last search (selected, so typing replaces it); the bookmarks also bring back the folders left open and the selected row.
+- Esc in either view empties the search first, then unticks, then closes.
+- History's count reads "50 shown" while there are more pages to load; searching says when it could only look through your newest 5000 visits.
+- Opening more than 15 tabs at once, or deleting 10 bookmarks or more, asks first.
+- On narrow windows the rows keep only their ⋯ menu.
+- The Tabs Archive folder is marked as Tabazing's archive, with a way to its view.
+- Big bookmark collections stay quick: the search waits for a pause in typing, far rows aren't laid out until needed, and previews load as rows come into view.
+
+### Fixed
+
+- A removed history page can be put back (Undo), also on Chrome versions that don't take a page's title and time.
+- A note on a bookmark deleted elsewhere (in Chrome's bookmark manager) is dropped.
+
 ## [6.8.0] - 2026-10-21
 
 ### Added
@@ -474,7 +503,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...HEAD
+[6.9.0]: https://github.com/maxiikk/tabazing/compare/fcbc898...HEAD
+[6.8.0]: https://github.com/maxiikk/tabazing/compare/55dba83...fcbc898
 [6.7.0]: https://github.com/maxiikk/tabazing/compare/7e24214...55dba83
 [6.6.3]: https://github.com/maxiikk/tabazing/compare/b995760...7e24214
 [6.6.2]: https://github.com/maxiikk/tabazing/compare/4185787...b995760

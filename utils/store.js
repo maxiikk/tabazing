@@ -566,12 +566,14 @@ export async function getBmNotes() {
   return out;
 }
 // Set several bookmarks' notes at once: { [id]: { n, u } } (an empty text, or null, removes that one). Returns every note.
+// Kept on this computer only, as every other note.
 export function putBmNotes(changes) {
   return withLock('bmNotes', async () => {
     const notes = await getBmNotes();
     for (const [id, c] of Object.entries(changes || {})) {
       const n = String((c && c.n) || '').trim().slice(0, LIMITS.NOTE_MAX);
-      if (n) notes[id] = { u: String((c && c.u) || '').slice(0, LIMITS.MAX_URL_KEY), n, t: Date.now() }; else delete notes[id];
+      const u = String((c && c.u) || (notes[id] && notes[id].u) || '').slice(0, LIMITS.MAX_URL_KEY);
+      if (n) notes[id] = { u, n, t: Date.now() }; else delete notes[id];
     }
     Object.keys(notes).sort((a, b) => notes[b].t - notes[a].t).slice(LIMITS.MAX_NOTES).forEach((x) => delete notes[x]);
     await L.set({ [KEY.BM_NOTES]: notes });
@@ -620,6 +622,13 @@ export async function getView() {
     collapsed: Array.isArray(v.collapsed) ? v.collapsed.filter((x) => typeof x === 'string' && x.length <= 300).slice(0, LIMITS.MAX_COLLAPSED) : [],
     settingsTab: SETTINGS_TABS.includes(v.settingsTab) ? v.settingsTab : 'look', // the category Settings last showed
     markFolder: typeof v.markFolder === 'string' && /^\w{1,40}$/.test(v.markFolder) ? v.markFolder : '', // the bookmarks folder "Bookmark…" last saved into
+    // the History and Bookmarks views: their last search, the history's look and time range, the open folders, the selected row
+    histQ: typeof v.histQ === 'string' ? v.histQ.slice(0, 200) : '',
+    histLayout: v.histLayout === 'grid' ? 'grid' : 'list',
+    histRange: ['all', 'today', 'week', 'month'].includes(v.histRange) ? v.histRange : 'all',
+    bmvQ: typeof v.bmvQ === 'string' ? v.bmvQ.slice(0, 200) : '',
+    bmvOpen: Array.isArray(v.bmvOpen) ? v.bmvOpen.filter((x) => typeof x === 'string' && /^\w{1,40}$/.test(x)).slice(-500) : [],
+    bmvSel: typeof v.bmvSel === 'string' && /^\w{1,40}$/.test(v.bmvSel) ? v.bmvSel : '',
   };
 }
 export function updateView(patch) {

@@ -320,8 +320,11 @@ const chrome = {
       const n = findMark(id);
       if (!n) throw new Error("Can't find bookmark for id.");
       const from = findMark(n.parentId), to = findMark(p.parentId ?? n.parentId);
+      const was = from.children.indexOf(n);
       from.children = from.children.filter((c) => c !== n);
-      const at = p.index === undefined ? to.children.length : Math.max(0, Math.min(p.index, to.children.length));
+      // Chrome's index: where it goes as if it were still there (in its own folder, a later place is one less)
+      const want = p.index === undefined ? Infinity : from === to && p.index > was ? p.index - 1 : p.index;
+      const at = Math.max(0, Math.min(want, to.children.length));
       to.children.splice(at, 0, n);
       n.parentId = to.id;
       const { children, ...rest } = n;
@@ -352,6 +355,7 @@ const chrome = {
         .slice(0, q.maxResults ?? 100));
     }),
     deleteUrl: vi.fn(async ({ url }) => { D.history = D.history.filter((x) => x.url !== url); }),
+    addUrl: vi.fn(async ({ url, title, visitTime }) => { D.history.push({ url, title: title || '', lastVisitTime: visitTime || Date.now(), visitCount: 1 }); }),
   },
   alarms: {
     create: vi.fn(async (name, info) => { D.alarms.set(name, { name, scheduledTime: info.when ?? Date.now() + (info.delayInMinutes || 0) * 60000 }); }),

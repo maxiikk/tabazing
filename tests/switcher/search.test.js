@@ -271,16 +271,29 @@ describe('history and bookmarks', () => {
 
   it('loadMarks reads web bookmarks with their folder path, leaving out the Tabs Archive', async () => {
     const dev = chrome._addBookmark({ parentId: '1', title: 'Dev' });
-    chrome._addBookmark({ parentId: dev.id, title: 'Repo', url: 'https://repo.com/' });
-    chrome._addBookmark({ parentId: '2', title: 'Plain', url: 'file:///c/x.txt' });
+    const repo = chrome._addBookmark({ parentId: dev.id, title: 'Repo', url: 'https://repo.com/' });
+    const plain = chrome._addBookmark({ parentId: '2', title: 'Plain', url: 'file:///c/x.txt' });
     chrome._addBookmark({ parentId: '2', title: 'Script', url: 'javascript:alert(1)' });
     const arch = chrome._addBookmark({ parentId: '2', title: 'Tabs Archive' });
     chrome._addBookmark({ parentId: arch.id, title: 'Archived', url: 'https://arch.com/' });
     await sw.loadMarks();
     expect(sw.state.marks).toEqual([
-      { title: 'Repo', url: 'https://repo.com/', path: 'Bookmarks bar › Dev' },
-      { title: 'Plain', url: 'file:///c/x.txt', path: 'Other bookmarks' },
+      { id: repo.id, title: 'Repo', url: 'https://repo.com/', path: 'Bookmarks bar › Dev' },
+      { id: plain.id, title: 'Plain', url: 'file:///c/x.txt', path: 'Other bookmarks' },
     ]);
+  });
+
+  it('a bookmark is found by its own note (the bookmark’s, not the page’s), which shows in its result', async () => {
+    const b = chrome._addBookmark({ parentId: '1', title: 'Roadmap', url: 'https://road.example/' });
+    await chrome.storage.local.set({ bmNotes: { [b.id]: { u: 'https://road.example/', n: 'quarterly planning doc', t: Date.now() } } });
+    await sw.loadMarks();
+    sw.state.query = 'quarterly';
+    sw.deriveSearch();
+    const rows = sw.ddRows();
+    const r = rows.find((x) => x.kind === 'mark');
+    expect(r && r.b.url).toBe('https://road.example/');
+    const node = sw.ddRowEl(r, 'quarterly', false, 'dd-0');
+    expect(tid('dd-note', node).textContent).toBe('quarterly planning doc');
   });
 
   it('loadMarks: no bookmarks access or a failing read gives an empty list', async () => {

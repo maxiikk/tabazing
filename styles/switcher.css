@@ -868,6 +868,17 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .bmvsearch input::placeholder { color: var(--fg-3); }
 .bmvsel { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 3px 4px 3px 12px; border-radius: var(--r-m); font-size: 13px; font-weight: 600;
   color: var(--md-primary); background: var(--md-secondary-container); border: 1px solid color-mix(in srgb, var(--md-primary) 40%, transparent); }
+/* the history as a list (by day) or as cards: a heading for each day, a note when a search can't reach everything */
+.histlist { display: grid; gap: 2px; max-width: 1100px; }
+.histday { margin: 18px 4px 6px; font-size: 13px; font-weight: 600; color: var(--md-on-surface-variant); }
+.histlist > .histday:first-child, .histgrid > .histday:first-child { margin-top: 2px; }
+.histgrid > .histday { flex: 0 0 100%; margin: 14px 4px 0; }
+.histnote { margin: 0 0 12px; font-size: 12px; color: var(--fg-3); }
+.hist .card .bmvpick { flex: none; margin: 0 1px; }
+.hist .card:hover .bmvpick, .hist.picking .card .bmvpick, .hist .card .bmvpick.on { opacity: 1; }
+.hist .card.picked { background: var(--md-secondary-container); border-color: color-mix(in srgb, var(--md-primary) 55%, transparent); }
+.bmvpic.bare img.fav { width: 26px; height: 26px; }
+.bmvtools .fs { height: 38px; }
 /* the bookmarks: a tree of folders and bookmarks */
 .bmvtree { display: grid; gap: 2px; max-width: 1100px; }
 .bmvrow {
@@ -901,6 +912,33 @@ html.alttab .bar.narrow #github-btn { grid-column: 6; }
 .bmvacts .qbtn { opacity: 0; box-shadow: none; }
 .bmvrow:hover .bmvacts .qbtn, .bmvacts .qbtn.note.on, .bmvacts .qbtn:focus-visible { opacity: 1; }
 .bmvacts .qbtn.del:hover { background: var(--md-error-container); color: var(--md-on-error-container); }
+.bmvpick.spacer { visibility: hidden; pointer-events: none; }
+.bmvtline { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bmvtline .bmvtitle { flex: 0 1 auto; }
+.bmvpath { color: var(--fg-3); }
+.bmvrow.archive .bmvfold { color: var(--md-on-surface-variant); }
+/* the rows far below aren't laid out until they come near (thousands of bookmarks stay quick) */
+.bmvtree > .bmvrow, .histlist > .bmvrow { content-visibility: auto; contain-intrinsic-size: auto 64px; }
+.bmvtree > .bmvrow.folder { contain-intrinsic-size: auto 42px; }
+/* dragging rows: where they will land */
+.bmvrow.dragging { opacity: .45; }
+.bmvrow.drop-into { border-color: var(--md-primary); background: color-mix(in srgb, var(--md-primary) 12%, transparent); }
+.bmvrow.drop-before::before, .bmvrow.drop-after::after { content: ''; position: absolute; left: calc(8px + var(--d, 0) * 26px); right: 8px; height: 3px; border-radius: 2px; background: var(--md-primary); pointer-events: none; }
+.bmvrow.drop-before::before { top: -3px; }
+.bmvrow.drop-after::after { bottom: -3px; }
+/* a big preview of a page without a picture: what is known about it */
+.biginfo { display: grid; gap: 4px; justify-items: center; max-width: 90%; margin-top: 4px; font-size: 13px; color: var(--md-on-surface-variant); text-align: center; }
+.biginfo span { overflow-wrap: anywhere; }
+/* narrow windows: a row keeps only its ⋯ (and a note's button) at its end, then drops its picture */
+@media (max-width: 760px) {
+  .bmvtools { padding: 10px 16px; }
+  .archbody { padding-left: 16px; padding-right: 16px; }
+  .archhead { padding-left: 16px; }
+  .bmvacts > :not([data-testid="quick-more"]):not(.note.on) { display: none; }
+  .bmvacts .qbtn[data-testid="quick-more"] { opacity: 1; }
+  .bmvrow { padding-left: calc(8px + var(--d, 0) * 14px); }
+}
+@media (max-width: 520px) { .bmvpic { display: none; } }
 /* a page with no preview: only its icon, on the picture's ground */
 .nopreview.bare { gap: 0; }
 .nopreview.bare .tile { width: 64px; height: 64px; border-radius: var(--r-l); }

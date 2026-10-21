@@ -307,28 +307,37 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 ### History
 
-The **clock** button right of New tab opens your Chrome browsing history over the switcher, newest first.
+The **clock** button right of New tab (or **Ctrl+H**, ⌘Y on a Mac, or the command palette's **Open the History view**) opens your Chrome browsing history over the switcher, newest first, under a heading for each day.
 
-- **Search** with the box at the top: it finds pages by title, site, address or the note you left on the page (a closed tab keeps its note), forgiving typos. It looks through your newest 5000 visits and whatever Chrome's own history search finds further back.
-
-- It shows **50 pages** at a time; **Show 50 more** at the bottom (or **↓** past the last row) adds the next 50.
-- Each page is a card with its **preview** when Tabazing has one, and otherwise just the **page's icon**.
-- **Open** a page by clicking it, or select it with the arrow keys and press **Enter**: its tab if one is open, otherwise a new tab beside the page you came from.
-- **Big preview:** the card's **expand** button, **Shift+click**, or **Space**; **← →** step through the history, **Enter** opens that page, **Esc** goes back to the list.
-- **Remove from history:** the card's **trash** button, or **Del** (⌘⌫). This removes every visit to that page from Chrome's history.
-- **⋯** (or right-click, or Shift+F10): **Open**, **Open in a new window**, **Open in the background** (Tabazing stays), **Big preview**, **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: open it later**, **Archive** and **Remove from history**.
-- Close it with **Esc** or its ×.
+- It shows **50 pages** at a time; **Show 50 more** at the bottom (or **↓** past the last one) adds the next 50. The count says "50 shown" while there are more.
+- Each page shows its **preview** when Tabazing has one, and otherwise just the **page's icon**, with its site and the time of the visit; hover it for the last visit and how many visits. The **Cards** / **List** button switches between rows and cards (remembered).
+- **Search** with the box at the top (where the focus starts): it finds pages by title, site, address or the note you left on the page (a closed tab keeps its note), forgiving typos, with the words marked. It looks through your newest 5000 visits and whatever Chrome's own history search finds further back, and says so when there are more. The last search comes back next time, selected, so typing replaces it.
+- **Time range:** All time, Today, Last 7 days or Last 30 days (remembered). **Clear browsing data…** opens Chrome's own page for it.
+- **Open** a page by clicking it, or select it with the arrow keys and press **Enter**: its tab if one is open, otherwise a new tab beside the page you came from. A **middle-click** or **Ctrl+Enter** opens it behind Tabazing, which stays open.
+- **Big preview:** the expand button, **Shift+click**, or **Space** (outside the search box); **← →** step through the history, **Enter** opens that page, **Esc** goes back. A page without a preview shows its address, last visit and number of visits.
+- **Tick several** with their boxes, **Ctrl+click** or **Ctrl+Space**; **Shift+click** ticks a range, **Ctrl+A** everything shown. The bar then offers **Open**, **Copy links**, **Remove** and **Clear**.
+- **Remove from history:** the trash button, or **Del** (⌘⌫), for the ticked pages or the selected one. This removes every visit to those pages from Chrome's history; **Undo** puts them back (as a visit now, since Chrome can't restore the old visits).
+- **⋯** (or right-click, or Shift+F10): **Open**, **Open in a new window**, **Open in the background**, **Big preview**, **Copy link**, **Star**, **Note**, **Bookmark…**, **Snooze: open it later**, **Archive**, **Select**, **More from this site** (searches for its site), **Remove from history** and **Remove all from this site** (it asks first, saying how many pages).
+- **Esc** empties the search box first, then unticks, then closes the view.
 
 ### Bookmarks
 
-The **bookmark** button (right of New tab, after History) opens all your Chrome bookmarks as a tree over the switcher.
+The **bookmark** button (after History, or **Ctrl+Shift+O**, ⌘⌥B on a Mac, or the command palette's **Open the Bookmarks view**) opens all your Chrome bookmarks as a tree over the switcher.
 
-- **Folders** open and close with a click, or **→ / ←**. Chrome's own folders (the bookmarks bar, Other bookmarks) start open.
-- Each **bookmark** shows its **preview** when Tabazing has one (otherwise its icon), its site, and its **note**. Click it (or **Enter**) to open it: its tab if one is open, otherwise a new tab. **Shift+click** or **Space**, or its expand button, shows it big.
-- **Search** with the box at the top: it finds bookmarks by name, site, address or note, and folders by name, forgiving typos. The folders around each match are shown with it. **Esc** empties the box, then closes the view.
-- **Notes on bookmarks** are the bookmark's own. They stay with the bookmark even if you change its address, and they are separate from the notes on tabs (which belong to the page a tab shows).
-- **Manage**: **Add bookmark** (it starts as the page you opened Tabazing over) and **New folder** in the bar, into the selected folder; **Edit** (F2) a bookmark's name, address and folder, or a folder's name and place; **Delete** (Del) a bookmark or a folder with everything in it. Tick bookmarks (their box, **Ctrl+click** or **Ctrl+Space**) to delete several at once from the bar. Every delete offers **Undo**, which puts it all back where it was, notes included.
-- **⋯** (or right-click, or Shift+F10): a bookmark's **Open**, **Open in a new window**, **Open in the background**, **Big preview**, **Copy link**, **Star**, **Note**, **Snooze**, **Select**, **Edit…**, **Delete**; a folder's **Add a bookmark here**, **New folder inside**, **Open all**, **Rename…**, **Delete folder**.
+- **Folders** open and close with a click, or **→ / ←**; **\*** opens every folder beside the selected one. Chrome's own folders start open the first time; after that, the folders you left open, the selected row and the last search come back.
+- Each **bookmark** shows its **preview** when Tabazing has one (otherwise its icon), its site, and its **note**. Click it (or **Enter**) to open it: its tab if one is open, otherwise a new tab. A **middle-click** or **Ctrl+Enter** opens it behind Tabazing. **Shift+click**, **Space** or its expand button shows it big (with its address, folder and when it was added).
+- **Search** with the box at the top: it finds bookmarks by name, site, address or note, and folders by name, forgiving typos, with the words marked and each bookmark's folder path. The folders around each match are shown with it, and the first match is selected.
+- **Duplicates** (shown when there are some) lists only the addresses bookmarked more than once, each marked with how many times.
+- **Notes on bookmarks** are the bookmark's own. They stay with the bookmark even if you change its address, they are separate from the notes on tabs (which belong to the page a tab shows), and they are kept on this computer. They also count in the main search and the command palette. A note on a bookmark deleted elsewhere (say in Chrome's bookmark manager) is dropped.
+- **Add and edit:** **Add bookmark** (it starts as the page you opened Tabazing over, and says where that page is bookmarked already) and **New folder** in the bar, into the selected folder; **Edit** (F2) a bookmark's name, address, folder and note, or a folder's name and place. Each offers **Undo**.
+- **Move:** drag rows onto a folder (its middle) or above / below another row; **Ctrl+↑ / Ctrl+↓** moves the selected one within its folder; **Move to…** in the bar moves the ticked ones. A folder's ⋯ sorts it **by name** (folders first) or **by date added**. Each offers **Undo**.
+- **Tick several** (bookmarks and folders) with their boxes, **Ctrl+click** or **Ctrl+Space**; **Shift+click** ticks a range, **Ctrl+A** everything shown. The bar then offers **Open**, **Move to…**, **Copy links**, **Delete** and **Clear**.
+- **Delete** (Del) a bookmark or a folder with everything in it; 10 bookmarks or more ask first. **Undo** puts it all back where it was, notes included.
+- **Open all** of a folder behind Tabazing, **in a new window**, or **in a new tab group** named after the folder; more than 15 tabs at once asks first.
+- **Stars and bookmarks:** stars are Tabazing's own and stay on this computer; bookmarks are Chrome's and sync. When some starred pages aren't bookmarked yet, **Bookmark N stars** puts them in a "Tabazing stars" folder (Undo takes it out).
+- The **Tabs Archive** folder is marked as Tabazing's archive, and its ⋯ opens the Archive view.
+- **⋯** (or right-click, or Shift+F10): a bookmark's **Open**, **Open in a new window**, **Open in the background**, **Big preview**, **Copy link**, **Star**, **Note**, **Snooze**, **Select**, **Edit…**, **Delete**; a folder's **Add a bookmark here**, **New folder inside**, **Open all** (here, in a new window, in a new tab group), **Sort by name**, **Sort by date added**, **Select**, **Rename…**, **Delete folder**.
+- **Esc** empties the search box (or Duplicates) first, then unticks, then closes the view. On a narrow window each row keeps only its ⋯ (and a note's button).
 
 ### Recently closed
 
@@ -452,8 +461,8 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 - **What is stored, and for how long** (all in Chrome's local extension storage, on this device):
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
   - **Closed-tabs log:** address, title and icon of tabs you closed (and the name and colour of the tab group each was in), kept **7 days** (up to 200 entries), for search.
-  - **Stars, notes and snoozed tabs** (address, title, time, and a snoozed tab's group name and colour) until you remove them.
-  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, and the ids of the last few command-palette actions you ran.
+  - **Stars, notes and snoozed tabs** (address, title, time, and a snoozed tab's group name and colour) until you remove them. **Notes on bookmarks** are kept by bookmark, on this computer only, until you remove them or the bookmark.
+  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, the ids of the last few command-palette actions you ran, and what the History and Bookmarks views bring back (their last search, the history's look and time range, the open folders and the selected row).
   - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
 
   - **Tab usage order**, and the tab group Tabazing is showing, kept only in memory and cleared when Chrome closes.
