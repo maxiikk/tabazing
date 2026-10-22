@@ -14,36 +14,36 @@ describe('cleanGroup / groupOf', () => {
 });
 
 describe('putInGroup', () => {
-  const tabs = (n, windowId = 1) => Array.from({ length: n }, (_, i) => chrome._addTab({ windowId, url: `https://t${i}.example/` }));
+  const tabs = (count, windowId = 1) => Array.from({ length: count }, (unused, i) => chrome._addTab({ windowId, url: `https://t${i}.example/` }));
 
   it('the same group while it is still there, in that window', async () => {
     chrome._addWindow({ id: 1 });
-    const [a, b] = tabs(2);
+    const [firstTab, secondTab] = tabs(2);
     chrome._addGroup({ id: 5, title: 'Work', color: 'blue', windowId: 1 });
-    a.groupId = 5;
-    expect(await putInGroup([b.id], { id: 5, title: 'Work', color: 'blue' }, 1)).toBe(5);
-    expect(b.groupId).toBe(5);
+    firstTab.groupId = 5;
+    expect(await putInGroup([secondTab.id], { id: 5, title: 'Work', color: 'blue' }, 1)).toBe(5);
+    expect(secondTab.groupId).toBe(5);
   });
 
   it('gone (or in another window): one there with the same name and colour', async () => {
     chrome._addWindow({ id: 1 });
     chrome._addWindow({ id: 2 });
-    const [a] = tabs(1, 1);
-    const [b] = tabs(1, 2);
+    const [tabInWindow1] = tabs(1, 1);
+    const [tabInWindow2] = tabs(1, 2);
     chrome._addGroup({ id: 5, title: 'Work', color: 'blue', windowId: 1 });
     chrome._addGroup({ id: 6, title: 'Work', color: 'blue', windowId: 2 });
-    a.groupId = 5;
-    expect(await putInGroup([b.id], { id: 5, title: 'Work', color: 'blue' }, 2)).toBe(6); // not 5: that one is in window 1
+    tabInWindow1.groupId = 5;
+    expect(await putInGroup([tabInWindow2.id], { id: 5, title: 'Work', color: 'blue' }, 2)).toBe(6); // not 5: that one is in window 1
   });
 
   it('else a new one with its name and colour; an unnamed group is never matched by colour alone', async () => {
     chrome._addWindow({ id: 1 });
-    const [a, b] = tabs(2);
+    const [firstTab, secondTab] = tabs(2);
     chrome._addGroup({ id: 8, title: '', color: 'red', windowId: 1 });
-    a.groupId = 8;
-    const id = await putInGroup([b.id], { id: 99, title: '', color: 'red' }, 1);
+    firstTab.groupId = 8;
+    const id = await putInGroup([secondTab.id], { id: 99, title: '', color: 'red' }, 1);
     expect(id).not.toBe(8);
-    expect(chrome._data.groups.find((g) => g.id === id)).toMatchObject({ title: '', color: 'red', windowId: 1 });
+    expect(chrome._data.groups.find((group) => group.id === id)).toMatchObject({ title: '', color: 'red', windowId: 1 });
   });
 
   it('nothing to do: null', async () => {

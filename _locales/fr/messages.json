@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "Ouvrir Tabazing sur la carte précédente de la liste (en boucle) ; relâchez Alt pour basculer"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "Ouvrir la palette de commandes de Tabazing : actions, calculs, conversions et recherche"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "Ouvrir Tabazing sur la carte suivante de la liste (en boucle) ; relâchez Alt pour basculer"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "Ouvrir Tabazing et le garder ouvert"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab pour les onglets Chrome : aperçus en direct, recherche instantanée, onglets fermés. Gratuit, privé, rien ne quitte votre PC."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing : sélecteur d’onglets visuel avec aperçus en direct"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

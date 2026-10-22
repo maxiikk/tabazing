@@ -8,70 +8,70 @@ import path from 'node:path';
 import { startServers, launch, sleep } from './helpers/harness.js';
 
 // The zip's files (Tabazing's zip stores them: no compression), read here (utils/backup.js needs the extension's chrome).
-async function unzipFiles(buf) {
-  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
-  let end = buf.length - 22;
-  while (v.getUint32(end, true) !== 0x06054b50) end--;
+async function unzipFiles(buffer) {
+  const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  let end = buffer.length - 22;
+  while (view.getUint32(end, true) !== 0x06054b50) end--;
   const out = new Map();
-  let at = v.getUint32(end + 16, true);
-  for (let i = v.getUint16(end + 10, true); i > 0; i--) {
-    const size = v.getUint32(at + 20, true), nlen = v.getUint16(at + 28, true), elen = v.getUint16(at + 30, true), clen = v.getUint16(at + 32, true);
-    const local = v.getUint32(at + 42, true);
-    expect(v.getUint16(at + 10, true)).toBe(0);
-    const name = Buffer.from(buf.subarray(at + 46, at + 46 + nlen)).toString('utf8');
-    const data = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
-    out.set(name, Buffer.from(buf.subarray(data, data + size)).toString('utf8'));
-    at += 46 + nlen + elen + clen;
+  let at = view.getUint32(end + 16, true);
+  for (let i = view.getUint16(end + 10, true); i > 0; i--) {
+    const size = view.getUint32(at + 20, true), nameLength = view.getUint16(at + 28, true), extraLength = view.getUint16(at + 30, true), commentLength = view.getUint16(at + 32, true);
+    const local = view.getUint32(at + 42, true);
+    expect(view.getUint16(at + 10, true)).toBe(0);
+    const name = Buffer.from(buffer.subarray(at + 46, at + 46 + nameLength)).toString('utf8');
+    const data = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+    out.set(name, Buffer.from(buffer.subarray(data, data + size)).toString('utf8'));
+    at += 46 + nameLength + extraLength + commentLength;
   }
   return out;
 }
 
-let srv, browser, ext, dir;
+let server, browser, extension, temporaryDirectory;
 beforeAll(async () => {
-  srv = await startServers();
-  ({ browser, ext } = await launch());
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tabazing-backup-'));
-  const cdp = await browser.target().createCDPSession();
-  await cdp.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: dir });
-  await ext.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
+  server = await startServers();
+  ({ browser, extension } = await launch());
+  temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'tabazing-backup-'));
+  const cdpSession = await browser.target().createCDPSession();
+  await cdpSession.send('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: temporaryDirectory });
+  await extension.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
 });
-afterAll(async () => { await browser?.close(); await srv?.close(); if (dir) fs.rmSync(dir, { recursive: true, force: true }); });
+afterAll(async () => { await browser?.close(); await server?.close(); if (temporaryDirectory) fs.rmSync(temporaryDirectory, { recursive: true, force: true }); });
 
-const frameOf = (page) => page.frames().find((f) => f.url().includes('markup/switcher.html'));
+const frameOf = (page) => page.frames().find((frame) => frame.url().includes('markup/switcher.html'));
 async function openSwitcher(name) {
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
-  await page.goto(`${srv.main}/p/${name}`);
+  await page.goto(`${server.main}/p/${name}`);
   await page.bringToFront();
   await sleep(1500);
   await page.keyboard.down('Alt'); await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
   await sleep(1500);
-  const f = frameOf(page);
-  for (let i = 0; i < 3; i++) if (await f.evaluate(() => !!document.querySelector('[data-testid="modal"]:not([hidden])'))) { await page.keyboard.press('Escape'); await sleep(400); }
-  return { page, f };
+  const frame = frameOf(page);
+  for (let i = 0; i < 3; i++) if (await frame.evaluate(() => !!document.querySelector('[data-testid="modal"]:not([hidden])'))) { await page.keyboard.press('Escape'); await sleep(400); }
+  return { page, f: frame };
 }
-const by = (f, id) => f.$(`[data-testid="${id}"]`);
-async function openBackup(f) {
-  await (await by(f, 'menu-btn')).click();
+const by = (frame, id) => frame.$(`[data-testid="${id}"]`);
+async function openBackup(frame) {
+  await (await by(frame, 'menu-button')).click();
   await sleep(500);
-  await (await by(f, 'backup-btn')).click();
+  await (await by(frame, 'backup-button')).click();
   await sleep(600);
-  expect(await f.evaluate(() => !!document.querySelector('[data-testid="backup-overlay"]'))).toBe(true);
+  expect(await frame.evaluate(() => !!document.querySelector('[data-testid="backup-overlay"]'))).toBe(true);
 }
 // What Tabazing keeps and the bookmarks, as text to compare.
-const snapshot = () => ext.run(async () => {
+const snapshot = () => extension.run(async () => {
   const marks = [];
-  const walk = (n, p) => { for (const c of n.children || []) { if (c.url) marks.push(p + ' > ' + c.title + ' ' + c.url); else walk(c, p + ' > ' + c.title); } };
+  const walk = (node, trail) => { for (const child of node.children || []) { if (child.url) marks.push(trail + ' > ' + child.title + ' ' + child.url); else walk(child, trail + ' > ' + child.title); } };
   walk((await chrome.bookmarks.getTree())[0], '');
-  const { notes = {}, stars = {}, bmNotes = {} } = await chrome.storage.local.get(['notes', 'stars', 'bmNotes']);
-  return { marks: marks.sort(), notes: Object.values(notes).map((x) => x.u + ' ' + x.n).sort(), stars: Object.keys(stars).sort(), bmNotes: Object.values(bmNotes).map((x) => x.u + ' ' + x.n).sort() };
+  const { notes = {}, stars = {}, bmNotes: bookmarkNotes = {} } = await chrome.storage.local.get(['notes', 'stars', 'bmNotes']);
+  return { marks: marks.sort(), notes: Object.values(notes).map((x) => x.u + ' ' + x.n).sort(), stars: Object.keys(stars).sort(), bmNotes: Object.values(bookmarkNotes).map((x) => x.u + ' ' + x.n).sort() };
 });
-const waitDone = async (f) => { for (let i = 0; i < 40; i++) { if (await f.evaluate(() => !!document.querySelector('[data-testid="backup-done"], [data-testid="backup-error"], [data-testid="backup-bad"]'))) break; await sleep(250); } };
+const waitDone = async (frame) => { for (let i = 0; i < 40; i++) { if (await frame.evaluate(() => !!document.querySelector('[data-testid="backup-done"], [data-testid="backup-error"], [data-testid="backup-bad"]'))) break; await sleep(250); } };
 
 describe('Backup & Restore in Chrome', () => {
   let zipPath, before;
   it('backs up everything into tabazing-backup-<date>.zip', async () => {
-    await ext.run(async (base) => {
+    await extension.run(async (base) => {
       const work = await chrome.bookmarks.create({ parentId: '1', title: 'Work' });
       const wiki = await chrome.bookmarks.create({ parentId: work.id, title: 'Wiki', url: `${base}/p/Wiki` });
       await chrome.bookmarks.create({ parentId: '2', title: 'Docs', url: `${base}/p/Docs` });
@@ -81,62 +81,62 @@ describe('Backup & Restore in Chrome', () => {
         bmNotes: { [wiki.id]: { u: `${base}/p/Wiki`, n: 'a wiki note', t: now } },
         stars: { [`${base}/p/Star`]: { u: `${base}/p/Star`, ti: 'Star', t: now } },
       });
-    }, srv.main);
+    }, server.main);
     before = await snapshot();
-    const { page, f } = await openSwitcher('Home');
-    await openBackup(f);
-    await (await by(f, 'backup-export-btn')).click();
-    for (let i = 0; i < 40 && !fs.readdirSync(dir).some((x) => x.endsWith('.zip')); i++) await sleep(250);
-    const name = fs.readdirSync(dir).find((x) => x.endsWith('.zip'));
+    const { page, f: frame } = await openSwitcher('Home');
+    await openBackup(frame);
+    await (await by(frame, 'backup-export-button')).click();
+    for (let i = 0; i < 40 && !fs.readdirSync(temporaryDirectory).some((x) => x.endsWith('.zip')); i++) await sleep(250);
+    const name = fs.readdirSync(temporaryDirectory).find((x) => x.endsWith('.zip'));
     expect(name).toMatch(/^tabazing-backup-\d{4}-\d\d-\d\d\.zip$/);
-    zipPath = path.join(dir, name);
+    zipPath = path.join(temporaryDirectory, name);
     const files = await unzipFiles(new Uint8Array(fs.readFileSync(zipPath)));
-    expect([...files.keys()].every((k) => k.startsWith('backup/') && k.endsWith('.json'))).toBe(true);
+    expect([...files.keys()].every((entryName) => entryName.startsWith('backup/') && entryName.endsWith('.json'))).toBe(true);
     expect(files.get('backup/notes.json')).toContain('a tab note');
     expect(files.get('backup/bookmark-notes.json')).toContain('a wiki note');
-    expect(await f.evaluate(() => !!document.querySelector('[data-testid="backup-overlay"]'))).toBe(true); // still open
+    expect(await frame.evaluate(() => !!document.querySelector('[data-testid="backup-overlay"]'))).toBe(true); // still open
     await page.close();
   });
 
   it('after the data is gone, the zip brings it all back; restoring again makes nothing twice', async () => {
-    await ext.run(async () => {
-      for (const id of ['1', '2']) for (const c of await chrome.bookmarks.getChildren(id)) await chrome.bookmarks.removeTree(c.id);
+    await extension.run(async () => {
+      for (const id of ['1', '2']) for (const child of await chrome.bookmarks.getChildren(id)) await chrome.bookmarks.removeTree(child.id);
       await chrome.storage.local.remove(['notes', 'bmNotes', 'stars']);
     });
     expect((await snapshot()).marks).toEqual([]);
-    const { page, f } = await openSwitcher('Home');
-    await openBackup(f);
-    const input = await by(f, 'backup-zip-input');
+    const { page, f: frame } = await openSwitcher('Home');
+    await openBackup(frame);
+    const input = await by(frame, 'backup-zip-input');
     await input.uploadFile(zipPath);
-    await waitDone(f);
-    expect(await f.evaluate(() => !!document.querySelector('[data-testid="backup-done"]'))).toBe(true);
+    await waitDone(frame);
+    expect(await frame.evaluate(() => !!document.querySelector('[data-testid="backup-done"]'))).toBe(true);
     expect(await snapshot()).toEqual(before);
     await input.uploadFile(zipPath);
     await sleep(300);
-    await waitDone(f);
+    await waitDone(frame);
     expect(await snapshot()).toEqual(before);
     await page.close();
   });
 
   it('from the unzipped folder\'s files too, keeping what was added since', async () => {
-    const out = path.join(dir, 'unzipped', 'backup');
+    const out = path.join(temporaryDirectory, 'unzipped', 'backup');
     fs.mkdirSync(out, { recursive: true });
     const files = await unzipFiles(new Uint8Array(fs.readFileSync(zipPath)));
-    for (const [k, v] of files) fs.writeFileSync(path.join(out, path.basename(k)), v);
-    await ext.run(async (base) => {
+    for (const [fileName, content] of files) fs.writeFileSync(path.join(out, path.basename(fileName)), content);
+    await extension.run(async (base) => {
       await chrome.bookmarks.create({ parentId: '1', title: 'Since', url: `${base}/p/Since` });
       const { notes } = await chrome.storage.local.get('notes');
       notes[`${base}/p/Note`].n = 'changed since';
       await chrome.storage.local.set({ notes });
-    }, srv.main);
-    const { page, f } = await openSwitcher('Home');
-    await openBackup(f);
+    }, server.main);
+    const { page, f: frame } = await openSwitcher('Home');
+    await openBackup(frame);
     // (Chrome gives a folder input the folder: its files, each with its path in it)
-    await (await by(f, 'backup-folder-input')).uploadFile(out);
-    await waitDone(f);
-    expect(await f.evaluate(() => !!document.querySelector('[data-testid="backup-done"]'))).toBe(true);
+    await (await by(frame, 'backup-folder-input')).uploadFile(out);
+    await waitDone(frame);
+    expect(await frame.evaluate(() => !!document.querySelector('[data-testid="backup-done"]'))).toBe(true);
     const now = await snapshot();
-    expect(now.marks).toEqual([...before.marks, ` > Bookmarks bar > Since ${srv.main}/p/Since`].sort());
+    expect(now.marks).toEqual([...before.marks, ` > Bookmarks bar > Since ${server.main}/p/Since`].sort());
     expect(now.notes).toEqual(before.notes); // the backup's note over the one changed since
     await page.close();
   });

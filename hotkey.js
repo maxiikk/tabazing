@@ -11,7 +11,7 @@
 // install/reload. A live copy makes later copies no-ops; a copy orphaned by
 // an extension reload (chrome.runtime.id is gone) is replaced.
 (() => {
-  const HOTKEY = 'tabazing:hotkey'; // keep in sync with MSG.HOTKEY in utils/constants.js
+  const HOTKEY = 'tabazing:hotkey'; // keep in sync with MESSAGE.HOTKEY in utils/constants.js
   const alive = () => { try { return !!chrome.runtime.id; } catch { return false; } };
 
   const existing = window.__tabazingHotkey;
@@ -27,9 +27,9 @@
   let altDown = false;
   let altAt = 0;
   const altState = () => (Date.now() - altAt > 10000 ? 'unknown' : altDown ? 'down' : 'up');
-  function onAlt(e) {
-    if (!e.isTrusted || e.key !== 'Alt') return;
-    altDown = e.type === 'keydown';
+  function onAlt(event) {
+    if (!event.isTrusted || event.key !== 'Alt') return;
+    altDown = event.type === 'keydown';
     altAt = Date.now();
   }
   const onBlur = () => { altAt = 0; };
@@ -38,26 +38,26 @@
   // Alt+E: open and stay. Shift turns the direction around.
   const KEYS = { KeyQ: [-1, true], KeyW: [1, true], KeyE: [0, false] };
   // Alt+R (Option+R on a Mac): the command palette.
-  const isPalette = (e) => e.code === 'KeyR' && e.altKey && !e.shiftKey && !e.ctrlKey && !e.metaKey;
-  function onKey(e) {
-    if (!e.isTrusted || e.repeat) return;
-    const palette = isPalette(e);
-    if (!palette && (!KEYS[e.code] || !e.altKey || e.ctrlKey || e.metaKey)) return;
+  const isPalette = (event) => event.code === 'KeyR' && event.altKey && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+  function onKey(event) {
+    if (!event.isTrusted || event.repeat) return;
+    const palette = isPalette(event);
+    if (!palette && (!KEYS[event.code] || !event.altKey || event.ctrlKey || event.metaKey)) return;
     if (!alive()) { window.removeEventListener('keydown', onKey, true); return; }
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    if (palette) return send({ type: HOTKEY, dir: 0, hold: false, palette: true });
-    const [dir, hold] = KEYS[e.code];
-    send({ type: HOTKEY, dir: e.shiftKey && dir ? -dir : dir, hold });
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (palette) return send({ type: HOTKEY, direction: 0, hold: false, palette: true });
+    const [direction, hold] = KEYS[event.code];
+    send({ type: HOTKEY, direction: event.shiftKey && direction ? -direction : direction, hold });
   }
 
   // The service worker can be asleep or still starting when the key is pressed. Sending a
   // message normally wakes it, but if it isn't listening yet the call is rejected, and a
   // silently swallowed rejection looks like "Alt+Q does nothing". So retry once after a
   // moment, by which time the worker has woken.
-  function send(msg) {
-    chrome.runtime.sendMessage(msg).catch(() => new Promise((r) => setTimeout(r, 50))
-      .then(() => { if (alive()) return chrome.runtime.sendMessage(msg); })
+  function send(message) {
+    chrome.runtime.sendMessage(message).catch(() => new Promise((resolve) => setTimeout(resolve, 50))
+      .then(() => { if (alive()) return chrome.runtime.sendMessage(message); })
       .catch(() => {}));
   }
 

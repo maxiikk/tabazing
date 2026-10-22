@@ -21,9 +21,9 @@ describe('dayOf', () => {
     expect(dayOf(new Date(2026, 11, 31, 0, 0).getTime())).toBe('2026-12-31');
   });
   it('changes at local midnight', () => {
-    const mid = new Date(2026, 5, 1).getTime();
-    expect(dayOf(mid - 1)).toBe('2026-5-31');
-    expect(dayOf(mid)).toBe('2026-6-1');
+    const midnight = new Date(2026, 5, 1).getTime();
+    expect(dayOf(midnight - 1)).toBe('2026-5-31');
+    expect(dayOf(midnight)).toBe('2026-6-1');
   });
   it('defaults to now', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 9, 17, 12));
@@ -48,39 +48,39 @@ describe('reviewPrompt (rules)', () => {
   const DAY = 24 * 3600 * 1000;
   async function load() {
     vi.resetModules();
-    vi.doMock('../../utils/constants.js', () => ({ REVIEW: { ASK_AFTER_OPENS: 15, ASK_AFTER_MS: 3 * DAY, ASK_GAP_MS: 14 * DAY, ASK_MAX: 2 } }));
+    vi.doMock('../../utils/constants.js', () => ({ REVIEW: { ASK_AFTER_OPENS: 15, ASK_AFTER_MILLISECONDS: 3 * DAY, ASK_GAP_MILLISECONDS: 14 * DAY, ASK_MAX: 2 } }));
     return (await import('../../utils/review.js')).reviewPrompt;
   }
-  const T0 = Date.UTC(2026, 0, 1); // a real install time (lastAsk 0 then means "never asked")
-  const ready = () => ({ ...emptyReview(T0), opens: 15 });
-  const now = T0 + 3 * DAY;
+  const INSTALL_TIME = Date.UTC(2026, 0, 1); // a real install time (lastAsk 0 then means "never asked")
+  const ready = () => ({ ...emptyReview(INSTALL_TIME), opens: 15 });
+  const now = INSTALL_TIME + 3 * DAY;
 
   it('asks once opens and age reach the thresholds', async () => {
-    const rp = await load();
-    expect(rp(ready(), now)).toBe('ask');
+    const mockedPrompt = await load();
+    expect(mockedPrompt(ready(), now)).toBe('ask');
   });
   it('waits for enough opens and enough time since install', async () => {
-    const rp = await load();
-    expect(rp({ ...ready(), opens: 14 }, now)).toBe(null);
-    expect(rp(ready(), now - 1)).toBe(null);
+    const mockedPrompt = await load();
+    expect(mockedPrompt({ ...ready(), opens: 14 }, now)).toBe(null);
+    expect(mockedPrompt(ready(), now - 1)).toBe(null);
   });
   it('never on the first open of the day, or once done', async () => {
-    const rp = await load();
-    expect(rp(ready(), now, { firstToday: true })).toBe(null);
-    expect(rp({ ...ready(), done: true }, now)).toBe(null);
+    const mockedPrompt = await load();
+    expect(mockedPrompt(ready(), now, { firstToday: true })).toBe(null);
+    expect(mockedPrompt({ ...ready(), done: true }, now)).toBe(null);
   });
   it('keeps the gap between asks and stops at ASK_MAX', async () => {
-    const rp = await load();
+    const mockedPrompt = await load();
     const asked = { ...ready(), asks: 1, lastAsk: now };
-    expect(rp(asked, now + 14 * DAY - 1)).toBe(null);
-    expect(rp(asked, now + 14 * DAY)).toBe('ask');
-    expect(rp({ ...asked, asks: 2 }, now + 100 * DAY)).toBe(null);
+    expect(mockedPrompt(asked, now + 14 * DAY - 1)).toBe(null);
+    expect(mockedPrompt(asked, now + 14 * DAY)).toBe('ask');
+    expect(mockedPrompt({ ...asked, asks: 2 }, now + 100 * DAY)).toBe(null);
   });
   it('defaults `now` to the current time', async () => {
-    const rp = await load();
+    const mockedPrompt = await load();
     vi.useFakeTimers(); vi.setSystemTime(now);
-    expect(rp(ready())).toBe('ask');
+    expect(mockedPrompt(ready())).toBe('ask');
     vi.setSystemTime(now - 1);
-    expect(rp(ready())).toBe(null);
+    expect(mockedPrompt(ready())).toBe(null);
   });
 });

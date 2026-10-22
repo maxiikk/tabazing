@@ -1,10 +1,10 @@
-// t(key, params): a string from dictionaries/<lang>.json in the interface language, with its
+// translate(key, params): a string from dictionaries/<lang>.json in the interface language, with its
 // placeholders filled in from `params`.
 //
 //   "tabs": "{count, plural, one {# tab} other {# tabs}}"
-//   t('tabs', { count: 5 })                 -> "5 tabs"
+//   translate('tabs', { count: 5 })                 -> "5 tabs"
 //   "activeTab": "Active tab: {title}"
-//   t('activeTab', { title: 'Inbox' })      -> "Active tab: Inbox"
+//   translate('activeTab', { title: 'Inbox' })      -> "Active tab: Inbox"
 //
 // Messages use ICU MessageFormat (the syntax of ICU / FormatJS / i18next-icu), the parts Tabazing needs, with no
 // library to bundle:
@@ -35,7 +35,7 @@ const DICTIONARIES = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, a
 export const LANGUAGES = Object.freeze(Object.keys(DICTIONARIES));
 
 let locale = 'en';
-/** Switch the language t() uses (an unknown one means English). Returns the one in use. */
+/** Switch the language translate() uses (an unknown one means English). Returns the one in use. */
 export function setLocale(lang) {
   locale = DICTIONARIES[lang] ? lang : 'en';
   return locale;
@@ -43,7 +43,7 @@ export function setLocale(lang) {
 export const getLocale = () => locale;
 
 /** The text for `key` in the current language, its placeholders filled from `params`. */
-export function t(key, params = {}) {
+export function translate(key, params = {}) {
   const dict = DICTIONARIES[locale];
   const lang = key in dict ? locale : key in EN ? 'en' : null;
   if (!lang) return key;
@@ -52,12 +52,12 @@ export function t(key, params = {}) {
 
 /** Format an ICU message (`pattern`) with `data` for `lang`. `cacheKey` (optional) keeps the parsed message. */
 export function formatMessage(pattern, data = {}, lang = locale, cacheKey = null) {
-  let ast = cacheKey && parsed.get(cacheKey);
-  if (!ast) {
-    ast = parse(String(pattern));
-    if (cacheKey) parsed.set(cacheKey, ast);
+  let parsedMessage = cacheKey && parsed.get(cacheKey);
+  if (!parsedMessage) {
+    parsedMessage = parse(String(pattern));
+    if (cacheKey) parsed.set(cacheKey, parsedMessage);
   }
-  return render(ast, data || {}, lang, null);
+  return render(parsedMessage, data || {}, lang, null);
 }
 const parsed = new Map(); // "lang\0key" -> the message, parsed once
 
@@ -65,10 +65,10 @@ const parsed = new Map(); // "lang\0key" -> the message, parsed once
 export function messageArguments(pattern) {
   const out = {};
   const walk = (parts) => {
-    for (const p of parts) {
-      if (typeof p !== 'object') continue;
-      if (!(p.arg in out) || p.type) out[p.arg] = p.type;
-      if (p.options) Object.values(p.options).forEach(walk);
+    for (const part of parts) {
+      if (typeof part !== 'object') continue;
+      if (!(part.argument in out) || part.type) out[part.argument] = part.type;
+      if (part.options) Object.values(part.options).forEach(walk);
     }
   };
   walk(parse(String(pattern)));
@@ -77,114 +77,114 @@ export function messageArguments(pattern) {
 
 // ---- parsing: a message is a list of parts: text, COUNT (a # in a plural), or { arg, type, options, offset }
 const COUNT = Symbol('#');
-function parse(s) {
-  const [parts, end] = parseParts(s, 0, false);
-  if (end < s.length) throw new SyntaxError(`Unexpected "}" at ${end} in: ${s}`);
+function parse(source) {
+  const [parts, end] = parseParts(source, 0, false);
+  if (end < source.length) throw new SyntaxError(`Unexpected "}" at ${end} in: ${source}`);
   return parts;
 }
-function parseParts(s, i, inPlural) {
+function parseParts(source, i, inPlural) {
   const parts = [];
   let text = '';
   const flush = () => { if (text) { parts.push(text); text = ''; } };
-  while (i < s.length) {
-    const c = s[i];
-    if (c === "'") {
-      const next = s[i + 1];
+  while (i < source.length) {
+    const character = source[i];
+    if (character === "'") {
+      const next = source[i + 1];
       if (next === "'") { text += "'"; i += 2; continue; }
       if (next === '{' || next === '}' || next === '|' || (next === '#' && inPlural)) { // quoted literal up to the next lone '
         let j = i + 1;
-        for (; j < s.length; j++) {
-          if (s[j] === "'") { if (s[j + 1] === "'") { text += "'"; j++; continue; } break; }
-          text += s[j];
+        for (; j < source.length; j++) {
+          if (source[j] === "'") { if (source[j + 1] === "'") { text += "'"; j++; continue; } break; }
+          text += source[j];
         }
         i = j + 1;
         continue;
       }
-      text += c; i++; continue;
+      text += character; i++; continue;
     }
-    if (c === '{') { flush(); const [arg, j] = parseArg(s, i + 1); parts.push(arg); i = j; continue; }
-    if (c === '}') break;
-    if (c === '#' && inPlural) { flush(); parts.push(COUNT); i++; continue; }
-    text += c; i++;
+    if (character === '{') { flush(); const [argument, j] = parseArgument(source, i + 1); parts.push(argument); i = j; continue; }
+    if (character === '}') break;
+    if (character === '#' && inPlural) { flush(); parts.push(COUNT); i++; continue; }
+    text += character; i++;
   }
   flush();
   return [parts, i];
 }
-const skipSpace = (s, i) => { while (i < s.length && /\s/.test(s[i])) i++; return i; };
-function readWord(s, i) {
+const skipSpace = (source, i) => { while (i < source.length && /\s/.test(source[i])) i++; return i; };
+function readWord(source, i) {
   const start = i;
-  while (i < s.length && !/[\s,{}]/.test(s[i])) i++;
-  return [s.slice(start, i), i];
+  while (i < source.length && !/[\s,{}]/.test(source[i])) i++;
+  return [source.slice(start, i), i];
 }
-function parseArg(s, i) {
+function parseArgument(source, i) {
   let name;
-  i = skipSpace(s, i);
-  [name, i] = readWord(s, i);
-  i = skipSpace(s, i);
-  if (!name) throw new SyntaxError(`Empty argument in: ${s}`);
-  if (s[i] === '}') return [{ arg: name, type: null }, i + 1];
-  if (s[i] !== ',') throw new SyntaxError(`Expected "," or "}" after {${name} in: ${s}`);
+  i = skipSpace(source, i);
+  [name, i] = readWord(source, i);
+  i = skipSpace(source, i);
+  if (!name) throw new SyntaxError(`Empty argument in: ${source}`);
+  if (source[i] === '}') return [{ argument: name, type: null }, i + 1];
+  if (source[i] !== ',') throw new SyntaxError(`Expected "," or "}" after {${name} in: ${source}`);
   let type;
-  i = skipSpace(s, i + 1);
-  [type, i] = readWord(s, i);
-  i = skipSpace(s, i);
+  i = skipSpace(source, i + 1);
+  [type, i] = readWord(source, i);
+  i = skipSpace(source, i);
   if (type !== 'plural' && type !== 'selectordinal' && type !== 'select') { // number (a style after it is ignored)
-    const end = s.indexOf('}', i);
-    if (end < 0) throw new SyntaxError(`Unclosed {${name} in: ${s}`);
-    return [{ arg: name, type }, end + 1];
+    const end = source.indexOf('}', i);
+    if (end < 0) throw new SyntaxError(`Unclosed {${name} in: ${source}`);
+    return [{ argument: name, type }, end + 1];
   }
-  if (s[i] !== ',') throw new SyntaxError(`Expected "," after {${name}, ${type} in: ${s}`);
+  if (source[i] !== ',') throw new SyntaxError(`Expected "," after {${name}, ${type} in: ${source}`);
   i++;
   const options = {};
   let offset = 0;
   for (;;) {
-    i = skipSpace(s, i);
-    if (s[i] === '}') break;
-    if (i >= s.length) throw new SyntaxError(`Unclosed {${name}, ${type} in: ${s}`);
-    let sel;
-    [sel, i] = readWord(s, i);
-    if (sel.startsWith('offset:')) { offset = Number(sel.slice(7)); continue; }
-    i = skipSpace(s, i);
-    if (s[i] !== '{') throw new SyntaxError(`Expected "{" after "${sel}" in: ${s}`);
-    const [sub, j] = parseParts(s, i + 1, type !== 'select');
-    if (s[j] !== '}') throw new SyntaxError(`Unclosed option "${sel}" in: ${s}`);
-    options[sel] = sub;
+    i = skipSpace(source, i);
+    if (source[i] === '}') break;
+    if (i >= source.length) throw new SyntaxError(`Unclosed {${name}, ${type} in: ${source}`);
+    let selector;
+    [selector, i] = readWord(source, i);
+    if (selector.startsWith('offset:')) { offset = Number(selector.slice(7)); continue; }
+    i = skipSpace(source, i);
+    if (source[i] !== '{') throw new SyntaxError(`Expected "{" after "${selector}" in: ${source}`);
+    const [nestedParts, j] = parseParts(source, i + 1, type !== 'select');
+    if (source[j] !== '}') throw new SyntaxError(`Unclosed option "${selector}" in: ${source}`);
+    options[selector] = nestedParts;
     i = j + 1;
   }
-  if (!options.other) throw new SyntaxError(`{${name}, ${type}} needs an "other" option in: ${s}`);
-  return [{ arg: name, type, options, offset }, i + 1];
+  if (!options.other) throw new SyntaxError(`{${name}, ${type}} needs an "other" option in: ${source}`);
+  return [{ argument: name, type, options, offset }, i + 1];
 }
 
 // ---- formatting
 const rules = new Map(); // "lang/type" -> Intl.PluralRules
 const numbers = new Map(); // lang -> Intl.NumberFormat
 function pluralRules(lang, type) {
-  const k = lang + '/' + type;
-  if (!rules.has(k)) rules.set(k, new Intl.PluralRules(lang, { type }));
-  return rules.get(k);
+  const cacheKey = lang + '/' + type;
+  if (!rules.has(cacheKey)) rules.set(cacheKey, new Intl.PluralRules(lang, { type }));
+  return rules.get(cacheKey);
 }
-function number(lang, n) {
+function number(lang, value) {
   if (!numbers.has(lang)) numbers.set(lang, new Intl.NumberFormat(lang));
-  return numbers.get(lang).format(n);
+  return numbers.get(lang).format(value);
 }
 function render(parts, data, lang, count) {
   let out = '';
-  for (const p of parts) {
-    if (typeof p === 'string') out += p;
-    else if (p === COUNT) out += count === null ? '#' : number(lang, count);
-    else out += renderArg(p, data, lang, count);
+  for (const part of parts) {
+    if (typeof part === 'string') out += part;
+    else if (part === COUNT) out += count === null ? '#' : number(lang, count);
+    else out += renderArgument(part, data, lang, count);
   }
   return out;
 }
-function renderArg(p, data, lang, count) {
-  if (!(p.arg in data)) return '{' + p.arg + '}';
-  const v = data[p.arg];
-  if (p.type === null) return String(v);
-  if (p.type === 'number') return number(lang, Number(v));
-  if (p.type === 'select') return render(p.options[String(v)] || p.options.other, data, lang, count);
-  const n = Number(v);
-  const exact = p.options['=' + n];
-  if (exact) return render(exact, data, lang, n - p.offset);
-  const cat = pluralRules(lang, p.type === 'plural' ? 'cardinal' : 'ordinal').select(n - p.offset);
-  return render(p.options[cat] || p.options.other, data, lang, n - p.offset);
+function renderArgument(part, data, lang, count) {
+  if (!(part.argument in data)) return '{' + part.argument + '}';
+  const value = data[part.argument];
+  if (part.type === null) return String(value);
+  if (part.type === 'number') return number(lang, Number(value));
+  if (part.type === 'select') return render(part.options[String(value)] || part.options.other, data, lang, count);
+  const numericValue = Number(value);
+  const exact = part.options['=' + numericValue];
+  if (exact) return render(exact, data, lang, numericValue - part.offset);
+  const category = pluralRules(lang, part.type === 'plural' ? 'cardinal' : 'ordinal').select(numericValue - part.offset);
+  return render(part.options[category] || part.options.other, data, lang, numericValue - part.offset);
 }

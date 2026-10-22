@@ -9,20 +9,20 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const read = (p) => readFileSync(join(ROOT, p), 'utf8');
+const read = (path) => readFileSync(join(ROOT, path), 'utf8');
 
 /** The languages there are dictionaries for: ['ar', 'de', 'el', 'en', …]. */
-export const languages = () => readdirSync(join(ROOT, 'dictionaries')).filter((f) => f.endsWith('.json')).map((f) => f.slice(0, -5)).sort();
+export const languages = () => readdirSync(join(ROOT, 'dictionaries')).filter((filename) => filename.endsWith('.json')).map((filename) => filename.slice(0, -5)).sort();
 /** The keys manifest.json asks Chrome for (__MSG_key__). */
-export const manifestKeys = () => [...new Set([...read('manifest.json').matchAll(/__MSG_(\w+)__/g)].map((m) => m[1]))].sort();
+export const manifestKeys = () => [...new Set([...read('manifest.json').matchAll(/__MSG_(\w+)__/g)].map((match) => match[1]))].sort();
 
 /** The messages.json text for one language: just the manifest's keys, in Chrome's { key: { message } } form. */
 export function localeFile(lang) {
   const dict = JSON.parse(read(`dictionaries/${lang}.json`));
   const out = {};
-  for (const k of manifestKeys()) {
-    if (typeof dict[k] !== 'string') throw new Error(`dictionaries/${lang}.json has no "${k}" (manifest.json uses __MSG_${k}__)`);
-    out[k] = { message: dict[k] };
+  for (const key of manifestKeys()) {
+    if (typeof dict[key] !== 'string') throw new Error(`dictionaries/${lang}.json has no "${key}" (manifest.json uses __MSG_${key}__)`);
+    out[key] = { message: dict[key] };
   }
   return JSON.stringify(out, null, 3) + '\n';
 }

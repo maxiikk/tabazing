@@ -8,7 +8,7 @@ export const ARCHIVE_FOLDER = 'Tabs Archive';
 // Only the root's own children are read (not getTree): this runs on every save over the preview caps.
 async function otherBookmarks() {
   const kids = (await chrome.bookmarks.getChildren('0')) || [];
-  return kids.find((n) => n.folderType === 'other') || kids.find((n) => n.id === '2') || kids[1] || kids[0] || null;
+  return kids.find((node) => node.folderType === 'other') || kids.find((node) => node.id === '2') || kids[1] || kids[0] || null;
 }
 
 /** The archive folder, or null when there is none yet (`create` makes it). */
@@ -16,7 +16,7 @@ export async function archiveFolder(create = false) {
   if (!chrome.bookmarks) return null;
   const other = await otherBookmarks();
   if (!other) return null;
-  const found = (await chrome.bookmarks.getChildren(other.id)).find((n) => !n.url && n.title === ARCHIVE_FOLDER);
+  const found = (await chrome.bookmarks.getChildren(other.id)).find((node) => !node.url && node.title === ARCHIVE_FOLDER);
   if (found || !create) return found || null;
   return chrome.bookmarks.create({ parentId: other.id, title: ARCHIVE_FOLDER });
 }
@@ -26,9 +26,9 @@ export async function getArchived() {
   const folder = await archiveFolder();
   if (!folder) return [];
   return (await chrome.bookmarks.getChildren(folder.id))
-    .filter((n) => n.url)
-    .map((n) => ({ id: n.id, url: n.url, title: n.title || '', t: n.dateAdded || 0 }))
-    .sort((a, b) => b.t - a.t);
+    .filter((node) => node.url)
+    .map((node) => ({ id: node.id, url: node.url, title: node.title || '', t: node.dateAdded || 0 }))
+    .sort((first, second) => second.t - first.t);
 }
 
 /** Bookmark pages ([{ url, title }]) into the archive. Resolves to what was added, like getArchived(). */
@@ -36,9 +36,9 @@ export async function addArchived(pages) {
   const folder = await archiveFolder(true);
   if (!folder) throw new Error('bookmarks unavailable');
   const out = [];
-  for (const p of pages) {
-    const n = await chrome.bookmarks.create({ parentId: folder.id, title: p.title || p.url, url: p.url });
-    out.push({ id: n.id, url: n.url, title: n.title || '', t: n.dateAdded || Date.now() });
+  for (const page of pages) {
+    const node = await chrome.bookmarks.create({ parentId: folder.id, title: page.title || page.url, url: page.url });
+    out.push({ id: node.id, url: node.url, title: node.title || '', t: node.dateAdded || Date.now() });
   }
   return out;
 }

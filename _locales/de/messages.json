@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "Tabazing auf der vorherigen Karte der Liste öffnen (läuft im Kreis); Alt loslassen zum Wechseln"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "Befehlspalette von Tabazing öffnen: Aktionen, Berechnungen, Umrechnungen und Suche"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "Tabazing auf der nächsten Karte der Liste öffnen (läuft im Kreis); Alt loslassen zum Wechseln"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "Tabazing öffnen und offen lassen"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab für Chrome-Tabs: Live-Vorschau, Sofortsuche und kürzlich geschlossene Tabs. Kostenlos, privat, nichts verlässt deinen PC."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing: Visueller Tab-Wechsler mit Live-Vorschau"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

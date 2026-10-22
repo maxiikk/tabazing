@@ -7,8 +7,8 @@
 // Idempotent, like hotkey.js: a live copy makes later copies no-ops; a copy orphaned by an extension
 // reload (chrome.runtime.id is gone) is replaced.
 (() => {
-  const MEDIA = 'tabazing:media'; // keep in sync with MSG.MEDIA in utils/constants.js (also media-hook.js's event name)
-  const MAX = 4096;               // keep in sync with LIMITS.MEDIA_STATE_MAX
+  const MEDIA = 'tabazing:media'; // keep in sync with MESSAGE.MEDIA in utils/constants.js (also media-hook.js's event name)
+  const MAX_STATE_LENGTH = 4096;  // keep in sync with LIMITS.MEDIA_STATE_MAX
   const SYNC = 'tabazing:media-sync'; // media-hook.js says everything again when asked
   const MIN_VERSION = 2;          // media-hook.js's VERSION: copies older than that (left in pages open from
                                   // before an update) can't be retired, and their rules are out of date
@@ -22,13 +22,13 @@
   }
 
   let last = '';
-  function onMedia(e) {
+  function onMedia(event) {
     if (!alive()) { document.removeEventListener(MEDIA, onMedia, true); document.removeEventListener(SYNC, onSync, true); return; }
-    const state = e.detail;
-    if (typeof state !== 'string' || !state || state.length > MAX || state === last) return;
-    let v = 0;
-    try { v = JSON.parse(state).v; } catch {}
-    if (!(v >= MIN_VERSION)) return;
+    const state = event.detail;
+    if (typeof state !== 'string' || !state || state.length > MAX_STATE_LENGTH || state === last) return;
+    let version = 0;
+    try { version = JSON.parse(state).v; } catch {}
+    if (!(version >= MIN_VERSION)) return;
     last = state;
     chrome.runtime.sendMessage({ type: MEDIA, state }).catch(() => {});
   }

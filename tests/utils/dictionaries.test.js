@@ -18,7 +18,7 @@ import { LANGS } from '../../utils/i18n.js';
 import { messageArguments, formatMessage } from '../../utils/translations.js';
 import { languages, localeFile, manifestKeys as chromeKeys } from '../../scripts/i18n.js';
 
-const read = (p) => readFileSync(resolve(process.cwd(), p), 'utf8');
+const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const BOOKS = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, ar: AR, he: HE, ro: RO };
 
 describe('the dictionaries folder', () => {
@@ -39,30 +39,30 @@ describe.each(Object.keys(BOOKS))('dictionaries/%s.json', (lang) => {
     expect(Object.keys(JSON.parse(read(`_locales/${lang}/messages.json`)))).toEqual(chromeKeys());
   });
   it('every message is a non-empty string that parses as an ICU message', () => {
-    for (const [k, v] of Object.entries(book)) {
-      expect(typeof v, k).toBe('string');
-      expect(v.trim(), k).not.toBe('');
-      expect(() => messageArguments(v), k).not.toThrow();
+    for (const [messageKey, value] of Object.entries(book)) {
+      expect(typeof value, messageKey).toBe('string');
+      expect(value.trim(), messageKey).not.toBe('');
+      expect(() => messageArguments(value), messageKey).not.toThrow();
     }
   });
   it('has exactly the English keys, with the same placeholders used the same way', () => {
     expect(Object.keys(book).sort()).toEqual(Object.keys(EN).sort());
-    for (const k of Object.keys(EN)) expect(messageArguments(book[k]), k).toEqual(messageArguments(EN[k]));
+    for (const messageKey of Object.keys(EN)) expect(messageArguments(book[messageKey]), messageKey).toEqual(messageArguments(EN[messageKey]));
   });
   it('no old-style $1 placeholders or _one / _other keys are left', () => {
-    for (const [k, v] of Object.entries(book)) {
-      expect(v, k).not.toMatch(/\$\d/);
-      expect(k).not.toMatch(/_(zero|one|two|few|many|other)$/);
+    for (const [messageKey, value] of Object.entries(book)) {
+      expect(value, messageKey).not.toMatch(/\$\d/);
+      expect(messageKey).not.toMatch(/_(zero|one|two|few|many|other)$/);
     }
   });
   it('every plural message reads naturally for 0, 1, 2, 5, 21 and 1000 (nothing left unfilled)', () => {
-    for (const [k, v] of Object.entries(book)) {
-      const args = messageArguments(v);
-      if (!Object.values(args).includes('plural')) continue;
-      const data = Object.fromEntries(Object.keys(args).map((a) => [a, 'X']));
-      for (const n of [0, 1, 2, 5, 21, 1000]) {
-        const out = formatMessage(v, { ...data, count: n }, lang);
-        expect(out, `${k} (${n})`).not.toMatch(/[{}#]/);
+    for (const [messageKey, value] of Object.entries(book)) {
+      const placeholders = messageArguments(value);
+      if (!Object.values(placeholders).includes('plural')) continue;
+      const data = Object.fromEntries(Object.keys(placeholders).map((placeholderName) => [placeholderName, 'X']));
+      for (const count of [0, 1, 2, 5, 21, 1000]) {
+        const out = formatMessage(value, { ...data, count }, lang);
+        expect(out, `${messageKey} (${count})`).not.toMatch(/[{}#]/);
       }
     }
   });
@@ -72,51 +72,51 @@ describe.each(Object.keys(BOOKS))('dictionaries/%s.json', (lang) => {
 const SOURCES = ['background.js', 'switcher.js', 'sweep.js', 'utils/i18n.js', 'utils/capture.js', 'utils/store.js', 'utils/sweep.js', 'utils/archive.js', 'utils/review.js', 'utils/web.js', 'utils/overlay-host.js', 'utils/media.js'];
 const HTML = ['markup/switcher.html', 'markup/sweep.html'];
 
-// Every t(...) call: the string literals in its first argument (covers `cond ? 'a' : 'b'`) and the
+// Every translate(...) call: the string literals in its first argument (covers `cond ? 'a' : 'b'`) and the
 // property names of the object in its second, if that is an object literal.
-function calls(src) {
+function calls(source) {
   const out = [];
-  const re = /(?<![\w.$])t\(/g;
-  let m;
-  while ((m = re.exec(src))) {
-    const args = [];
-    let i = re.lastIndex, depth = 0, arg = '';
-    for (; i < src.length; i++) {
-      const c = src[i];
-      if (c === "'" || c === '"' || c === '`') { const end = src.indexOf(c, i + 1); arg += src.slice(i, end + 1); i = end; continue; }
-      if (c === '(' || c === '[' || c === '{') depth++;
-      else if (c === ')' || c === ']' || c === '}') { if (!depth) break; depth--; }
-      else if (c === ',' && !depth) { args.push(arg); arg = ''; continue; }
-      arg += c;
+  const pattern = /(?<![\w.$])translate\(/g;
+  let match;
+  while ((match = pattern.exec(source))) {
+    const argumentTexts = [];
+    let i = pattern.lastIndex, depth = 0, argumentText = '';
+    for (; i < source.length; i++) {
+      const char = source[i];
+      if (char === "'" || char === '"' || char === '`') { const end = source.indexOf(char, i + 1); argumentText += source.slice(i, end + 1); i = end; continue; }
+      if (char === '(' || char === '[' || char === '{') depth++;
+      else if (char === ')' || char === ']' || char === '}') { if (!depth) break; depth--; }
+      else if (char === ',' && !depth) { argumentTexts.push(argumentText); argumentText = ''; continue; }
+      argumentText += char;
     }
-    args.push(arg);
-    const keys = [...args[0].matchAll(/'([^']*)'|"([^"]*)"/g)].map((x) => x[1] ?? x[2]).filter((s) => /^[A-Za-z]\w*$/.test(s));
-    const obj = args[1] && args[1].trim().startsWith('{') ? args[1].trim() : null;
-    const props = obj ? topLevelProps(obj) : null;
-    out.push({ keys, props, text: src.slice(m.index, i + 1) });
+    argumentTexts.push(argumentText);
+    const keys = [...argumentTexts[0].matchAll(/'([^']*)'|"([^"]*)"/g)].map((x) => x[1] ?? x[2]).filter((messageKey) => /^[A-Za-z]\w*$/.test(messageKey));
+    const objectLiteral = argumentTexts[1] && argumentTexts[1].trim().startsWith('{') ? argumentTexts[1].trim() : null;
+    const props = objectLiteral ? topLevelProps(objectLiteral) : null;
+    out.push({ keys, props, text: source.slice(match.index, i + 1) });
   }
   return out;
 }
 // The property names of an object literal's source ("{ count: n, max }" -> ['count', 'max']).
-function topLevelProps(obj) {
+function topLevelProps(objectLiteral) {
   const props = [];
-  let depth = 0, cur = '';
-  for (const c of obj.slice(1, -1) + ',') {
-    if ('([{'.includes(c)) depth++;
-    else if (')]}'.includes(c)) depth--;
-    if (c === ',' && !depth) { const name = cur.trim().split(/[:\s]/)[0]; if (name) props.push(name); cur = ''; continue; }
-    cur += c;
+  let depth = 0, current = '';
+  for (const char of objectLiteral.slice(1, -1) + ',') {
+    if ('([{'.includes(char)) depth++;
+    else if (')]}'.includes(char)) depth--;
+    if (char === ',' && !depth) { const name = current.trim().split(/[:\s]/)[0]; if (name) props.push(name); current = ''; continue; }
+    current += char;
   }
   return props;
 }
 
-const found = SOURCES.flatMap((f) => calls(read(f)).map((c) => ({ ...c, file: f })));
-const usedKeys = new Set(found.flatMap((c) => c.keys));
-// Keys passed through a variable: FILTERS / DD_SOURCES labels and the mood buttons in switcher.js.
-for (const [, k] of read('switcher.js').matchAll(/\blabel: '(\w+)'/g)) usedKeys.add(k);
-for (const k of ['moodGood', 'moodOkay', 'moodBad']) usedKeys.add(k);
-const htmlKeys = new Set(HTML.flatMap((f) => [...read(f).matchAll(/data-i18n(?:-title|-placeholder|-aria)?="([^"]+)"/g)].map((m) => m[1])));
-const manifestKeys = new Set([...read('manifest.json').matchAll(/__MSG_(\w+)__/g)].map((m) => m[1]));
+const found = SOURCES.flatMap((file) => calls(read(file)).map((call) => ({ ...call, file })));
+const usedKeys = new Set(found.flatMap((call) => call.keys));
+// Keys passed through a variable: FILTERS / DROPDOWN_SOURCES labels and the mood buttons in switcher.js.
+for (const [, messageKey] of read('switcher.js').matchAll(/\blabel: '(\w+)'/g)) usedKeys.add(messageKey);
+for (const messageKey of ['moodGood', 'moodOkay', 'moodBad']) usedKeys.add(messageKey);
+const htmlKeys = new Set(HTML.flatMap((file) => [...read(file).matchAll(/data-i18n(?:-title|-placeholder|-aria)?="([^"]+)"/g)].map((match) => match[1])));
+const manifestKeys = new Set([...read('manifest.json').matchAll(/__MSG_(\w+)__/g)].map((match) => match[1]));
 
 describe('keys used in the code', () => {
   it('the scan finds them (sanity check)', () => {
@@ -126,75 +126,75 @@ describe('keys used in the code', () => {
   });
   it('every key in the dictionaries is used somewhere (no strings for things that are gone)', () => {
     const used = new Set([...usedKeys, ...htmlKeys, ...manifestKeys]);
-    expect(Object.keys(EN).filter((k) => !used.has(k))).toEqual([]);
+    expect(Object.keys(EN).filter((messageKey) => !used.has(messageKey))).toEqual([]);
   });
-  it('every t() key exists in English', () => {
-    expect([...usedKeys].filter((k) => !(k in EN))).toEqual([]);
+  it('every translate() key exists in English', () => {
+    expect([...usedKeys].filter((messageKey) => !(messageKey in EN))).toEqual([]);
   });
   it('every call passes exactly the values its message uses', () => {
     const wrong = [];
-    for (const c of found) {
-      for (const k of c.keys) {
-        const need = Object.keys(messageArguments(EN[k] ?? '')).sort();
-        const given = (c.props || []).slice().sort();
+    for (const call of found) {
+      for (const messageKey of call.keys) {
+        const need = Object.keys(messageArguments(EN[messageKey] ?? '')).sort();
+        const given = (call.props || []).slice().sort();
         // A value passed through a variable (not an object literal) can't be checked here.
-        if (c.props === null && args(c.text) > 1) continue;
-        if (JSON.stringify(need) !== JSON.stringify(given)) wrong.push(`${c.file}: ${c.text} -> ${k} needs {${need.join(', ')}}`);
+        if (call.props === null && argumentCount(call.text) > 1) continue;
+        if (JSON.stringify(need) !== JSON.stringify(given)) wrong.push(`${call.file}: ${call.text} -> ${messageKey} needs {${need.join(', ')}}`);
       }
     }
     expect(wrong).toEqual([]);
   });
   it('every data-i18n* key exists in English and needs no values', () => {
-    expect([...htmlKeys].filter((k) => !(k in EN))).toEqual([]);
-    expect([...htmlKeys].filter((k) => Object.keys(messageArguments(EN[k])).length)).toEqual([]);
+    expect([...htmlKeys].filter((messageKey) => !(messageKey in EN))).toEqual([]);
+    expect([...htmlKeys].filter((messageKey) => Object.keys(messageArguments(EN[messageKey])).length)).toEqual([]);
   });
   it('every __MSG_ key in manifest.json exists in every dictionary, as plain text', () => {
     for (const lang of Object.keys(BOOKS)) {
-      expect([...manifestKeys].filter((k) => !(k in BOOKS[lang])), lang).toEqual([]);
-      expect([...manifestKeys].filter((k) => Object.keys(messageArguments(BOOKS[lang][k])).length), lang).toEqual([]);
+      expect([...manifestKeys].filter((messageKey) => !(messageKey in BOOKS[lang])), lang).toEqual([]);
+      expect([...manifestKeys].filter((messageKey) => Object.keys(messageArguments(BOOKS[lang][messageKey])).length), lang).toEqual([]);
     }
   });
 });
-const args = (text) => text.split(',').length;
+const argumentCount = (text) => text.split(',').length;
 
-// t() shares its name with a common local variable (tabs: `(t) => t.windowId`). A t('key') call inside a
-// scope with its own `t` would call that instead, so none may exist.
-describe('t() is never shadowed where it is called', async () => {
+// A translate('key') call inside a scope with its own `translate` would call that instead, so none may exist.
+
+describe('translate() is never shadowed where it is called', async () => {
   const { parseAst } = await import('rollup/parseAst');
-  const names = (p, out = []) => {
-    if (!p) return out;
-    if (p.type === 'Identifier') out.push(p.name);
-    else if (p.type === 'ObjectPattern') p.properties.forEach((q) => names(q.type === 'RestElement' ? q.argument : q.value, out));
-    else if (p.type === 'ArrayPattern') p.elements.forEach((q) => names(q, out));
-    else if (p.type === 'RestElement') names(p.argument, out);
-    else if (p.type === 'AssignmentPattern') names(p.left, out);
+  const names = (pattern, out = []) => {
+    if (!pattern) return out;
+    if (pattern.type === 'Identifier') out.push(pattern.name);
+    else if (pattern.type === 'ObjectPattern') pattern.properties.forEach((property) => names(property.type === 'RestElement' ? property.argument : property.value, out));
+    else if (pattern.type === 'ArrayPattern') pattern.elements.forEach((element) => names(element, out));
+    else if (pattern.type === 'RestElement') names(pattern.argument, out);
+    else if (pattern.type === 'AssignmentPattern') names(pattern.left, out);
     return out;
   };
   // What a node declares in its own scope: function parameters, and declarations directly in a block.
-  const declares = (n) => {
+  const declares = (node) => {
     const out = [];
-    if (/Function/.test(n.type)) n.params.forEach((p) => names(p, out));
-    if (n.type === 'CatchClause') names(n.param, out);
-    const body = n.type === 'BlockStatement' ? n.body : n.type === 'SwitchCase' ? n.consequent : n.type === 'ForStatement' && n.init ? [n.init] : /^For(In|Of)/.test(n.type) ? [n.left] : [];
-    for (const s of body) {
-      if (s.type === 'VariableDeclaration') s.declarations.forEach((d) => names(d.id, out));
-      else if ((s.type === 'FunctionDeclaration' || s.type === 'ClassDeclaration') && s.id) out.push(s.id.name);
+    if (/Function/.test(node.type)) node.params.forEach((parameter) => names(parameter, out));
+    if (node.type === 'CatchClause') names(node.param, out);
+    const body = node.type === 'BlockStatement' ? node.body : node.type === 'SwitchCase' ? node.consequent : node.type === 'ForStatement' && node.init ? [node.init] : /^For(In|Of)/.test(node.type) ? [node.left] : [];
+    for (const statement of body) {
+      if (statement.type === 'VariableDeclaration') statement.declarations.forEach((declaration) => names(declaration.id, out));
+      else if ((statement.type === 'FunctionDeclaration' || statement.type === 'ClassDeclaration') && statement.id) out.push(statement.id.name);
     }
     return out;
   };
   it.each(SOURCES)('%s', (file) => {
-    const src = read(file);
+    const source = read(file);
     const clashes = [];
-    const walk = (n, shadowed) => {
-      if (!n || typeof n.type !== 'string') return;
-      const inner = shadowed || declares(n).includes('t');
-      if (inner && n.type === 'CallExpression' && n.callee.type === 'Identifier' && n.callee.name === 't') clashes.push(src.slice(n.start, n.end).slice(0, 80));
-      for (const v of Object.values(n)) {
-        if (Array.isArray(v)) v.forEach((c) => walk(c, inner));
-        else if (v && typeof v.type === 'string') walk(v, inner);
+    const walk = (node, shadowed) => {
+      if (!node || typeof node.type !== 'string') return;
+      const inner = shadowed || declares(node).includes('translate');
+      if (inner && node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'translate') clashes.push(source.slice(node.start, node.end).slice(0, 80));
+      for (const value of Object.values(node)) {
+        if (Array.isArray(value)) value.forEach((child) => walk(child, inner));
+        else if (value && typeof value.type === 'string') walk(value, inner);
       }
     };
-    walk(parseAst(src), false);
+    walk(parseAst(source), false);
     expect(clashes).toEqual([]);
   });
 });

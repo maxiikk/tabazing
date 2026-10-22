@@ -1,57 +1,57 @@
 // Which language the interface is in. The strings themselves live in dictionaries/<lang>.json and are read with
-// t() (utils/translations.js, ICU MessageFormat: named placeholders and plurals); _locales/ (which
+// translate() (utils/translations.js, ICU MessageFormat: named placeholders and plurals); _locales/ (which
 // Chrome reads for the manifest's name and shortcuts) is generated from them by `npm run i18n`. Chrome gives
 // extensions no way to switch language, so Tabazing picks its own: "auto" follows Chrome's language, or the
-// user chooses one in Settings. Call loadLang() (or setLang) once before the first t().
-import { LANGUAGES, setLocale, t } from './translations.js';
+// user chooses one in Settings. Call loadLang() (or settingsLanguage) once before the first translate().
+import { LANGUAGES, setLocale, translate } from './translations.js';
 
 export const LANGS = Object.freeze(['en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']);
 /** The languages written right to left: the pages turn round for them (dir="rtl"). */
-const RTL = new Set(['ar', 'he']);
+const RIGHT_TO_LEFT_LANGUAGES = new Set(['ar', 'he']);
 
 const chromeLang = () => {
-  const l = (chrome.i18n.getUILanguage() || 'en').slice(0, 2).toLowerCase();
-  return LANGS.includes(l) && LANGUAGES.includes(l) ? l : 'en';
+  const language = (chrome.i18n.getUILanguage() || 'en').slice(0, 2).toLowerCase();
+  return LANGS.includes(language) && LANGUAGES.includes(language) ? language : 'en';
 };
-let cur = 'en';
-let rtf = null;
+let current = 'en';
+let relativeTimeFormat = null;
 
-function use(lang) {
-  cur = setLocale(LANGS.includes(lang) ? lang : chromeLang());
-  rtf = new Intl.RelativeTimeFormat(cur, { numeric: 'auto', style: 'short' });
-  return cur;
+function applyLanguage(lang) {
+  current = setLocale(LANGS.includes(lang) ? lang : chromeLang());
+  relativeTimeFormat = new Intl.RelativeTimeFormat(current, { numeric: 'auto', style: 'short' });
+  return current;
 }
-use(chromeLang());
+applyLanguage(chromeLang());
 
 /** Read the language setting ("auto" or a language). Resolves to the language in use. */
 export async function loadLang() {
-  let pref = 'auto';
-  try { const o = await chrome.storage.local.get('prefs'); pref = (o.prefs && o.prefs.lang) || 'auto'; } catch {}
-  return use(pref === 'auto' ? chromeLang() : pref);
+  let preference = 'auto';
+  try { const stored = await chrome.storage.local.get('prefs'); preference = (stored.prefs && stored.prefs.lang) || 'auto'; } catch {}
+  return applyLanguage(preference === 'auto' ? chromeLang() : preference);
 }
 /** Switch right away (Settings). */
-export const setLang = (pref) => use(pref === 'auto' ? chromeLang() : pref);
+export const setLang = (preference) => applyLanguage(preference === 'auto' ? chromeLang() : preference);
 /** The language the interface is in now: one of LANGS. Also what the website pages are opened in. */
-export const uiLang = () => cur;
+export const uiLang = () => current;
 /** Whether that language is written right to left (Arabic, Hebrew). */
-export const isRtl = () => RTL.has(cur);
+export const isRtl = () => RIGHT_TO_LEFT_LANGUAGES.has(current);
 
 /** "5 min ago" in this language. `sec` is a Unix time in seconds. */
-export function timeAgo(sec) {
-  if (!Number.isFinite(sec) || sec <= 0) return ''; // no timestamp: say nothing rather than "20000 d ago"
-  const s = Math.max(0, Date.now() / 1000 - sec);
-  if (s < 60) return t('justNow');
-  if (s < 3600) return rtf.format(-Math.round(s / 60), 'minute');
-  if (s < 86400) return rtf.format(-Math.round(s / 3600), 'hour');
-  return rtf.format(-Math.round(s / 86400), 'day');
+export function timeAgo(seconds) {
+  if (!Number.isFinite(seconds) || seconds <= 0) return ''; // no timestamp: say nothing rather than "20000 d ago"
+  const elapsedSeconds = Math.max(0, Date.now() / 1000 - seconds);
+  if (elapsedSeconds < 60) return translate('justNow');
+  if (elapsedSeconds < 3600) return relativeTimeFormat.format(-Math.round(elapsedSeconds / 60), 'minute');
+  if (elapsedSeconds < 86400) return relativeTimeFormat.format(-Math.round(elapsedSeconds / 3600), 'hour');
+  return relativeTimeFormat.format(-Math.round(elapsedSeconds / 86400), 'day');
 }
 
 /** Fill the static page (its lang and dir too): data-i18n (text), data-i18n-title, data-i18n-placeholder, data-i18n-aria. */
 export function localizePage(root = document) {
-  document.documentElement.lang = cur;
+  document.documentElement.lang = current;
   document.documentElement.dir = isRtl() ? 'rtl' : 'ltr';
-  for (const n of root.querySelectorAll('[data-i18n]')) n.textContent = t(n.dataset.i18n);
-  for (const n of root.querySelectorAll('[data-i18n-title]')) n.title = t(n.dataset.i18nTitle);
-  for (const n of root.querySelectorAll('[data-i18n-placeholder]')) n.placeholder = t(n.dataset.i18nPlaceholder);
-  for (const n of root.querySelectorAll('[data-i18n-aria]')) n.setAttribute('aria-label', t(n.dataset.i18nAria));
+  for (const element of root.querySelectorAll('[data-i18n]')) element.textContent = translate(element.dataset.i18n);
+  for (const element of root.querySelectorAll('[data-i18n-title]')) element.title = translate(element.dataset.i18nTitle);
+  for (const element of root.querySelectorAll('[data-i18n-placeholder]')) element.placeholder = translate(element.dataset.i18nPlaceholder);
+  for (const element of root.querySelectorAll('[data-i18n-aria]')) element.setAttribute('aria-label', translate(element.dataset.i18nAria));
 }

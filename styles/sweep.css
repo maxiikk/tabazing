@@ -20,7 +20,7 @@
   color-scheme: dark;
   --accent: #7DD3FC; --on-accent: #1B2A4A;
   --primary: var(--accent);
-  --surface: #07090d; --container: #151b25; --field: #11161e; --field-hi: #1e2532;
+  --surface: #07090d; --container: #151b25; --field: #11161e; --field-highlight: #1e2532;
   --line: #242c39; --outline: #3a4557; --track: color-mix(in srgb, var(--accent) 18%, #1e2532);
   --on-surface: #f2f4f8; --on-surface-variant: #a2acbd;
   --shadow: 0 4px 10px rgba(0,0,0,.35), 0 14px 36px rgba(0,0,0,.55);
@@ -29,7 +29,7 @@
   :root {
     color-scheme: light;
     --primary: color-mix(in srgb, var(--accent) 52%, #000);
-    --surface: #f6f7f9; --container: #fff; --field: #fafbfc; --field-hi: #eef0f4;
+    --surface: #f6f7f9; --container: #fff; --field: #fafbfc; --field-highlight: #eef0f4;
     --line: #e1e5ec; --outline: #c3c9d4; --track: color-mix(in srgb, var(--accent) 24%, #eef0f4);
     --on-surface: #0b0e14; --on-surface-variant: #4d5768;
     --shadow: 0 4px 10px rgba(15,20,30,.06), 0 14px 32px rgba(15,20,30,.12);
@@ -59,6 +59,6 @@ button {
   font: inherit; font-size: 13px; font-weight: 500; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
   background: var(--field); color: var(--on-surface); flex: none; transition: background-color .15s, border-color .15s;
 }
-button:hover { background: var(--field-hi); border-color: var(--outline); }
+button:hover { background: var(--field-highlight); border-color: var(--outline); }
 button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }

@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "Abrir Tabazing en la tarjeta anterior de la lista (da la vuelta); suelta Alt para cambiar"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "Abrir la paleta de comandos de Tabazing: acciones, cálculos, conversiones y búsqueda"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "Abrir Tabazing en la tarjeta siguiente de la lista (da la vuelta); suelta Alt para cambiar"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "Abrir Tabazing y dejarlo abierto"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab para pestañas de Chrome: vistas previas, búsqueda al instante y pestañas cerradas. Gratis, privado, todo queda en tu equipo."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing: cambiador visual de pestañas con vistas previas"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

@@ -4,25 +4,25 @@ import { resolve } from 'node:path';
 import * as C from '../../utils/constants.js';
 import { setLang } from '../../utils/i18n.js';
 
-const root = (p) => resolve(process.cwd(), p);
+const root = (relativePath) => resolve(process.cwd(), relativePath);
 const VERSION = JSON.parse(readFileSync(root('manifest.json'), 'utf8')).version;
 
 afterEach(() => setLang('en'));
 
 describe('message and storage names', () => {
   it('are frozen', () => {
-    for (const o of [C.MSG, C.FRAME_MSG, C.KEY, C.LIMITS, C.NUDGE, C.REVIEW, C.WINDOW_STATES, C.MODES, C.CLOSE_REASONS]) expect(Object.isFrozen(o)).toBe(true);
+    for (const object of [C.MESSAGE, C.FRAME_MESSAGE, C.KEY, C.LIMITS, C.NUDGE, C.REVIEW, C.WINDOW_STATES, C.MODES, C.CLOSE_REASONS]) expect(Object.isFrozen(object)).toBe(true);
   });
   it('MSG values are unique and namespaced', () => {
-    const v = Object.values(C.MSG);
-    expect(new Set(v).size).toBe(v.length);
-    for (const m of v) expect(m).toMatch(/^tabazing:[a-z-]+$/);
+    const values = Object.values(C.MESSAGE);
+    expect(new Set(values).size).toBe(values.length);
+    for (const message of values) expect(message).toMatch(/^tabazing:[a-z-]+$/);
   });
   it('hotkey.js repeats MSG.HOTKEY verbatim (it cannot import it)', () => {
-    expect(readFileSync(root('hotkey.js'), 'utf8')).toContain(`'${C.MSG.HOTKEY}'`);
+    expect(readFileSync(root('hotkey.js'), 'utf8')).toContain(`'${C.MESSAGE.HOTKEY}'`);
   });
   it('FRAME_MSG and KEY values are unique', () => {
-    for (const o of [C.FRAME_MSG, C.KEY]) { const v = Object.values(o); expect(new Set(v).size).toBe(v.length); }
+    for (const object of [C.FRAME_MESSAGE, C.KEY]) { const values = Object.values(object); expect(new Set(values).size).toBe(values.length); }
   });
   it('per-URL / per-tab key builders do not collide with each other or with KEY names', () => {
     expect(C.previewKey('https://a.com/')).toBe('pv:https://a.com/');
@@ -30,7 +30,7 @@ describe('message and storage names', () => {
     expect(C.tabMetaKey(42)).toBe('m:42');
     const built = [C.previewKey('x'), C.sharpKey('x'), C.tabMetaKey('x')];
     expect(new Set(built).size).toBe(3);
-    for (const k of Object.values(C.KEY)) expect(k).not.toMatch(/^(pv:|pvhd:|m:)/);
+    for (const keyName of Object.values(C.KEY)) expect(keyName).not.toMatch(/^(pv:|pvhd:|m:)/);
   });
   it('PREVIEW_PREFIX is a JPEG data URL prefix', () => {
     expect(C.PREVIEW_PREFIX).toBe('data:image/jpeg;base64,');
@@ -42,29 +42,29 @@ describe('message and storage names', () => {
     expect(C.SNOOZE_ALARM).toBe('tabazing:snooze');
   });
   it('pages exist in the extension', () => {
-    for (const p of [C.SWITCHER_PAGE, C.SWEEP_PAGE]) expect(existsSync(root(p)), p).toBe(true);
+    for (const pagePath of [C.SWITCHER_PAGE, C.SWEEP_PAGE]) expect(existsSync(root(pagePath)), pagePath).toBe(true);
   });
 });
 
 describe('limits', () => {
   it('are all positive numbers', () => {
-    for (const o of [C.LIMITS, C.NUDGE]) for (const [k, v] of Object.entries(o)) {
-      expect(Number.isFinite(v), k).toBe(true);
-      expect(v, k).toBeGreaterThan(0);
+    for (const object of [C.LIMITS, C.NUDGE]) for (const [limitName, value] of Object.entries(object)) {
+      expect(Number.isFinite(value), limitName).toBe(true);
+      expect(value, limitName).toBeGreaterThan(0);
     }
-    for (const [k, v] of Object.entries(C.REVIEW)) { expect(Number.isFinite(v), k).toBe(true); expect(v, k).toBeGreaterThanOrEqual(0); }
+    for (const [fieldName, value] of Object.entries(C.REVIEW)) { expect(Number.isFinite(value), fieldName).toBe(true); expect(value, fieldName).toBeGreaterThanOrEqual(0); }
   });
   it('are consistent with each other', () => {
-    const L = C.LIMITS;
-    expect(L.SHARP_MAX).toBeGreaterThan(L.THUMB_MAX);
-    expect(L.MAX_PREVIEW_BYTES).toBeLessThan(10 * 1024 * 1024); // storage.local's quota
-    expect(L.RECENTLY_CLOSED_SEARCH).toBeGreaterThanOrEqual(L.RECENTLY_CLOSED);
-    expect(L.RECENTLY_CLOSED_WINDOWS).toBeLessThanOrEqual(L.RECENTLY_CLOSED);
-    expect(L.CLOSED_PREVIEW_LOOKUP).toBeLessThanOrEqual(L.MAX_CLOSED_LOG);
-    expect(L.SWEEP_LOAD_MS).toBeGreaterThan(L.SWEEP_PAINT_MS);
-    expect(L.OVERLAY_WATCHDOG_MS).toBeGreaterThan(L.OVERLAY_VISIBLE_MS);
+    const limits = C.LIMITS;
+    expect(limits.SHARP_MAX).toBeGreaterThan(limits.THUMB_MAX);
+    expect(limits.MAX_PREVIEW_BYTES).toBeLessThan(10 * 1024 * 1024); // storage.local's quota
+    expect(limits.RECENTLY_CLOSED_SEARCH).toBeGreaterThanOrEqual(limits.RECENTLY_CLOSED);
+    expect(limits.RECENTLY_CLOSED_WINDOWS).toBeLessThanOrEqual(limits.RECENTLY_CLOSED);
+    expect(limits.CLOSED_PREVIEW_LOOKUP).toBeLessThanOrEqual(limits.MAX_CLOSED_LOG);
+    expect(limits.SWEEP_LOAD_MILLISECONDS).toBeGreaterThan(limits.SWEEP_PAINT_MILLISECONDS);
+    expect(limits.OVERLAY_WATCHDOG_MILLISECONDS).toBeGreaterThan(limits.OVERLAY_VISIBLE_MILLISECONDS);
     expect(C.NUDGE.MAX).toBeGreaterThanOrEqual(1);
-    expect(C.REVIEW.ASK_GAP_MS).toBeGreaterThan(0);
+    expect(C.REVIEW.ASK_GAP_MILLISECONDS).toBeGreaterThan(0);
   });
 });
 

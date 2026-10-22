@@ -1,9 +1,9 @@
 // Shared names and limits used by the background worker and the switcher UI.
 import { uiLang } from './i18n.js';
 // (hotkey.js and media-relay.js are classic content scripts and can't import this, so they
-// repeat MSG.HOTKEY / MSG.MEDIA as string literals. Keep them in sync.)
+// repeat MESSAGE.HOTKEY / MESSAGE.MEDIA as string literals. Keep them in sync.)
 
-export const MSG = Object.freeze({
+export const MESSAGE = Object.freeze({
   HOTKEY: 'tabazing:hotkey', // content script -> background: user pressed Alt+Q / W / E in a page: { dir, hold }, or Alt+R: { palette: true }
   CYCLE: 'tabazing:cycle',   // background -> open switcher: move selection ({ dir, hold }), or show the command palette ({ palette: true })
   READY: 'tabazing:ready',   // switcher -> background: UI loaded, send queued moves
@@ -23,38 +23,38 @@ export const MSG = Object.freeze({
 // Messages between the overlay iframe and the content-script code that hosts it.
 // RELEASED: the page saw Alt let go (Alt+Q / Alt+W were held) before the switcher had the focus.
 // STANDBY: the switcher frame has loaded and waits for a launch (it is prepared ahead, invisible).
-export const FRAME_MSG = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby' });
+export const FRAME_MESSAGE = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby' });
 
 export const KEY = Object.freeze({
   MRU: 'mru',                 // number[] tab ids, most recent first
   BOOT_AT: 'bootAt',          // storage.session: when this browser session started (set on onStartup)
-  PREVIEW_CLEAN: 'pvclean',   // storage.local: when preview cleanup last ran
+  PREVIEW_CLEANUP: 'pvclean',   // storage.local: when preview cleanup last ran
   SLEPT: 'slept',             // storage.session: number[] ids of tabs we saw Chrome discard in this browser session
   CLOSED_LOG: 'closedlog',    // storage.local: [{ url, title, favIconUrl, closedAt }] tabs closed in the last 7 days
   SHARP_INDEX: 'pvhdidx',     // storage.local: { [normalizedUrl]: { t, n, s } } like PREVIEW_INDEX, for the sharp copies
   PREVIEW_INDEX: 'pvidx',     // storage.local: { [normalizedUrl]: { t, n, s } } captured-at, size, and when an open tab last had this URL
   ONBOARD: 'onb',             // storage.local: { at, flyout, tour } first-run flags
   REVIEW: 'rv',               // storage.local: { since, opens, soft, lastSoft, asks, lastAsk, done } review-prompt counters (never sent anywhere)
-  CAPDIAG: 'capdiag',         // storage.session: { t, stage, msg, host } outcome of the last preview attempt
+  CAPTURE_DIAGNOSIS: 'capdiag',         // storage.session: { t, stage, msg, host } outcome of the last preview attempt
   SWEEP: 'sweep',             // storage.session: { running, done, total, startedAt } progress of "Capture all previews" (startedAt: when the run began)
   WOKEN: 'woken',             // storage.session: { [tabId]: wokeAt } snoozed tabs reopened and not yet looked at
   SNOOZED: 'snoozed',         // storage.local: [{ id, url, title, at, windowId, pinned, t }] tabs closed for now, reopened at `at`
   NOTES: 'notes',             // storage.local: { [normalizedUrl]: { u, n, t } } notes the user wrote on tabs
-  BM_NOTES: 'bmNotes',        // storage.local: { [bookmarkId]: { u, n, t } } notes on bookmarks (kept by the bookmark, not its address)
+  BOOKMARK_NOTES: 'bmNotes',        // storage.local: { [bookmarkId]: { u, n, t } } notes on bookmarks (kept by the bookmark, not its address)
   STARS: 'stars',             // storage.local: { [normalizedUrl]: { u, ti, t } } pages the user starred
   VIEW: 'view',               // storage.local: { sort, collapsed: string[], settingsTab } how the switcher lays tabs out, and Settings' last category
   NUDGE: 'nudge',             // storage.local: { day, runs, shown, last, never } the "use Alt+Q" nudge (never sent anywhere)
   LAST_OPEN: 'lastOpen',      // storage.session: when the switcher last opened
-  PREFS: 'prefs',             // storage.local: { lang: 'auto'|one of LANGS (utils/i18n.js), startup: boolean, cardSize: 'default'|'small'|'list', accent: '#rrggbb', allWindows: boolean, theme: 'dark'|'light'|'system',
-                              //   pinnedFirst, showClosed, showSnoozed, showAge, showGroups, groupWrap, ownWindow, searchHistory, searchBookmarks: boolean, titleLines: 1|2, iconTips: number } Settings (store.js getPrefs has the defaults)
-  NOCAP: 'nocap',             // storage.session: normalized URLs Chrome refused to screenshot (the Web Store, some built-in pages)
+  PREFERENCES: 'prefs',             // storage.local: { lang: 'auto'|one of LANGS (utils/i18n.js), startup: boolean, cardSize: 'default'|'small'|'list', accent: '#rrggbb', allWindows: boolean, theme: 'dark'|'light'|'system',
+                              //   pinnedFirst, showClosed, showSnoozed, showAge, showGroups, groupWrap, ownWindow, searchHistory, searchBookmarks: boolean, titleLines: 1|2, iconTips: number } Settings (store.js getPreferences has the defaults)
+  NO_CAPTURE: 'nocap',             // storage.session: normalized URLs Chrome refused to screenshot (the Web Store, some built-in pages)
   RESUME: 'resume',           // storage.session: { t, query, scope, sort, starred, key } reopen the switcher where it was (after a one-tab capture)
   OVERLAY: 'overlay',         // { tabId, t } tab currently covered by the overlay
   LAUNCH: 'launch',           // { token, t, ctx } one-time launch for the next switcher
   PALETTE_RECENT: 'palRecent', // storage.local: string[] ids of the command palette's actions, most recently run first
   GROUP: 'group',             // storage.session: { id, t } the tab group the switcher is inside of (group ids last one browser session)
   CLOSED_HIDDEN: 'closedHidden', // storage.local: { [key]: t } "Recently closed" entries removed from the list (key: normalized URL, 'w:' + it for a window)
-  MEDIA: 'media',             // storage.session: { [tabId]: { [frameId]: { media, playing, kind, title, artist, canPrev, canNext, muted, t } } } what each frame plays (media-hook.js)
+  MEDIA: 'media',             // storage.session: { [tabId]: { [frameId]: { media, playing, kind, title, artist, canPrevious, canNext, muted, t } } } what each frame plays (media-hook.js)
 });
 
 export const SNOOZE_ALARM = 'tabazing:snooze'; // chrome.alarms name: the next snoozed tab's wake-up time
@@ -74,70 +74,70 @@ export const LIMITS = Object.freeze({
   MAX_SHARP_BYTES: 40 * 1024 * 1024, // ...and in total (the unlimitedStorage permission lifts the 10 MB quota)
   MAX_PREVIEWS: 300,            // most previews kept on disk (storage.local)
   MAX_PREVIEW_BYTES: 6 * 1024 * 1024, // ...and in total, well under storage.local's 10 MB quota
-  PREVIEW_TTL_MS: 7 * 24 * 60 * 60 * 1000, // a preview no open tab uses is deleted 7 days after it was last captured or used
-  CLEANUP_EVERY_MS: 6 * 60 * 60 * 1000,    // preview cleanup runs at most this often (from the save path, no alarms permission)
-  CLEANUP_BOOT_DELAY_MS: 60 * 1000,        // ...and not in the first minute after browser start, while Chrome is still restoring tabs
+  PREVIEW_TIME_TO_LIVE_MILLISECONDS: 7 * 24 * 60 * 60 * 1000, // a preview no open tab uses is deleted 7 days after it was last captured or used
+  CLEANUP_EVERY_MILLISECONDS: 6 * 60 * 60 * 1000,    // preview cleanup runs at most this often (from the save path, no alarms permission)
+  CLEANUP_BOOT_DELAY_MILLISECONDS: 60 * 1000,        // ...and not in the first minute after browser start, while Chrome is still restoring tabs
   MAX_SLEPT: 2000,              // most discarded-tab ids remembered
   MAX_URL_KEY: 2048,            // longer URLs are not used as preview keys
-  CLOSED_LOG_TTL_MS: 7 * 24 * 60 * 60 * 1000, // our own closed-tab log keeps 7 days
+  CLOSED_LOG_TIME_TO_LIVE_MILLISECONDS: 7 * 24 * 60 * 60 * 1000, // our own closed-tab log keeps 7 days
   MAX_CLOSED_LOG: 200,          // ...and at most this many entries
   CLOSED_PREVIEW_LOOKUP: 60,    // previews are looked up for the newest this-many closed entries
   MAX_MRU: 500,
-  CAPTURE_GAP_MS: 520,          // Chrome allows ~2 captureVisibleTab calls per second
-  LAUNCH_TTL_MS: 15000,         // how long a launch token stays valid
-  OPENING_LOCK_MS: 1500,        // presses during this window are queued, not re-opened
-  STANDBY_DROP_MS: 60 * 1000,   // a prepared (invisible) switcher frame is dropped after its tab has been hidden this long
-  OVERLAY_WATCHDOG_MS: 2500,
-  OVERLAY_VISIBLE_MS: 1200,     // shown this long and Chrome has never reported it visible: a blocked click or key opens the popup window instead    // no READY by then -> overlay failed, use the popup window
-  POINTER_VISIBLE_MS: 300,      // overlay must be fully visible this long before clicks count
-  KEYS_GRACE_MS: 800,           // keys work right away (quick Alt+Q flick) until visibility is known
+  CAPTURE_GAP_MILLISECONDS: 520,          // Chrome allows ~2 captureVisibleTab calls per second
+  LAUNCH_TIME_TO_LIVE_MILLISECONDS: 15000,         // how long a launch token stays valid
+  OPENING_LOCK_MILLISECONDS: 1500,        // presses during this window are queued, not re-opened
+  STANDBY_DROP_MILLISECONDS: 60 * 1000,   // a prepared (invisible) switcher frame is dropped after its tab has been hidden this long
+  OVERLAY_WATCHDOG_MILLISECONDS: 2500,
+  OVERLAY_VISIBLE_MILLISECONDS: 1200,     // shown this long and Chrome has never reported it visible: a blocked click or key opens the popup window instead    // no READY by then -> overlay failed, use the popup window
+  POINTER_VISIBLE_MILLISECONDS: 300,      // overlay must be fully visible this long before clicks count
+  KEYS_GRACE_MILLISECONDS: 800,           // keys work right away (quick Alt+Q flick) until visibility is known
   RECENTLY_CLOSED: 8,           // most "Recently closed" entries shown
   RECENTLY_CLOSED_SEARCH: 24,   // ...or this many while searching (search reaches the whole 7-day log)
   RECENTLY_CLOSED_WINDOWS: 2,   // of which at most this many whole windows
-  RECENTLY_CLOSED_MAX_AGE_S: 4 * 3600, // only things closed in the last 4 hours
+  RECENTLY_CLOSED_MAX_AGE_SECONDS: 4 * 3600, // only things closed in the last 4 hours
   NOTE_MAX: 1000,               // characters in one tab note
   MAX_NOTES: 500,
-  WOKEN_TTL_MS: 24 * 3600 * 1000, // a woken tab stops being "back from snooze" after this long, looked at or not
+  WOKEN_TIME_TO_LIVE_MILLISECONDS: 24 * 3600 * 1000, // a woken tab stops being "back from snooze" after this long, looked at or not
   MAX_SNOOZED: 300,             // most snoozed tabs kept               // most tab notes kept (the oldest go first)
   MAX_STARS: 300,               // most starred pages kept (their previews are kept like an open tab's)
   MAX_COLLAPSED: 200,           // most collapsed sections remembered
   MAX_CLOSED_HIDDEN: 300,       // most "Recently closed" entries remembered as removed from the list
-  CLOSED_HIDDEN_TTL_MS: 30 * 24 * 3600 * 1000, // ...each for this long (Chrome's own list can reach further back than our 7-day log)
-  RESUME_TTL_MS: 15000,         // a resume note older than this is ignored
+  CLOSED_HIDDEN_TIME_TO_LIVE_MILLISECONDS: 30 * 24 * 3600 * 1000, // ...each for this long (Chrome's own list can reach further back than our 7-day log)
+  RESUME_TIME_TO_LIVE_MILLISECONDS: 15000,         // a resume note older than this is ignored
   SWEEP_MAX_TABS: 100,          // most tabs one "Capture all previews" run visits
-  SWEEP_STALE_MS: 6 * 60 * 60 * 1000, // tabs whose preview is newer than this are skipped
-  SWEEP_PAINT_MS: 300,         // wait after a tab finishes loading, so the screenshot isn't blank
-  SWEEP_LOAD_MS: 2500,         // ...and give up waiting for a slow page after this long
-  FLYOUT_WINDOW_MS: 30 * 60 * 1000, // the first-run flyout is offered for this long after install
-  FLYOUT_SHOW_MS: 20000,        // ...and stays on a page this long unless dismissed
-  STARTUP_OPEN_MS: 3500,        // "Open Tabazing when Chrome starts" waits this long for Chrome to restore the tabs
+  SWEEP_STALE_MILLISECONDS: 6 * 60 * 60 * 1000, // tabs whose preview is newer than this are skipped
+  SWEEP_PAINT_MILLISECONDS: 300,         // wait after a tab finishes loading, so the screenshot isn't blank
+  SWEEP_LOAD_MILLISECONDS: 2500,         // ...and give up waiting for a slow page after this long
+  FLYOUT_WINDOW_MILLISECONDS: 30 * 60 * 1000, // the first-run flyout is offered for this long after install
+  FLYOUT_SHOW_MILLISECONDS: 20000,        // ...and stays on a page this long unless dismissed
+  STARTUP_OPEN_MILLISECONDS: 3500,        // "Open Tabazing when Chrome starts" waits this long for Chrome to restore the tabs
   MEDIA_STATE_MAX: 4096,        // characters in one page's media report (it is JSON text from an untrusted page)
   MEDIA_TEXT_MAX: 300,          // ...and in its title or artist
   MEDIA_FRAMES_MAX: 8,          // frames remembered per tab (the most recent reports)
   PALETTE_RECENT: 6,           // recently run palette actions remembered (shown when nothing is typed)
-  MEDIA_PAUSED_MS: 60 * 60 * 1000, // media paused this long leaves the player's list (as in Chrome's own media controls)
+  MEDIA_PAUSED_MILLISECONDS: 60 * 60 * 1000, // media paused this long leaves the player's list (as in Chrome's own media controls)
 });
 
 // The "use Alt+Q" nudge: Chrome never tells extensions about Ctrl+Tab, so a run of quick
 // next/previous-tab switches is what it looks for. Counted on this device only.
 export const NUDGE = Object.freeze({
-  STEP_MS: 1500,                // a step is a switch to the tab right next to the last one, this soon after it
+  STEP_MILLISECONDS: 1500,                // a step is a switch to the tab right next to the last one, this soon after it
   RUN_STEPS: 3,                 // ...and this many steps in a row make a "run"
-  SETTLE_MS: 900,               // the note waits until the switching has stopped this long
-  QUIET_AFTER_EVENT_MS: 400,    // switches right after a tab was opened or closed don't count (Chrome picks the neighbour)
+  SETTLE_MILLISECONDS: 900,               // the note waits until the switching has stopped this long
+  QUIET_AFTER_EVENT_MILLISECONDS: 400,    // switches right after a tab was opened or closed don't count (Chrome picks the neighbour)
   RUNS_BEFORE: 2,               // shown on the second run of a day, not the first
-  GAP_MS: 24 * 3600 * 1000,     // at most once a day
+  GAP_MILLISECONDS: 24 * 3600 * 1000,     // at most once a day
   MAX: 3,                       // and three times ever
-  AFTER_USE_MS: 10 * 60 * 1000, // never within 10 minutes of opening Tabazing
+  AFTER_USE_MILLISECONDS: 10 * 60 * 1000, // never within 10 minutes of opening Tabazing
   HABIT_OPENS: 30,              // after this many opens the habit is there: stop for good
-  SHOW_MS: 12000,
+  SHOW_MILLISECONDS: 12000,
 });
 
 // "How is Tabazing working for you?" timing. Counted on this device only (storage.local), same rules for everyone.
 export const REVIEW = Object.freeze({
   ASK_AFTER_OPENS: 15,          // not before this many switcher opens...
-  ASK_AFTER_MS: 3 * 24 * 3600 * 1000,  // ...and this long after install
-  ASK_GAP_MS: 14 * 24 * 3600 * 1000,   // at most one ask per this long
+  ASK_AFTER_MILLISECONDS: 3 * 24 * 3600 * 1000,  // ...and this long after install
+  ASK_GAP_MILLISECONDS: 14 * 24 * 3600 * 1000,   // at most one ask per this long
   ASK_MAX: 0,                   // never: Tabazing is not on the Chrome Web Store
 });
 

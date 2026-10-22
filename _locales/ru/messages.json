@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "Открыть Tabazing на предыдущей карточке списка (по кругу); отпустите Alt, чтобы переключиться"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "Открыть палитру команд Tabazing: действия, вычисления, перевод единиц и поиск"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "Открыть Tabazing на следующей карточке списка (по кругу); отпустите Alt, чтобы переключиться"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "Открыть Tabazing и оставить открытым"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab для вкладок Chrome: живые превью, мгновенный поиск и закрытые вкладки. Бесплатно, приватно, всё остаётся у вас."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing: переключатель вкладок с живыми превью"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

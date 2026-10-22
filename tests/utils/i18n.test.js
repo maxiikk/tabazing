@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { LANGS, loadLang, setLang, uiLang, isRtl, timeAgo, localizePage } from '../../utils/i18n.js';
-import { t } from '../../utils/translations.js';
+import { translate } from '../../utils/translations.js';
 import EN from '../../dictionaries/en.json';
 import RU from '../../dictionaries/ru.json';
 import ES from '../../dictionaries/es.json';
@@ -16,16 +16,16 @@ describe('LANGS', () => {
 
 describe('language choice', () => {
   it('starts in Chrome\'s language, falling back to English', async () => {
-    for (const [ui, want] of [['ru-RU', 'ru'], ['ES', 'es'], ['fr', 'fr'], ['de-AT', 'de'], ['el', 'el'], ['he-IL', 'he'], ['ar-EG', 'ar'], ['ro', 'ro'], ['it-CH', 'it'], ['pt-BR', 'en'], ['', 'en'], [undefined, 'en']]) {
+    for (const [chromeLanguage, want] of [['ru-RU', 'ru'], ['ES', 'es'], ['fr', 'fr'], ['de-AT', 'de'], ['el', 'el'], ['he-IL', 'he'], ['ar-EG', 'ar'], ['ro', 'ro'], ['it-CH', 'it'], ['pt-BR', 'en'], ['', 'en'], [undefined, 'en']]) {
       vi.resetModules();
-      chrome.i18n.getUILanguage.mockReturnValue(ui);
-      expect((await import('../../utils/i18n.js')).uiLang(), String(ui)).toBe(want);
+      chrome.i18n.getUILanguage.mockReturnValue(chromeLanguage);
+      expect((await import('../../utils/i18n.js')).uiLang(), String(chromeLanguage)).toBe(want);
     }
   });
-  it('setLang switches right away; "auto" and unknown values follow Chrome', () => {
+  it('settingsLanguage switches right away; "auto" and unknown values follow Chrome', () => {
     expect(setLang('ru')).toBe('ru');
     expect(uiLang()).toBe('ru');
-    expect(t('newTab')).toBe(RU.newTab);
+    expect(translate('newTab')).toBe(RU.newTab);
     chrome._data.lang = 'es-419';
     expect(setLang('auto')).toBe('es');
     expect(setLang('pt')).toBe('es');
@@ -58,7 +58,7 @@ describe('language choice', () => {
 
 describe('right to left', () => {
   it('Arabic and Hebrew are written right to left, the others left to right', () => {
-    for (const l of LANGS) { setLang(l); expect(isRtl(), l).toBe(l === 'ar' || l === 'he'); }
+    for (const lang of LANGS) { setLang(lang); expect(isRtl(), lang).toBe(lang === 'ar' || lang === 'he'); }
   });
   it('localizePage turns the page round for them, and back', () => {
     setLang('he');
@@ -75,30 +75,30 @@ describe('right to left', () => {
   });
 });
 
-describe('t, in the language setLang chose', () => {
+describe('t, in the language settingsLanguage chose', () => {
   it('looks up the current language', () => {
-    expect(t('newTab')).toBe('New tab');
+    expect(translate('newTab')).toBe('New tab');
     setLang('es');
-    expect(t('newTab')).toBe(ES.newTab);
+    expect(translate('newTab')).toBe(ES.newTab);
   });
   it('fills named placeholders, and leaves one without a value', () => {
-    expect(t('countSearch', { open: 3, closed: 'x' })).toBe('3 open · x closed');
-    expect(t('countSearch', { open: 3 })).toBe('3 open · {closed} closed');
-    expect(t('newTab', { ignored: 1 })).toBe('New tab');
+    expect(translate('countSearch', { open: 3, closed: 'x' })).toBe('3 open · x closed');
+    expect(translate('countSearch', { open: 3 })).toBe('3 open · {closed} closed');
+    expect(translate('newTab', { ignored: 1 })).toBe('New tab');
   });
   it('stringifies values, and does not expand placeholders inside them', () => {
-    expect(t('countSearch', { open: null, closed: '{open}' })).toBe('null open · {open} closed');
+    expect(translate('countSearch', { open: null, closed: '{open}' })).toBe('null open · {open} closed');
   });
   it('shows the key itself when it is missing', () => {
-    expect(t('no_such_key')).toBe('no_such_key');
+    expect(translate('no_such_key')).toBe('no_such_key');
     setLang('ru');
-    expect(t('no_such_key')).toBe('no_such_key');
+    expect(translate('no_such_key')).toBe('no_such_key');
   });
   it('falls back to English when the language lacks a key', async () => {
     vi.resetModules();
     vi.doMock('../../dictionaries/ru.json', () => ({ default: { newTab: 'Новая' } }));
     const i18n = await import('../../utils/i18n.js');
-    const { t: get } = await import('../../utils/translations.js');
+    const { translate: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
     expect(get('newTab')).toBe('Новая');
     expect(get('justNow')).toBe(EN.justNow);
@@ -107,25 +107,25 @@ describe('t, in the language setLang chose', () => {
 
 describe('plural messages', () => {
   it('pick the English form, # is the count', () => {
-    expect(t('tabs', { count: 1 })).toBe('1 tab');
-    expect(t('tabs', { count: 0 })).toBe('0 tabs');
-    expect(t('tabs', { count: 5 })).toBe('5 tabs');
+    expect(translate('tabs', { count: 1 })).toBe('1 tab');
+    expect(translate('tabs', { count: 0 })).toBe('0 tabs');
+    expect(translate('tabs', { count: 5 })).toBe('5 tabs');
   });
   it('pick every Russian form', () => {
     setLang('ru');
-    expect([1, 21, 3, 5, 11, 1.5].map((count) => t('tabs', { count }))).toEqual([
+    expect([1, 21, 3, 5, 11, 1.5].map((count) => translate('tabs', { count }))).toEqual([
       '1 вкладка', '21 вкладка', '3 вкладки', '5 вкладок', '11 вкладок', '1,5 вкладки',
     ]);
   });
   it('take other values next to the count', () => {
-    expect(t('snoozedN', { count: 2, time: 'Fri 09:00' })).toBe('Snoozed 2 tabs until Fri 09:00');
-    expect(t('snoozedN', { count: 1, time: 'Fri 09:00' })).toBe('Snoozed 1 tab until Fri 09:00');
+    expect(translate('snoozedCount', { count: 2, time: 'Fri 09:00' })).toBe('Snoozed 2 tabs until Fri 09:00');
+    expect(translate('snoozedCount', { count: 1, time: 'Fri 09:00' })).toBe('Snoozed 1 tab until Fri 09:00');
   });
   it('a language lacking the message gets English; nothing at all gives the key', async () => {
     vi.resetModules();
     vi.doMock('../../dictionaries/ru.json', () => ({ default: { onlyOther: '{count, plural, other {# x}}' } }));
     const i18n = await import('../../utils/i18n.js');
-    const { t: get } = await import('../../utils/translations.js');
+    const { translate: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
     expect(get('onlyOther', { count: 1 })).toBe('1 x');
     expect(get('tabs', { count: 5 })).toBe('5 tabs');
@@ -135,11 +135,11 @@ describe('plural messages', () => {
 
 describe('timeAgo', () => {
   const NOW = Date.UTC(2026, 9, 17, 12) / 1000;
-  const rtf = (lang) => new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: 'short' });
-  const at = (sec) => { vi.useFakeTimers(); vi.setSystemTime(NOW * 1000); return timeAgo(sec); };
+  const relativeTimeFormat = (lang) => new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: 'short' });
+  const at = (seconds) => { vi.useFakeTimers(); vi.setSystemTime(NOW * 1000); return timeAgo(seconds); };
 
   it('is empty without a usable timestamp', () => {
-    for (const v of [0, -5, NaN, Infinity, undefined, null, '1700000000']) expect(at(v)).toBe('');
+    for (const value of [0, -5, NaN, Infinity, undefined, null, '1700000000']) expect(at(value)).toBe('');
   });
   it('says "just now" under a minute, and for times in the future', () => {
     expect(at(NOW)).toBe(EN.justNow);
@@ -147,19 +147,19 @@ describe('timeAgo', () => {
     expect(at(NOW + 3600)).toBe(EN.justNow);
   });
   it('counts minutes, hours, then days', () => {
-    const f = rtf('en');
-    expect(at(NOW - 60)).toBe(f.format(-1, 'minute'));
-    expect(at(NOW - 89)).toBe(f.format(-1, 'minute'));
-    expect(at(NOW - 90)).toBe(f.format(-2, 'minute'));
-    expect(at(NOW - 3599)).toBe(f.format(-60, 'minute'));
-    expect(at(NOW - 3600)).toBe(f.format(-1, 'hour'));
-    expect(at(NOW - 5 * 3600)).toBe(f.format(-5, 'hour'));
-    expect(at(NOW - 86400)).toBe(f.format(-1, 'day'));
-    expect(at(NOW - 30 * 86400)).toBe(f.format(-30, 'day'));
+    const formatter = relativeTimeFormat('en');
+    expect(at(NOW - 60)).toBe(formatter.format(-1, 'minute'));
+    expect(at(NOW - 89)).toBe(formatter.format(-1, 'minute'));
+    expect(at(NOW - 90)).toBe(formatter.format(-2, 'minute'));
+    expect(at(NOW - 3599)).toBe(formatter.format(-60, 'minute'));
+    expect(at(NOW - 3600)).toBe(formatter.format(-1, 'hour'));
+    expect(at(NOW - 5 * 3600)).toBe(formatter.format(-5, 'hour'));
+    expect(at(NOW - 86400)).toBe(formatter.format(-1, 'day'));
+    expect(at(NOW - 30 * 86400)).toBe(formatter.format(-30, 'day'));
   });
   it('follows the language', () => {
     setLang('ru');
-    expect(at(NOW - 2 * 86400)).toBe(rtf('ru').format(-2, 'day'));
+    expect(at(NOW - 2 * 86400)).toBe(relativeTimeFormat('ru').format(-2, 'day'));
     expect(at(NOW)).toBe(RU.justNow);
   });
 });
@@ -170,13 +170,13 @@ describe('localizePage', () => {
     setLang('es');
     document.body.innerHTML = `
       <span data-testid="a" data-i18n="newTab">x</span>
-      <button data-testid="b" data-i18n-title="archiveBtnTitle" data-i18n-aria="searchAria"></button>
+      <button data-testid="b" data-i18n-title="archiveButtonTitle" data-i18n-aria="searchAria"></button>
       <input data-testid="c" data-i18n-placeholder="searchPlaceholder">
       <span data-testid="d" data-i18n="missingKey"></span>`;
     localizePage();
     expect(document.documentElement.lang).toBe('es');
     expect(byTestId('a').textContent).toBe(ES.newTab);
-    expect(byTestId('b').title).toBe(ES.archiveBtnTitle);
+    expect(byTestId('b').title).toBe(ES.archiveButtonTitle);
     expect(byTestId('b').getAttribute('aria-label')).toBe(ES.searchAria);
     expect(byTestId('c').placeholder).toBe(ES.searchPlaceholder);
     expect(byTestId('d').textContent).toBe('missingKey');

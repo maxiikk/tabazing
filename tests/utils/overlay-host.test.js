@@ -1,15 +1,15 @@
 // utils/overlay-host.js: the switcher's overlay over a page, as background.js injects it into web pages and the
 // New Tab page runs it itself. Run here in jsdom; elements are found by data-testid only.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { FRAME_MSG } from '../../utils/constants.js';
+import { FRAME_MESSAGE } from '../../utils/constants.js';
 import { overlayHost, removeOverlay } from '../../utils/overlay-host.js';
 
-const $ = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
+const queryTestId = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
 beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); });
 afterEach(() => {
   if (window.__tabazingOverlay) window.__tabazingOverlay.cleanup();
-  for (const id of ['overlay-shade', 'overlay-frame']) document.querySelectorAll(`[data-testid="${id}"]`).forEach((n) => n.remove());
-  for (const k of ['__tabazingOverlay', '__tabazingHotkey']) delete window[k];
+  for (const id of ['overlay-shade', 'overlay-frame']) document.querySelectorAll(`[data-testid="${id}"]`).forEach((element) => element.remove());
+  for (const propertyName of ['__tabazingOverlay', '__tabazingHotkey']) delete window[propertyName];
   delete document.hidden;
   vi.clearAllTimers();
   vi.useRealTimers();
@@ -20,37 +20,37 @@ describe('self-contained', () => {
   it('works rebuilt from its source alone (no imports, no outside variables)', () => {
     const host = new Function('return ' + overlayHost.toString().replace(/^export /, ''))();
     const remove = new Function('return ' + removeOverlay.toString())();
-    host('chrome-extension://abc/markup/switcher.html', 'chrome-extension://abc', FRAME_MSG, 'standby', null, false, 60000, 'Label');
-    expect($('overlay-frame')).not.toBeNull();
+    host('chrome-extension://abc/markup/switcher.html', 'chrome-extension://abc', FRAME_MESSAGE, 'standby', null, false, 60000, 'Label');
+    expect(queryTestId('overlay-frame')).not.toBeNull();
     remove();
-    expect($('overlay-frame')).toBeNull();
+    expect(queryTestId('overlay-frame')).toBeNull();
   });
   it('background.js uses this one', async () => {
-    const bg = await import('../../background.js');
-    expect(bg.overlayHost).toBe(overlayHost);
-    expect(bg.removeOverlay).toBe(removeOverlay);
+    const background = await import('../../background.js');
+    expect(background.overlayHost).toBe(overlayHost);
+    expect(background.removeOverlay).toBe(removeOverlay);
   });
 });
 
 describe('overlayHost', () => {
-  const SRC = 'chrome-extension://abc/markup/switcher.html';
+  const SOURCE = 'chrome-extension://abc/markup/switcher.html';
   const ORIGIN = 'chrome-extension://abc';
-  const host = (mode, token = null, hold = false) => overlayHost(SRC, ORIGIN, FRAME_MSG, mode, token, hold, 60000);
-  const frame = () => $('overlay-frame');
-  const shade = () => $('overlay-shade');
+  const host = (mode, token = null, hold = false) => overlayHost(SOURCE, ORIGIN, FRAME_MESSAGE, mode, token, hold, 60000);
+  const frame = () => queryTestId('overlay-frame');
+  const shade = () => queryTestId('overlay-shade');
   const fromFrame = (data, source = frame().contentWindow) => window.dispatchEvent(new MessageEvent('message', { data, source }));
   const spyPost = () => vi.spyOn(frame().contentWindow, 'postMessage').mockImplementation(() => {});
   const shown = () => frame().style.visibility === 'visible' && frame().style.opacity === '1' && frame().style.pointerEvents === 'auto';
 
   it('names the frame for screen readers with the label it is given', () => {
-    overlayHost(SRC, ORIGIN, FRAME_MSG, 'standby', null, false, 60000, 'Selector de pestañas Tabazing');
+    overlayHost(SOURCE, ORIGIN, FRAME_MESSAGE, 'standby', null, false, 60000, 'Selector de pestañas Tabazing');
     expect(frame().getAttribute('aria-label')).toBe('Selector de pestañas Tabazing');
   });
 
   it('standby: an invisible, inert frame on the switcher page', () => {
     host('standby');
     expect(shade()).not.toBeNull();
-    expect(frame().src).toMatch(new RegExp('^' + SRC + '\\?standby=\\d+$'));
+    expect(frame().src).toMatch(new RegExp('^' + SOURCE + '\\?standby=\\d+$'));
     expect(frame().inert).toBe(true);
     expect(frame().tabIndex).toBe(-1);
     expect(frame().getAttribute('aria-hidden')).toBe('true');
@@ -61,9 +61,9 @@ describe('overlayHost', () => {
 
   it('standby again keeps the frame that is there', () => {
     host('standby');
-    const f = frame();
+    const firstFrame = frame();
     host('standby');
-    expect(frame()).toBe(f);
+    expect(frame()).toBe(firstFrame);
     expect(document.querySelectorAll('[data-testid="overlay-frame"]')).toHaveLength(1);
   });
 
@@ -74,37 +74,37 @@ describe('overlayHost', () => {
     expect(window.__tabazingOverlay.active).toBe(true);
     expect(frame().inert).toBe(false);
     expect(post).not.toHaveBeenCalled(); // not loaded yet
-    fromFrame({ tabazing: FRAME_MSG.STANDBY });
-    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MSG.LAUNCH, token: 'tok' }, ORIGIN);
-    fromFrame({ tabazing: FRAME_MSG.STANDBY });
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
+    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.LAUNCH, token: 'tok' }, ORIGIN);
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
     expect(post).toHaveBeenCalledTimes(1); // only once
   });
 
   it('a prepared frame that is ready gets the token straight away', () => {
     host('standby');
     const post = spyPost();
-    fromFrame({ tabazing: FRAME_MSG.STANDBY });
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
     host('launch', 'tok');
-    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MSG.LAUNCH, token: 'tok' }, ORIGIN);
+    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.LAUNCH, token: 'tok' }, ORIGIN);
   });
 
   it('stays invisible until the switcher says READY, then shows', () => {
     host('launch', 'tok');
     expect(shown()).toBe(false);
-    fromFrame({ tabazing: FRAME_MSG.READY });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
     expect(shown()).toBe(true);
     expect(shade().style.visibility).toBe('visible');
   });
 
   it('a light switcher gets a light shade', () => {
     host('launch', 'tok');
-    fromFrame({ tabazing: FRAME_MSG.READY, light: true });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY, light: true });
     expect(shade().style.backdropFilter).toContain('brightness(1.06)');
   });
 
   it('ignores messages from anything but its frame, and malformed ones', () => {
     host('launch', 'tok');
-    fromFrame({ tabazing: FRAME_MSG.READY }, window);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY }, window);
     fromFrame({ tabazing: 5 });
     fromFrame(null);
     expect(shown()).toBe(false);
@@ -112,7 +112,7 @@ describe('overlayHost', () => {
 
   it('READY without a launch does not show the standby frame', () => {
     host('standby');
-    fromFrame({ tabazing: FRAME_MSG.READY });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
     expect(shown()).toBe(false);
   });
 
@@ -121,15 +121,15 @@ describe('overlayHost', () => {
     document.body.append(input);
     input.focus();
     host('launch', 'tok');
-    const src = frame().src;
-    fromFrame({ tabazing: FRAME_MSG.READY });
+    const originalSource = frame().src;
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
     vi.advanceTimersByTime(5);
-    fromFrame({ tabazing: FRAME_MSG.CLOSE });
+    fromFrame({ tabazing: FRAME_MESSAGE.CLOSE });
     expect(shown()).toBe(false);
     expect(frame().inert).toBe(true);
     expect(window.__tabazingOverlay.active).toBe(false);
     expect(document.activeElement).toBe(input);
-    expect(frame().src).not.toBe(src);
+    expect(frame().src).not.toBe(originalSource);
     input.remove();
   });
 
@@ -153,32 +153,32 @@ describe('overlayHost', () => {
     window.__tabazingHotkey = { altState: () => 'up' };
     host('launch', 'tok', true);
     const post = spyPost();
-    fromFrame({ tabazing: FRAME_MSG.READY });
-    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MSG.RELEASED }, ORIGIN);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
   });
 
   it('hold: Alt still down, and a synthetic Alt key-up from the page, release nothing', () => {
     window.__tabazingHotkey = { altState: () => 'down' };
     host('launch', 'tok', true);
     const post = spyPost();
-    fromFrame({ tabazing: FRAME_MSG.READY });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
     window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt' }));
-    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MSG.RELEASED }, ORIGIN);
+    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
   });
 
   it('without hold nothing is released', () => {
     window.__tabazingHotkey = { altState: () => 'up' };
     host('launch', 'tok', false);
     const post = spyPost();
-    fromFrame({ tabazing: FRAME_MSG.READY });
-    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MSG.RELEASED }, ORIGIN);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
   });
 
   it('a hidden tab closes the switcher, and drops the frame after a while', () => {
     let hidden = false;
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => hidden });
     host('launch', 'tok');
-    fromFrame({ tabazing: FRAME_MSG.READY });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
     hidden = true;
     document.dispatchEvent(new Event('visibilitychange'));
     expect(window.__tabazingOverlay.active).toBe(false);
@@ -203,12 +203,12 @@ describe('overlayHost', () => {
 
   it('removeOverlay takes it all away and stops listening', () => {
     host('launch', 'tok');
-    const h = window.__tabazingOverlay;
+    const overlay = window.__tabazingOverlay;
     removeOverlay();
     expect(frame()).toBeNull();
     expect(shade()).toBeNull();
     expect(window.__tabazingOverlay).toBeUndefined();
-    expect(h.active).toBe(false);
+    expect(overlay.active).toBe(false);
     expect(() => removeOverlay()).not.toThrow(); // nothing there
   });
 });

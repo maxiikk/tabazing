@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.16.5** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.16.6** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -550,17 +550,18 @@ npx vitest run tests/switcher/archive    # run part of it
 npm run test:watch                       # re-run on change
 ```
 
-- `tests/` mirrors the source: `tests/utils/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`.
+- `tests/` mirrors the source: `tests/utils/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/scripts/<script>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`. Shared test code lives in `tests/helpers/` (and `tests/e2e/helpers/` for the real-browser tests).
 - `tests/setup/chrome.js` is an in-memory fake of the `chrome.*` APIs, reset before every test. `tests/setup/dom.js` adds what jsdom lacks. `tests/helpers/switcher.js` (`bootSwitcher`) boots the real switcher page.
 - `switcher.js` and `background.js` end with an `export { … }` list so tests can reach their functions. Add new top-level functions to it.
-- **Tests find elements only by `data-testid`**, never by role, id, class or tag. Every element the extension creates carries one: in HTML as an attribute, in `switcher.js` through `h(tag, cls, text, testid)` (and `button(testid, label, cls, fn)` in dialogs), elsewhere via `el.dataset.testid`. Repeated elements share one test id per kind (`card-tab`, `card-closed`, `dd-row-mark`).
+- **Tests find elements only by `data-testid`**, never by role, id, class or tag. Every element the extension creates carries one: in HTML as an attribute, in `switcher.js` through `makeElement(tag, className, text, testid)` (and `button(testid, label, className, action)` in dialogs), elsewhere via `element.dataset.testid`. Repeated elements share one test id per kind (`card-tab`, `card-closed`, `dropdown-row-mark`).
+- Names are written out in full words, in the code, the CSS classes, the test ids and the dictionary keys: `button`, not `btn`; `message`, not `msg`; `event`, not `e`. The few short ones left are stored data (a note's `{ u, n, t }`, the storage keys) and browser API names, which can't change without a migration.
 - The folder is `tests/`, not `__tests__`: Chrome refuses to load an unpacked extension that has a root entry starting with `_` (other than `_locales`).
 
 ### Translations
 
 All the text lives in `dictionaries/` — one JSON file per language (`en`, `el`, `de`, `it`, `fr`, `es`, `ru`, `ar`, `he`, `ro`), a flat list of `"key": "message"` pairs. To change a string, edit it there, in every language.
 
-Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `t(key, params)` from `utils/translations.js`:
+Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/format_parse/messages/) and are read in the code with `translate(key, params)` from `utils/translations.js`:
 
 ```json
 "activeTab": "Active tab: {title}",
@@ -568,8 +569,8 @@ Messages use [ICU MessageFormat](https://unicode-org.github.io/icu/userguide/for
 ```
 
 ```js
-t('activeTab', { title: 'Inbox' }); // "Active tab: Inbox"
-t('tabs', { count: 5 });            // "5 tabs" — in Russian "5 вкладок" (one / few / many / other)
+translate('activeTab', { title: 'Inbox' }); // "Active tab: Inbox"
+translate('tabs', { count: 5 });            // "5 tabs" — in Russian "5 вкладок" (one / few / many / other)
 ```
 
 A counted phrase is one plural message that picks its form from the count (`#` is the count), using each language's own plural rules. Tabazing implements the ICU syntax it needs itself (placeholders, `plural`, `selectordinal`, `select`, `number`), so there is no library to bundle.

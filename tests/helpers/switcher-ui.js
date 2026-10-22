@@ -7,26 +7,26 @@ import { bootSwitcher, waitFor, tick } from './switcher.js';
 
 const booted = [];
 afterEach(() => {
-  for (const m of booted.splice(0)) { m.state.done = true; m.state.holding = false; }
+  for (const switcherModule of booted.splice(0)) { switcherModule.state.done = true; switcherModule.state.holding = false; }
   vi.unstubAllGlobals();
 });
 
-export async function boot(opts = {}) {
-  const sw = await bootSwitcher({
-    ...opts,
+export async function boot(options = {}) {
+  const switcher = await bootSwitcher({
+    ...options,
     beforeImport: async () => {
       await chrome.storage.local.set({ onb: { tour: true, flyout: true, at: Date.now() } });
-      if (opts.beforeImport) await opts.beforeImport();
+      if (options.beforeImport) await options.beforeImport();
     },
   });
-  booted.push(sw);
+  booted.push(switcher);
   // What arrives right after the first draw ("Recently closed" etc.) is drawn now, so it can't land in the
   // middle of a test and replace the cards (or close a big preview).
-  if (opts.settle !== false) {
+  if (options.settle !== false) {
     await tick(10);
-    sw.refresh();
+    switcher.refresh();
   }
-  return sw;
+  return switcher;
 }
 
 /** Tabs A, B, C (A active, the current one) unless given. */
@@ -37,37 +37,37 @@ export const ABC = () => [
 ];
 
 // Elements are selected by data-testid only.
-export const tid = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
-export const tids = (id, root = document) => [...root.querySelectorAll(`[data-testid="${id}"]`)];
-const CARD = ['tab', 'closed', 'snoozed', 'star'].map((k) => `[data-testid="card-${k}"]`).join(', ');
-export const cards = (root = tid('scroller')) => [...root.querySelectorAll(CARD)];
-export const openCards = () => cards(tid('open-grid'));
-export const titleOf = (c) => tid('card-title', c).textContent;
+export const byTestId = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
+export const allByTestId = (id, root = document) => [...root.querySelectorAll(`[data-testid="${id}"]`)];
+const CARD = ['tab', 'closed', 'snoozed', 'star'].map((kind) => `[data-testid="card-${kind}"]`).join(', ');
+export const cards = (root = byTestId('scroller')) => [...root.querySelectorAll(CARD)];
+export const openCards = () => cards(byTestId('open-grid'));
+export const titleOf = (card) => byTestId('card-title', card).textContent;
 export const titles = (list = openCards()) => list.map(titleOf);
-export const selectedCard = () => cards().find((c) => c.getAttribute('aria-selected') === 'true');
-export const selectedTitle = () => { const c = selectedCard(); return c && titleOf(c); };
+export const selectedCard = () => cards().find((card) => card.getAttribute('aria-selected') === 'true');
+export const selectedTitle = () => { const card = selectedCard(); return card && titleOf(card); };
 
 /**
  * Boot in overlay mode: a fake parent page receives our postMessages and hands over the launch token,
  * and IntersectionObserver is a stand-in whose callback the test drives (io.fire(true|false)).
  */
-export async function bootOverlay(opts = {}) {
+export async function bootOverlay(options = {}) {
   const parent = { postMessage: vi.fn() };
-  const io = { cb: null, fire(visible) { this.cb([{ isVisible: visible }]); } };
-  vi.stubGlobal('IntersectionObserver', class { constructor(cb) { io.cb = cb; } observe() {} disconnect() {} });
-  const sw = await boot({
-    ...opts,
-    ctx: { mode: 'overlay', ...opts.ctx },
+  const observer = { callback: null, fire(visible) { this.callback([{ isVisible: visible }]); } };
+  vi.stubGlobal('IntersectionObserver', class { constructor(callback) { observer.callback = callback; } observe() {} disconnect() {} });
+  const switcher = await boot({
+    ...options,
+    context: { mode: 'overlay', ...options.context },
     beforeImport: async () => {
       Object.defineProperty(window, 'parent', { value: parent, configurable: true });
       const { token } = chrome.storage.session._data.get('launch');
       // Like the content script: answer the frame's "standby" with the launch.
-      parent.postMessage.mockImplementation((msg) => {
-        if (msg && msg.tabazing === 'standby') setTimeout(() => window.dispatchEvent(new MessageEvent('message', { data: { tabazing: 'launch', token }, source: parent })), 0);
+      parent.postMessage.mockImplementation((message) => {
+        if (message && message.tabazing === 'standby') setTimeout(() => window.dispatchEvent(new MessageEvent('message', { data: { tabazing: 'launch', token }, source: parent })), 0);
       });
-      if (opts.beforeImport) await opts.beforeImport();
+      if (options.beforeImport) await options.beforeImport();
     },
   });
-  return { sw, parent, io };
+  return { switcher, parent, observer };
 }
 export function restoreParent() { delete window.parent; }

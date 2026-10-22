@@ -7,7 +7,7 @@ describe('fake chrome.tabs.query', () => {
     chrome._addTab({ url: 'http://b.org/' });
     chrome._addTab({ url: 'chrome://newtab/' });
     chrome._addTab({ url: 'https://sub.c.net/p' });
-    const urls = async (url) => (await chrome.tabs.query({ url })).map((t) => t.url);
+    const urls = async (url) => (await chrome.tabs.query({ url })).map((tab) => tab.url);
     expect(await urls('https://a.com/x')).toEqual(['https://a.com/x']);
     expect(await urls('http://*/*')).toEqual(['http://b.org/']);
     expect(await urls(['http://*/*', 'https://*/*'])).toEqual(['https://a.com/x', 'http://b.org/', 'https://sub.c.net/p']);
@@ -23,10 +23,10 @@ describe('fake chrome.tabs.query', () => {
 describe('fake chrome.storage', () => {
   it('round-trips values as copies and reports changes', async () => {
     const seen = [];
-    chrome.storage.onChanged.addListener((c, area) => seen.push([Object.keys(c), area]));
-    const v = { a: [1] };
-    await chrome.storage.local.set({ k: v });
-    v.a.push(2);
+    chrome.storage.onChanged.addListener((changes, area) => seen.push([Object.keys(changes), area]));
+    const value = { a: [1] };
+    await chrome.storage.local.set({ k: value });
+    value.a.push(2);
     expect(await chrome.storage.local.get('k')).toEqual({ k: { a: [1] } });
     expect(await chrome.storage.local.get({ missing: 5 })).toEqual({ missing: 5 });
     await chrome.storage.local.remove('k');
@@ -35,24 +35,24 @@ describe('fake chrome.storage', () => {
 });
 
 describe('fake chrome.tabs.move / update', () => {
-  const order = () => chrome._data.tabs.filter((t) => t.windowId === 1).sort((a, b) => a.index - b.index).map((t) => t.title);
+  const order = () => chrome._data.tabs.filter((tab) => tab.windowId === 1).sort((first, second) => first.index - second.index).map((tab) => tab.title);
   const seed = () => ['A', 'B', 'C', 'D'].map((title) => chrome._addTab({ windowId: 1, title }));
   it('moves a tab to exactly the index asked for, left or right', async () => {
-    const [a, , , d] = seed();
-    await chrome.tabs.move(a.id, { index: 2 });
+    const [firstTab, , , fourthTab] = seed();
+    await chrome.tabs.move(firstTab.id, { index: 2 });
     expect(order()).toEqual(['B', 'C', 'A', 'D']);
-    await chrome.tabs.move(d.id, { index: 0 });
+    await chrome.tabs.move(fourthTab.id, { index: 0 });
     expect(order()).toEqual(['D', 'B', 'C', 'A']);
-    await chrome.tabs.move(d.id, { index: -1 });
+    await chrome.tabs.move(fourthTab.id, { index: -1 });
     expect(order()).toEqual(['B', 'C', 'A', 'D']);
   });
   it('moves a pinned tab to the end of the pinned ones, an unpinned one just after them', async () => {
-    const [, b, c] = seed();
-    await chrome.tabs.update(c.id, { pinned: true });
+    const [, secondTab, thirdTab] = seed();
+    await chrome.tabs.update(thirdTab.id, { pinned: true });
     expect(order()).toEqual(['C', 'A', 'B', 'D']);
-    await chrome.tabs.update(b.id, { pinned: true });
+    await chrome.tabs.update(secondTab.id, { pinned: true });
     expect(order()).toEqual(['C', 'B', 'A', 'D']);
-    await chrome.tabs.update(c.id, { pinned: false });
+    await chrome.tabs.update(thirdTab.id, { pinned: false });
     expect(order()).toEqual(['B', 'C', 'A', 'D']);
   });
 });

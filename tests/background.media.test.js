@@ -1,20 +1,20 @@
-// background.js: what pages play (MSG.MEDIA from media-relay.js), kept per tab and frame for the switcher's
+// background.js: what pages play (MESSAGE.MEDIA from media-relay.js), kept per tab and frame for the switcher's
 // player, and forgotten when the tab closes or loads a new page.
 import { describe, it, expect, vi } from 'vitest';
-import { MSG, KEY, LIMITS } from '../utils/constants.js';
-import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send, env } from './helpers/background.js';
+import { MESSAGE, KEY, LIMITS } from '../utils/constants.js';
+import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send, environment } from './helpers/background.js';
 
 freshWorker();
 const media = () => chrome.storage.session._data.get(KEY.MEDIA);
-const STATE = { media: true, playing: true, kind: 'audio', title: 'Song', artist: 'Band', canPrev: true, canNext: true, muted: false };
-const report = (state, sender) => send({ type: MSG.MEDIA, state: typeof state === 'string' ? state : JSON.stringify(state) }, sender);
+const STATE = { media: true, playing: true, kind: 'audio', title: 'Song', artist: 'Band', canPrevious: true, canNext: true, muted: false };
+const report = (state, sender) => send({ type: MESSAGE.MEDIA, state: typeof state === 'string' ? state : JSON.stringify(state) }, sender);
 
 describe('MSG.MEDIA', () => {
   it('keeps a page\'s report under its own tab and frame', async () => {
     const { tab } = seed();
-    const { ret, respond } = report(STATE, { ...fromPage(tab), frameId: 3 });
+    const { result, respond } = report(STATE, { ...fromPage(tab), frameId: 3 });
     await flush();
-    expect(ret).toBeUndefined();
+    expect(result).toBeUndefined();
     expect(respond).not.toHaveBeenCalled();
     expect(media()).toEqual({ [tab.id]: { 3: { ...STATE, t: Date.now() } } });
   });
@@ -42,9 +42,9 @@ describe('MSG.MEDIA', () => {
 
   it('a report that doesn\'t check out is ignored', async () => {
     const { tab } = seed();
-    for (const bad of ['{nope', JSON.stringify({ ...STATE, kind: 'gif' }), JSON.stringify({ ...STATE, playing: 'yes' }), 'x'.repeat(LIMITS.MEDIA_STATE_MAX + 1)]) report(bad, fromPage(tab));
-    send({ type: MSG.MEDIA, state: STATE }, fromPage(tab)); // an object, not the page's text
-    send({ type: MSG.MEDIA }, fromPage(tab));
+    for (const badState of ['{nope', JSON.stringify({ ...STATE, kind: 'gif' }), JSON.stringify({ ...STATE, playing: 'yes' }), 'x'.repeat(LIMITS.MEDIA_STATE_MAX + 1)]) report(badState, fromPage(tab));
+    send({ type: MESSAGE.MEDIA, state: STATE }, fromPage(tab)); // an object, not the page's text
+    send({ type: MESSAGE.MEDIA }, fromPage(tab));
     await flush();
     expect(media()).toBeUndefined();
   });
@@ -53,9 +53,9 @@ describe('MSG.MEDIA', () => {
     const { tab } = seed();
     report({ ...STATE, title: '  ' + 'x'.repeat(1000), artist: ' A ' }, fromPage(tab));
     await flush();
-    const e = media()[tab.id][0];
-    expect(e.title).toHaveLength(LIMITS.MEDIA_TEXT_MAX);
-    expect(e.artist).toBe('A');
+    const entry = media()[tab.id][0];
+    expect(entry.title).toHaveLength(LIMITS.MEDIA_TEXT_MAX);
+    expect(entry.artist).toBe('A');
   });
 });
 
@@ -87,12 +87,12 @@ describe('forgetting', () => {
     const { tab, other } = await playing();
     chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
     await flush();
-    const resyncs = () => chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files);
+    const resyncs = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.world === 'MAIN' && options.func && !options.files);
     expect(resyncs()).toEqual([]); // not while loading
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
     chrome.tabs.onUpdated._emit(other.id, { status: 'complete' }, other); // had media, but didn't load: not asked
     await flush();
-    expect(resyncs().map(([o]) => o.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
+    expect(resyncs().map(([options]) => options.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
     // what it runs in the page: the sync event, which media-hook.js answers and media-relay.js lets through
     const asked = vi.fn();
     document.addEventListener('tabazing:media-sync', asked);
@@ -110,8 +110,8 @@ describe('forgetting', () => {
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab); // at once, as Chrome does for history.pushState
     await flush();
     expect(media()[tab.id]).toBeUndefined();
-    const resyncs = chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files);
-    expect(resyncs.map(([o]) => o.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
+    const resyncs = chrome.scripting.executeScript.mock.calls.filter(([options]) => options.world === 'MAIN' && options.func && !options.files);
+    expect(resyncs.map(([options]) => options.target)).toEqual([{ tabId: tab.id, allFrames: true }]);
   });
 
   it('two loads before it completes: still asked, once', async () => {
@@ -121,7 +121,7 @@ describe('forgetting', () => {
     chrome.tabs.onUpdated._emit(tab.id, { status: 'loading', url: 'https://example.com/b' }, { ...tab, status: 'loading' }); // nothing left to forget
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
     await flush();
-    expect(chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func && !o.files)).toHaveLength(1);
+    expect(chrome.scripting.executeScript.mock.calls.filter(([options]) => options.world === 'MAIN' && options.func && !options.files)).toHaveLength(1);
   });
 
   it('a tab that had no media is not asked after it loads', async () => {
@@ -130,7 +130,7 @@ describe('forgetting', () => {
     await flush();
     chrome.tabs.onUpdated._emit(tab.id, { status: 'complete' }, tab);
     await flush();
-    expect(chrome.scripting.executeScript.mock.calls.filter(([o]) => o.world === 'MAIN' && o.func)).toEqual([]);
+    expect(chrome.scripting.executeScript.mock.calls.filter(([options]) => options.world === 'MAIN' && options.func)).toEqual([]);
   });
 
   it('but not on other changes (a title, a page changing its own address, the load finishing)', async () => {
@@ -145,42 +145,42 @@ describe('forgetting', () => {
 });
 
 describe('checking with the pages (MSG.MEDIA_CHECK, as the switcher opens)', () => {
-  const S = chrome.storage.session;
-  const json = (p = {}) => JSON.stringify({ v: 3, ...STATE, ...p });
+  const sessionArea = chrome.storage.session;
+  const json = (overrides = {}) => JSON.stringify({ v: 3, ...STATE, ...overrides });
   // What each tab's frames answer: tabId -> [{ frameId, result }] | Error | 'hang'
   function pages(answers) {
-    chrome.scripting.executeScript.mockImplementation(async ({ target, func }) => {
-      const a = answers[target.tabId];
-      if (a instanceof Error) throw a;
-      if (a === 'hang') return new Promise(() => {}); // a frozen tab: never answers
-      return a || [];
+    chrome.scripting.executeScript.mockImplementation(async ({ target, func: callback }) => {
+      const answer = answers[target.tabId];
+      if (answer instanceof Error) throw answer;
+      if (answer === 'hang') return new Promise(() => {}); // a frozen tab: never answers
+      return answer || [];
     });
   }
   async function stored(entries) {
     const at = Date.now() - 60000;
-    await S.set({ [KEY.MEDIA]: Object.fromEntries(Object.entries(entries).map(([tab, frames]) => [tab, Object.fromEntries(Object.entries(frames).map(([f, p]) => [f, { ...STATE, ...p, t: at }]))])) });
+    await sessionArea.set({ [KEY.MEDIA]: Object.fromEntries(Object.entries(entries).map(([tab, frames]) => [tab, Object.fromEntries(Object.entries(frames).map(([frameId, overrides]) => [frameId, { ...STATE, ...overrides, t: at }]))])) });
     return at;
   }
-  const check = async () => { send({ type: MSG.MEDIA_CHECK }, fromSwitcherPage()); await flush(); vi.advanceTimersByTime(env.bg.CHECK_MS); await flush(); };
+  const check = async () => { send({ type: MESSAGE.MEDIA_CHECK }, fromSwitcherPage()); await flush(); vi.advanceTimersByTime(environment.background.CHECK_MILLISECONDS); await flush(); };
 
   it('replaces what was known with what the frames say now: a removed player\'s frame and a tab with nothing go', async () => {
-    const a = chrome._addTab({ url: 'https://a.example/' });
-    const b = chrome._addTab({ url: 'https://b.example/' });
-    const at = await stored({ [a.id]: { 0: {}, 7: { title: 'Embed' } }, [b.id]: { 0: {} } });
-    pages({ [a.id]: [{ frameId: 0, result: json() }], [b.id]: [{ frameId: 0, result: json({ media: false }) }, { frameId: 3, result: null }] });
+    const tabA = chrome._addTab({ url: 'https://a.example/' });
+    const tabB = chrome._addTab({ url: 'https://b.example/' });
+    const at = await stored({ [tabA.id]: { 0: {}, 7: { title: 'Embed' } }, [tabB.id]: { 0: {} } });
+    pages({ [tabA.id]: [{ frameId: 0, result: json() }], [tabB.id]: [{ frameId: 0, result: json({ media: false }) }, { frameId: 3, result: null }] });
     await check();
-    expect(media()).toEqual({ [a.id]: { 0: { ...STATE, t: at } } }); // unchanged: its time is kept (paused media ages out)
+    expect(media()).toEqual({ [tabA.id]: { 0: { ...STATE, t: at } } }); // unchanged: its time is kept (paused media ages out)
     const call = chrome.scripting.executeScript.mock.calls[0][0];
-    expect(call).toMatchObject({ target: { tabId: a.id, allFrames: true }, world: 'MAIN' });
+    expect(call).toMatchObject({ target: { tabId: tabA.id, allFrames: true }, world: 'MAIN' });
   });
 
   it('a frame that now plays something else gets a fresh time', async () => {
-    const a = chrome._addTab({ url: 'https://a.example/' });
-    pages({ [a.id]: [{ frameId: 0, result: json({ playing: false, title: 'Paused' }) }] });
-    const before = await stored({ [a.id]: { 0: { playing: true } } });
+    const tabA = chrome._addTab({ url: 'https://a.example/' });
+    pages({ [tabA.id]: [{ frameId: 0, result: json({ playing: false, title: 'Paused' }) }] });
+    const before = await stored({ [tabA.id]: { 0: { playing: true } } });
     await check();
-    expect(media()[a.id][0]).toMatchObject({ playing: false, title: 'Paused' });
-    expect(media()[a.id][0].t).toBeGreaterThan(before); // when the answer came
+    expect(media()[tabA.id][0]).toMatchObject({ playing: false, title: 'Paused' });
+    expect(media()[tabA.id][0].t).toBeGreaterThan(before); // when the answer came
   });
 
   it('a tab that can\'t run scripts any more (closed, crashed) has nothing; one that doesn\'t answer in time (frozen) keeps what was known', async () => {
@@ -193,23 +193,23 @@ describe('checking with the pages (MSG.MEDIA_CHECK, as the switcher opens)', () 
   });
 
   it('a report that doesn\'t check out counts as nothing', async () => {
-    const a = chrome._addTab({ url: 'https://a.example/' });
-    await stored({ [a.id]: { 0: {} } });
-    pages({ [a.id]: [{ frameId: 0, result: '{"media":true,"playing":"yes"}' }, { frameId: 2, result: 42 }] });
+    const tabA = chrome._addTab({ url: 'https://a.example/' });
+    await stored({ [tabA.id]: { 0: {} } });
+    pages({ [tabA.id]: [{ frameId: 0, result: '{"media":true,"playing":"yes"}' }, { frameId: 2, result: 42 }] });
     await check();
     expect(media()).toEqual({});
   });
 
   it('only the switcher can ask', async () => {
-    const a = chrome._addTab({ url: 'https://a.example/' });
-    await stored({ [a.id]: { 0: {} } });
-    send({ type: MSG.MEDIA_CHECK }, fromPage(a));
+    const tabA = chrome._addTab({ url: 'https://a.example/' });
+    await stored({ [tabA.id]: { 0: {} } });
+    send({ type: MESSAGE.MEDIA_CHECK }, fromPage(tabA));
     await flush();
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
   });
 
   it('what it runs in the page asks media-hook.js, and copes without it', () => {
-    const { pageMediaState } = env.bg;
+    const { pageMediaState } = environment.background;
     expect(pageMediaState()).toBeNull();
     window[Symbol.for('tabazing.media')] = Object.assign(() => true, { state: () => json() });
     expect(pageMediaState()).toBe(json());

@@ -5,90 +5,90 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { startServers, launch, sleep } from './helpers/harness.js';
 
-let srv, browser, ext;
+let server, browser, extension;
 beforeAll(async () => {
-  srv = await startServers();
-  ({ browser, ext } = await launch());
-  await ext.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
+  server = await startServers();
+  ({ browser, extension } = await launch());
+  await extension.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
   for (const name of ['Alpha', 'Bravo', 'Charlie']) {
-    const p = await browser.newPage();
-    await p.goto(`${srv.main}/p/${name}`);
+    const seedPage = await browser.newPage();
+    await seedPage.goto(`${server.main}/p/${name}`);
   }
-  srv.serve('/hello', Buffer.from('<!doctype html><meta charset="utf-8"><title>Hello, world!</title><body>x</body>'), 'text/html; charset=utf-8');
-  await (await browser.newPage()).goto(`${srv.main}/hello`);
+  server.serve('/hello', Buffer.from('<!doctype html><meta charset="utf-8"><title>Hello, world!</title><body>x</body>'), 'text/html; charset=utf-8');
+  await (await browser.newPage()).goto(`${server.main}/hello`);
 });
-afterAll(async () => { await browser?.close(); await srv?.close(); });
+afterAll(async () => { await browser?.close(); await server?.close(); });
 
-const frameOf = (page) => page.frames().find((f) => f.url().includes('markup/switcher.html'));
+const frameOf = (page) => page.frames().find((frame) => frame.url().includes('markup/switcher.html'));
 async function openSwitcher(lang) {
-  await ext.run((l) => chrome.storage.local.set({ prefs: { lang: l } }), lang);
+  await extension.run((lang) => chrome.storage.local.set({ prefs: { lang } }), lang);
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 800 });
-  await page.goto(`${srv.main}/p/Home`);
+  await page.goto(`${server.main}/p/Home`);
   await page.bringToFront();
   await sleep(1500);
   await page.keyboard.down('Alt'); await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
   await sleep(1500);
-  const f = frameOf(page);
-  for (let i = 0; i < 3; i++) if (await f.evaluate(() => !!document.querySelector('[data-testid="modal"]:not([hidden])'))) { await page.keyboard.press('Escape'); await sleep(400); }
-  return { page, f };
+  const frame = frameOf(page);
+  for (let i = 0; i < 3; i++) if (await frame.evaluate(() => !!document.querySelector('[data-testid="modal"]:not([hidden])'))) { await page.keyboard.press('Escape'); await sleep(400); }
+  return { page, f: frame };
 }
-const box = (f, id) => f.evaluate((id) => {
-  const r = document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect();
-  return { x: Math.round(r.x), w: Math.round(r.width), right: Math.round(r.right), vw: innerWidth };
+const box = (frame, id) => frame.evaluate((id) => {
+  const bounds = document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect();
+  return { x: Math.round(bounds.x), w: Math.round(bounds.width), right: Math.round(bounds.right), vw: innerWidth };
 }, id);
-const cards = (f) => f.evaluate(() => [...document.querySelectorAll('[data-testid="card-tab"]')].map((c) => Math.round(c.getBoundingClientRect().x)));
-const selectedIndex = (f) => f.evaluate(() => [...document.querySelectorAll('[data-testid="card-tab"]')].findIndex((c) => c.getAttribute('aria-selected') === 'true'));
+const cards = (frame) => frame.evaluate(() => [...document.querySelectorAll('[data-testid="card-tab"]')].map((element) => Math.round(element.getBoundingClientRect().x)));
+const selectedIndex = (frame) => frame.evaluate(() => [...document.querySelectorAll('[data-testid="card-tab"]')].findIndex((element) => element.getAttribute('aria-selected') === 'true'));
 
 describe('right to left', () => {
   it('Hebrew: mirrored cards, header, menu and Settings; ← is the next card', async () => {
-    const { page, f } = await openSwitcher('he');
-    expect(await f.evaluate(() => [document.documentElement.lang, document.documentElement.dir])).toEqual(['he', 'rtl']);
-    const xs = await cards(f);
-    expect(xs.length).toBeGreaterThanOrEqual(3);
-    expect(xs[0]).toBeGreaterThan(xs[1]); // the first card on the right, the next to its left
-    expect(xs[1]).toBeGreaterThan(xs[2]);
-    const menu = await box(f, 'menu-btn'), keys = await box(f, 'keys-btn');
+    const { page, f: frame } = await openSwitcher('he');
+    expect(await frame.evaluate(() => [document.documentElement.lang, document.documentElement.dir])).toEqual(['he', 'rtl']);
+    const xPositions = await cards(frame);
+    expect(xPositions.length).toBeGreaterThanOrEqual(3);
+    expect(xPositions[0]).toBeGreaterThan(xPositions[1]); // the first card on the right, the next to its left
+    expect(xPositions[1]).toBeGreaterThan(xPositions[2]);
+    const menu = await box(frame, 'menu-button'), keys = await box(frame, 'keys-button');
     expect(menu.x).toBeGreaterThan(menu.vw / 2); // ☰ at the top right
     expect(keys.x).toBeLessThan(keys.vw / 2); // ⓘ and GitHub at the top left
     // The card's title "Hello, world!": "!" drawn after (right of) the "H", the text against the title box's right side.
-    const hello = await f.evaluate(() => {
-      const title = [...document.querySelectorAll('[data-testid="card-title"]')].find((n) => n.textContent === 'Hello, world!');
-      const at = (i) => { const r = document.createRange(); r.setStart(title.firstChild, i); r.setEnd(title.firstChild, i + 1); return r.getBoundingClientRect(); };
+    const hello = await frame.evaluate(() => {
+      const title = [...document.querySelectorAll('[data-testid="card-title"]')].find((element) => element.textContent === 'Hello, world!');
+      const at = (i) => { const range = document.createRange(); range.setStart(title.firstChild, i); range.setEnd(title.firstChild, i + 1); return range.getBoundingClientRect(); };
       const box = title.getBoundingClientRect(), all = document.createRange();
       all.selectNodeContents(title);
       return { h: at(0).x, bang: at(12).x, textRight: all.getBoundingClientRect().right, boxRight: box.right };
     });
     expect(hello.bang).toBeGreaterThan(hello.h);
     expect(Math.abs(hello.textRight - hello.boxRight)).toBeLessThanOrEqual(2);
-    const before = await selectedIndex(f);
+    const before = await selectedIndex(frame);
     await page.keyboard.press('ArrowLeft');
     await sleep(200);
-    expect(await selectedIndex(f)).toBe(before + 1);
+    expect(await selectedIndex(frame)).toBe(before + 1);
     await page.keyboard.press('ArrowRight');
     await sleep(200);
-    expect(await selectedIndex(f)).toBe(before);
+    expect(await selectedIndex(frame)).toBe(before);
 
-    await (await f.$('[data-testid="menu-btn"]')).click();
+    await (await frame.$('[data-testid="menu-button"]')).click();
     await sleep(600);
-    const drawer = await box(f, 'drawer');
+    const drawer = await box(frame, 'drawer');
     expect(drawer.right).toBe(drawer.vw); // slid in from the right edge
-    await (await f.$('[data-testid="settings-btn"]')).click();
+    await (await frame.$('[data-testid="settings-button"]')).click();
     await sleep(600);
-    const panel = await box(f, 'settings'), cat = await box(f, 'settings-tab-look');
-    expect(cat.x + cat.w / 2).toBeGreaterThan(panel.x + panel.w / 2); // the categories down the right
+    const panel = await box(frame, 'settings'), category = await box(frame, 'settings-tab-look');
+    expect(category.x + category.w / 2).toBeGreaterThan(panel.x + panel.w / 2); // the categories down the right
     await page.close();
   });
 
   it('English: everything back on the left', async () => {
-    const { page, f } = await openSwitcher('en');
-    expect(await f.evaluate(() => document.documentElement.dir)).toBe('ltr');
-    const xs = await cards(f);
-    expect(xs[0]).toBeLessThan(xs[1]);
-    expect((await box(f, 'menu-btn')).x).toBeLessThan(640);
-    await (await f.$('[data-testid="menu-btn"]')).click();
+    const { page, f: frame } = await openSwitcher('en');
+    expect(await frame.evaluate(() => document.documentElement.dir)).toBe('ltr');
+    const xPositions = await cards(frame);
+    expect(xPositions[0]).toBeLessThan(xPositions[1]);
+    expect((await box(frame, 'menu-button')).x).toBeLessThan(640);
+    await (await frame.$('[data-testid="menu-button"]')).click();
     await sleep(600);
-    expect((await box(f, 'drawer')).x).toBe(0);
+    expect((await box(frame, 'drawer')).x).toBe(0);
     await page.close();
   });
 });

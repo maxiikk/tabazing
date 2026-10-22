@@ -6,7 +6,7 @@
 const ORIGINS = [...new Set([chrome.runtime.getURL(''), `chrome-extension://${chrome.runtime.id}/`])];
 
 export function isOwnUrl(url, path = '') {
-  return typeof url === 'string' && ORIGINS.some((o) => url.startsWith(o + path));
+  return typeof url === 'string' && ORIGINS.some((origin) => url.startsWith(origin + path));
 }
 
 // Key for the on-disk preview cache. Tab IDs don't survive a restart, URLs do.
@@ -17,22 +17,22 @@ export function isOwnUrl(url, path = '') {
 const normalized = new Map();
 export function normalizeUrl(url) {
   if (typeof url !== 'string' || !url) return '';
-  let k = normalized.get(url);
-  if (k === undefined) {
-    k = parseNormal(url);
+  let normalizedUrl = normalized.get(url);
+  if (normalizedUrl === undefined) {
+    normalizedUrl = parseNormal(url);
     if (url.length <= 2048) {
       if (normalized.size >= 5000) normalized.clear();
-      normalized.set(url, k);
+      normalized.set(url, normalizedUrl);
     }
   }
-  return k;
+  return normalizedUrl;
 }
 function parseNormal(url) {
   try {
-    const u = new URL(url);
-    u.hash = '';
-    if (u.pathname.length > 1) u.pathname = u.pathname.replace(/\/+$/, '') || '/';
-    return u.href;
+    const parsed = new URL(url);
+    parsed.hash = '';
+    if (parsed.pathname.length > 1) parsed.pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    return parsed.href;
   } catch {
     return '';
   }
@@ -42,9 +42,9 @@ function parseNormal(url) {
 const NO_CAPTURE_HOSTS = /^(chromewebstore\.google\.com|chrome\.google\.com|microsoftedge\.microsoft\.com)$/;
 export function isCapturableUrl(url) {
   try {
-    const u = new URL(url);
-    if (!/^https?:$/.test(u.protocol)) return false;
-    if (NO_CAPTURE_HOSTS.test(u.host) && (u.host !== 'chrome.google.com' || u.pathname.startsWith('/webstore'))) return false;
+    const parsed = new URL(url);
+    if (!/^https?:$/.test(parsed.protocol)) return false;
+    if (NO_CAPTURE_HOSTS.test(parsed.host) && (parsed.host !== 'chrome.google.com' || parsed.pathname.startsWith('/webstore'))) return false;
     return true;
   } catch { return false; }
 }

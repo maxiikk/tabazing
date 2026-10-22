@@ -3,9 +3,9 @@
 // clickjacking guard are involved). Resolves to the module's exports once the first draw is done.
 //
 //   const sw = await bootSwitcher({ tabs: [{ title: 'A', url: 'https://a.com/' }, ...], ctx: { dir: 0 } });
-//   sw.state.entries, document.querySelectorAll('[data-testid="card-tab"]'), sw.onKeyDown(...)
+//   switcher.state.entries, document.querySelectorAll('[data-testid="card-tab"]'), switcher.onKeyDown(...)
 //
-// Tabs are created in window 1 (the first one active, unless one says `active`); ctx.src defaults to the
+// Tabs are created in window 1 (the first one active, unless one says `active`); context.sourceTab defaults to the
 // active tab. `prefs` goes to storage.local before boot, `beforeImport` runs just before the module loads.
 import { vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -24,12 +24,12 @@ export function stopSwitcher() {
 }
 afterEach(stopSwitcher);
 
-export const tick = (ms = 0) => new Promise((r) => setTimeout(r, ms));
+export const tick = (milliseconds = 0) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 export async function waitFor(test, { timeout = 2000, step = 5 } = {}) {
   const end = Date.now() + timeout;
   for (;;) {
-    const v = test();
-    if (v) return v;
+    const value = test();
+    if (value) return value;
     if (Date.now() > end) throw new Error('waitFor: timed out');
     await tick(step);
   }
@@ -41,33 +41,33 @@ export function loadPage() {
   document.body.innerHTML = BODY;
 }
 
-export async function bootSwitcher({ tabs, ctx = {}, prefs, beforeImport } = {}) {
+export async function bootSwitcher({ tabs, context = {}, preferences, beforeImport } = {}) {
   loadPage();
   if (!chrome._data.windows.length) chrome._addWindow({ id: 1, focused: true });
   const list = tabs || [{ title: 'First', url: 'https://first.example/' }, { title: 'Second', url: 'https://second.example/' }];
-  const made = list.map((t, i) => chrome._addTab({ windowId: 1, active: t.active ?? (i === 0 && !list.some((x) => x.active)), ...t }));
-  if (prefs) await chrome.storage.local.set({ prefs });
-  const active = made.find((t) => t.active) || made[0];
+  const made = list.map((tab, i) => chrome._addTab({ windowId: 1, active: tab.active ?? (i === 0 && !list.some((x) => x.active)), ...tab }));
+  if (preferences) await chrome.storage.local.set({ prefs: preferences });
+  const active = made.find((tab) => tab.active) || made[0];
   const token = 'test-token-' + Math.random().toString(36).slice(2);
   await chrome.storage.session.set({
-    launch: { token, t: Date.now(), ctx: { src: active ? active.id : 0, win: 1, dir: 1, via: 'key', hold: false, state: 'normal', mode: 'window', ...ctx } },
+    launch: { token, t: Date.now(), context: { sourceTab: active ? active.id : 0, window: 1, direction: 1, via: 'key', hold: false, state: 'normal', mode: 'window', ...context } },
   });
   history.replaceState(null, '', '/switcher.html?t=' + token);
   if (beforeImport) await beforeImport();
   vi.resetModules();
   chrome._clearListeners();
   stopSwitcher(); // a second boot in the same test: the first one stops listening
-  const mod = await import('../../switcher.js');
-  current = mod;
+  const module = await import('../../switcher.js');
+  current = module;
   await waitFor(() => !document.querySelector('[data-testid="app"]').hidden);
   await tick(20); // loadExtras and the first refresh after it
-  return mod;
+  return module;
 }
 
 /** A keydown on the window (where the switcher listens), returning the event. */
-export function key(k, init = {}) {
+export function key(keyName, init = {}) {
   const codes = { Escape: 'Escape', Enter: 'Enter', Delete: 'Delete', Tab: 'Tab', ' ': 'Space' };
-  const e = new KeyboardEvent('keydown', { key: k, code: init.code || codes[k] || (k.length === 1 ? 'Key' + k.toUpperCase() : k), bubbles: true, cancelable: true, ...init });
-  (init.target || document.activeElement || window).dispatchEvent(e);
-  return e;
+  const event = new KeyboardEvent('keydown', { key: keyName, code: init.code || codes[keyName] || (keyName.length === 1 ? 'Key' + keyName.toUpperCase() : keyName), bubbles: true, cancelable: true, ...init });
+  (init.target || document.activeElement || window).dispatchEvent(event);
+  return event;
 }

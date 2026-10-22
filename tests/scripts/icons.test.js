@@ -4,13 +4,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { iconSvg } from '../../scripts/icons.js';
 
-const png = (f) => { const b = readFileSync(f); return { sig: b.subarray(1, 4).toString(), w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
+const png = (path) => { const buffer = readFileSync(path); return { signature: buffer.subarray(1, 4).toString(), w: buffer.readUInt32BE(16), h: buffer.readUInt32BE(20) }; };
 
 describe('the icon', () => {
   it('each size the manifest names is a PNG of that size', () => {
-    const m = JSON.parse(readFileSync('manifest.json', 'utf8'));
-    for (const set of [m.icons, m.action.default_icon]) {
-      for (const [size, file] of Object.entries(set)) expect(png(file), file).toEqual({ sig: 'PNG', w: +size, h: +size });
+    const manifest = JSON.parse(readFileSync('manifest.json', 'utf8'));
+    for (const set of [manifest.icons, manifest.action.default_icon]) {
+      for (const [size, file] of Object.entries(set)) expect(png(file), file).toEqual({ signature: 'PNG', w: +size, h: +size });
     }
   });
 

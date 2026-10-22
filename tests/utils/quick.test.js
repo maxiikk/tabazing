@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest';
 import { quick, parseNumber, formatNumber, resolveZone, zoneOffset, unitOf } from '../../utils/quick.js';
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0); // Sunday 18 October 2026, 12:00 UTC (14:00 in Madrid)
-const q = (s, opts = {}) => quick(s, { lang: 'en', now: NOW, zone: 'Europe/Madrid', ...opts });
-const v = (s, opts) => { const r = q(s, opts); return r && (r.value ?? r.count); };
-const sp = (s) => s.replace(/[  ]/g, ' '); // Intl may use narrow / no-break spaces
+const evaluate = (input, options = {}) => quick(input, { lang: 'en', now: NOW, zone: 'Europe/Madrid', ...options });
+const resultValue = (input, options) => { const result = evaluate(input, options); return result && (result.value ?? result.count); };
+const normalizeSpaces = (text) => text.replace(/[  ]/g, ' '); // Intl may use narrow / no-break spaces
 
 describe('numbers', () => {
   it('parseNumber: thousands separators and decimal marks', () => {
@@ -38,7 +38,7 @@ describe('numbers', () => {
     expect(formatNumber(0.1 + 0.2, 'en')).toEqual({ shown: '0.3', plain: '0.3' });
     expect(formatNumber(1234567.891, 'en')).toEqual({ shown: '1,234,567.891', plain: '1234567.891' });
     expect(formatNumber(1234.5, 'es').shown).toMatch(/^1\.?234,5$/);
-    expect(sp(formatNumber(1234.5, 'ru').shown)).toBe('1 234,5');
+    expect(normalizeSpaces(formatNumber(1234.5, 'ru').shown)).toBe('1 234,5');
     expect(formatNumber(2 / 3, 'en', 6).shown).toBe('0.666667');
     expect(formatNumber(1e21, 'en').shown).toBe('1E21');
     expect(formatNumber(1.5e-9, 'en').shown).toBe('1.5E-9');
@@ -65,69 +65,69 @@ describe('arithmetic', () => {
     ['round(-2.5)', '-3'], ['round(-2.4)', '-2'], ['round(-0.4)', '0'],
     ['10 mod -3', '1'], ['10 mod +3', '1'], ['-10 mod 3', '-1'],
     ['2e10 * 1', '20,000,000,000'], ['2e-3 + 0', '0.002'], ['1e+5 + 0', '100,000'], ['1.5e-7 * 2', '3E-7'], ['2e', '5.43656365692'], ['2e - 3', '2.43656365692'],
-  ])('%s = %s', (s, want) => {
-    const r = q(s);
-    expect(r).toMatchObject({ kind: 'calc', value: want });
-    expect(r.expr).toBe(`${s} = ${want}`);
+  ])('%s = %s', (expression, want) => {
+    const result = evaluate(expression);
+    expect(result).toMatchObject({ kind: 'calculation', value: want });
+    expect(result.expression).toBe(`${expression} = ${want}`);
   });
 
   it('percentages: of, added, taken off, and alone', () => {
-    expect(v('15% of 80')).toBe('12');
-    expect(v('80 + 15%')).toBe('92');
-    expect(v('80 - 15%')).toBe('68');
-    expect(v('80 * 15%')).toBe('12');
-    expect(v('50%+10')).toBe('10.5');
-    expect(v('15%')).toBe('0.15');
-    expect(v('50% of 50% of 80')).toBe('20');
+    expect(resultValue('15% of 80')).toBe('12');
+    expect(resultValue('80 + 15%')).toBe('92');
+    expect(resultValue('80 - 15%')).toBe('68');
+    expect(resultValue('80 * 15%')).toBe('12');
+    expect(resultValue('50%+10')).toBe('10.5');
+    expect(resultValue('15%')).toBe('0.15');
+    expect(resultValue('50% of 50% of 80')).toBe('20');
   });
 
   it('a percentage plus or minus a percentage adds them plainly', () => {
-    expect(v('15% + 15%')).toBe('0.3');
-    expect(v('50% - 10%')).toBe('0.4');
-    expect(v('15% + 15% + 10%')).toBe('0.4');
+    expect(resultValue('15% + 15%')).toBe('0.3');
+    expect(resultValue('50% - 10%')).toBe('0.4');
+    expect(resultValue('15% + 15% + 10%')).toBe('0.4');
   });
 
   it('"of" in every language, and only after a percentage ("Part 1 of 3" is a title)', () => {
-    expect(v('15% от 80', { lang: 'ru' })).toBe('12');
-    expect(v('15% de 80', { lang: 'es' })).toBe('12');
-    expect(v('15% de 80', { lang: 'fr' })).toBe('12');
-    expect(v('15% von 80', { lang: 'de' })).toBe('12');
-    expect(v('15% di 80', { lang: 'it' })).toBe('12');
-    expect(v('15% din 80', { lang: 'ro' })).toBe('12');
-    expect(v('15% του 80', { lang: 'el' })).toBe('12');
-    for (const s of ['3 of 4', '1 of 3', 'Part 1 of 3', '2 de 3', '2 от 3', '(15%) of 80']) expect(q(s), s).toBeNull();
+    expect(resultValue('15% от 80', { lang: 'ru' })).toBe('12');
+    expect(resultValue('15% de 80', { lang: 'es' })).toBe('12');
+    expect(resultValue('15% de 80', { lang: 'fr' })).toBe('12');
+    expect(resultValue('15% von 80', { lang: 'de' })).toBe('12');
+    expect(resultValue('15% di 80', { lang: 'it' })).toBe('12');
+    expect(resultValue('15% din 80', { lang: 'ro' })).toBe('12');
+    expect(resultValue('15% του 80', { lang: 'el' })).toBe('12');
+    for (const phrase of ['3 of 4', '1 of 3', 'Part 1 of 3', '2 de 3', '2 от 3', '(15%) of 80']) expect(evaluate(phrase), phrase).toBeNull();
   });
 
   it('float leftovers are 0, and trigonometry is exact where the answer is', () => {
-    for (const s of ['cos(90)', 'sin(180)', 'sin(360)', 'cos(270)', 'tan(180)', '0.3 - 0.1 - 0.2', '1.1 * 3 - 3.3']) expect(q(s), s).toMatchObject({ value: '0', copy: '0' });
-    expect(v('cos(180)')).toBe('-1');
-    expect(v('sin(-30)')).toBe('-0.5');
-    expect(v('sin(150)')).toBe('0.5');
-    expect(v('tan(135)')).toBe('-1');
-    expect(v('sin(45)')).toBe('0.707106781187');
-    expect(v('1/10000000')).toBe('1E-7'); // small, but not a leftover
-    for (const s of ['tan(90)', 'tan(270)', 'tan(-90)']) expect(q(s), s).toBeNull();
+    for (const expression of ['cos(90)', 'sin(180)', 'sin(360)', 'cos(270)', 'tan(180)', '0.3 - 0.1 - 0.2', '1.1 * 3 - 3.3']) expect(evaluate(expression), expression).toMatchObject({ value: '0', copy: '0' });
+    expect(resultValue('cos(180)')).toBe('-1');
+    expect(resultValue('sin(-30)')).toBe('-0.5');
+    expect(resultValue('sin(150)')).toBe('0.5');
+    expect(resultValue('tan(135)')).toBe('-1');
+    expect(resultValue('sin(45)')).toBe('0.707106781187');
+    expect(resultValue('1/10000000')).toBe('1E-7'); // small, but not a leftover
+    for (const expression of ['tan(90)', 'tan(270)', 'tan(-90)']) expect(evaluate(expression), expression).toBeNull();
   });
 
   it('copies plain digits, shows the language’s', () => {
-    expect(q('1000 * 1.5')).toMatchObject({ value: '1,500', copy: '1500' });
-    expect(q('1,5 + 1', { lang: 'es' })).toMatchObject({ value: '2,5', copy: '2.5' });
-    expect(sp(q('1000 * 1.5', { lang: 'ru' }).value)).toBe('1 500');
-    expect(q('2^70')).toMatchObject({ value: '1.180591621E21', copy: '1180591620720000000000' });
-    expect(q('1/10000000')).toMatchObject({ value: '1E-7', copy: '0.0000001' });
-    expect(q('1e-7 * 1').copy).toBe('0.0000001');
+    expect(evaluate('1000 * 1.5')).toMatchObject({ value: '1,500', copy: '1500' });
+    expect(evaluate('1,5 + 1', { lang: 'es' })).toMatchObject({ value: '2,5', copy: '2.5' });
+    expect(normalizeSpaces(evaluate('1000 * 1.5', { lang: 'ru' }).value)).toBe('1 500');
+    expect(evaluate('2^70')).toMatchObject({ value: '1.180591621E21', copy: '1180591620720000000000' });
+    expect(evaluate('1/10000000')).toMatchObject({ value: '1E-7', copy: '0.0000001' });
+    expect(evaluate('1e-7 * 1').copy).toBe('0.0000001');
   });
 
   it('nothing for plain numbers, words, dates, phone numbers, or what isn’t finite', () => {
-    for (const s of ['42', '-5', '3.14', 'e', 'hello', 'covid-19', 'v2', '2026-10-18', '555-1234', '1/0', '0/0', 'sqrt(-1)', '10^400', 'log', '2 3', '(1 + 2', '1 + 2)', '+', '*2', '2 +', 'foo(2)',
+    for (const input of ['42', '-5', '3.14', 'e', 'hello', 'covid-19', 'v2', '2026-10-18', '555-1234', '1/0', '0/0', 'sqrt(-1)', '10^400', 'log', '2 3', '(1 + 2', '1 + 2)', '+', '*2', '2 +', 'foo(2)',
     '10 mod', '1e-7', '2026-10-21 - 2026-01-01', '2024-01-05 + 3', '2024-01-05 * 2', '12/25/2024', '25/12/2024', '2024/12/25', '1/2/2024 + 1']) {
-      expect(q(s), s).toBeNull();
+      expect(evaluate(input), input).toBeNull();
     }
   });
 
   it('never throws on garbage, and refuses very long input', () => {
     const junk = ['((((((((((', ')'.repeat(50), '%%%', '^^^', '√√√', '1e999', '\u0000', '{}', '[]', '<script>', 'NaN', 'Infinity', '9'.repeat(400), '('.repeat(80) + '1' + ')'.repeat(80), null, undefined, 42, {}];
-    for (const s of junk) expect(() => quick(s)).not.toThrow();
+    for (const input of junk) expect(() => quick(input)).not.toThrow();
     expect(quick('1+'.repeat(150) + '1')).toBeNull();
     expect(quick('('.repeat(80) + '1' + ')'.repeat(80))).toBeNull(); // too deep
   });
@@ -144,67 +144,67 @@ describe('units', () => {
     ['100 km/h in mph', '62.1371 mph'], ['10 m/s in km/h', '36 km/h'], ['30 knots in km/h', '55.56 km/h'],
     ['2 GB in MB', '2,000 MB'], ['1 GiB in MiB', '1,024 MiB'], ['1 GiB in MB', '1,073.74 MB'], ['1 MB in KiB', '976.563 KiB'], ['1 gigabit in MB', '125 MB'], ['8 bits in bytes', '1 B'],
     ['1.5 h in min', '90 min'], ['90 min to hours', '1.5 h'], ['1 day in hours', '24 h'], ['2 weeks in days', '14 d'], ['1 year in days', '365.243 d'], ['500 ms in s', '0.5 s'],
-  ])('%s = %s', (s, want) => {
-    const r = q(s);
-    expect(r && r.kind, s).toBe('unit');
-    expect(r.value).toBe(want);
+  ])('%s = %s', (expression, want) => {
+    const result = evaluate(expression);
+    expect(result && result.kind, expression).toBe('unit');
+    expect(result.value).toBe(want);
   });
 
   it('a unit alone converts to its usual counterpart', () => {
-    expect(v('10 km')).toBe('6.21371 mi');
-    expect(v('5 miles')).toBe('8.04672 km');
-    expect(v('20 c')).toBe('68°F');
-    expect(v('3 kg')).toBe('6.61387 lb');
-    expect(q('3 days')).toBeNull(); // nothing obvious to convert to
-    expect(v('300 kelvin')).toBe('26.85°C'); // kelvin only when spelt out...
-    for (const s of ['4k', '10k', '100k', '5 k', '8K']) expect(q(s), s).toBeNull(); // ...a bare k is a thousand
+    expect(resultValue('10 km')).toBe('6.21371 mi');
+    expect(resultValue('5 miles')).toBe('8.04672 km');
+    expect(resultValue('20 c')).toBe('68°F');
+    expect(resultValue('3 kg')).toBe('6.61387 lb');
+    expect(evaluate('3 days')).toBeNull(); // nothing obvious to convert to
+    expect(resultValue('300 kelvin')).toBe('26.85°C'); // kelvin only when spelt out...
+    for (const input of ['4k', '10k', '100k', '5 k', '8K']) expect(evaluate(input), input).toBeNull(); // ...a bare k is a thousand
   });
 
   it('kelvin when asked, months as "mo", offsets that cancel out are 0', () => {
-    expect(v('300 k in c')).toBe('26.85°C');
-    expect(v('300 kelvin in f')).toBe('80.33°F');
-    expect(v('1 yr in mo')).toBe('12 mo');
-    expect(v('1 mo in d')).toBe('30.4369 d');
-    expect(v('1 m in ft')).toBe('3.28084 ft'); // m is still the metre, min the minute, mi the mile
-    expect(v('1 min in s')).toBe('60 s');
-    expect(v('1 mi in km')).toBe('1.60934 km');
-    expect(q('-17.7777777778 c in f')).toMatchObject({ value: '0°F', copy: '0°F' });
-    expect(v('0,500 km')).toBe('0.310686 mi'); // 0.5 km, not 500
+    expect(resultValue('300 k in c')).toBe('26.85°C');
+    expect(resultValue('300 kelvin in f')).toBe('80.33°F');
+    expect(resultValue('1 yr in mo')).toBe('12 mo');
+    expect(resultValue('1 mo in d')).toBe('30.4369 d');
+    expect(resultValue('1 m in ft')).toBe('3.28084 ft'); // m is still the metre, min the minute, mi the mile
+    expect(resultValue('1 min in s')).toBe('60 s');
+    expect(resultValue('1 mi in km')).toBe('1.60934 km');
+    expect(evaluate('-17.7777777778 c in f')).toMatchObject({ value: '0°F', copy: '0°F' });
+    expect(resultValue('0,500 km')).toBe('0.310686 mi'); // 0.5 km, not 500
   });
 
   it('the expression and what is copied', () => {
-    expect(q('10 km in mi')).toMatchObject({ copy: '6.21371 mi', expr: '10 km = 6.21371 mi', from: 'km', to: 'mi', family: 'length' });
-    expect(q('1234 m in km')).toMatchObject({ value: '1.234 km', expr: '1,234 m = 1.234 km' });
-    expect(q('10 km in mi', { lang: 'es' }).value).toBe('6,21371 mi');
+    expect(evaluate('10 km in mi')).toMatchObject({ copy: '6.21371 mi', expression: '10 km = 6.21371 mi', from: 'km', to: 'mi', family: 'length' });
+    expect(evaluate('1234 m in km')).toMatchObject({ value: '1.234 km', expression: '1,234 m = 1.234 km' });
+    expect(evaluate('10 km in mi', { lang: 'es' }).value).toBe('6,21371 mi');
   });
 
   it('Spanish and Russian unit names', () => {
-    expect(v('10 kilómetros en millas')).toBe('6.21371 mi');
-    expect(v('5 libras a kilos')).toBe('2.26796 kg');
-    expect(v('10 км в милях'.replace('милях', 'миль'))).toBe('6.21371 mi');
-    expect(v('2 часа в мин')).toBe('120 min');
-    const ru = (s) => v(s, { lang: 'ru' }).replace(',', '.');
-    expect(ru('5 кг в фунты')).toBe('11.0231 lb');
-    expect(ru('5 кг в фунтах')).toBe('11.0231 lb');
-    expect(ru('10 км в милях')).toBe('6.21371 mi');
-    expect(ru('1 миля в километры')).toBe('1.60934 km');
-    expect(ru('2 часа в минутах')).toBe('120 min');
-    expect(ru('1 галлон в литры')).toBe('3.78541 L');
-    expect(ru('3 ярда в футы')).toBe('9 ft');
+    expect(resultValue('10 kilómetros en millas')).toBe('6.21371 mi');
+    expect(resultValue('5 libras a kilos')).toBe('2.26796 kg');
+    expect(resultValue('10 км в милях'.replace('милях', 'миль'))).toBe('6.21371 mi');
+    expect(resultValue('2 часа в мин')).toBe('120 min');
+    const inRussian = (input) => resultValue(input, { lang: 'ru' }).replace(',', '.');
+    expect(inRussian('5 кг в фунты')).toBe('11.0231 lb');
+    expect(inRussian('5 кг в фунтах')).toBe('11.0231 lb');
+    expect(inRussian('10 км в милях')).toBe('6.21371 mi');
+    expect(inRussian('1 миля в километры')).toBe('1.60934 km');
+    expect(inRussian('2 часа в минутах')).toBe('120 min');
+    expect(inRussian('1 галлон в литры')).toBe('3.78541 L');
+    expect(inRussian('3 ярда в футы')).toBe('9 ft');
   });
 
   it('different kinds don’t convert; unknown units are nothing', () => {
-    for (const s of ['10 km in kg', '5 lb in mi', '3 foo in bar', '10 km in', 'km in mi', '10 c in mph', '10 km in km', '10 c in c', '5 f in °f']) expect(q(s), s).toBeNull();
+    for (const input of ['10 km in kg', '5 lb in mi', '3 foo in bar', '10 km in', 'km in mi', '10 c in mph', '10 km in km', '10 c in c', '5 f in °f']) expect(evaluate(input), input).toBeNull();
   });
 
   it('unitOf knows names, plurals, symbols and square forms', () => {
-    expect(unitOf('Miles').sym).toBe('mi');
-    expect(unitOf('°F').sym).toBe('°F');
-    expect(unitOf('degrees f').sym).toBe('°F');
-    expect(unitOf('sq km').sym).toBe('km²');
-    expect(unitOf('m²').sym).toBe('m²');
-    expect(unitOf('cubic meters').sym).toBe('m³');
-    expect(unitOf('KiB').sym).toBe('KiB');
+    expect(unitOf('Miles').symbol).toBe('mi');
+    expect(unitOf('°F').symbol).toBe('°F');
+    expect(unitOf('degrees f').symbol).toBe('°F');
+    expect(unitOf('sq km').symbol).toBe('km²');
+    expect(unitOf('m²').symbol).toBe('m²');
+    expect(unitOf('cubic meters').symbol).toBe('m³');
+    expect(unitOf('KiB').symbol).toBe('KiB');
     expect(unitOf('nope')).toBeNull();
   });
 });
@@ -213,67 +213,67 @@ describe('number bases', () => {
   it.each([
     ['255 in hex', '0xFF'], ['255 to binary', '0b11111111'], ['8 in oct', '0o10'], ['0xff', '255'], ['0xFF in dec', '255'],
     ['0b1010 in dec', '10'], ['0b1010', '10'], ['0o17', '15'], ['hex 255', '0xFF'], ['bin 5', '0b101'], ['dec 0x10', '16'], ['-255 in hex', '-0xFF'],
-  ])('%s = %s', (s, want) => expect(q(s)).toMatchObject({ kind: 'base', value: want, copy: want }));
+  ])('%s = %s', (expression, want) => expect(evaluate(expression)).toMatchObject({ kind: 'base', value: want, copy: want }));
 
   it('shows the other bases too, and leaves out the pointless and the impossible', () => {
-    expect(q('255 in hex').alts).toEqual(['0b11111111', '0o377']);
-    expect(q('255 in hex').expr).toBe('255 = 0xFF');
-    for (const s of ['255 in dec', '0xff in hex', 'hex 0xff', '0b1010 in bin', '0o17 in oct', '0xzz', '0b102', 'hex', 'hex zz', '99999999999999999999 in hex']) expect(q(s), s).toBeNull();
+    expect(evaluate('255 in hex').alts).toEqual(['0b11111111', '0o377']);
+    expect(evaluate('255 in hex').expression).toBe('255 = 0xFF');
+    for (const input of ['255 in dec', '0xff in hex', 'hex 0xff', '0b1010 in bin', '0o17 in oct', '0xzz', '0b102', 'hex', 'hex zz', '99999999999999999999 in hex']) expect(evaluate(input), input).toBeNull();
   });
 });
 
 describe('colours', () => {
   it('#hex -> rgb (and hsl), with a swatch', () => {
-    expect(q('#ff8800')).toEqual({ kind: 'color', value: 'rgb(255, 136, 0)', copy: 'rgb(255, 136, 0)', expr: '#FF8800 = rgb(255, 136, 0)', alts: ['hsl(32, 100%, 50%)'], swatch: '#ff8800' });
-    expect(q('#F80')).toMatchObject({ value: 'rgb(255, 136, 0)', swatch: '#ff8800' });
+    expect(evaluate('#ff8800')).toEqual({ kind: 'color', value: 'rgb(255, 136, 0)', copy: 'rgb(255, 136, 0)', expression: '#FF8800 = rgb(255, 136, 0)', alts: ['hsl(32, 100%, 50%)'], swatch: '#ff8800' });
+    expect(evaluate('#F80')).toMatchObject({ value: 'rgb(255, 136, 0)', swatch: '#ff8800' });
   });
   it('rgb() and hsl() -> #hex', () => {
-    expect(q('rgb(255, 0, 0)')).toMatchObject({ value: '#FF0000', alts: ['hsl(0, 100%, 50%)'], swatch: '#ff0000' });
-    expect(q('rgb(0 128 255)')).toMatchObject({ value: '#0080FF' });
-    expect(q('rgba(10, 20, 30, 0.5)')).toMatchObject({ value: '#0A141E' });
-    expect(q('hsl(120, 100%, 50%)')).toMatchObject({ value: '#00FF00', alts: ['rgb(0, 255, 0)'] });
-    expect(q('hsl(0, 0%, 100%)')).toMatchObject({ value: '#FFFFFF' });
+    expect(evaluate('rgb(255, 0, 0)')).toMatchObject({ value: '#FF0000', alts: ['hsl(0, 100%, 50%)'], swatch: '#ff0000' });
+    expect(evaluate('rgb(0 128 255)')).toMatchObject({ value: '#0080FF' });
+    expect(evaluate('rgba(10, 20, 30, 0.5)')).toMatchObject({ value: '#0A141E' });
+    expect(evaluate('hsl(120, 100%, 50%)')).toMatchObject({ value: '#00FF00', alts: ['rgb(0, 255, 0)'] });
+    expect(evaluate('hsl(0, 0%, 100%)')).toMatchObject({ value: '#FFFFFF' });
   });
   it('a notation asked for', () => {
-    expect(v('#ff8800 in hsl')).toBe('hsl(32, 100%, 50%)');
-    expect(v('rgb(255,0,0) to hsl')).toBe('hsl(0, 100%, 50%)');
+    expect(resultValue('#ff8800 in hsl')).toBe('hsl(32, 100%, 50%)');
+    expect(resultValue('rgb(255,0,0) to hsl')).toBe('hsl(0, 100%, 50%)');
   });
   it('not colours', () => {
-    for (const s of ['ff8800', '#ff88', '#ggg', 'rgb(300, 0, 0)', 'rgb(1,2)', 'hsl(10, 200%, 50%)']) expect(q(s), s).toBeNull();
+    for (const input of ['ff8800', '#ff88', '#ggg', 'rgb(300, 0, 0)', 'rgb(1,2)', 'hsl(10, 200%, 50%)']) expect(evaluate(input), input).toBeNull();
   });
 });
 
 describe('time zones', () => {
   it('the time somewhere now', () => {
-    expect(sp(v('time in Tokyo'))).toBe('Sun 9:00 PM');
-    expect(q('time in Tokyo')).toMatchObject({ kind: 'time', place: 'Tokyo', zone: 'Asia/Tokyo', offset: 'UTC+9' });
-    expect(sp(v('Tokyo time'))).toBe('Sun 9:00 PM');
-    expect(sp(v('now in UTC'))).toBe('Sun 12:00 PM');
-    expect(sp(v('time in new york'))).toBe('Sun 8:00 AM');
-    expect(q('time in new york')).toMatchObject({ place: 'New York', offset: 'UTC−4' });
-    expect(sp(v('time in Europe/Paris'))).toBe('Sun 2:00 PM');
-    expect(sp(v('time in Kolkata'))).toBe('Sun 5:30 PM');
-    expect(sp(v('time in Halifax'))).toBe('Sun 9:00 AM'); // found among the browser's zones by its city
-    expect(sp(v('time in UTC+3'))).toBe('Sun 3:00 PM');
-    expect(sp(v('time in GMT-5'))).toBe('Sun 7:00 AM');
-    expect(q('time in utc−5')).toMatchObject({ zone: 'Etc/GMT+5', place: 'UTC-5' }); // the minus the offsets are shown with
-    expect(sp(v('Tokyo time?'))).toBe('Sun 9:00 PM'); // a question mark either way round
-    expect(sp(v('time in Tokyo?'))).toBe('Sun 9:00 PM');
-    expect(sp(v('hora en Tokio', { lang: 'es' }))).toMatch(/^dom\.?,? 21:00$/);
-    expect(sp(v('время в Москве'.replace('Москве', 'москва'), { lang: 'ru' }))).toMatch(/^вс,? 15:00$/);
+    expect(normalizeSpaces(resultValue('time in Tokyo'))).toBe('Sun 9:00 PM');
+    expect(evaluate('time in Tokyo')).toMatchObject({ kind: 'time', place: 'Tokyo', zone: 'Asia/Tokyo', offset: 'UTC+9' });
+    expect(normalizeSpaces(resultValue('Tokyo time'))).toBe('Sun 9:00 PM');
+    expect(normalizeSpaces(resultValue('now in UTC'))).toBe('Sun 12:00 PM');
+    expect(normalizeSpaces(resultValue('time in new york'))).toBe('Sun 8:00 AM');
+    expect(evaluate('time in new york')).toMatchObject({ place: 'New York', offset: 'UTC−4' });
+    expect(normalizeSpaces(resultValue('time in Europe/Paris'))).toBe('Sun 2:00 PM');
+    expect(normalizeSpaces(resultValue('time in Kolkata'))).toBe('Sun 5:30 PM');
+    expect(normalizeSpaces(resultValue('time in Halifax'))).toBe('Sun 9:00 AM'); // found among the browser's zones by its city
+    expect(normalizeSpaces(resultValue('time in UTC+3'))).toBe('Sun 3:00 PM');
+    expect(normalizeSpaces(resultValue('time in GMT-5'))).toBe('Sun 7:00 AM');
+    expect(evaluate('time in utc−5')).toMatchObject({ zone: 'Etc/GMT+5', place: 'UTC-5' }); // the minus the offsets are shown with
+    expect(normalizeSpaces(resultValue('Tokyo time?'))).toBe('Sun 9:00 PM'); // a question mark either way round
+    expect(normalizeSpaces(resultValue('time in Tokyo?'))).toBe('Sun 9:00 PM');
+    expect(normalizeSpaces(resultValue('hora en Tokio', { lang: 'es' }))).toMatch(/^dom\.?,? 21:00$/);
+    expect(normalizeSpaces(resultValue('время в Москве'.replace('Москве', 'москва'), { lang: 'ru' }))).toMatch(/^вс,? 15:00$/);
   });
 
   it('a time in one place, in another', () => {
-    expect(sp(v('3pm London in New York'))).toBe('Sun 10:00 AM');
-    expect(sp(q('3pm London in New York').expr)).toBe('3:00 PM London = Sun 10:00 AM New York');
-    expect(sp(v('15:30 in Tokyo'))).toBe('Sun 10:30 PM'); // from here (Madrid)
-    expect(sp(v('9am PST to CET'))).toBe('Sun 6:00 PM');
-    expect(sp(v('noon UTC in Sydney'))).toBe('Sun 11:00 PM');
-    expect(sp(v('midnight tokyo to london'))).toBe('Sat 4:00 PM');
+    expect(normalizeSpaces(resultValue('3pm London in New York'))).toBe('Sun 10:00 AM');
+    expect(normalizeSpaces(evaluate('3pm London in New York').expression)).toBe('3:00 PM London = Sun 10:00 AM New York');
+    expect(normalizeSpaces(resultValue('15:30 in Tokyo'))).toBe('Sun 10:30 PM'); // from here (Madrid)
+    expect(normalizeSpaces(resultValue('9am PST to CET'))).toBe('Sun 6:00 PM');
+    expect(normalizeSpaces(resultValue('noon UTC in Sydney'))).toBe('Sun 11:00 PM');
+    expect(normalizeSpaces(resultValue('midnight tokyo to london'))).toBe('Sat 4:00 PM');
   });
 
   it('nothing for unknown places or times that aren’t', () => {
-    for (const s of ['time in Atlantis', 'time machine', '3 London in Tokyo', '25:00 in Tokyo', '13pm in Tokyo', 'time in UTC+20']) expect(q(s), s).toBeNull();
+    for (const input of ['time in Atlantis', 'time machine', '3 London in Tokyo', '25:00 in Tokyo', '13pm in Tokyo', 'time in UTC+20']) expect(evaluate(input), input).toBeNull();
   });
 
   it('resolveZone and zoneOffset', () => {
@@ -288,46 +288,46 @@ describe('time zones', () => {
 
 describe('dates', () => {
   it('days until, since and between', () => {
-    expect(q('days until 2027-01-01')).toMatchObject({ kind: 'days', count: 75, copy: '75' });
-    expect(v('days since 2026-10-01')).toBe(17);
-    expect(v('days until tomorrow')).toBe(1);
-    expect(v('days between 2026-01-01 and 2026-12-31')).toBe(364);
-    expect(v('días hasta 2026-12-25')).toBe(68);
-    expect(v('дней до 2026-10-28')).toBe(10);
+    expect(evaluate('days until 2027-01-01')).toMatchObject({ kind: 'days', count: 75, copy: '75' });
+    expect(resultValue('days since 2026-10-01')).toBe(17);
+    expect(resultValue('days until tomorrow')).toBe(1);
+    expect(resultValue('days between 2026-01-01 and 2026-12-31')).toBe(364);
+    expect(resultValue('días hasta 2026-12-25')).toBe(68);
+    expect(resultValue('дней до 2026-10-28')).toBe(10);
   });
 
   it('a date plus or minus days, weeks, months, years', () => {
-    expect(q('2026-10-18 + 30 days')).toMatchObject({ kind: 'date', value: 'Tue, Nov 17, 2026', copy: '2026-11-17', expr: '2026-10-18 + 30 days = 2026-11-17' });
-    expect(q('today + 2 weeks').copy).toBe('2026-11-01');
-    expect(q('today - 1 month').copy).toBe('2026-09-18');
-    expect(q('2026-01-31 + 1 month').copy).toBe('2026-02-28'); // no Feb 31: the month's last day
-    expect(q('2024-02-29 + 1 year').copy).toBe('2025-02-28');
-    expect(q('hoy + 3 días', { lang: 'es' }).copy).toBe('2026-10-21');
-    expect(q('сегодня + 1 неделя', { lang: 'ru' }).copy).toBe('2026-10-25');
+    expect(evaluate('2026-10-18 + 30 days')).toMatchObject({ kind: 'date', value: 'Tue, Nov 17, 2026', copy: '2026-11-17', expression: '2026-10-18 + 30 days = 2026-11-17' });
+    expect(evaluate('today + 2 weeks').copy).toBe('2026-11-01');
+    expect(evaluate('today - 1 month').copy).toBe('2026-09-18');
+    expect(evaluate('2026-01-31 + 1 month').copy).toBe('2026-02-28'); // no Feb 31: the month's last day
+    expect(evaluate('2024-02-29 + 1 year').copy).toBe('2025-02-28');
+    expect(evaluate('hoy + 3 días', { lang: 'es' }).copy).toBe('2026-10-21');
+    expect(evaluate('сегодня + 1 неделя', { lang: 'ru' }).copy).toBe('2026-10-25');
   });
 
   it('years 1-99 are themselves, not 1900-1999', () => {
-    expect(q('0050-01-01 + 1 day').copy).toBe('0050-01-02');
-    expect(q('0050-01-31 + 1 month').copy).toBe('0050-02-28');
-    expect(v('days between 0099-01-01 and 0100-01-01')).toBe(365);
-    expect(q('2026-01-01 - 2025 years').copy).toBe('0001-01-01');
+    expect(evaluate('0050-01-01 + 1 day').copy).toBe('0050-01-02');
+    expect(evaluate('0050-01-31 + 1 month').copy).toBe('0050-02-28');
+    expect(resultValue('days between 0099-01-01 and 0100-01-01')).toBe(365);
+    expect(evaluate('2026-01-01 - 2025 years').copy).toBe('0001-01-01');
   });
 
   it('nothing for impossible dates', () => {
-    for (const s of ['2026-02-30 + 1 day', 'days until 2026-13-01', 'days until someday', '2026-10-18 + 3 parsecs']) expect(q(s), s).toBeNull();
-    for (const s of ['today + 8000 years', '2026-01-01 - 2027 years', '2026-01-01 - 2026 years', '9999-12-31 + 1 day']) expect(q(s), s).toBeNull(); // past 0001-9999
+    for (const input of ['2026-02-30 + 1 day', 'days until 2026-13-01', 'days until someday', '2026-10-18 + 3 parsecs']) expect(evaluate(input), input).toBeNull();
+    for (const input of ['today + 8000 years', '2026-01-01 - 2027 years', '2026-01-01 - 2026 years', '9999-12-31 + 1 day']) expect(evaluate(input), input).toBeNull(); // past 0001-9999
   });
 });
 
 describe('currency', () => {
   it('looks like money: one row saying it needs the internet (no rate is ever made up)', () => {
-    for (const s of ['10 usd in eur', '10 USD to EUR', '$10 in eur', '10€ in $', '100 rub', '5 dollars in euros', '10 евро в рубли'.replace('рубли', 'рублей')]) {
-      expect(q(s), s).toEqual({ kind: 'currency' });
+    for (const input of ['10 usd in eur', '10 USD to EUR', '$10 in eur', '10€ in $', '100 rub', '5 dollars in euros', '10 евро в рубли'.replace('рубли', 'рублей')]) {
+      expect(evaluate(input), input).toEqual({ kind: 'currency' });
     }
   });
   it('but pounds are weight, and words are words', () => {
-    expect(q('10 pounds in kg').kind).toBe('unit');
-    expect(q('usd')).toBeNull();
-    expect(q('euro news')).toBeNull();
+    expect(evaluate('10 pounds in kg').kind).toBe('unit');
+    expect(evaluate('usd')).toBeNull();
+    expect(evaluate('euro news')).toBeNull();
   });
 });

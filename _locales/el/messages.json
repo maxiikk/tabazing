@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "Άνοιγμα του Tabazing στην προηγούμενη κάρτα της λίστας (κυκλικά)· αφήστε το Alt για εναλλαγή"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "Άνοιγμα της παλέτας εντολών του Tabazing: ενέργειες, υπολογισμοί, μετατροπές και αναζήτηση"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "Άνοιγμα του Tabazing στην επόμενη κάρτα της λίστας (κυκλικά)· αφήστε το Alt για εναλλαγή"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "Άνοιγμα του Tabazing, που μένει ανοιχτό"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab για καρτέλες Chrome: ζωντανές προεπισκοπήσεις, άμεση αναζήτηση, κλεισμένες καρτέλες. Δωρεάν, ιδιωτικό, όλα μένουν σε εσάς."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing: Οπτική εναλλαγή καρτελών με ζωντανές προεπισκοπήσεις"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

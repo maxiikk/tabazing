@@ -4,7 +4,7 @@ import { KEY, LIMITS } from '../../utils/constants.js';
 import { MEDIA_ACTIONS, mediaAction, pageMediaAction, mediaEntries, loadMedia } from '../../utils/media.js';
 
 const HOOK = Symbol.for('tabazing.media');
-const S = chrome.storage.session;
+const sessionArea = chrome.storage.session;
 
 describe('mediaAction', () => {
   it('runs pageMediaAction in the page\'s main world, in that one frame', async () => {
@@ -16,8 +16,8 @@ describe('mediaAction', () => {
   });
 
   it('true only when the page says it acted', async () => {
-    for (const r of [[{ result: false }], [{ result: 'yes' }], [{}], []]) {
-      chrome.scripting.executeScript.mockResolvedValueOnce(r);
+    for (const response of [[{ result: false }], [{ result: 'yes' }], [{}], []]) {
+      chrome.scripting.executeScript.mockResolvedValueOnce(response);
       expect(await mediaAction(1, 0, 'play')).toBe(false);
     }
   });
@@ -38,25 +38,25 @@ describe('mediaAction', () => {
 });
 
 describe('pageMediaAction (in the page)', () => {
-  const P = HTMLMediaElement.prototype;
-  const ORIGINAL = { play: P.play, pause: P.pause };
-  function media(tag, { duration = 100, paused = true, src = 'https://cdn.example/m' } = {}) {
-    const el = document.createElement(tag);
-    const st = { paused, duration };
-    Object.defineProperty(el, 'paused', { get: () => st.paused });
-    Object.defineProperty(el, 'duration', { get: () => st.duration });
-    el._st = st;
-    if (src) el.setAttribute('src', src);
-    document.body.append(el);
-    return el;
+  const mediaElementPrototype = HTMLMediaElement.prototype;
+  const ORIGINAL = { play: mediaElementPrototype.play, pause: mediaElementPrototype.pause };
+  function media(tag, { duration = 100, paused = true, src: source = 'https://cdn.example/m' } = {}) {
+    const element = document.createElement(tag);
+    const mediaState = { paused, duration };
+    Object.defineProperty(element, 'paused', { get: () => mediaState.paused });
+    Object.defineProperty(element, 'duration', { get: () => mediaState.duration });
+    element._state = mediaState;
+    if (source) element.setAttribute('src', source);
+    document.body.append(element);
+    return element;
   }
   beforeEach(() => {
-    P.play = vi.fn(function () { this._st.paused = false; return Promise.resolve(); });
-    P.pause = vi.fn(function () { this._st.paused = true; });
+    mediaElementPrototype.play = vi.fn(function () { this._state.paused = false; return Promise.resolve(); });
+    mediaElementPrototype.pause = vi.fn(function () { this._state.paused = true; });
   });
   afterEach(() => {
     delete window[HOOK];
-    Object.assign(P, ORIGINAL);
+    Object.assign(mediaElementPrototype, ORIGINAL);
     document.body.replaceChildren();
   });
 
@@ -75,11 +75,11 @@ describe('pageMediaAction (in the page)', () => {
     const long = media('video', { duration: 900 });
     media('video', { duration: 5000, src: '' }); // nothing loaded: not a candidate
     expect(pageMediaAction('play')).toBe(true);
-    expect(P.play.mock.contexts).toEqual([long]);
-    long._st.paused = true;
-    short._st.paused = false;
+    expect(mediaElementPrototype.play.mock.contexts).toEqual([long]);
+    long._state.paused = true;
+    short._state.paused = false;
     expect(pageMediaAction('pause')).toBe(true);
-    expect(P.pause.mock.contexts).toEqual([short]);
+    expect(mediaElementPrototype.pause.mock.contexts).toEqual([short]);
   });
 
   it('a live stream counts as the longest; no previous / next and no media mean false', () => {
@@ -88,79 +88,79 @@ describe('pageMediaAction (in the page)', () => {
     expect(pageMediaAction('nexttrack')).toBe(false);
     expect(pageMediaAction('previoustrack')).toBe(false);
     expect(pageMediaAction('play')).toBe(true);
-    expect(P.play.mock.contexts).toEqual([live]);
+    expect(mediaElementPrototype.play.mock.contexts).toEqual([live]);
     document.body.replaceChildren();
     expect(pageMediaAction('play')).toBe(false);
   });
 
   it('a play() the page refuses is no unhandled rejection', async () => {
     media('video');
-    P.play.mockImplementationOnce(() => Promise.reject(new Error('NotAllowedError')));
+    mediaElementPrototype.play.mockImplementationOnce(() => Promise.reject(new Error('NotAllowedError')));
     expect(pageMediaAction('play')).toBe(true);
     await Promise.resolve();
   });
 
   it('is self-contained (Chrome serializes it into the page)', () => {
-    const src = pageMediaAction.toString();
-    expect(src).not.toMatch(/\b(getMedia|chrome|mediaEntries|MEDIA_ACTIONS)\b/);
+    const source = pageMediaAction.toString();
+    expect(source).not.toMatch(/\b(getMedia|chrome|mediaEntries|MEDIA_ACTIONS)\b/);
   });
 });
 
 describe('mediaEntries', () => {
-  const tab = (id, p = {}) => ({ id, windowId: 1, title: 'Tab ' + id, url: `https://www.site${id}.example/watch`, audible: false, incognito: false, lastAccessed: 100, ...p });
-  const st = (p = {}) => ({ media: true, playing: false, kind: 'video', title: 'T', artist: '', canPrev: false, canNext: false, muted: false, t: 1000, ...p });
+  const tab = (id, overrides = {}) => ({ id, windowId: 1, title: 'Tab ' + id, url: `https://www.site${id}.example/watch`, audible: false, incognito: false, lastAccessed: 100, ...overrides });
+  const mediaState = (overrides = {}) => ({ media: true, playing: false, kind: 'video', title: 'T', artist: '', canPrevious: false, canNext: false, muted: false, t: 1000, ...overrides });
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(20000); }); // the reports above are a few seconds old
   afterEach(() => vi.useRealTimers());
 
   it('media paused for an hour drops out (as in Chrome); playing media stays however old its report', () => {
-    const HOUR = LIMITS.MEDIA_PAUSED_MS;
+    const HOUR = LIMITS.MEDIA_PAUSED_MILLISECONDS;
     const now = 10 * HOUR;
     const list = mediaEntries({
-      1: { 0: st({ t: now - HOUR }) },                  // paused an hour ago: gone
-      2: { 0: st({ t: now - HOUR + 1000 }) },           // paused just under an hour ago: still there
-      3: { 0: st({ playing: true, t: now - 5 * HOUR }) }, // playing all along
-      4: { 0: st({ t: now - 2 * HOUR }), 3: st({ title: 'embed', t: now - 60000 }) }, // an old frame and a recent one
+      1: { 0: mediaState({ t: now - HOUR }) },                  // paused an hour ago: gone
+      2: { 0: mediaState({ t: now - HOUR + 1000 }) },           // paused just under an hour ago: still there
+      3: { 0: mediaState({ playing: true, t: now - 5 * HOUR }) }, // playing all along
+      4: { 0: mediaState({ t: now - 2 * HOUR }), 3: mediaState({ title: 'embed', t: now - 60000 }) }, // an old frame and a recent one
     }, [tab(1), tab(2), tab(3), tab(4)], now);
-    expect(list.map((e) => [e.tabId, e.frameId])).toEqual([[3, 0], [4, 3], [2, 0]]);
+    expect(list.map((entry) => [entry.tabId, entry.frameId])).toEqual([[3, 0], [4, 3], [2, 0]]);
   });
 
   it('a tab Chrome unloaded (discarded) is left out: its media is gone', () => {
-    const list = mediaEntries({ 1: { 0: st() }, 2: { 0: st() } }, [tab(1, { discarded: true }), tab(2)]);
-    expect(list.map((e) => e.tabId)).toEqual([2]);
+    const list = mediaEntries({ 1: { 0: mediaState() }, 2: { 0: mediaState() } }, [tab(1, { discarded: true }), tab(2)]);
+    expect(list.map((entry) => entry.tabId)).toEqual([2]);
   });
 
   it('one entry per tab, with what the switcher shows', () => {
-    const t1 = tab(1);
-    const [e] = mediaEntries({ 1: { 0: st({ playing: true, title: 'Song', artist: 'Band', canNext: true }) } }, [t1]);
-    expect(e).toEqual({ tabId: 1, frameId: 0, title: 'Song', artist: 'Band', site: 'site1.example', playing: true, canPrev: false, canNext: true, kind: 'video', t: 1000, tab: t1 });
+    const firstTab = tab(1);
+    const [entry] = mediaEntries({ 1: { 0: mediaState({ playing: true, title: 'Song', artist: 'Band', canNext: true }) } }, [firstTab]);
+    expect(entry).toEqual({ tabId: 1, frameId: 0, title: 'Song', artist: 'Band', site: 'site1.example', playing: true, canPrevious: false, canNext: true, kind: 'video', t: 1000, tab: firstTab });
   });
 
   it('per tab: the frame that plays, else the top frame, else the latest', () => {
     const tabs = [tab(1), tab(2), tab(3)];
     const list = mediaEntries({
-      1: { 0: st({ title: 'top', t: 9000 }), 5: st({ title: 'embed', playing: true, t: 10 }) },
-      2: { 0: st({ title: 'top', t: 10 }), 6: st({ title: 'embed', t: 9000 }) },
-      3: { 4: st({ title: 'old', t: 10 }), 8: st({ title: 'new', t: 20 }) },
+      1: { 0: mediaState({ title: 'top', t: 9000 }), 5: mediaState({ title: 'embed', playing: true, t: 10 }) },
+      2: { 0: mediaState({ title: 'top', t: 10 }), 6: mediaState({ title: 'embed', t: 9000 }) },
+      3: { 4: mediaState({ title: 'old', t: 10 }), 8: mediaState({ title: 'new', t: 20 }) },
     }, tabs);
-    const by = Object.fromEntries(list.map((e) => [e.tabId, [e.frameId, e.title]]));
+    const by = Object.fromEntries(list.map((entry) => [entry.tabId, [entry.frameId, entry.title]]));
     expect(by).toEqual({ 1: [5, 'embed'], 2: [0, 'top'], 3: [8, 'new'] });
   });
 
   it('playing first, then the most recent; tabs that are gone are left out', () => {
     const list = mediaEntries({
-      1: { 0: st({ t: 50 }) }, 2: { 0: st({ playing: true, t: 10 }) }, 3: { 0: st({ t: 90 }) }, 99: { 0: st({ playing: true }) },
+      1: { 0: mediaState({ t: 50 }) }, 2: { 0: mediaState({ playing: true, t: 10 }) }, 3: { 0: mediaState({ t: 90 }) }, 99: { 0: mediaState({ playing: true }) },
     }, [tab(1), tab(2), tab(3)]);
-    expect(list.map((e) => e.tabId)).toEqual([2, 3, 1]);
+    expect(list.map((entry) => entry.tabId)).toEqual([2, 3, 1]);
   });
 
   it('a tab making sound without media (a game, a call: Web Audio, WebRTC) is not listed, as in Chrome', () => {
     const game = tab(4, { audible: true, title: 'A game' });
-    const list = mediaEntries({ 1: { 0: st({ playing: true, t: 5 }) } }, [tab(1, { audible: true }), game]);
-    expect(list.map((e) => e.tabId)).toEqual([1]);
+    const list = mediaEntries({ 1: { 0: mediaState({ playing: true, t: 5 }) } }, [tab(1, { audible: true }), game]);
+    expect(list.map((entry) => entry.tabId)).toEqual([1]);
   });
 
   it('falls back to the tab\'s title, leaves out incognito tabs, and copes with a pending URL', () => {
-    const list = mediaEntries({ 1: { 0: st({ title: '' }) }, 2: { 0: st() } }, [tab(1, { url: '', pendingUrl: 'https://p.example/' }), tab(2, { incognito: true }), tab(3, { audible: true, incognito: true })]);
+    const list = mediaEntries({ 1: { 0: mediaState({ title: '' }) }, 2: { 0: mediaState() } }, [tab(1, { url: '', pendingUrl: 'https://p.example/' }), tab(2, { incognito: true }), tab(3, { audible: true, incognito: true })]);
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({ title: 'Tab 1', site: 'p.example' });
   });
@@ -170,16 +170,16 @@ describe('loadMedia', () => {
   it('reads what is stored and every window\'s tabs, and merges them', async () => {
     chrome._addWindow({ id: 1 });
     chrome._addWindow({ id: 2 });
-    const a = chrome._addTab({ windowId: 1, title: 'A', url: 'https://a.example/' });
+    const tabA = chrome._addTab({ windowId: 1, title: 'A', url: 'https://a.example/' });
     chrome._addWindow({ id: 3, type: 'popup' }); // a site's mini-player window, an installed web app
-    const b = chrome._addTab({ windowId: 2, title: 'B', url: 'https://b.example/', audible: true }); // sound, no media
-    const c = chrome._addTab({ windowId: 3, title: 'C', url: 'https://c.example/' });
-    const st = (title, playing) => ({ 0: { media: true, playing, kind: 'audio', title, artist: '', canPrev: true, canNext: true, muted: false, t: Date.now() } });
-    await S.set({ [KEY.MEDIA]: { [a.id]: st('Song', false), [c.id]: st('Popup song', true) } });
+    const tabB = chrome._addTab({ windowId: 2, title: 'B', url: 'https://b.example/', audible: true }); // sound, no media
+    const tabC = chrome._addTab({ windowId: 3, title: 'C', url: 'https://c.example/' });
+    const mediaState = (title, playing) => ({ 0: { media: true, playing, kind: 'audio', title, artist: '', canPrevious: true, canNext: true, muted: false, t: Date.now() } });
+    await sessionArea.set({ [KEY.MEDIA]: { [tabA.id]: mediaState('Song', false), [tabC.id]: mediaState('Popup song', true) } });
     const list = await loadMedia();
     expect(chrome.tabs.query).toHaveBeenCalledWith({}); // every window, popups and apps too
-    expect(list.map((e) => [e.tabId, e.title, e.playing])).toEqual([[c.id, 'Popup song', true], [a.id, 'Song', false]]);
-    expect(list.some((e) => e.tabId === b.id)).toBe(false);
+    expect(list.map((entry) => [entry.tabId, entry.title, entry.playing])).toEqual([[tabC.id, 'Popup song', true], [tabA.id, 'Song', false]]);
+    expect(list.some((entry) => entry.tabId === tabB.id)).toBe(false);
   });
 
   it('nothing stored, nothing audible: an empty list', async () => {

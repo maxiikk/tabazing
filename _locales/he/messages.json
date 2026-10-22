@@ -2,25 +2,25 @@
    "actionTitle": {
       "message": "Tabazing (Alt+Q)"
    },
-   "cmdOpen": {
+   "commandOpen": {
       "message": "פתיחת Tabazing על הכרטיס הקודם ברשימה (במעגל); שחרור Alt מעביר אליו"
    },
-   "cmdPalette": {
+   "commandPalette": {
       "message": "פתיחת לוח הפקודות של Tabazing: פעולות, חישובים, המרות וחיפוש"
    },
-   "cmdReverse": {
+   "commandReverse": {
       "message": "פתיחת Tabazing על הכרטיס הבא ברשימה (במעגל); שחרור Alt מעביר אליו"
    },
-   "cmdStay": {
+   "commandStay": {
       "message": "פתיחת Tabazing והשארתו פתוח"
    },
-   "extDesc": {
+   "extensionDescription": {
       "message": "Alt+Tab לכרטיסיות של Chrome: תצוגות מקדימות חיות, חיפוש מיידי וכרטיסיות שנסגרו לאחרונה. חינמי ופרטי, שום דבר לא יוצא מהמחשב."
    },
-   "extName": {
+   "extensionName": {
       "message": "Tabazing: מחליף כרטיסיות חזותי עם תצוגות מקדימות חיות"
    },
-   "extShortName": {
+   "extensionShortName": {
       "message": "Tabazing"
    }
 }

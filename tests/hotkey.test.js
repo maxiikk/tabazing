@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MSG } from '../utils/constants.js';
+import { MESSAGE } from '../utils/constants.js';
 
 // hotkey.js is a classic content script (an IIFE, no imports): run its source in the jsdom window.
-const SRC = readFileSync(resolve(process.cwd(), 'hotkey.js'), 'utf8');
-const load = () => new Function(SRC)();
-const EXT_ID = chrome.runtime.id;
+const SOURCE = readFileSync(resolve(process.cwd(), 'hotkey.js'), 'utf8');
+const load = () => new Function(SOURCE)();
+const EXTENSION_ID = chrome.runtime.id;
 
 // jsdom's events are untrusted, as a page's synthetic ones are, and isTrusted can't be redefined on them.
 // So window's listeners are wrapped (for this file only): an event marked as a real key press reaches
@@ -14,17 +14,17 @@ const EXT_ID = chrome.runtime.id;
 const trusted = new WeakSet();
 const wrappers = new WeakMap();
 const { addEventListener: add, removeEventListener: remove } = window;
-const asTrusted = (e) => new Proxy(e, {
-  get: (t, p) => (p === 'isTrusted' ? true : typeof t[p] === 'function' ? t[p].bind(t) : t[p]),
+const asTrusted = (event) => new Proxy(event, {
+  get: (target, property) => (property === 'isTrusted' ? true : typeof target[property] === 'function' ? target[property].bind(target) : target[property]),
 });
-const wrap = (fn) => {
-  if (typeof fn !== 'function') return fn;
-  if (!wrappers.has(fn)) wrappers.set(fn, (e) => fn(trusted.has(e) ? asTrusted(e) : e));
-  return wrappers.get(fn);
+const wrap = (listener) => {
+  if (typeof listener !== 'function') return listener;
+  if (!wrappers.has(listener)) wrappers.set(listener, (event) => listener(trusted.has(event) ? asTrusted(event) : event));
+  return wrappers.get(listener);
 };
 beforeAll(() => {
-  window.addEventListener = function (type, fn, opts) { return add.call(this, type, wrap(fn), opts); };
-  window.removeEventListener = function (type, fn, opts) { return remove.call(this, type, wrap(fn), opts); };
+  window.addEventListener = function (type, listener, options) { return add.call(this, type, wrap(listener), options); };
+  window.removeEventListener = function (type, listener, options) { return remove.call(this, type, wrap(listener), options); };
 });
 afterAll(() => {
   window.addEventListener = add;
@@ -32,28 +32,28 @@ afterAll(() => {
 });
 
 function key(type, init, isTrusted = true) {
-  const e = new KeyboardEvent(type, { bubbles: true, cancelable: true, ...init });
-  if (isTrusted) trusted.add(e);
-  window.dispatchEvent(e);
-  return e;
+  const event = new KeyboardEvent(type, { bubbles: true, cancelable: true, ...init });
+  if (isTrusted) trusted.add(event);
+  window.dispatchEvent(event);
+  return event;
 }
-const press = (code, mods = {}, trusted) => key('keydown', { code, key: code.slice(3).toLowerCase(), altKey: true, ...mods }, trusted);
-const sent = () => chrome.runtime.sendMessage.mock.calls.map((c) => c[0]);
+const press = (code, modifiers = {}, trusted) => key('keydown', { code, key: code.slice(3).toLowerCase(), altKey: true, ...modifiers }, trusted);
+const sent = () => chrome.runtime.sendMessage.mock.calls.map((call) => call[0]);
 
 function unload() {
-  const h = window.__tabazingHotkey;
-  if (!h) return;
-  window.removeEventListener('keydown', h.onKey, true);
-  window.removeEventListener('keydown', h.onAlt, true);
-  window.removeEventListener('keyup', h.onAlt, true);
-  window.removeEventListener('blur', h.onBlur, true);
+  const hotkey = window.__tabazingHotkey;
+  if (!hotkey) return;
+  window.removeEventListener('keydown', hotkey.onKey, true);
+  window.removeEventListener('keydown', hotkey.onAlt, true);
+  window.removeEventListener('keyup', hotkey.onAlt, true);
+  window.removeEventListener('blur', hotkey.onBlur, true);
   delete window.__tabazingHotkey;
 }
 
 beforeEach(() => load());
 afterEach(() => {
   unload();
-  chrome.runtime.id = EXT_ID;
+  chrome.runtime.id = EXTENSION_ID;
   vi.useRealTimers();
 });
 
@@ -63,9 +63,9 @@ describe('hotkey.js', () => {
     press('KeyW');
     press('KeyE');
     expect(sent()).toEqual([
-      { type: MSG.HOTKEY, dir: -1, hold: true },
-      { type: MSG.HOTKEY, dir: 1, hold: true },
-      { type: MSG.HOTKEY, dir: 0, hold: false },
+      { type: MESSAGE.HOTKEY, direction: -1, hold: true },
+      { type: MESSAGE.HOTKEY, direction: 1, hold: true },
+      { type: MESSAGE.HOTKEY, direction: 0, hold: false },
     ]);
   });
 
@@ -73,41 +73,41 @@ describe('hotkey.js', () => {
     press('KeyQ', { shiftKey: true });
     press('KeyW', { shiftKey: true });
     press('KeyE', { shiftKey: true });
-    expect(sent().map((m) => m.dir)).toEqual([1, -1, 0]);
+    expect(sent().map((message) => message.direction)).toEqual([1, -1, 0]);
   });
 
   it('takes the key from the page', () => {
     const seen = vi.fn();
     document.body.addEventListener('keydown', seen);
-    const e = press('KeyQ');
-    expect(e.defaultPrevented).toBe(true);
+    const event = press('KeyQ');
+    expect(event.defaultPrevented).toBe(true);
     expect(seen).not.toHaveBeenCalled();
     document.body.removeEventListener('keydown', seen);
   });
 
   it('Alt+R (Option+R on a Mac) asks for the command palette', () => {
-    const e = press('KeyR');
-    expect(sent()).toEqual([{ type: MSG.HOTKEY, dir: 0, hold: false, palette: true }]);
-    expect(e.defaultPrevented).toBe(true);
+    const event = press('KeyR');
+    expect(sent()).toEqual([{ type: MESSAGE.HOTKEY, direction: 0, hold: false, palette: true }]);
+    expect(event.defaultPrevented).toBe(true);
   });
 
   it('but not R without Alt, with other modifiers, repeats, or a page’s own (untrusted) events', () => {
-    const r = (mods, trusted) => key('keydown', { code: 'KeyR', key: 'r', altKey: true, ...mods }, trusted);
-    r({ altKey: false }); // plain R: typing
-    r({ shiftKey: true });
-    r({ ctrlKey: true });
-    r({ metaKey: true });
-    r({ repeat: true });
-    const e = r({}, false);
+    const pressR = (modifiers, trusted) => key('keydown', { code: 'KeyR', key: 'r', altKey: true, ...modifiers }, trusted);
+    pressR({ altKey: false }); // plain R: typing
+    pressR({ shiftKey: true });
+    pressR({ ctrlKey: true });
+    pressR({ metaKey: true });
+    pressR({ repeat: true });
+    const event = pressR({}, false);
     expect(sent()).toEqual([]);
-    expect(e.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it('ignores events the page dispatches itself (untrusted)', () => {
-    const e = press('KeyQ', {}, false);
-    expect(e.isTrusted).toBe(false);
+    const event = press('KeyQ', {}, false);
+    expect(event.isTrusted).toBe(false);
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
-    expect(e.defaultPrevented).toBe(false);
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it('ignores other keys, Ctrl/Meta combos, no Alt, and auto-repeat', () => {
@@ -127,7 +127,7 @@ describe('hotkey.js', () => {
     await vi.advanceTimersByTimeAsync(49);
     expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
-    expect(sent()).toEqual([{ type: MSG.HOTKEY, dir: 0, hold: false }, { type: MSG.HOTKEY, dir: 0, hold: false }]);
+    expect(sent()).toEqual([{ type: MESSAGE.HOTKEY, direction: 0, hold: false }, { type: MESSAGE.HOTKEY, direction: 0, hold: false }]);
   });
 
   it('a second failure is swallowed, and no retry once the extension is gone', async () => {
@@ -204,7 +204,7 @@ describe('hotkey.js', () => {
       expect(remove).toHaveBeenCalledWith('blur', old.onBlur, true);
 
       // Both copies share this `chrome`, so bring it back: had the old listeners stayed, this would send twice.
-      chrome.runtime.id = EXT_ID;
+      chrome.runtime.id = EXTENSION_ID;
       press('KeyQ');
       expect(chrome.runtime.sendMessage).toHaveBeenCalledTimes(1);
     });

@@ -7,8 +7,8 @@
 </head>
 <body>
   <main data-testid="sweep-main">
-    <div class="top" data-testid="sweep-top"><span id="ybit" data-testid="ybit-slot"></span><div data-testid="sweep-text"><h1 id="sweep-h" data-i18n="sweepH" data-testid="sweep-heading">Tabazing is capturing previews</h1><p id="msg" aria-live="polite" data-i18n="sweepStarting" data-testid="msg">Starting…</p><p id="left" class="left" hidden data-testid="sweep-left"></p></div></div>
-    <div class="bar" role="progressbar" aria-labelledby="sweep-h" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-testid="sweep-progress"><i id="fill" data-testid="fill"></i></div>
+    <div class="top" data-testid="sweep-top"><span id="ybit" data-testid="ybit-slot"></span><div data-testid="sweep-text"><h1 id="sweep-heading" data-i18n="sweepHeading" data-testid="sweep-heading">Tabazing is capturing previews</h1><p id="msg" aria-live="polite" data-i18n="sweepStarting" data-testid="msg">Starting…</p><p id="left" class="left" hidden data-testid="sweep-left"></p></div></div>
+    <div class="bar" role="progressbar" aria-labelledby="sweep-heading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-testid="sweep-progress"><i id="fill" data-testid="fill"></i></div>
     <div class="row" data-testid="sweep-row"><p class="note grow" data-i18n="sweepNote" data-testid="sweep-note">Tabazing is showing each tab for a moment. It will put you back where you were.</p><button id="cancel" type="button" data-i18n="sweepStop" data-testid="cancel">Stop</button></div>
   </main>
   <script type="module" src="../sweep.js"></script>

@@ -3,7 +3,7 @@
 // no eval / Function (arithmetic goes through the small parser below). Never throws: anything it doesn't
 // understand, or that comes out as not a finite number, is null.
 //
-//   quick('10 km in mi', { lang: 'en' }) -> { kind: 'unit', value: '6.21371 mi', copy: '6.21371 mi', expr: '10 km = 6.21371 mi' }
+//   quick('10 km in mi', { lang: 'en' }) -> { kind: 'unit', value: '6.21371 mi', copy: '6.21371 mi', expression: '10 km = 6.21371 mi' }
 //
 // A result: { kind, value, copy, expr, ... }
 //   kind   'calc' | 'unit' | 'base' | 'color' | 'time' | 'date' | 'days' | 'currency'
@@ -24,16 +24,16 @@
 // Trigonometry is in degrees, exact where the answer is: sin(30) = 0.5, cos(90) = 0, tan(90) is nothing.
 // Dates run from 0001-01-01 to 9999-12-31; an expression with a date in it ("2024-01-05 + 3", "12/25/2024") isn't arithmetic.
 
-const MAX_LEN = 200;
+const MAX_LENGTH = 200;
 
-export function quick(text, { lang = 'en', now = Date.now(), zone = localZone() } = {}) {
+export function quick(text, { lang = 'en', now = Date.now(), zone = localTimeZone() } = {}) {
   try {
-    const s = String(text == null ? '' : text).trim().replace(/\s+/g, ' ');
-    if (!s || s.length > MAX_LEN) return null;
-    const ctx = { lang, now, zone };
-    for (const fn of [currency, color, base, timeZone, dateCalc, unit, calc]) {
-      const r = fn(s, ctx);
-      if (r) return r;
+    const normalizedText = String(text == null ? '' : text).trim().replace(/\s+/g, ' ');
+    if (!normalizedText || normalizedText.length > MAX_LENGTH) return null;
+    const options = { lang, now, zone };
+    for (const parser of [currency, color, base, timeZone, dateCalculation, unit, calculate]) {
+      const result = parser(normalizedText, options);
+      if (result) return result;
     }
     return null;
   } catch {
@@ -41,124 +41,124 @@ export function quick(text, { lang = 'en', now = Date.now(), zone = localZone() 
   }
 }
 
-const localZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
+const localTimeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
 
 // ---------------------------------------------------------------- numbers
 // "1,234.5", "1.234,5", "1,5", "12" -> a number, or NaN. See the header for the comma rule.
-export function parseNumber(str, lang = 'en') {
-  const s = String(str);
-  if (!/^\d[\d.,]*$/.test(s) || /[.,]$/.test(s)) return NaN;
-  const dots = (s.match(/\./g) || []).length, commas = (s.match(/,/g) || []).length;
-  let out = s;
+export function parseNumber(value, lang = 'en') {
+  const text = String(value);
+  if (!/^\d[\d.,]*$/.test(text) || /[.,]$/.test(text)) return NaN;
+  const dots = (text.match(/\./g) || []).length, commas = (text.match(/,/g) || []).length;
+  let out = text;
   if (dots && commas) {
-    const dec = s.lastIndexOf('.') > s.lastIndexOf(',') ? '.' : ',';
-    const group = dec === '.' ? ',' : '.';
-    const [int, frac, extra] = s.split(dec);
-    if (extra !== undefined || !grouped(int, group)) return NaN;
-    out = int.split(group).join('') + '.' + frac;
+    const decimalSeparator = text.lastIndexOf('.') > text.lastIndexOf(',') ? '.' : ',';
+    const group = decimalSeparator === '.' ? ',' : '.';
+    const [integerPart, fractionPart, extra] = text.split(decimalSeparator);
+    if (extra !== undefined || !grouped(integerPart, group)) return NaN;
+    out = integerPart.split(group).join('') + '.' + fractionPart;
   } else if (commas) {
-    if (commas > 1 || (COMMA_GROUPS.has(lang) && grouped(s, ','))) { if (!grouped(s, ',')) return NaN; out = s.split(',').join(''); }
-    else out = s.replace(',', '.');
+    if (commas > 1 || (COMMA_GROUPS.has(lang) && grouped(text, ','))) { if (!grouped(text, ',')) return NaN; out = text.split(',').join(''); }
+    else out = text.replace(',', '.');
   } else if (dots > 1) {
-    if (!grouped(s, '.')) return NaN;
-    out = s.split('.').join('');
+    if (!grouped(text, '.')) return NaN;
+    out = text.split('.').join('');
   }
   return Number(out);
 }
 const COMMA_GROUPS = new Set(['en', 'he', 'ar']); // the languages that group with commas and use a decimal dot
 // Groups of three after a first group that doesn't start with 0 ("0,001" and "012,345" aren't thousands).
-const grouped = (s, sep) => new RegExp(`^[1-9]\\d{0,2}(\\${sep}\\d{3})+$`).test(s) || (!s.includes(sep) && /^\d+$/.test(s));
+const grouped = (text, separator) => new RegExp(`^[1-9]\\d{0,2}(\\${separator}\\d{3})+$`).test(text) || (!text.includes(separator) && /^\d+$/.test(text));
 
 const formatters = new Map();
-function nf(lang, opts) {
-  const k = lang + JSON.stringify(opts);
-  let f = formatters.get(k);
-  if (!f) {
-    try { f = new Intl.NumberFormat(lang, opts); } catch { f = new Intl.NumberFormat('en', opts); }
+function numberFormat(lang, options) {
+  const cacheKey = lang + JSON.stringify(options);
+  let formatter = formatters.get(cacheKey);
+  if (!formatter) {
+    try { formatter = new Intl.NumberFormat(lang, options); } catch { formatter = new Intl.NumberFormat('en', options); }
     if (formatters.size > 50) formatters.clear();
-    formatters.set(k, f);
+    formatters.set(cacheKey, formatter);
   }
-  return f;
+  return formatter;
 }
 // Rounded to `sig` significant digits: the shown text, and the plain one that is copied.
-export function formatNumber(x, lang = 'en', sig = 12) {
-  const r = Number(x.toPrecision(sig));
-  const a = Math.abs(r);
-  const sci = a !== 0 && (a >= 1e15 || a < 1e-6);
-  const shown = sci ? nf(lang, { notation: 'scientific', maximumSignificantDigits: Math.min(sig, 10) }).format(r) : nf(lang, { maximumSignificantDigits: sig }).format(r);
-  return { shown, plain: Object.is(r, -0) ? '0' : plainDigits(r) };
+export function formatNumber(x, lang = 'en', significantDigits = 12) {
+  const rounded = Number(x.toPrecision(significantDigits));
+  const absolute = Math.abs(rounded);
+  const scientific = absolute !== 0 && (absolute >= 1e15 || absolute < 1e-6);
+  const shown = scientific ? numberFormat(lang, { notation: 'scientific', maximumSignificantDigits: Math.min(significantDigits, 10) }).format(rounded) : numberFormat(lang, { maximumSignificantDigits: significantDigits }).format(rounded);
+  return { shown, plain: Object.is(rounded, -0) ? '0' : plainDigits(rounded) };
 }
 // String() without its exponent: 1.5e+21 -> "1500000000000000000000", 1e-7 -> "0.0000001".
 function plainDigits(x) {
-  const s = String(x), m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(s);
-  if (!m) return s;
-  const digits = m[2] + (m[3] || ''), exp = Number(m[4]);
-  return m[1] + (exp >= 0 ? digits.padEnd(exp + 1, '0') : '0.' + '0'.repeat(-exp - 1) + digits);
+  const text = String(x), match = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(text);
+  if (!match) return text;
+  const digits = match[2] + (match[3] || ''), exponent = Number(match[4]);
+  return match[1] + (exponent >= 0 ? digits.padEnd(exponent + 1, '0') : '0.' + '0'.repeat(-exponent - 1) + digits);
 }
 // a + b, or 0 when what is left is float noise against the size of a and b (1.1 * 3 - 3.3 leaves 4.4E-16).
-function addExact(a, b, tol = 1e-12) {
-  const r = a + b;
-  return Math.abs(r) < Math.max(Math.abs(a), Math.abs(b)) * tol ? 0 : r;
+function addExact(first, second, tolerance = 1e-12) {
+  const sum = first + second;
+  return Math.abs(sum) < Math.max(Math.abs(first), Math.abs(second)) * tolerance ? 0 : sum;
 }
 
 // ---------------------------------------------------------------- currency
 const CURRENCY_CODES = 'usd eur gbp jpy rub cny chf cad aud nzd mxn brl inr krw sek nok dkk pln czk huf try uah kzt ars clp cop pen ils zar sgd hkd thb byn gel amd btc eth';
 const CURRENCY = new Set(CURRENCY_CODES.split(' '));
 const CURRENCY_WORD = /^(dollars?|euros?|yen|yuan|rubles?|roubles?|pesos?|rupees?|francs?|d[oó]lar(es)?|libras? esterlinas?|рубл[ьяей]*|доллар(ов|а|ы)?|евро|юан[ьяей]*|иен[аы]?|фунт(ов|а|ы)? стерлингов|bitcoins?)$/i;
-const CURRENCY_SYM = /^[$€£¥₽₹₩₺₴₸]$/;
-const isCurrency = (w) => CURRENCY.has(w.toLowerCase()) || CURRENCY_WORD.test(w) || CURRENCY_SYM.test(w);
+const CURRENCY_SYMBOL = /^[$€£¥₽₹₩₺₴₸]$/;
+const isCurrency = (word) => CURRENCY.has(word.toLowerCase()) || CURRENCY_WORD.test(word) || CURRENCY_SYMBOL.test(word);
 const CONNECT = /^(in|to|into|as|=|->|→|en|a|в|во)$/i;
-function currency(s) {
+function currency(text) {
   // Symbols may touch the number ("$10", "10€"): set them apart first.
-  const words = s.replace(/([$€£¥₽₹₩₺₴₸])/g, ' $1 ').trim().split(' ').filter(Boolean);
-  let num = 0, cur = 0;
+  const words = text.replace(/([$€£¥₽₹₩₺₴₸])/g, ' $1 ').trim().split(' ').filter(Boolean);
+  let numberCount = 0, currencyCount = 0;
   for (let i = 0; i < words.length; i++) {
-    const w = words[i];
-    if (/^\d[\d.,]*$/.test(w)) num++;
-    else if (isCurrency(w)) cur++;
-    else if (i + 1 < words.length && isCurrency(w + ' ' + words[i + 1])) { cur++; i++; }
-    else if (!CONNECT.test(w)) return null;
+    const word = words[i];
+    if (/^\d[\d.,]*$/.test(word)) numberCount++;
+    else if (isCurrency(word)) currencyCount++;
+    else if (i + 1 < words.length && isCurrency(word + ' ' + words[i + 1])) { currencyCount++; i++; }
+    else if (!CONNECT.test(word)) return null;
   }
-  return num === 1 && cur >= 1 ? { kind: 'currency' } : null;
+  return numberCount === 1 && currencyCount >= 1 ? { kind: 'currency' } : null;
 }
 
 // ---------------------------------------------------------------- colours
-const hex2 = (n) => n.toString(16).padStart(2, '0');
-const toHex = ([r, g, b]) => '#' + hex2(r) + hex2(g) + hex2(b);
-const rgbText = ([r, g, b]) => `rgb(${r}, ${g}, ${b})`;
-const hslText = ([h, s, l]) => `hsl(${h}, ${s}%, ${l}%)`;
-function rgbToHsl([r, g, b]) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min;
-  let h = 0, s = 0;
-  if (d) {
-    s = d / (1 - Math.abs(2 * l - 1));
-    h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-    h *= 60;
-    if (h < 0) h += 360;
+const twoHexDigits = (value) => value.toString(16).padStart(2, '0');
+const toHex = ([red, green, blue]) => '#' + twoHexDigits(red) + twoHexDigits(green) + twoHexDigits(blue);
+const rgbText = ([red, green, blue]) => `rgb(${red}, ${green}, ${blue})`;
+const hslText = ([hue, saturation, lightness]) => `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+function rgbToHsl([red, green, blue]) {
+  red /= 255; green /= 255; blue /= 255;
+  const max = Math.max(red, green, blue), min = Math.min(red, green, blue), lightness = (max + min) / 2, delta = max - min;
+  let hue = 0, saturation = 0;
+  if (delta) {
+    saturation = delta / (1 - Math.abs(2 * lightness - 1));
+    hue = max === red ? ((green - blue) / delta) % 6 : max === green ? (blue - red) / delta + 2 : (red - green) / delta + 4;
+    hue *= 60;
+    if (hue < 0) hue += 360;
   }
-  return [Math.round(h) % 360, Math.round(s * 100), Math.round(l * 100)];
+  return [Math.round(hue) % 360, Math.round(saturation * 100), Math.round(lightness * 100)];
 }
-function hslToRgb([h, s, l]) {
-  s /= 100; l /= 100;
-  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
-  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
-  return [r, g, b].map((v) => Math.round((v + m) * 255));
+function hslToRgb([hue, saturation, lightness]) {
+  saturation /= 100; lightness /= 100;
+  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation, x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1)), lightnessMatch = lightness - chroma / 2;
+  const [red, green, blue] = hue < 60 ? [chroma, x, 0] : hue < 120 ? [x, chroma, 0] : hue < 180 ? [0, chroma, x] : hue < 240 ? [0, x, chroma] : hue < 300 ? [x, 0, chroma] : [chroma, 0, x];
+  return [red, green, blue].map((channel) => Math.round((channel + lightnessMatch) * 255));
 }
-function color(s) {
-  const m = /^(.+?)(?: (?:in|to|as|en|a|в) (hex|rgb|hsl))?$/i.exec(s);
-  const src = m[1].trim(), want = m[2] && m[2].toLowerCase();
+function color(text) {
+  const match = /^(.+?)(?: (?:in|to|as|en|a|в) (hex|rgb|hsl))?$/i.exec(text);
+  const source = match[1].trim(), want = match[2] && match[2].toLowerCase();
   let rgb = null, from = null;
   let x;
-  if ((x = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(src))) {
-    const h = x[1].length === 3 ? x[1].replace(/./g, '$&$&') : x[1];
-    rgb = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  if ((x = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(source))) {
+    const hex = x[1].length === 3 ? x[1].replace(/./g, '$&$&') : x[1];
+    rgb = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
     from = 'hex';
-  } else if ((x = /^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*(?:[,/]\s*[\d.]+%?\s*)?\)$/i.exec(src))) {
+  } else if ((x = /^rgba?\(\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*(?:[,/]\s*[\d.]+%?\s*)?\)$/i.exec(source))) {
     rgb = [x[1], x[2], x[3]].map(Number);
-    if (rgb.some((v) => v > 255)) return null;
+    if (rgb.some((channel) => channel > 255)) return null;
     from = 'rgb';
-  } else if ((x = /^hsla?\(\s*(\d{1,3}(?:\.\d+)?)(?:deg)?\s*[, ]\s*(\d{1,3}(?:\.\d+)?)%\s*[, ]\s*(\d{1,3}(?:\.\d+)?)%\s*(?:[,/]\s*[\d.]+%?\s*)?\)$/i.exec(src))) {
+  } else if ((x = /^hsla?\(\s*(\d{1,3}(?:\.\d+)?)(?:deg)?\s*[, ]\s*(\d{1,3}(?:\.\d+)?)%\s*[, ]\s*(\d{1,3}(?:\.\d+)?)%\s*(?:[,/]\s*[\d.]+%?\s*)?\)$/i.exec(source))) {
     const hsl = [Number(x[1]) % 360, Number(x[2]), Number(x[3])];
     if (hsl[1] > 100 || hsl[2] > 100) return null;
     rgb = hslToRgb(hsl);
@@ -166,31 +166,31 @@ function color(s) {
   } else return null;
   const all = { hex: toHex(rgb).toUpperCase(), rgb: rgbText(rgb), hsl: hslText(rgbToHsl(rgb)) };
   const main = want && want !== from ? want : from === 'hex' ? 'rgb' : 'hex';
-  const alts = ['hex', 'rgb', 'hsl'].filter((k) => k !== main && k !== from).map((k) => all[k]);
-  return { kind: 'color', value: all[main], copy: all[main], expr: `${from === 'hex' ? all.hex : src} = ${all[main]}`, alts, swatch: toHex(rgb) };
+  const alts = ['hex', 'rgb', 'hsl'].filter((key) => key !== main && key !== from).map((key) => all[key]);
+  return { kind: 'color', value: all[main], copy: all[main], expression: `${from === 'hex' ? all.hex : source} = ${all[main]}`, alts, swatch: toHex(rgb) };
 }
 
 // ---------------------------------------------------------------- number bases
 const BASES = { hex: 16, hexadecimal: 16, bin: 2, binary: 2, oct: 8, octal: 8, dec: 10, decimal: 10 };
 const PREFIX = { 16: '0x', 2: '0b', 8: '0o', 10: '' };
-function readInt(w) {
-  const m = /^(-)?(?:0x([0-9a-f]+)|0b([01]+)|0o([0-7]+)|(\d+))$/i.exec(w);
-  if (!m) return null;
-  const [, neg, hx, bn, oc, dc] = m;
-  const n = hx ? parseInt(hx, 16) : bn ? parseInt(bn, 2) : oc ? parseInt(oc, 8) : parseInt(dc, 10);
-  if (!Number.isSafeInteger(n)) return null;
-  return { n: neg ? -n : n, base: hx ? 16 : bn ? 2 : oc ? 8 : 10 };
+function readInteger(word) {
+  const match = /^(-)?(?:0x([0-9a-f]+)|0b([01]+)|0o([0-7]+)|(\d+))$/i.exec(word);
+  if (!match) return null;
+  const [, negative, hexDigits, binaryDigits, octalDigits, decimalDigits] = match;
+  const value = hexDigits ? parseInt(hexDigits, 16) : binaryDigits ? parseInt(binaryDigits, 2) : octalDigits ? parseInt(octalDigits, 8) : parseInt(decimalDigits, 10);
+  if (!Number.isSafeInteger(value)) return null;
+  return { n: negative ? -value : value, base: hexDigits ? 16 : binaryDigits ? 2 : octalDigits ? 8 : 10 };
 }
-const inBase = (n, b) => (n < 0 ? '-' : '') + PREFIX[b] + Math.abs(n).toString(b).toUpperCase();
-function base(s) {
-  let m, num, to;
-  if ((m = /^(\S+) (?:in|to|as|into|en|a|в) (\w+)$/i.exec(s)) && BASES[m[2].toLowerCase()]) { num = readInt(m[1]); to = BASES[m[2].toLowerCase()]; }
-  else if ((m = /^(\w+) (\S+)$/i.exec(s)) && BASES[m[1].toLowerCase()]) { num = readInt(m[2]); to = BASES[m[1].toLowerCase()]; }
-  else if (/^-?0[xbo]/i.test(s)) { num = readInt(s); to = 10; }
-  if (!num || to === num.base) return null; // "0xff in hex" says nothing new
-  const value = inBase(num.n, to);
-  const alts = [10, 16, 2, 8].filter((b) => b !== to && b !== num.base).map((b) => inBase(num.n, b));
-  return { kind: 'base', value, copy: value, expr: `${inBase(num.n, num.base)} = ${value}`, alts };
+const inBase = (value, radix) => (value < 0 ? '-' : '') + PREFIX[radix] + Math.abs(value).toString(radix).toUpperCase();
+function base(text) {
+  let match, parsedNumber, to;
+  if ((match = /^(\S+) (?:in|to|as|into|en|a|в) (\w+)$/i.exec(text)) && BASES[match[2].toLowerCase()]) { parsedNumber = readInteger(match[1]); to = BASES[match[2].toLowerCase()]; }
+  else if ((match = /^(\w+) (\S+)$/i.exec(text)) && BASES[match[1].toLowerCase()]) { parsedNumber = readInteger(match[2]); to = BASES[match[1].toLowerCase()]; }
+  else if (/^-?0[xbo]/i.test(text)) { parsedNumber = readInteger(text); to = 10; }
+  if (!parsedNumber || to === parsedNumber.base) return null; // "0xff in hex" says nothing new
+  const value = inBase(parsedNumber.n, to);
+  const alts = [10, 16, 2, 8].filter((radix) => radix !== to && radix !== parsedNumber.base).map((radix) => inBase(parsedNumber.n, radix));
+  return { kind: 'base', value, copy: value, expression: `${inBase(parsedNumber.n, parsedNumber.base)} = ${value}`, alts };
 }
 
 // ---------------------------------------------------------------- time zones
@@ -225,97 +225,97 @@ function zones() {
   zoneIndex = new Map();
   let all = [];
   try { all = Intl.supportedValuesOf('timeZone'); } catch {}
-  for (const z of all) {
-    zoneIndex.set(z.toLowerCase(), z);
-    const city = z.split('/').pop().replace(/_/g, ' ').toLowerCase();
-    if (!zoneIndex.has(city)) zoneIndex.set(city, z);
+  for (const zone of all) {
+    zoneIndex.set(zone.toLowerCase(), zone);
+    const city = zone.split('/').pop().replace(/_/g, ' ').toLowerCase();
+    if (!zoneIndex.has(city)) zoneIndex.set(city, zone);
   }
   return zoneIndex;
 }
-const validZone = (z) => { try { new Intl.DateTimeFormat('en', { timeZone: z }); return true; } catch { return false; } };
-const placeName = (z) => (z === 'UTC' ? 'UTC' : z.split('/').pop().replace(/_/g, ' '));
+const validZone = (zone) => { try { new Intl.DateTimeFormat('en', { timeZone: zone }); return true; } catch { return false; } };
+const placeName = (zone) => (zone === 'UTC' ? 'UTC' : zone.split('/').pop().replace(/_/g, ' '));
 // A place -> { zone, place } or null. "UTC+3" / "GMT-5" for whole hours (Etc/GMT zones; their sign is reversed).
 export function resolveZone(name, localZ = 'UTC') {
-  const n = String(name || '').trim().toLowerCase().replace(/[?.!]+$/, '');
-  if (!n) return null;
-  if (/^(here|local|aquí|aqui|здесь)$/.test(n)) return { zone: localZ, place: placeName(localZ) };
-  const off = /^(?:utc|gmt)\s*([+\-−])\s*(\d{1,2})$/.exec(n); // "−" as the offsets are shown
-  if (off) {
-    const h = Number(off[2]), sign = off[1] === '+' ? '+' : '-';
-    if (h > 14) return null;
-    const zone = h === 0 ? 'UTC' : `Etc/GMT${sign === '+' ? '-' : '+'}${h}`;
-    return validZone(zone) ? { zone, place: `UTC${sign}${h}` } : null;
+  const normalized = String(name || '').trim().toLowerCase().replace(/[?.!]+$/, '');
+  if (!normalized) return null;
+  if (/^(here|local|aquí|aqui|здесь)$/.test(normalized)) return { zone: localZ, place: placeName(localZ) };
+  const offsetMatch = /^(?:utc|gmt)\s*([+\-−])\s*(\d{1,2})$/.exec(normalized); // "−" as the offsets are shown
+  if (offsetMatch) {
+    const hours = Number(offsetMatch[2]), sign = offsetMatch[1] === '+' ? '+' : '-';
+    if (hours > 14) return null;
+    const zone = hours === 0 ? 'UTC' : `Etc/GMT${sign === '+' ? '-' : '+'}${hours}`;
+    return validZone(zone) ? { zone, place: `UTC${sign}${hours}` } : null;
   }
-  const alias = ZONE_ALIAS[n];
-  if (alias) return validZone(alias) ? { zone: alias, place: alias === 'UTC' ? 'UTC' : titleCase(n.length <= 4 ? placeName(alias) : n) } : null;
-  const z = zones().get(n) || zones().get(n.replace(/ /g, '_'));
-  return z ? { zone: z, place: placeName(z) } : null;
+  const alias = ZONE_ALIAS[normalized];
+  if (alias) return validZone(alias) ? { zone: alias, place: alias === 'UTC' ? 'UTC' : titleCase(normalized.length <= 4 ? placeName(alias) : normalized) } : null;
+  const found = zones().get(normalized) || zones().get(normalized.replace(/ /g, '_'));
+  return found ? { zone: found, place: placeName(found) } : null;
 }
-const titleCase = (s) => s.replace(/(^|[\s-])(\p{L})/gu, (m, a, b) => a + b.toUpperCase());
+const titleCase = (text) => text.replace(/(^|[\s-])(\p{L})/gu, (match, prefix, letter) => prefix + letter.toUpperCase());
 
-const dtfs = new Map();
-function dtf(lang, opts) {
-  const k = lang + JSON.stringify(opts);
-  let f = dtfs.get(k);
-  if (!f) {
-    try { f = new Intl.DateTimeFormat(lang, opts); } catch { f = new Intl.DateTimeFormat('en', opts); }
-    if (dtfs.size > 50) dtfs.clear();
-    dtfs.set(k, f);
+const dateTimeFormats = new Map();
+function dateTimeFormat(lang, options) {
+  const cacheKey = lang + JSON.stringify(options);
+  let formatter = dateTimeFormats.get(cacheKey);
+  if (!formatter) {
+    try { formatter = new Intl.DateTimeFormat(lang, options); } catch { formatter = new Intl.DateTimeFormat('en', options); }
+    if (dateTimeFormats.size > 50) dateTimeFormats.clear();
+    dateTimeFormats.set(cacheKey, formatter);
   }
-  return f;
+  return formatter;
 }
 // The wall clock in `zone` at `ms`: { y, mo (0-11), d, h, mi }.
-function wall(zone, ms) {
-  const p = {};
-  for (const x of dtf('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(ms)) p[x.type] = Number(x.value);
-  return { y: p.year, mo: p.month - 1, d: p.day, h: p.hour % 24, mi: p.minute, s: p.second };
+function wallClock(zone, milliseconds) {
+  const parts = {};
+  for (const x of dateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }).formatToParts(milliseconds)) parts[x.type] = Number(x.value);
+  return { year: parts.year, month: parts.month - 1, day: parts.day, hour: parts.hour % 24, minute: parts.minute, second: parts.second };
 }
 // Minutes `zone` is ahead of UTC at `ms`.
-export function zoneOffset(zone, ms) {
-  const w = wall(zone, ms);
-  return Math.round((Date.UTC(w.y, w.mo, w.d, w.h, w.mi, w.s) - Math.floor(ms / 1000) * 1000) / 60000);
+export function zoneOffset(zone, milliseconds) {
+  const clock = wallClock(zone, milliseconds);
+  return Math.round((Date.UTC(clock.year, clock.month, clock.day, clock.hour, clock.minute, clock.second) - Math.floor(milliseconds / 1000) * 1000) / 60000);
 }
 // The moment the clock in `zone` shows y-mo-d h:mi.
-function instantOf(zone, y, mo, d, h, mi) {
-  const guess = Date.UTC(y, mo, d, h, mi);
+function instantOf(zone, y, month, day, hour, minute) {
+  const guess = Date.UTC(y, month, day, hour, minute);
   const first = guess - zoneOffset(zone, guess) * 60000;
   return guess - zoneOffset(zone, first) * 60000;
 }
-const offText = (min) => { const a = Math.abs(min); return 'UTC' + (min < 0 ? '−' : '+') + Math.floor(a / 60) + (a % 60 ? ':' + String(a % 60).padStart(2, '0') : ''); };
+const offsetText = (minutes) => { const absoluteMinutes = Math.abs(minutes); return 'UTC' + (minutes < 0 ? '−' : '+') + Math.floor(absoluteMinutes / 60) + (absoluteMinutes % 60 ? ':' + String(absoluteMinutes % 60).padStart(2, '0') : ''); };
 
 const TIME_WORD = '(?:time|now|hora|время|сейчас)';
-const IN = '(?:in|at|to|en|a|в|во)';
+const PLACE_WORD = '(?:in|at|to|en|a|в|во)';
 const CLOCK = '(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm|a\\.m\\.|p\\.m\\.)?|noon|midnight|mediod[ií]a|medianoche|полдень|полночь';
-function readClock(m) {
-  const w = m[0].toLowerCase();
-  if (/^(noon|mediod[ií]a|полдень)/.test(w)) return { h: 12, mi: 0 };
-  if (/^(midnight|medianoche|полночь)/.test(w)) return { h: 0, mi: 0 };
-  let h = Number(m[1]);
-  const mi = m[2] ? Number(m[2]) : 0, ap = m[3] && m[3][0].toLowerCase();
-  if (!m[2] && !ap) return null; // "3 London in Tokyo": too likely something else
-  if (ap) { if (h < 1 || h > 12) return null; h = (h % 12) + (ap === 'p' ? 12 : 0); }
-  if (h > 23 || mi > 59) return null;
-  return { h, mi };
+function readClock(match) {
+  const word = match[0].toLowerCase();
+  if (/^(noon|mediod[ií]a|полдень)/.test(word)) return { hour: 12, minute: 0 };
+  if (/^(midnight|medianoche|полночь)/.test(word)) return { hour: 0, minute: 0 };
+  let hour = Number(match[1]);
+  const minute = match[2] ? Number(match[2]) : 0, meridiem = match[3] && match[3][0].toLowerCase();
+  if (!match[2] && !meridiem) return null; // "3 London in Tokyo": too likely something else
+  if (meridiem) { if (hour < 1 || hour > 12) return null; hour = (hour % 12) + (meridiem === 'p' ? 12 : 0); }
+  if (hour > 23 || minute > 59) return null;
+  return { hour, minute };
 }
-function timeZone(s, { lang, now, zone: localZ }) {
-  let m, target, at = now, from = null;
-  if ((m = new RegExp(`^(?:what(?:'s| is) the )?${TIME_WORD}(?: ${IN})? (.+)$`, 'i').exec(s))) target = resolveZone(m[1], localZ);
-  else if ((m = new RegExp(`^(.+?) ${TIME_WORD}\\??$`, 'i').exec(s))) target = resolveZone(m[1], localZ);
-  else if ((m = new RegExp(`^(${CLOCK})(?: (.+?))? ${IN} (.+)$`, 'i').exec(s))) {
-    const clock = readClock(m.slice(1));
+function timeZone(text, { lang, now, zone: localZ }) {
+  let match, target, at = now, from = null;
+  if ((match = new RegExp(`^(?:what(?:'s| is) the )?${TIME_WORD}(?: ${PLACE_WORD})? (.+)$`, 'i').exec(text))) target = resolveZone(match[1], localZ);
+  else if ((match = new RegExp(`^(.+?) ${TIME_WORD}\\??$`, 'i').exec(text))) target = resolveZone(match[1], localZ);
+  else if ((match = new RegExp(`^(${CLOCK})(?: (.+?))? ${PLACE_WORD} (.+)$`, 'i').exec(text))) {
+    const clock = readClock(match.slice(1));
     if (!clock) return null;
-    from = m[5] ? resolveZone(m[5], localZ) : { zone: localZ, place: placeName(localZ) };
-    target = resolveZone(m[6], localZ);
+    from = match[5] ? resolveZone(match[5], localZ) : { zone: localZ, place: placeName(localZ) };
+    target = resolveZone(match[6], localZ);
     if (!from || !target) return null;
-    const today = wall(from.zone, now);
-    at = instantOf(from.zone, today.y, today.mo, today.d, clock.h, clock.mi);
+    const today = wallClock(from.zone, now);
+    at = instantOf(from.zone, today.year, today.month, today.day, clock.hour, clock.minute);
   } else return null;
   if (!target) return null;
-  const value = dtf(lang, { timeZone: target.zone, weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(at);
-  const fromText = from ? dtf(lang, { timeZone: from.zone, hour: 'numeric', minute: '2-digit' }).format(at) + ' ' + from.place : null;
+  const value = dateTimeFormat(lang, { timeZone: target.zone, weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(at);
+  const fromText = from ? dateTimeFormat(lang, { timeZone: from.zone, hour: 'numeric', minute: '2-digit' }).format(at) + ' ' + from.place : null;
   return {
-    kind: 'time', value, copy: value, place: target.place, zone: target.zone, offset: offText(zoneOffset(target.zone, at)), at,
-    expr: (fromText ? fromText + ' = ' : '') + value + ' ' + target.place,
+    kind: 'time', value, copy: value, place: target.place, zone: target.zone, offset: offsetText(zoneOffset(target.zone, at)), at,
+    expression: (fromText ? fromText + ' = ' : '') + value + ' ' + target.place,
   };
 }
 
@@ -323,66 +323,66 @@ function timeZone(s, { lang, now, zone: localZ }) {
 const DAY = 864e5;
 const TODAY = /^(today|hoy|сегодня|now)$/i, TOMORROW = /^(tomorrow|mañana|manana|завтра)$/i, YESTERDAY = /^(yesterday|ayer|вчера)$/i;
 // UTC midnight of y-mo-d; unlike Date.UTC, years 0-99 stay themselves (not 1900-1999).
-const utc = (y, mo, d) => new Date(0).setUTCFullYear(y, mo, d);
-const inRange = (t) => { const y = new Date(t).getUTCFullYear(); return y >= 1 && y <= 9999; }; // what YYYY-MM-DD can write
+const utcTime = (y, month, day) => new Date(0).setUTCFullYear(y, month, day);
+const inRange = (timestamp) => { const y = new Date(timestamp).getUTCFullYear(); return y >= 1 && y <= 9999; }; // what YYYY-MM-DD can write
 // A day as a UTC midnight (dates have no time zone here: "today" is today where you are).
-function readDate(w, today) {
-  if (TODAY.test(w)) return today;
-  if (TOMORROW.test(w)) return today + DAY;
-  if (YESTERDAY.test(w)) return today - DAY;
-  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(w);
-  if (!m) return null;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
-  const t = utc(y, mo, d);
-  const back = new Date(t);
-  return back.getUTCMonth() === mo && back.getUTCDate() === d && y >= 1 ? t : null; // 2026-02-30 is no date
+function readDate(word, today) {
+  if (TODAY.test(word)) return today;
+  if (TOMORROW.test(word)) return today + DAY;
+  if (YESTERDAY.test(word)) return today - DAY;
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(word);
+  if (!match) return null;
+  const [y, month, day] = [Number(match[1]), Number(match[2]) - 1, Number(match[3])];
+  const timestamp = utcTime(y, month, day);
+  const back = new Date(timestamp);
+  return back.getUTCMonth() === month && back.getUTCDate() === day && y >= 1 ? timestamp : null; // 2026-02-30 is no date
 }
 const DATE_UNITS = [
   [/^(days?|d|d[ií]as?|дней|дня|день|д)$/i, 'day'], [/^(weeks?|w|wk|semanas?|недел[ьяи]|нед)$/i, 'week'],
   [/^(months?|mo|mes(es)?|месяц(ев|а)?|мес)$/i, 'month'], [/^(years?|y|yr|a[ñn]os?|лет|года?|г)$/i, 'year'],
 ];
 // Add months the calendar way; a day the month doesn't have becomes its last day (Jan 31 + 1 month = Feb 28).
-function addTo(t, n, unitName) {
-  if (unitName === 'day') return t + n * DAY;
-  if (unitName === 'week') return t + n * 7 * DAY;
-  const d = new Date(t), months = unitName === 'year' ? n * 12 : n;
-  const y = d.getUTCFullYear(), mo = d.getUTCMonth() + months;
-  const last = new Date(utc(y, mo + 1, 0)).getUTCDate();
-  return utc(y, mo, Math.min(d.getUTCDate(), last));
+function addTo(timestamp, amount, unitName) {
+  if (unitName === 'day') return timestamp + amount * DAY;
+  if (unitName === 'week') return timestamp + amount * 7 * DAY;
+  const date = new Date(timestamp), months = unitName === 'year' ? amount * 12 : amount;
+  const y = date.getUTCFullYear(), month = date.getUTCMonth() + months;
+  const last = new Date(utcTime(y, month + 1, 0)).getUTCDate();
+  return utcTime(y, month, Math.min(date.getUTCDate(), last));
 }
-const iso = (t) => new Date(t).toISOString().slice(0, 10);
-function dateCalc(s, { lang, now, zone }) {
-  const w = wall(zone, now);
-  const today = Date.UTC(w.y, w.mo, w.d);
-  let m;
-  if ((m = /^(?:days?|d[ií]as?|дней|дня) (until|till|to|hasta|до|since|desde|с|после) (\S+)$/i.exec(s))) {
-    const d = readDate(m[2], today);
-    if (d === null) return null;
-    const since = /^(since|desde|с|после)$/i.test(m[1]);
-    const count = Math.round((since ? today - d : d - today) / DAY);
-    return { kind: 'days', count, copy: String(count), expr: `${s} = ${count}` };
+const isoDate = (timestamp) => new Date(timestamp).toISOString().slice(0, 10);
+function dateCalculation(text, { lang, now, zone }) {
+  const clock = wallClock(zone, now);
+  const today = Date.UTC(clock.year, clock.month, clock.day);
+  let match;
+  if ((match = /^(?:days?|d[ií]as?|дней|дня) (until|till|to|hasta|до|since|desde|с|после) (\S+)$/i.exec(text))) {
+    const date = readDate(match[2], today);
+    if (date === null) return null;
+    const since = /^(since|desde|с|после)$/i.test(match[1]);
+    const count = Math.round((since ? today - date : date - today) / DAY);
+    return { kind: 'days', count, copy: String(count), expression: `${text} = ${count}` };
   }
-  if ((m = /^(?:days? )?between (\S+) and (\S+)$/i.exec(s)) || (m = /^d[ií]as? entre (\S+) y (\S+)$/i.exec(s))) {
-    const a = readDate(m[1], today), b = readDate(m[2], today);
-    if (a === null || b === null) return null;
-    const count = Math.abs(Math.round((b - a) / DAY));
-    return { kind: 'days', count, copy: String(count), expr: `${s} = ${count}` };
+  if ((match = /^(?:days? )?between (\S+) and (\S+)$/i.exec(text)) || (match = /^d[ií]as? entre (\S+) y (\S+)$/i.exec(text))) {
+    const firstDate = readDate(match[1], today), secondDate = readDate(match[2], today);
+    if (firstDate === null || secondDate === null) return null;
+    const count = Math.abs(Math.round((secondDate - firstDate) / DAY));
+    return { kind: 'days', count, copy: String(count), expression: `${text} = ${count}` };
   }
-  if ((m = /^(\S+) ?([+-]) ?(\d{1,5}) ?(\S+)$/.exec(s))) {
-    const d = readDate(m[1], today);
-    const u = DATE_UNITS.find(([re]) => re.test(m[4]));
-    if (d === null || !u) return null;
-    const t = addTo(d, (m[2] === '-' ? -1 : 1) * Number(m[3]), u[1]);
-    if (!Number.isFinite(t) || !inRange(t)) return null;
-    const value = dtf(lang, { timeZone: 'UTC', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).format(t);
-    return { kind: 'date', value, copy: iso(t), expr: `${s} = ${iso(t)}` };
+  if ((match = /^(\S+) ?([+-]) ?(\d{1,5}) ?(\S+)$/.exec(text))) {
+    const date = readDate(match[1], today);
+    const unitEntry = DATE_UNITS.find(([pattern]) => pattern.test(match[4]));
+    if (date === null || !unitEntry) return null;
+    const newTimestamp = addTo(date, (match[2] === '-' ? -1 : 1) * Number(match[3]), unitEntry[1]);
+    if (!Number.isFinite(newTimestamp) || !inRange(newTimestamp)) return null;
+    const value = dateTimeFormat(lang, { timeZone: 'UTC', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }).format(newTimestamp);
+    return { kind: 'date', value, copy: isoDate(newTimestamp), expression: `${text} = ${isoDate(newTimestamp)}` };
   }
   return null;
 }
 
 // ---------------------------------------------------------------- units
 // [family, symbol shown, factor to the family's base unit, ...names]. Temperatures convert by formula.
-const U = [
+const UNIT_TABLE = [
   ['length', 'mm', 1e-3, 'mm', 'millimeter', 'millimeters', 'millimetre', 'millimetres', 'мм', 'milímetros', 'milimetros'],
   ['length', 'cm', 1e-2, 'cm', 'centimeter', 'centimeters', 'centimetre', 'centimetres', 'см', 'centímetros', 'centimetros'],
   ['length', 'm', 1, 'm', 'meter', 'meters', 'metre', 'metres', 'м', 'metro', 'metros', 'метр', 'метров', 'метра', 'метры', 'метрах'],
@@ -454,63 +454,63 @@ const U = [
   ['time', 'yr', 31556952, 'yr', 'year', 'years', 'años', 'año', 'год', 'года', 'лет', 'годы', 'годах'],
 ];
 const UNITS = new Map();
-for (const [family, sym, factor, ...names] of U) {
-  const u = { family, sym, factor };
-  for (const n of names) if (!UNITS.has(n)) UNITS.set(n, u); // the first family named wins (с: Celsius before seconds)
+for (const [family, symbol, factor, ...names] of UNIT_TABLE) {
+  const definition = { family, symbol, factor };
+  for (const name of names) if (!UNITS.has(name)) UNITS.set(name, definition); // the first family named wins (с: Celsius before seconds)
 }
 // Russian "с" is listed for Celsius first; as a lone unit after a number it means seconds far more often.
 UNITS.set('с', UNITS.get('сек'));
 // Where "10 km" alone converts to.
 const DEFAULT_TO = { km: 'mi', mi: 'km', m: 'ft', ft: 'm', cm: 'in', in: 'cm', kg: 'lb', lb: 'kg', g: 'oz', oz: 'g', '°C': '°F', '°F': '°C', K: '°C', L: 'gal', gal: 'L', 'km/h': 'mph', mph: 'km/h', 'm²': 'ft²', 'ft²': 'm²', ha: 'ac', ac: 'ha' };
-const bySym = new Map(U.map(([family, sym, factor]) => [sym, { family, sym, factor }]));
+const bySymbol = new Map(UNIT_TABLE.map(([family, symbol, factor]) => [symbol, { family, symbol, factor }]));
 
 export function unitOf(name) {
-  let n = String(name || '').trim().toLowerCase().replace(/\.$/, '').replace(/²/g, '2').replace(/³/g, '3').replace(/^degrees? /, '°').replace(/^grados? /, '°').replace(/^градус(ов|а)? /, '°');
-  n = n.replace(/^(sq|square) (\S+)$/, (m, a, b) => (UNITS.has(b) && UNITS.get(b).family === 'length' ? UNITS.get(b).sym.toLowerCase() + '2' : m));
-  n = n.replace(/^cubic (\S+)$/, (m, b) => (UNITS.get(b) && UNITS.get(b).sym === 'm' ? 'm3' : m));
-  return UNITS.get(n) || UNITS.get(n.replace(/^°/, '')) || null;
+  let normalized = String(name || '').trim().toLowerCase().replace(/\.$/, '').replace(/²/g, '2').replace(/³/g, '3').replace(/^degrees? /, '°').replace(/^grados? /, '°').replace(/^градус(ов|а)? /, '°');
+  normalized = normalized.replace(/^(sq|square) (\S+)$/, (match, prefixWord, unitWord) => (UNITS.has(unitWord) && UNITS.get(unitWord).family === 'length' ? UNITS.get(unitWord).symbol.toLowerCase() + '2' : match));
+  normalized = normalized.replace(/^cubic (\S+)$/, (match, unitWord) => (UNITS.get(unitWord) && UNITS.get(unitWord).symbol === 'm' ? 'm3' : match));
+  return UNITS.get(normalized) || UNITS.get(normalized.replace(/^°/, '')) || null;
 }
-function convert(x, a, b) {
-  if (a.family !== 'temp') return (x * a.factor) / b.factor;
+function convert(x, fromUnit, toUnit) {
+  if (fromUnit.family !== 'temp') return (x * fromUnit.factor) / toUnit.factor;
   // The offsets cancel out exactly enough at 6 digits: -17.7777777778 °C is 0 °F, not -4.0E-11.
-  const add = (p, q) => addExact(p, q, 1e-10);
-  const c = a.sym === '°C' ? x : a.sym === '°F' ? add(x, -32) * 5 / 9 : add(x, -273.15);
-  return b.sym === '°C' ? c : b.sym === '°F' ? add(c * 9 / 5, 32) : add(c, 273.15);
+  const add = (first, second) => addExact(first, second, 1e-10);
+  const celsius = fromUnit.symbol === '°C' ? x : fromUnit.symbol === '°F' ? add(x, -32) * 5 / 9 : add(x, -273.15);
+  return toUnit.symbol === '°C' ? celsius : toUnit.symbol === '°F' ? add(celsius * 9 / 5, 32) : add(celsius, 273.15);
 }
-const NUM = /^(-?\d[\d.,]*)\s*(.*)$/;
-function unit(s, { lang }) {
-  const m = NUM.exec(s);
-  if (!m || !m[2]) return null;
-  const x = (m[1].startsWith('-') ? -1 : 1) * parseNumber(m[1].replace(/^-/, ''), lang);
+const NUMBER_WITH_UNIT = /^(-?\d[\d.,]*)\s*(.*)$/;
+function unit(text, { lang }) {
+  const match = NUMBER_WITH_UNIT.exec(text);
+  if (!match || !match[2]) return null;
+  const x = (match[1].startsWith('-') ? -1 : 1) * parseNumber(match[1].replace(/^-/, ''), lang);
   if (!Number.isFinite(x)) return null;
-  const words = m[2].split(' ');
+  const words = match[2].split(' ');
   let from = null, to = null;
   // "10 km in mi", "10km to miles": split at the word that joins them...
   for (let i = 1; i < words.length - 1 && !from; i++) {
     if (!CONNECT.test(words[i])) continue;
-    const a = unitOf(words.slice(0, i).join(' ')), b = unitOf(words.slice(i + 1).join(' '));
-    if (a && b && a.family === b.family) { from = a; to = b; }
+    const candidateFrom = unitOf(words.slice(0, i).join(' ')), candidateTo = unitOf(words.slice(i + 1).join(' '));
+    if (candidateFrom && candidateTo && candidateFrom.family === candidateTo.family) { from = candidateFrom; to = candidateTo; }
   }
   if (!from && words.length > 1 && CONNECT.test(words[words.length - 1])) return null; // "10 km in": still being typed
   // ...or anywhere between two units of the same kind ("5 lb kg", "10 sq ft m2")...
   for (let i = 1; i < words.length && !from; i++) {
-    const a = unitOf(words.slice(0, i).join(' ')), b = unitOf(words.slice(i).join(' '));
-    if (a && b && a.family === b.family) { from = a; to = b; }
+    const candidateFrom = unitOf(words.slice(0, i).join(' ')), candidateTo = unitOf(words.slice(i).join(' '));
+    if (candidateFrom && candidateTo && candidateFrom.family === candidateTo.family) { from = candidateFrom; to = candidateTo; }
   }
   // ...or a unit alone, to its usual counterpart ("10 km" -> miles). A bare "k" is a thousand ("10k"),
   // not kelvin: kelvin goes to °C only when it is spelt out ("300 kelvin").
   if (!from) {
-    const a = unitOf(m[2]);
-    if (!a || !DEFAULT_TO[a.sym] || /^k$/i.test(m[2])) return null;
-    from = a; to = bySym.get(DEFAULT_TO[a.sym]);
+    const bareUnit = unitOf(match[2]);
+    if (!bareUnit || !DEFAULT_TO[bareUnit.symbol] || /^k$/i.test(match[2])) return null;
+    from = bareUnit; to = bySymbol.get(DEFAULT_TO[bareUnit.symbol]);
   }
-  if (from.sym === to.sym) return null; // "10 km in km", "10 c in c"
+  if (from.symbol === to.symbol) return null; // "10 km in km", "10 c in c"
   const y = convert(x, from, to);
   if (!Number.isFinite(y)) return null;
-  const out = formatNumber(y, lang, 6), inp = formatNumber(x, lang, 12);
-  const sp = (sym) => (sym.startsWith('°') ? '' : ' ');
-  const value = out.shown + sp(to.sym) + to.sym;
-  return { kind: 'unit', value, copy: out.plain + sp(to.sym) + to.sym, expr: `${inp.shown}${sp(from.sym)}${from.sym} = ${value}`, from: from.sym, to: to.sym, family: from.family };
+  const out = formatNumber(y, lang, 6), input = formatNumber(x, lang, 12);
+  const spacer = (symbol) => (symbol.startsWith('°') ? '' : ' ');
+  const value = out.shown + spacer(to.symbol) + to.symbol;
+  return { kind: 'unit', value, copy: out.plain + spacer(to.symbol) + to.symbol, expression: `${input.shown}${spacer(from.symbol)}${from.symbol} = ${value}`, from: from.symbol, to: to.symbol, family: from.family };
 }
 
 // ---------------------------------------------------------------- arithmetic
@@ -523,132 +523,132 @@ function unit(s, { lang }) {
 //                          primary := number | pi | π | e | func primary | '(' sum ')' | '√' primary
 // Degrees, exact where the answer is (sin 180 = 0, not 1.2E-16); tan 90 has none.
 function sinDeg(x) {
-  const r = ((x % 360) + 360) % 360;
-  if (r % 90 === 0) return [0, 1, 0, -1][r / 90];
-  if (r % 60 === 30) return r < 180 ? 0.5 : -0.5; // 30, 150, 210, 330
-  return Math.sin((r * Math.PI) / 180);
+  const normalizedDegrees = ((x % 360) + 360) % 360;
+  if (normalizedDegrees % 90 === 0) return [0, 1, 0, -1][normalizedDegrees / 90];
+  if (normalizedDegrees % 60 === 30) return normalizedDegrees < 180 ? 0.5 : -0.5; // 30, 150, 210, 330
+  return Math.sin((normalizedDegrees * Math.PI) / 180);
 }
 function tanDeg(x) {
-  const r = ((x % 180) + 180) % 180;
-  if (r === 90) return NaN;
-  if (r % 45 === 0) return [0, 1, NaN, -1][r / 45];
-  return Math.tan((r * Math.PI) / 180);
+  const normalizedDegrees = ((x % 180) + 180) % 180;
+  if (normalizedDegrees === 90) return NaN;
+  if (normalizedDegrees % 45 === 0) return [0, 1, NaN, -1][normalizedDegrees / 45];
+  return Math.tan((normalizedDegrees * Math.PI) / 180);
 }
-const FUNCS = {
+const FUNCTIONS = {
   sqrt: Math.sqrt, cbrt: Math.cbrt, abs: Math.abs, floor: Math.floor, ceil: Math.ceil,
   round: (x) => Math.sign(x) * Math.round(Math.abs(x)), // half away from zero: round(-2.5) = -3
   sin: sinDeg, cos: (x) => sinDeg(x + 90), tan: tanDeg,
   ln: Math.log, log: Math.log10, exp: Math.exp,
 };
-const CONSTS = { pi: Math.PI, 'π': Math.PI, e: Math.E };
-const OF = new Set(['of', 'de', 'от', 'von', 'di', 'din', 'του']); // "15% of 80" in en, es/fr, ru, de, it, ro, el
-function tokenize(s, lang) {
+const CONSTANTS = { pi: Math.PI, 'π': Math.PI, e: Math.E };
+const OF_WORDS = new Set(['of', 'de', 'от', 'von', 'di', 'din', 'του']); // "15% of 80" in en, es/fr, ru, de, it, ro, el
+function tokenize(text, lang) {
   const out = [];
-  const src = s.replace(/[−–]/g, '-').replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/\*\*/g, '^');
-  for (let i = 0; i < src.length;) {
-    const c = src[i];
-    if (c === ' ') { i++; continue; }
-    let m;
-    if ((m = /^(\d[\d.,]*)(?:e([+-]?\d+))?/i.exec(src.slice(i)))) { // "2e10", "1e-7"; "2e" alone is 2 × e
-      const n = parseNumber(m[1], lang), x = m[2] ? Number(m[2]) : 0;
-      const v = x < 0 ? n / 10 ** -x : n * 10 ** x; // dividing keeps 1.5e-7 exact
-      if (!Number.isFinite(v)) return null;
-      out.push({ t: 'num', v });
-      i += m[0].length;
-    } else if ((m = /^\p{L}+/u.exec(src.slice(i)))) {
-      const w = m[0].toLowerCase();
-      if (OF.has(w)) out.push({ t: 'of' });
-      else if (w === 'mod') out.push({ t: 'op', v: 'mod' });
-      else if (FUNCS[w]) out.push({ t: 'fn', v: w });
-      else if (w in CONSTS) out.push({ t: 'num', v: CONSTS[w], c: true });
+  const source = text.replace(/[−–]/g, '-').replace(/[×·]/g, '*').replace(/÷/g, '/').replace(/\*\*/g, '^');
+  for (let i = 0; i < source.length;) {
+    const character = source[i];
+    if (character === ' ') { i++; continue; }
+    let match;
+    if ((match = /^(\d[\d.,]*)(?:e([+-]?\d+))?/i.exec(source.slice(i)))) { // "2e10", "1e-7"; "2e" alone is 2 × e
+      const value = parseNumber(match[1], lang), x = match[2] ? Number(match[2]) : 0;
+      const scaledValue = x < 0 ? value / 10 ** -x : value * 10 ** x; // dividing keeps 1.5e-7 exact
+      if (!Number.isFinite(scaledValue)) return null;
+      out.push({ type: 'num', value: scaledValue });
+      i += match[0].length;
+    } else if ((match = /^\p{L}+/u.exec(source.slice(i)))) {
+      const word = match[0].toLowerCase();
+      if (OF_WORDS.has(word)) out.push({ type: 'of' });
+      else if (word === 'mod') out.push({ type: 'op', value: 'mod' });
+      else if (FUNCTIONS[word]) out.push({ type: 'fn', value: word });
+      else if (word in CONSTANTS) out.push({ type: 'num', value: CONSTANTS[word], constant: true });
       else return null;
-      i += m[0].length;
-    } else if ('+-*/^%()√'.includes(c)) { out.push(c === '(' || c === ')' ? { t: c } : c === '√' ? { t: 'fn', v: 'sqrt' } : { t: 'op', v: c }); i++; }
+      i += match[0].length;
+    } else if ('+-*/^%()√'.includes(character)) { out.push(character === '(' || character === ')' ? { type: character } : character === '√' ? { type: 'fn', value: 'sqrt' } : { type: 'op', value: character }); i++; }
     else return null;
     if (out.length > 120) return null;
   }
   return out;
 }
-function parseExpr(tokens) {
-  let i = 0, depth = 0, ops = 0;
+function parseExpression(tokens) {
+  let i = 0, depth = 0, operationCount = 0;
   const peek = () => tokens[i];
-  const isOp = (v) => peek() && peek().t === 'op' && peek().v === v;
-  const startsOperand = (tk) => !!tk && (tk.t === 'num' || tk.t === '(' || tk.t === 'fn');
+  const isOperator = (operator) => peek() && peek().type === 'op' && peek().value === operator;
+  const startsOperand = (token) => !!token && (token.type === 'num' || token.type === '(' || token.type === 'fn');
   function sum() {
-    let a = product();
-    while (isOp('+') || isOp('-')) {
-      const op = tokens[i++].v; ops++;
-      const b = product();
-      const v = b.pct && !a.pct ? a.v * b.v : b.v; // 80 + 15% = 92, but 15% + 15% = 30%
-      a = { v: addExact(a.v, op === '+' ? v : -v), pct: a.pct && b.pct };
+    let total = product();
+    while (isOperator('+') || isOperator('-')) {
+      const operator = tokens[i++].value; operationCount++;
+      const operand = product();
+      const addend = operand.percent && !total.percent ? total.value * operand.value : operand.value; // 80 + 15% = 92, but 15% + 15% = 30%
+      total = { value: addExact(total.value, operator === '+' ? addend : -addend), percent: total.percent && operand.percent };
     }
-    return a;
+    return total;
   }
   function product() {
-    let a = unary();
+    let total = unary();
     for (;;) {
-      const tk = peek();
-      if (tk && tk.t === 'op' && (tk.v === '*' || tk.v === '/' || tk.v === '%' || tk.v === 'mod')) {
-        i++; ops++;
-        const b = unary(); // "mod" is always modulo, so "10 mod -3" works
-        a = { v: tk.v === '*' ? a.v * b.v : tk.v === '/' ? a.v / b.v : a.v % b.v };
-      } else if (tk && tk.t === 'of') { // 15% of 80; "1 of 3" is a title, not a product
-        if (!a.pct) throw new Error('of');
-        i++; ops++;
-        const b = unary();
-        a = { v: a.v * b.v, pct: b.pct }; // 50% of 50% is 25%
-      } else if (tk && (tk.t === '(' || tk.t === 'fn' || (tk.t === 'num' && tk.c))) { // 2pi, 3(4 + 1), 2 sqrt 9
-        ops++;
-        a = { v: a.v * unary().v };
-      } else return a;
+      const token = peek();
+      if (token && token.type === 'op' && (token.value === '*' || token.value === '/' || token.value === '%' || token.value === 'mod')) {
+        i++; operationCount++;
+        const operand = unary(); // "mod" is always modulo, so "10 mod -3" works
+        total = { value: token.value === '*' ? total.value * operand.value : token.value === '/' ? total.value / operand.value : total.value % operand.value };
+      } else if (token && token.type === 'of') { // 15% of 80; "1 of 3" is a title, not a product
+        if (!total.percent) throw new Error('of');
+        i++; operationCount++;
+        const operand = unary();
+        total = { value: total.value * operand.value, percent: operand.percent }; // 50% of 50% is 25%
+      } else if (token && (token.type === '(' || token.type === 'fn' || (token.type === 'num' && token.constant))) { // 2pi, 3(4 + 1), 2 sqrt 9
+        operationCount++;
+        total = { value: total.value * unary().value };
+      } else return total;
     }
   }
   function unary() {
-    if (isOp('-')) { i++; const x = unary(); return { v: -x.v, pct: x.pct }; }
-    if (isOp('+')) { i++; return unary(); }
+    if (isOperator('-')) { i++; const x = unary(); return { value: -x.value, percent: x.percent }; }
+    if (isOperator('+')) { i++; return unary(); }
     return power();
   }
   function power() {
-    const a = postfix();
-    if (!isOp('^')) return a;
-    i++; ops++;
-    const b = unary(); // right-associative, and 2^-1 works
-    return { v: a.v ** b.v };
+    const baseValue = postfix();
+    if (!isOperator('^')) return baseValue;
+    i++; operationCount++;
+    const exponent = unary(); // right-associative, and 2^-1 works
+    return { value: baseValue.value ** exponent.value };
   }
   function postfix() {
-    const a = primary();
+    const value = primary();
     // "15%" is a percentage unless an operand follows ("10 % 3" is modulo).
-    if (isOp('%') && !startsOperand(tokens[i + 1])) { i++; ops++; return { v: a.v / 100, pct: true }; }
-    return a;
+    if (isOperator('%') && !startsOperand(tokens[i + 1])) { i++; operationCount++; return { value: value.value / 100, percent: true }; }
+    return value;
   }
   function primary() {
-    const tk = tokens[i++];
-    if (!tk) throw new Error('end');
-    if (tk.t === 'num') return { v: tk.v };
-    if (tk.t === 'fn') { ops++; if (++depth > 60) throw new Error('deep'); const x = FUNCS[tk.v](tk.t === 'fn' && peek() && peek().t === '(' ? primary().v : unary().v); depth--; return { v: x }; }
-    if (tk.t === '(') {
+    const token = tokens[i++];
+    if (!token) throw new Error('end');
+    if (token.type === 'num') return { value: token.value };
+    if (token.type === 'fn') { operationCount++; if (++depth > 60) throw new Error('deep'); const x = FUNCTIONS[token.value](token.type === 'fn' && peek() && peek().type === '(' ? primary().value : unary().value); depth--; return { value: x }; }
+    if (token.type === '(') {
       if (++depth > 60) throw new Error('deep');
-      const a = sum();
-      if (!peek() || peek().t !== ')') throw new Error('paren');
+      const value = sum();
+      if (!peek() || peek().type !== ')') throw new Error('paren');
       i++; depth--;
-      return { v: a.v };
+      return { value: value.value };
     }
     throw new Error('unexpected');
   }
-  const r = sum();
+  const result = sum();
   if (i !== tokens.length) throw new Error('trailing');
-  return { v: r.v, ops };
+  return { value: result.value, operationCount };
 }
 // YYYY-MM-DD, YYYY/MM/DD, or DD/MM/YYYY (MM/DD/YYYY) written without spaces, anywhere in the text.
 const DATE_LIKE = /(?:^|[^\d.,])(?:\d{4}([-/])\d{1,2}\1\d{1,2}|\d{1,2}\/\d{1,2}\/\d{4})(?![\d.,])/;
-function calc(s, { lang }) {
-  if (/^\d+(-\d+)+$/.test(s)) return null; // a date or a phone number ("555-1234"), not a sum: "7 - 3" has spaces
-  if (DATE_LIKE.test(s)) return null; // "2026-10-21 - 2026-01-01", "2024-01-05 + 3", "12/25/2024": dates, not sums
-  const tokens = tokenize(s, lang);
+function calculate(text, { lang }) {
+  if (/^\d+(-\d+)+$/.test(text)) return null; // a date or a phone number ("555-1234"), not a sum: "7 - 3" has spaces
+  if (DATE_LIKE.test(text)) return null; // "2026-10-21 - 2026-01-01", "2024-01-05 + 3", "12/25/2024": dates, not sums
+  const tokens = tokenize(text, lang);
   if (!tokens || !tokens.length) return null;
-  const lone = tokens.length === 1 && tokens[0].c && /^(pi|π)$/i.test(s);
-  const r = parseExpr(tokens);
-  if ((!r.ops && !lone) || !Number.isFinite(r.v)) return null;
-  const { shown, plain } = formatNumber(r.v, lang, 12);
-  return { kind: 'calc', value: shown, copy: plain, expr: `${s} = ${shown}` };
+  const lone = tokens.length === 1 && tokens[0].constant && /^(pi|π)$/i.test(text);
+  const result = parseExpression(tokens);
+  if ((!result.operationCount && !lone) || !Number.isFinite(result.value)) return null;
+  const { shown, plain } = formatNumber(result.value, lang, 12);
+  return { kind: 'calculation', value: shown, copy: plain, expression: `${text} = ${shown}` };
 }

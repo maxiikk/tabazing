@@ -20,8 +20,8 @@ describe('asUrl', () => {
     expect(asUrl('my-site.dev#top')).toBe('https://my-site.dev#top');
   });
   it('anything else is not an address', () => {
-    for (const s of ['', null, undefined, 'hello', 'how to cook rice', 'example .com', 'node.js tutorial', 'v1.2', 'a.b1']) {
-      expect(asUrl(s), String(s)).toBeNull();
+    for (const input of ['', null, undefined, 'hello', 'how to cook rice', 'example .com', 'node.js tutorial', 'v1.2', 'a.b1']) {
+      expect(asUrl(input), String(input)).toBeNull();
     }
   });
 });

@@ -13,28 +13,28 @@
   },
   "commands": {
     "open-switcher": {
-      "description": "__MSG_cmdOpen__",
+      "description": "__MSG_commandOpen__",
       "suggested_key": {
         "default": "Alt+Q",
         "mac": "Alt+Q"
       }
     },
     "open-switcher-reverse": {
-      "description": "__MSG_cmdReverse__",
+      "description": "__MSG_commandReverse__",
       "suggested_key": {
         "default": "Alt+W",
         "mac": "Alt+W"
       }
     },
     "open-switcher-stay": {
-      "description": "__MSG_cmdStay__",
+      "description": "__MSG_commandStay__",
       "suggested_key": {
         "default": "Alt+E",
         "mac": "Alt+E"
       }
     },
     "open-palette": {
-      "description": "__MSG_cmdPalette__",
+      "description": "__MSG_commandPalette__",
       "suggested_key": {
         "default": "Alt+R",
         "mac": "Alt+R"
@@ -83,7 +83,7 @@
     "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
   },
   "default_locale": "en",
-  "description": "__MSG_extDesc__",
+  "description": "__MSG_extensionDescription__",
   "host_permissions": [
     "<all_urls>"
   ],
@@ -96,7 +96,7 @@
   "incognito": "not_allowed",
   "manifest_version": 3,
   "minimum_chrome_version": "123",
-  "name": "__MSG_extName__",
+  "name": "__MSG_extensionName__",
   "permissions": [
     "tabs",
     "storage",
@@ -109,8 +109,8 @@
     "history",
     "tabGroups"
   ],
-  "short_name": "__MSG_extShortName__",
-  "version": "6.16.5",
+  "short_name": "__MSG_extensionShortName__",
+  "version": "6.16.6",
   "web_accessible_resources": [
     {
       "matches": [
