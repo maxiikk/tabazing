@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.16.1] - 2026-10-22
+
+### Added
+
+- Tabazing is open source under the MIT License (the LICENSE file); the bundled Roboto font keeps its SIL Open Font License.
+
 ## [6.16.0] - 2026-10-22
 
 ### Changed
@@ -636,7 +642,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.16.0]: https://github.com/maxiikk/tabazing/compare/bdd206e...HEAD
+[6.16.1]: https://github.com/maxiikk/tabazing/compare/1009dfe...HEAD
+[6.16.0]: https://github.com/maxiikk/tabazing/compare/bdd206e...1009dfe
 [6.15.0]: https://github.com/maxiikk/tabazing/compare/1f3e285...bdd206e
 [6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...1f3e285
 [6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...19f50c5

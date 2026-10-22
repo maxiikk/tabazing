@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.16.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.16.1** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -17,6 +17,7 @@ Made by **[MaxiiKK](https://github.com/maxiikk)**.
 3. [Feature guide](#feature-guide)
 4. [Privacy and permissions](#privacy-and-permissions)
 5. [Development](#development)
+6. [License](#license)
 
 ---
 
@@ -591,3 +592,9 @@ See `CLAUDE.md` for the full rules. In short, every finished change is committed
 2. Bumps `"version"` in `manifest.json`: **major** for breaking changes (removed or renamed shortcuts, storage changes without migration, dropped permissions), **minor** for new features, **patch** for fixes, performance, styling, copy and refactors.
 3. Adds an entry to [CHANGELOG.md](CHANGELOG.md), following [Keep a Changelog](https://keepachangelog.com).
 4. Uses the message format `<type>: <summary>`, then a blank line and `v<version> (<major|minor|patch>)`, where type is `feat`, `fix`, `perf`, `style`, `refactor`, `chore` or `i18n`. Then it is pushed to `origin master`.
+
+## License
+
+Tabazing is open source under the [MIT License](LICENSE): you may use, copy, change and share it, as long as the copyright and license notice stay with it. Copyright (c) 2026 MaxiiKK.
+
+The bundled Roboto font (`styles/fonts/`) keeps its own license, the [SIL Open Font License 1.1](styles/fonts/OFL.txt).
