@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.16.6** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.17.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -84,6 +84,8 @@ Each open tab is a card that shows the page title, its favicon and a screenshot 
 
 - Chrome only lets extensions screenshot the tab that is currently on screen. Tabazing takes a picture every time you look at a tab, so previews fill in as you use your tabs. A tab you have not looked at since Chrome started shows its icon and "No preview yet".
 - Right after Tabazing opens, the previews of the cards that fit on the screen are read first; the others follow a moment later. Until a card's preview arrives it shows just its icon on a plain tile.
+- **Lite mode** (Settings → Cards → **Lite mode**): every card shows its page's icon instead of a screenshot, no screenshots are taken at all, and nothing animates. Lighter on slow computers and with hundreds of tabs.
+- With more than 48 open cards, the default card size uses slightly narrower cards, so more fit on the screen.
 - **Pinned tabs come first**, followed by the rest in the order you chose under [Sort](#sort-and-filters). Settings → **Pinned tabs first** turns this off.
 - The **first nine cards are numbered**. Press **Alt+number** (⌥+number on a Mac) to switch to that tab.
 - Titles get **two lines** on the default-size cards (Settings → **Title lines** → One line keeps them to one; small cards always use one).

@@ -356,6 +356,8 @@
   "settingsLines": "Líneas del título",
   "settingsLines1": "Una línea",
   "settingsLines2": "Dos líneas",
+  "settingsLite": "Modo ligero",
+  "settingsLiteNote": "Las páginas muestran su icono en lugar de una captura, no se toman capturas y nada se anima. Más ligero en ordenadores lentos y con cientos de pestañas.",
   "settingsPinnedFirst": "Pestañas fijadas primero",
   "settingsShowClosed": "Mostrar Cerradas recientemente",
   "settingsShowSnoozed": "Mostrar Pospuestas",

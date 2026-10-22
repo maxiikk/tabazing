@@ -356,6 +356,8 @@
   "settingsLines": "أسطر العنوان",
   "settingsLines1": "سطر واحد",
   "settingsLines2": "سطران",
+  "settingsLite": "الوضع الخفيف",
+  "settingsLiteNote": "تعرض الصفحات أيقونتها بدلًا من لقطة شاشة، ولا تُلتقط أي لقطات، ولا شيء يتحرك. أخف على أجهزة الكمبيوتر البطيئة ومع مئات علامات التبويب.",
   "settingsPinnedFirst": "علامات التبويب المثبتة أولًا",
   "settingsShowClosed": "إظهار «المغلقة مؤخرًا»",
   "settingsShowSnoozed": "إظهار «المؤجلة»",

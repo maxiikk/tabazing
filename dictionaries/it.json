@@ -356,6 +356,8 @@
   "settingsLines": "Righe del titolo",
   "settingsLines1": "Una riga",
   "settingsLines2": "Due righe",
+  "settingsLite": "Modalità leggera",
+  "settingsLiteNote": "Le pagine mostrano la loro icona invece di uno screenshot, non vengono acquisiti screenshot e niente è animato. Più leggera sui computer lenti e con centinaia di schede.",
   "settingsPinnedFirst": "Prima le schede bloccate",
   "settingsShowClosed": "Mostra Chiuse di recente",
   "settingsShowSnoozed": "Mostra Posticipate",

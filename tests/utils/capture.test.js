@@ -203,6 +203,17 @@ describe('scheduleCapture / cancelCapture', () => {
   });
 });
 
+describe('Lite mode (Settings)', () => {
+  it('takes no screenshot: not after a tab switch, not as Tabazing opens', async () => {
+    const { w: testWindow } = page();
+    localData().set('prefs', { lite: true });
+    await capture.captureWindow(testWindow.id);
+    expect(await capture.grabForOpen(testWindow.id)).toBe(null);
+    expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();
+    expect(localData().has(previewKey('https://a.com/x'))).toBe(false);
+  });
+});
+
 describe('grabForOpen', () => {
   it('returns the tab and the raw screenshot without storing it', async () => {
     const { w: testWindow, t: tab } = page();

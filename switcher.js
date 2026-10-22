@@ -32,6 +32,24 @@ import { asUrl, googleUrl } from './utils/web.js';
 import { quick } from './utils/quick.js';
 import { GROUP_COLORS, putInGroup, cleanGroup, groupOf } from './utils/groups.js';
 
+// ----------------------------------------------------------------- timings
+// How long opening takes, as performance marks and measures (DevTools > Performance, or timings() below):
+//   tabazing:module    page start -> this script running (loading and parsing the code and the dictionaries)
+//   tabazing:cards     launched -> the first cards drawn (an overlay is prepared ahead and waits for its launch)
+//   tabazing:render    the first draw itself (building the cards and laying them out), launched or not
+//   tabazing:previews  launched -> every open tab's preview drawn
+//   tabazing:search    a keystroke in the search box -> its results drawn (the last one)
+const mark = (name) => { try { performance.clearMarks('tabazing:' + name); performance.mark('tabazing:' + name); } catch {} };
+const measure = (name, from) => { try { performance.clearMeasures('tabazing:' + name); performance.measure('tabazing:' + name, from && 'tabazing:' + from, 'tabazing:' + name + '-end'); } catch {} };
+const markEnd = (name, from) => { mark(name + '-end'); measure(name, from); };
+/** The measured times in milliseconds (rounded), by name: { module, render, cards, previews, search }. */
+function timings() {
+  const out = {};
+  for (const entry of performance.getEntriesByType('measure')) if (entry.name.startsWith('tabazing:')) out[entry.name.slice(9)] = Math.round(entry.duration);
+  return out;
+}
+markEnd('module');
+
 let CONTEXT = null; // set once the launch token has been verified (see boot)
 
 const byId = (id) => document.getElementById(id);
@@ -224,8 +242,12 @@ function svgOf(markup) {
 // out (state.pvPending): at boot only the first cards' are read before the first draw (loadPreviews).
 const PREFERENCES_FALLBACK = {
   lang: 'auto', cardSize: 'default', allWindows: false, theme: 'system', pinnedFirst: true, showClosed: true, showSnoozed: true, showGroups: true, groupWrap: false,
-  showAge: true, ownWindow: false, titleLines: 2, searchHistory: true, searchBookmarks: true, iconTips: 0,
+  showAge: true, ownWindow: false, titleLines: 2, searchHistory: true, searchBookmarks: true, lite: false, iconTips: 0,
 };
+// Settings -> Lite mode: each card shows its page's icon, never a screenshot (none are read, or taken), and
+// nothing animates. For slow computers and windows with hundreds of tabs.
+const isLite = () => preference('lite') === true;
+const readPreviews = (urls) => (isLite() ? Promise.resolve({}) : getPreviews(urls));
 async function load(preferences = null, { previews = true } = {}) {
   const preferencesRead = preferences ? Promise.resolve(preferences) : getPreferences().catch(() => PREFERENCES_FALLBACK);
   const tabsRead = preferencesRead.then((resolvedPreferences) => chrome.tabs.query(resolvedPreferences.allWindows ? { windowType: 'normal' } : { windowId: CONTEXT.sourceWindow }));
@@ -238,7 +260,7 @@ async function load(preferences = null, { previews = true } = {}) {
     getStars().catch(() => ({})),
     getView().catch(() => null),
     getNotes().catch(() => ({})),
-    previews ? tabsRead.then((all) => getPreviews(all.map(urlOf))).catch(() => ({})) : {}, // previews are stored by URL
+    previews ? Promise.all([tabsRead, preferencesRead]).then(([all, read]) => (read.lite ? {} : getPreviews(all.map(urlOf)))).catch(() => ({})) : {}, // previews are stored by URL
     chrome.windows.getAll({ windowTypes: ['normal'] }).catch(() => []),
     getSnoozed().catch(() => []),
     getWoken().catch(() => ({})),
@@ -312,7 +334,7 @@ async function load(preferences = null, { previews = true } = {}) {
 async function loadPreviews(tabs) {
   tabs = tabs.filter((x) => state.previewPending.has(x.id));
   if (!tabs.length) return [];
-  const byUrl = await getPreviews(tabs.map(urlOf)).catch(() => ({}));
+  const byUrl = await readPreviews(tabs.map(urlOf)).catch(() => ({}));
   for (const x of tabs) {
     state.previewPending.delete(x.id);
     const preview = byUrl[normalizeUrl(urlOf(x))];
@@ -348,14 +370,14 @@ async function loadExtras() {
   await Promise.all([archivedPromise, loadClosed(archivedPromise), loadStarPreviews(), loadSnoozePreviews(), loadMediaPreviews()]);
 }
 async function loadSnoozePreviews() {
-  state.snoozePreviews = await getPreviews(state.snoozed.map((x) => x.url)).catch(() => ({}));
+  state.snoozePreviews = await readPreviews(state.snoozed.map((x) => x.url)).catch(() => ({}));
 }
 
 // Previews of starred pages that no tab has open (shown under the Starred filter).
 async function loadStarPreviews() {
   const open = new Set(state.tabs.map((tab) => normalizeUrl(urlOf(tab))));
   const urls = Object.entries(state.stars).filter(([key]) => !open.has(key)).map(([, starEntry]) => starEntry.u).slice(0, LIMITS.CLOSED_PREVIEW_LOOKUP);
-  state.starPreviews = await getPreviews(urls).catch(() => ({}));
+  state.starPreviews = await readPreviews(urls).catch(() => ({}));
 }
 
 // "Recently closed" merges Chrome's list (only the last 25, restores a tab with
@@ -415,7 +437,7 @@ async function loadClosed(before) {
   const shows = (it) => { const at = hidden[closedKey(it)]; return !at || (it.timestamp > 0 && it.timestamp > at); };
   const merged = [...items.filter((it) => it.kind === 'window'), ...best.values()].filter(shows).sort((firstItem, secondItem) => rank(secondItem) - rank(firstItem));
 
-  const previews = await getPreviews(merged.slice(0, LIMITS.CLOSED_PREVIEW_LOOKUP).map((it) => it.url));
+  const previews = await readPreviews(merged.slice(0, LIMITS.CLOSED_PREVIEW_LOOKUP).map((it) => it.url));
   for (const it of merged) it.preview = previews[normalizeUrl(it.url)] || null;
   state.closed = merged;
 }
@@ -787,6 +809,9 @@ const tickChanged = (before) => (entry) => cardTabs(entry).some((x) => before.ha
 // can't fill one row keep a sensible size instead of stretching across the screen.
 const GRID_GAP = 18;  // .grid column gap in switcher.css
 const CARD_SIZES = { default: [320, 240, 420], small: [210, 160, 240], list: [300, 220, 360] }; // [preferred, smallest, few tabs]
+// Past this many cards the default size prefers narrower cards (MANY_CARDS_WIDTH): more fit on the screen, and each
+// picture costs less to draw.
+const MANY_CARDS = 48, MANY_CARDS_WIDTH = 260;
 function cardWidth(cardCount) {
   // The layout width, fractional and rounded down: clientWidth rounds (half a pixel too many wraps the last
   // card), and getBoundingClientRect() is the on-screen size, which the opening pop-in scales to 96%.
@@ -796,7 +821,8 @@ function cardWidth(cardCount) {
 }
 // How many cards fit across `avail` px near the preferred size, and how wide each then is.
 function gridColumns(availableWidth) {
-  const [want, minimumWidth] = CARD_SIZES[state.cardSize] || CARD_SIZES.default;
+  const [preferred, minimumWidth] = CARD_SIZES[state.cardSize] || CARD_SIZES.default;
+  const want = state.cardSize === 'default' && state.cardCount > MANY_CARDS ? MANY_CARDS_WIDTH : preferred;
   let columns = Math.max(1, Math.round((availableWidth + GRID_GAP) / (want + GRID_GAP)));
   while (columns > 1 && (availableWidth - GRID_GAP * (columns - 1)) / columns < minimumWidth) columns--;
   return { columns, width: (availableWidth - GRID_GAP * (columns - 1)) / columns };
@@ -900,8 +926,8 @@ function shotImage(entry) {
 // that says "no preview" or offers to capture one.
 function thumbFor(entry, { label, subtitle, icon, action, loading = false, bare = false }) {
   const thumb = makeElement('div', 'thumb', null, 'card-thumb');
-  if (loading) {
-    const box = makeElement('div', 'no-preview loading', null, 'card-loading');
+  if (loading || isLite()) { // (Lite mode: always the page's icon on a plain tile)
+    const box = makeElement('div', 'no-preview loading', null, isLite() ? 'card-icon-only' : 'card-loading');
     const tile = makeElement('div', 'tile', null, 'card-tile');
     const image = makeElement('img', '', null, 'card-tile-favicon');
     image.src = favicon(entry.url);
@@ -1673,7 +1699,7 @@ async function captureOne(entry) {
   state.capturing = null;
   if (state.done) return;
   window.focus();
-  const fetchedPreviews = await getPreviews([urlOf(tab)]).catch(() => ({}));
+  const fetchedPreviews = await readPreviews([urlOf(tab)]).catch(() => ({}));
   const preview = fetchedPreviews[normalizeUrl(urlOf(tab))];
   if (preview) state.previews[tab.id] = preview;
   else { // Chrome refused (or the page never finished loading): say so instead of doing nothing
@@ -2434,6 +2460,7 @@ function flushSearch() {
   renderDropdown();
   renderCount();
   renderActions();
+  markEnd('search', 'keystroke');
 }
 const dropdownShown = () => !state.palette && !state.dropdown.hidden && state.dropdown.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
 
@@ -3408,7 +3435,7 @@ function mediaPicture(mediaItem, testid) {
 async function loadMediaPreviews() {
   const want = state.media.filter((mediaItem) => !state.previews[mediaItem.tabId] && !state.previewPending.has(mediaItem.tabId) && !(normalizeUrl(urlOf(mediaItem.tab)) in state.mediaPreviews));
   if (!want.length) return;
-  const previews = await getPreviews(want.map((mediaItem) => urlOf(mediaItem.tab))).catch(() => ({}));
+  const previews = await readPreviews(want.map((mediaItem) => urlOf(mediaItem.tab))).catch(() => ({}));
   for (const mediaItem of want) { const key = normalizeUrl(urlOf(mediaItem.tab)); state.mediaPreviews[key] = previews[key] || null; }
 }
 function paintToggle(button, playing) {
@@ -3604,7 +3631,7 @@ function mediaButton(testid, mediaItem, action) {
 // "Archived" section) takes it out of the folder and opens it in a new tab.
 async function loadArchived() {
   state.archived = await getArchived().catch(() => []);
-  state.archivePreviews = await getPreviews(state.archived.map((x) => x.url)).catch(() => ({}));
+  state.archivePreviews = await readPreviews(state.archived.map((x) => x.url)).catch(() => ({}));
 }
 async function archiveTabs(tabs) {
   const reopenableTabs = tabs.filter((x) => isWorthReopening(urlOf(x)));
@@ -4143,7 +4170,7 @@ async function refreshHistory({ keepQ = false } = {}) {
   historyView.query = query;
   historyView.limit = HISTORY_PAGE;
   const result = await fetchHistory(historyView.limit, query, rangeStart(historyView.range.value)).catch(() => ({ items: [], more: false, capped: false }));
-  const previews = await getPreviews(result.items.map((x) => x.url)).catch(() => ({}));
+  const previews = await readPreviews(result.items.map((x) => x.url)).catch(() => ({}));
   if (state.historyView !== historyView || historyView.query !== query) return; // typed on meanwhile
   historyView.items = [];
   historyView.picked.clear();
@@ -4230,7 +4257,7 @@ async function moreHistory({ select = true } = {}) {
     historyView.limit += HISTORY_PAGE;
     const query = historyView.query;
     const result = await fetchHistory(historyView.limit, query, rangeStart(historyView.range.value));
-    const previews = await getPreviews(result.items.map((x) => x.url)).catch(() => ({}));
+    const previews = await readPreviews(result.items.map((x) => x.url)).catch(() => ({}));
     if (state.historyView !== historyView || !historyOpen() || historyView.query !== query) return;
     historyView.more = result.more;
     const first = historyView.items.length;
@@ -4779,7 +4806,7 @@ async function loadBookmarksViewPreviews(ids) {
   const want = ids.map((id) => bookmarksView.byId.get(id)).filter((node) => node && node.url && !bookmarksView.asked.has(node.id));
   if (!want.length) return;
   want.forEach((node) => bookmarksView.asked.add(node.id));
-  const previews = await getPreviews(want.map((node) => node.url)).catch(() => ({}));
+  const previews = await readPreviews(want.map((node) => node.url)).catch(() => ({}));
   if (state.bookmarksView !== bookmarksView) return;
   Object.assign(bookmarksView.previews, previews);
   for (const node of want) {
@@ -5709,7 +5736,7 @@ function openBig(entry) {
   x.setAttribute('aria-label', translate('bigClose'));
   x.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) closeBig(); });
   let shot;
-  if (entry.preview && entry.preview.img) {
+  if (!isLite() && entry.preview && entry.preview.img) {
     // The card's small copy at once, then the sharp copy of the same capture as soon as it is read.
     shot = makeElement('img', 'big-shot', null, 'big-preview-image');
     shot.src = entry.preview.img;
@@ -6633,7 +6660,7 @@ function updateSweepButton() {
   const count = missingPreviews().length;
   const max = LIMITS.SWEEP_MAX_TABS;
   const scoped = state.scope !== 'all' || state.starOnly || state.query;
-  elements.sweepButton.hidden = !state.hostAllowed || count === 0;
+  elements.sweepButton.hidden = !state.hostAllowed || count === 0 || isLite();
   const label = count > max ? translate('sweepFirst', { count, max }) : translate(scoped ? 'sweepThese' : 'sweepAll', { count });
   elements.sweepText.textContent = String(count);
   elements.sweepButton.setAttribute('aria-label', label);
@@ -6677,6 +6704,8 @@ async function healthCheck() {
 // OS and changes with it.
 const lightMediaQuery = matchMedia('(prefers-color-scheme: light)');
 let themePreference = 'system';
+// Lite mode on the page: html.lite turns off the animations and the shadows (switcher.css).
+function applyLite(on = isLite()) { document.documentElement.classList.toggle('lite', on); }
 function applyTheme(value) {
   themePreference = ['light', 'dark'].includes(value) ? value : 'system';
   document.documentElement.classList.toggle('light', themePreference === 'light' || (themePreference === 'system' && lightMediaQuery.matches));
@@ -6959,7 +6988,8 @@ function settingsPanes(preferences, anchor) {
     look: pane('look', field(translate('settingsLanguage'), 'settings-language-label', lang), field(translate('settingsTheme'), 'settings-theme-label', theme),
       field(translate('settingsAccent'), 'settings-accent-label', accents), field(translate('settingsSize'), 'settings-card-size-label', size),
       field(translate('settingsLines'), 'settings-title-lines-label', lines)),
-    cards: pane('cards', check('pinnedFirst', translate('settingsPinnedFirst'), 'pinned-first', () => refresh()), shows('showAge', translate('settingsShowAge'), 'show-age'),
+    cards: pane('cards', check('lite', translate('settingsLite'), 'lite', async () => { applyLite(); await reload(); }), fine(translate('settingsLiteNote'), 'settings-lite-note'),
+      check('pinnedFirst', translate('settingsPinnedFirst'), 'pinned-first', () => refresh()), shows('showAge', translate('settingsShowAge'), 'show-age'),
       shows('showClosed', translate('settingsShowClosed'), 'show-closed'), shows('showSnoozed', translate('settingsShowSnoozed'), 'show-snoozed'),
       // Off: out of the group view too, for good (turned on again later, it doesn't jump back into a group).
       check('showGroups', translate('settingsShowGroups'), 'show-groups', async () => { if (state.group !== null) { state.group = null; await setGroup(null).catch(() => {}); } refresh(); }),
@@ -7407,6 +7437,7 @@ function listen() {
   window.addEventListener('keyup', onKeyUp, true);
   elements.search.addEventListener('beforeinput', (event) => { if (altDown) event.preventDefault(); });
   elements.search.addEventListener('input', () => {
+    mark('keystroke');
     if (altDown && elements.search.value !== state.query) { elements.search.value = state.query; return; } // slipped through anyway
     // '>' first: the command palette, with whatever followed it; the box keeps what it had.
     if (elements.search.value.startsWith('>')) {
@@ -7581,6 +7612,7 @@ function getLaunch() {
   // issued (e.g. a website framing it) gets an empty page and no listeners.
   CONTEXT = await getLaunch();
   if (!CONTEXT) return;
+  mark('launched');
   state.holding = CONTEXT.hold; // Alt+Q / Alt+W: letting go of Alt will switch...
   document.documentElement.classList.toggle('alttab', CONTEXT.hold); // ...and what needs typing is hidden meanwhile
   document.documentElement.classList.add(CONTEXT.mode);
@@ -7589,6 +7621,7 @@ function getLaunch() {
   setLang(bootPreferences.lang);
   applyAccent(bootPreferences.accent);
   applyTheme(bootPreferences.theme);
+  applyLite(bootPreferences.lite === true);
   localizePage();
   fancySelect(elements.sort);
   listen();
@@ -7641,8 +7674,11 @@ function getLaunch() {
   derive(); // (the cards' entries carry their previews)
   state.media = await mediaRead;
   elements.app.hidden = false;
+  mark('render-start');
   render();
-  loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); });
+  markEnd('render', 'render-start');
+  requestAnimationFrame(() => markEnd('cards', 'launched'));
+  loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); requestAnimationFrame(() => markEnd('previews', 'launched')); });
   if (CONTEXT.mode === 'overlay') {
     parent.postMessage({ tabazing: FRAME_MESSAGE.READY, light: document.documentElement.classList.contains('light') }, '*');
     readyAt = performance.now();
@@ -7694,7 +7730,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,

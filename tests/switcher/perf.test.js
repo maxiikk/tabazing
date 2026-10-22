@@ -222,3 +222,37 @@ describe('reading', () => {
     expect(switcher.state.closed).toEqual([]);
   });
 });
+
+describe('Lite mode (Settings)', () => {
+  it('reads no previews and shows each page\'s icon; no animations (html.lite), no "Capture all" button', async () => {
+    const tabs = many(5);
+    await boot({
+      tabs, preferences: { lite: true },
+      beforeImport: () => chrome.storage.local.set(Object.fromEntries(tabs.map((x, i) => ['pv:' + x.url, { img: IMAGE, t: 1000 + i }]))),
+    });
+    await tick(50);
+    expect(previewReads()).toEqual([]);
+    expect(allByTestId('card-preview')).toHaveLength(0);
+    expect(allByTestId('card-icon-only')).toHaveLength(5);
+    expect(document.documentElement.classList.contains('lite')).toBe(true);
+    expect(byTestId('sweep-button').hidden).toBe(true);
+  });
+});
+
+describe('many cards', () => {
+  it('past MANY_CARDS cards, the default size prefers narrower cards (more fit, each costs less to draw)', async () => {
+    const switcher = await boot({ tabs: ABC() });
+    switcher.state.cardSize = 'default';
+    switcher.state.cardCount = 10;
+    const few = switcher.gridColumns(1280);
+    switcher.state.cardCount = switcher.MANY_CARDS + 1;
+    const lots = switcher.gridColumns(1280);
+    expect(lots.columns).toBeGreaterThan(few.columns);
+    expect(Math.round((1280 + 18) / (switcher.MANY_CARDS_WIDTH + 18))).toBe(lots.columns);
+    switcher.state.cardSize = 'small'; // the other sizes are as chosen
+    const small = switcher.gridColumns(1280);
+    switcher.state.cardCount = 10;
+    expect(switcher.gridColumns(1280)).toEqual(small);
+  });
+});
+

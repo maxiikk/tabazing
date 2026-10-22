@@ -110,7 +110,7 @@
     "tabGroups"
   ],
   "short_name": "__MSG_extensionShortName__",
-  "version": "6.16.6",
+  "version": "6.17.0",
   "web_accessible_resources": [
     {
       "matches": [

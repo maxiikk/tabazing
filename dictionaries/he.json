@@ -356,6 +356,8 @@
   "settingsLines": "שורות כותרת",
   "settingsLines1": "שורה אחת",
   "settingsLines2": "שתי שורות",
+  "settingsLite": "מצב קל",
+  "settingsLiteNote": "הדפים מציגים את הסמל שלהם במקום צילום מסך, לא מצולמים צילומי מסך ושום דבר לא זז. קל יותר במחשבים איטיים ועם מאות כרטיסיות.",
   "settingsPinnedFirst": "כרטיסיות מוצמדות קודם",
   "settingsShowClosed": "הצגת “נסגרו לאחרונה”",
   "settingsShowSnoozed": "הצגת “נדחו”",

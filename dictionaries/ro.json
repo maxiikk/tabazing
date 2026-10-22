@@ -356,6 +356,8 @@
   "settingsLines": "Rânduri de titlu",
   "settingsLines1": "Un rând",
   "settingsLines2": "Două rânduri",
+  "settingsLite": "Mod ușor",
+  "settingsLiteNote": "Paginile își arată pictograma în locul unei capturi, nu se fac capturi și nimic nu se animă. Mai ușor pe calculatoare lente și cu sute de file.",
   "settingsPinnedFirst": "Filele fixate primele",
   "settingsShowClosed": "Afișează Închise recent",
   "settingsShowSnoozed": "Afișează Amânate",

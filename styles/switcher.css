@@ -277,17 +277,21 @@ main {
 .card:hover { border-color: var(--md-outline); box-shadow: var(--elevation-2); }
 /* The selected card (where the keyboard is) rises a little, its edge turns the accent and a soft halo of it goes
    round, over a diffuse shadow; the other cards' pictures step back. A shadow, not an outline: the grid gaps never clip
-   it. The rise is `translate` and the dimming filter: opacity(), off the opening animation's transform and opacity. */
-.card { transition: translate .22s var(--ease-out), box-shadow .18s var(--ease), border-color .15s var(--ease), background-color .15s var(--ease), filter .2s var(--ease); }
+   it. The rise is `translate`; the other pictures are dimmed with opacity (cheaper to paint than a filter on every card). */
+.card { transition: translate .22s var(--ease-out), box-shadow .18s var(--ease), border-color .15s var(--ease), background-color .15s var(--ease), opacity .2s var(--ease); }
 .card[aria-selected="true"] {
   z-index: 2; translate: 0 -3px; border-color: var(--ring); background: var(--md-surface-container-high);
   box-shadow: 0 0 0 2px var(--ring), 0 0 0 6px var(--halo), var(--elevation-3);
 }
-.grid .card:not([aria-selected="true"]):not(.dragging) .thumb { filter: opacity(.86); } /* the picture only: the text keeps its contrast */
+.grid .card:not([aria-selected="true"]):not(.dragging) .thumb { opacity: .86; } /* the picture only: the text keeps its contrast */
+/* Cards off screen are neither laid out nor painted until they scroll near (with 60+ tabs, most of them); the
+   size they keep meanwhile is a card's (its picture is 16:10 of its width, plus the header). The clip margin
+   lets what sits just outside a card still show: the drop markers, the corner buttons. */
+.grid:not(.list) .card { content-visibility: auto; contain-intrinsic-size: auto var(--card-width) auto calc((var(--card-width) - 16px) * .625 + 65px); overflow-clip-margin: 14px; }
 /* While searching, the cards that don't match step far back (they keep their places), and the selected one
-   doesn't glow: the glow is for a card the search found. filter, not opacity (the opening animation's). */
-.card.no-match { filter: opacity(.32) grayscale(.6); box-shadow: none; }
-.card.no-match:hover { filter: opacity(.6); }
+   doesn't glow: the glow is for a card the search found. */
+.card.no-match { opacity: .32; box-shadow: none; }
+.card.no-match:hover { opacity: .6; }
 .card.no-match[aria-selected="true"], .card.picked.no-match[aria-selected="true"] { translate: none; box-shadow: none; border-color: var(--line); background: var(--md-surface-container-low); }
 @media (prefers-reduced-motion: reduce) { .card[aria-selected="true"] { translate: none; } .card { transition: none; } }
 
@@ -541,7 +545,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.head-buttons)
 /* ---------- dialogs (tour, review, Bookmark…) ---------- */
 .row { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 .row .grow { flex: 1; }
-.modal-back { position: fixed; inset: 0; z-index: 7; /* over the full-screen views (6): an edit dialog opens over the bookmarks */ background: var(--md-scrim); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadein .15s ease both; backdrop-filter: blur(2px); }
+.modal-back { position: fixed; inset: 0; z-index: 7; /* over the full-screen views (6): an edit dialog opens over the bookmarks */ background: var(--md-scrim); display: flex; align-items: center; justify-content: center; padding: 20px; animation: fadein .15s ease both; }
 .dialog {
   width: min(460px, 100%); padding: 24px; border-radius: var(--radius-extra-large); color: var(--md-on-surface);
   background: var(--md-surface-container-high); border: 1px solid var(--line); box-shadow: var(--elevation-5); animation: pop .2s var(--ease-out) both;
@@ -559,7 +563,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.head-buttons)
 .dots { display: flex; gap: 6px; }
 .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--fill-2); }
 .dots i.on { background: var(--md-primary); }
-.modal-back.tour { background: rgba(0, 0, 0, .14); display: block; padding: 0; backdrop-filter: none; }
+.modal-back.tour { background: rgba(0, 0, 0, .14); display: block; padding: 0; }
 .modal-back.tour .dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); animation: none; }
 .modal-back.tour .dialog[data-side] { transform: none; }
 /* the tour card's arrow, pointing at what the step is about */
@@ -618,7 +622,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.head-buttons)
    of tabs above the content. ---------- */
 .settings-back {
   position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 16px;
-  background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px);
+  background: var(--md-scrim); animation: fadein .15s ease both;
 }
 .settings-panel {
   width: min(800px, 92vw); height: min(560px, 86vh); display: grid; overflow: hidden; user-select: text;
@@ -782,7 +786,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.head-buttons)
 /* ---------- big preview (Space, or Shift+click a card) ---------- */
 .big-backdrop {
   position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
-  background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px);
+  background: var(--md-scrim); animation: fadein .15s ease both;
 }
 .big-box {
   position: relative; display: grid; gap: 12px; padding: 14px; border-radius: var(--radius-extra-large); max-width: calc(100vw - 48px);
@@ -837,7 +841,7 @@ html.alttab .bar.narrow #keys-button { grid-column: 4; }
 .tag.snooze { background: var(--md-secondary-container); color: var(--md-on-surface); }
 
 /* ---------- the menu (☰): a drawer from the left over the dimmed switcher ---------- */
-.drawer-back { position: fixed; inset: 0; z-index: 7; background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px); }
+.drawer-back { position: fixed; inset: 0; z-index: 7; background: var(--md-scrim); animation: fadein .15s ease both; }
 .drawer {
   position: absolute; top: 0; inset-inline-start: 0; bottom: 0; width: min(300px, 86vw); display: flex; flex-direction: column; gap: 4px; padding: 12px;
   background: var(--md-surface-container-high); border-inline-end: 1px solid var(--line); border-start-end-radius: var(--radius-extra-large); border-end-end-radius: var(--radius-extra-large); box-shadow: var(--elevation-5);
@@ -865,7 +869,7 @@ html.alttab .bar.narrow #keys-button { grid-column: 4; }
 /* ---------- the History, Bookmarks and Archive dialogs: as Settings, a panel over the dimmed switcher ---------- */
 .archive-dialog {
   position: fixed; inset: 0; z-index: 6; display: flex; align-items: center; justify-content: center; padding: 16px;
-  background: var(--md-scrim); animation: fadein .15s ease both; backdrop-filter: blur(2px);
+  background: var(--md-scrim); animation: fadein .15s ease both;
 }
 .archive-panel {
   width: min(920px, 94vw); height: min(700px, 90vh); display: flex; flex-direction: column; overflow: hidden; user-select: text;
@@ -1286,6 +1290,12 @@ html.light .button.primary, html.light .quick-action.primary, html.light #new-ta
 html.light [data-group-color="grey"] { --group-color: #5f6368; } html.light [data-group-color="blue"] { --group-color: #1a73e8; } html.light [data-group-color="red"] { --group-color: #d93025; }
 html.light [data-group-color="yellow"] { --group-color: #e37400; } html.light [data-group-color="green"] { --group-color: #188038; } html.light [data-group-color="pink"] { --group-color: #d01884; }
 html.light [data-group-color="purple"] { --group-color: #9334e6; } html.light [data-group-color="cyan"] { --group-color: #007b83; } html.light [data-group-color="orange"] { --group-color: #c26401; }
+
+/* ---------- Settings -> Lite mode (html.lite): nothing animates, and only the rings mark hover and selection ---------- */
+html.lite *, html.lite *::before, html.lite *::after { animation: none !important; transition: none !important; }
+html.lite .card:hover, html.lite .card.no-match { box-shadow: none; }
+html.lite .card[aria-selected="true"] { translate: none; box-shadow: 0 0 0 2px var(--ring); }
+html.lite .grid .card .thumb { opacity: 1; }
 
 /* ---------- "reduce motion" (the OS setting): nothing animates ---------- */
 @media (prefers-reduced-motion: reduce) {

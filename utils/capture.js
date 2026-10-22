@@ -5,10 +5,12 @@
 // keyed by URL, deleted after 7 days) and are never sent anywhere.
 
 import { LIMITS, PREVIEW_PREFIX } from './constants.js';
-import { savePreview, isOverlayTab, noteCapture } from './store.js';
+import { savePreview, isOverlayTab, noteCapture, getPreferences } from './store.js';
 import { isOwnUrl, normalizeUrl } from './extension.js';
 
 let lastCaptureAt = 0;
+// Settings -> Lite mode: the switcher shows the pages' icons instead of screenshots, so none are taken.
+const isLite = () => getPreferences().then((preferences) => preferences.lite === true, () => false);
 const timers = new Map(); // windowId -> timeout id (debounce per window)
 
 export function scheduleCapture(windowId, delay = 350) {
@@ -27,6 +29,7 @@ export function cancelCapture(windowId) {
 // `force` waits out the rate limit instead of rescheduling (used right
 // before opening the switcher so the current tab's preview is fresh).
 export async function captureWindow(windowId, { force = false } = {}) {
+  if (await isLite()) return; // Lite mode: no screenshots at all
   const wait = lastCaptureAt + LIMITS.CAPTURE_GAP_MILLISECONDS - Date.now();
   if (wait > 0) {
     if (!force) return scheduleCapture(windowId, wait + 10);
@@ -56,6 +59,7 @@ export async function captureTab(windowId, tab) {
 // Opening the switcher: grab the current tab's screenshot before anything covers the page, without
 // waiting (null if Chrome's rate limit says not now). Storing it (storeShot) is slower and can follow.
 export async function grabForOpen(windowId) {
+  if (await isLite()) return null;
   if (Date.now() - lastCaptureAt < LIMITS.CAPTURE_GAP_MILLISECONDS) return null;
   let tab, browserWindow;
   try {

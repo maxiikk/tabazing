@@ -356,6 +356,8 @@
   "settingsLines": "Titelzeilen",
   "settingsLines1": "Eine Zeile",
   "settingsLines2": "Zwei Zeilen",
+  "settingsLite": "Lite-Modus",
+  "settingsLiteNote": "Seiten zeigen ihr Symbol statt eines Screenshots, es werden keine Screenshots aufgenommen und nichts ist animiert. Schont langsame Computer und Fenster mit Hunderten von Tabs.",
   "settingsPinnedFirst": "Angepinnte Tabs zuerst",
   "settingsShowClosed": "„Kürzlich geschlossen“ anzeigen",
   "settingsShowSnoozed": "„Zurückgestellt“ anzeigen",

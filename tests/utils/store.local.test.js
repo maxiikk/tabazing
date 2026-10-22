@@ -292,7 +292,7 @@ describe('prefs', () => {
   const defaults = {
     lang: 'auto', startup: false, cardSize: 'default', accent: DEFAULT_ACCENT, allWindows: false, theme: 'system',
     pinnedFirst: true, showClosed: true, showSnoozed: true, showAge: true, showGroups: true, groupWrap: false, ownWindow: false, titleLines: 2,
-    searchHistory: true, searchBookmarks: true, iconTips: 0,
+    searchHistory: true, searchBookmarks: true, lite: false, iconTips: 0,
   };
   const SWITCHES = ['pinnedFirst', 'showClosed', 'showSnoozed', 'showAge', 'showGroups', 'searchHistory', 'searchBookmarks']; // on unless set to false
 
@@ -304,14 +304,14 @@ describe('prefs', () => {
     for (const lang of ['auto', 'en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']) { localArea._data.set(KEY.PREFERENCES, { lang }); expect((await store.getPreferences()).lang).toBe(lang); }
     for (const cardSize of ['small', 'list']) { localArea._data.set(KEY.PREFERENCES, { cardSize }); expect((await store.getPreferences()).cardSize).toBe(cardSize); }
     for (const theme of ['dark', 'light', 'system']) { localArea._data.set(KEY.PREFERENCES, { theme }); expect((await store.getPreferences()).theme).toBe(theme); }
-    localArea._data.set(KEY.PREFERENCES, { startup: true, allWindows: true, accent: '#abcdef', groupWrap: true });
-    expect(await store.getPreferences()).toEqual({ ...defaults, startup: true, allWindows: true, accent: '#ABCDEF', groupWrap: true });
+    localArea._data.set(KEY.PREFERENCES, { startup: true, allWindows: true, accent: '#abcdef', groupWrap: true, lite: true });
+    expect(await store.getPreferences()).toEqual({ ...defaults, startup: true, allWindows: true, accent: '#ABCDEF', groupWrap: true, lite: true });
     localArea._data.set(KEY.PREFERENCES, { ...Object.fromEntries(SWITCHES.map((switchName) => [switchName, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
     expect(await store.getPreferences()).toEqual({ ...defaults, ...Object.fromEntries(SWITCHES.map((switchName) => [switchName, false])), ownWindow: true, titleLines: 1, iconTips: 3 });
   });
 
   it('replaces every invalid field with its default', async () => {
-    localArea._data.set(KEY.PREFERENCES, { lang: 'pt', startup: 'true', cardSize: 'huge', accent: 'red', allWindows: 1, theme: 'neon', junk: 1 });
+    localArea._data.set(KEY.PREFERENCES, { lang: 'pt', startup: 'true', cardSize: 'huge', accent: 'red', allWindows: 1, theme: 'neon', lite: 'yes', junk: 1 });
     expect(await store.getPreferences()).toEqual(defaults);
     localArea._data.set(KEY.PREFERENCES, { accent: '#abc' });
     expect((await store.getPreferences()).accent).toBe(DEFAULT_ACCENT);

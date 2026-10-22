@@ -356,6 +356,8 @@
   "settingsLines": "Title lines",
   "settingsLines1": "One line",
   "settingsLines2": "Two lines",
+  "settingsLite": "Lite mode",
+  "settingsLiteNote": "Pages show their icon instead of a screenshot, no screenshots are taken, and nothing animates. Lighter on slow computers and with hundreds of tabs.",
   "settingsPinnedFirst": "Pinned tabs first",
   "settingsShowClosed": "Show Recently closed",
   "settingsShowSnoozed": "Show Snoozed",

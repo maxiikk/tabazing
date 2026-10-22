@@ -356,6 +356,8 @@
   "settingsLines": "Lignes de titre",
   "settingsLines1": "Une ligne",
   "settingsLines2": "Deux lignes",
+  "settingsLite": "Mode léger",
+  "settingsLiteNote": "Les pages affichent leur icône au lieu d’une capture, aucune capture n’est prise et rien n’est animé. Plus léger sur les ordinateurs lents et avec des centaines d’onglets.",
   "settingsPinnedFirst": "Onglets épinglés en premier",
   "settingsShowClosed": "Afficher Récemment fermés",
   "settingsShowSnoozed": "Afficher Reportés",

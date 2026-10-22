@@ -335,6 +335,21 @@ describe('alerts and health checks', () => {
 
 describe('Settings', () => {
   const open = async () => { byTestId('settings-button').click(); await waitFor(() => byTestId('settings')); await tick(); return byTestId('settings'); };
+
+  it('Lite mode: on, the screenshots give way to the pages\' icons at once; off, they come back', async () => {
+    await boot({ tabs: defaultTabs, beforeImport: () => chrome.storage.local.set(Object.fromEntries(defaultTabs.map((x) => ['pv:' + x.url, { img: 'data:image/jpeg;base64,AAAA', t: 1 }]))) });
+    await waitFor(() => allByTestId('card-preview').length === defaultTabs.length);
+    await open();
+    byTestId('settings-lite').click();
+    await waitFor(() => allByTestId('card-preview').length === 0);
+    expect(allByTestId('card-icon-only').length).toBe(defaultTabs.length);
+    expect(document.documentElement.classList.contains('lite')).toBe(true);
+    expect(await preferences()).toMatchObject({ lite: true });
+    byTestId('settings-lite').click();
+    await waitFor(() => allByTestId('card-preview').length === defaultTabs.length);
+    expect(document.documentElement.classList.contains('lite')).toBe(false);
+    expect(await preferences()).toMatchObject({ lite: false });
+  });
   const tab = (id) => byTestId('settings-tab-' + id);
   const panel = (id) => byTestId('settings-panel-' + id);
   const shownPanels = () => SETTINGS_TABS.filter((id) => !panel(id).hidden);
@@ -469,7 +484,7 @@ describe('Settings', () => {
     await open();
     const has = (id, ...testids) => { for (const x of testids) expect(panel(id).contains(byTestId(x)), x).toBe(true); };
     has('look', 'settings-language', 'settings-theme', 'settings-accents', 'settings-card-size', 'settings-title-lines');
-    has('cards', 'settings-pinned-first', 'settings-show-age', 'settings-show-closed', 'settings-show-snoozed', 'settings-all-windows');
+    has('cards', 'settings-lite', 'settings-pinned-first', 'settings-show-age', 'settings-show-closed', 'settings-show-snoozed', 'settings-all-windows');
     has('search', 'settings-search-history', 'settings-search-bookmarks');
     has('behave', 'settings-own-window', 'settings-startup', 'settings-tour');
     has('keys', 'settings-keys-chrome', 'settings-keys-inside', 'settings-keys-change-all');

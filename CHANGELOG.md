@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.0] - 2026-10-22
+
+### Added
+
+- Settings → Cards → **Lite mode**: cards show their page's icon instead of a screenshot, no screenshots are taken, and nothing animates. For slow computers and windows with hundreds of tabs.
+
+### Changed
+
+- Faster to open with many tabs: cards off screen are no longer laid out or drawn until they scroll near (with 60 tabs, the first draw takes about half as long).
+- With more than 48 open cards, the default card size uses slightly narrower cards (more fit on the screen, each costs less to draw).
+- Dialogs, the menu and the big preview no longer blur the switcher behind them (the dimmed backdrop stays); the dimmed cards and pictures are cheaper to draw.
+
 ## [6.16.6] - 2026-10-22
 
 ### Changed
@@ -672,7 +684,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.16.6]: https://github.com/maxiikk/tabazing/compare/e5622db...HEAD
+[6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...HEAD
+[6.16.6]: https://github.com/maxiikk/tabazing/compare/e5622db...7380a96
 [6.16.5]: https://github.com/maxiikk/tabazing/compare/e090620...e5622db
 [6.16.4]: https://github.com/maxiikk/tabazing/compare/4ee72f1...e090620
 [6.16.3]: https://github.com/maxiikk/tabazing/compare/f7f0038...4ee72f1

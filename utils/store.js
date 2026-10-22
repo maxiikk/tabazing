@@ -806,6 +806,7 @@ function cleanPreferences(raw) {
     pinnedFirst: on(raw.pinnedFirst), showClosed: on(raw.showClosed), showSnoozed: on(raw.showSnoozed), showAge: on(raw.showAge), showGroups: on(raw.showGroups), groupWrap: raw.groupWrap === true,
     ownWindow: raw.ownWindow === true, titleLines: raw.titleLines === 1 ? 1 : 2,
     searchHistory: on(raw.searchHistory), searchBookmarks: on(raw.searchBookmarks),
+    lite: raw.lite === true, // Lite mode: no screenshots, no animations
     iconTips: Number.isInteger(raw.iconTips) && raw.iconTips >= 0 ? raw.iconTips : 0, // times the toolbar-icon tip was shown
   };
 }
