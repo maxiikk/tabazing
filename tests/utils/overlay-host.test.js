@@ -96,10 +96,12 @@ describe('overlayHost', () => {
     expect(shade().style.visibility).toBe('visible');
   });
 
-  it('a light switcher gets a light shade', () => {
+  it('a light switcher gets a light shade; the shade is a plain colour, never a blur of the page', () => {
     host('launch', 'tok');
+    expect(shade().style.backdropFilter || '').toBe('');
     fromFrame({ tabazing: FRAME_MESSAGE.READY, light: true });
-    expect(shade().style.backdropFilter).toContain('brightness(1.06)');
+    expect(shade().style.background).toBe('rgba(255, 255, 255, 0.35)');
+    expect(shade().style.backdropFilter || '').toBe('');
   });
 
   it('ignores messages from anything but its frame, and malformed ones', () => {

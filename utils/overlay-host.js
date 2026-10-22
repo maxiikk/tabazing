@@ -25,8 +25,9 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
   host.launch(token, hold);
 
   function create() {
-    // The blur sits on a separate element *behind* the iframe. Putting it on the iframe itself would make
-    // Chrome report the frame as "not visible" (a visual effect on an ancestor), which disables the
+    // The shade dims the page behind the switcher: a plain colour (a blur of the whole page cost a full repaint of
+    // it on every open, under a switcher that is 90% opaque anyway). It is a separate element *behind* the iframe:
+    // a visual effect on the iframe itself would make Chrome report the frame as "not visible", which disables the
     // switcher's clickjacking guard.
     const base = [
       'all:initial', 'display:block', 'position:fixed', 'inset:0', 'width:100vw', 'height:100vh',
@@ -34,10 +35,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     ];
     const shade = document.createElement('div');
     shade.dataset.testid = 'overlay-shade';
-    shade.style.cssText = [...base,
-      'backdrop-filter:blur(18px) brightness(.45) saturate(1.2)',
-      '-webkit-backdrop-filter:blur(18px) brightness(.45) saturate(1.2)',
-    ].join(';');
+    shade.style.cssText = [...base, 'background:rgba(0,0,0,.55)'].join(';');
     const frame = document.createElement('iframe');
     frame.dataset.testid = 'overlay-frame';
     frame.setAttribute('allowtransparency', 'true');
@@ -54,7 +52,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     // Alt+Q / Alt+W work like Alt+Tab: letting go of Alt switches to the selected tab. Until the switcher
     // has the focus that key-up reaches this page, so it is passed on once the switcher has drawn.
     const tellReleased = () => { if (session && session.hold && session.shown && session.released) post({ tabazing: FRAME.RELEASED }); };
-    // Hidden means not rendered at all (visibility), so a prepared frame and its blur cost the page nothing.
+    // Hidden means not rendered at all (visibility), so a prepared frame and its shade cost the page nothing.
     const setShown = (on) => {
       for (const element of [shade, frame]) { // the top layer: shade first, so the frame is above it
         try { if (on && !element.matches(':popover-open')) element.showPopover(); else if (!on && element.matches(':popover-open')) element.hidePopover(); } catch {}
@@ -98,8 +96,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
       const messageType = event.data.tabazing;
       if (messageType === FRAME.STANDBY) { hostHandle.ready = true; sendLaunch(); }
       else if (messageType === FRAME.READY && session) {
-        const filter = event.data.light ? 'blur(18px) brightness(1.06) saturate(1.1)' : 'blur(18px) brightness(.45) saturate(1.2)';
-        shade.style.backdropFilter = shade.style.webkitBackdropFilter = filter;
+        shade.style.background = event.data.light ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.55)';
         if (!session.shown) { session.shown = true; setShown(true); frame.focus(); tellReleased(); }
       }
       else if (messageType === FRAME.CLOSE) finishSession();

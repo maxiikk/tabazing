@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.2] - 2026-10-22
+
+### Changed
+
+- Opening over a page no longer blurs the whole page behind Tabazing: it is dimmed with a plain shade instead (the switcher covers it almost completely anyway). Lighter on the graphics card at every open, most on large and high-resolution screens.
+
 ## [6.17.1] - 2026-10-22
 
 ### Changed
@@ -691,7 +697,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...HEAD
+[6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...HEAD
+[6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...0876167
 [6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...64d77a9
 [6.16.6]: https://github.com/maxiikk/tabazing/compare/e5622db...7380a96
 [6.16.5]: https://github.com/maxiikk/tabazing/compare/e090620...e5622db
