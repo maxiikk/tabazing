@@ -2,7 +2,7 @@
 // there, at its size, and the SVG source is the one the script draws.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { iconSvg } from '../scripts/icons.js';
+import { iconSvg } from '../../scripts/icons.js';
 
 const png = (f) => { const b = readFileSync(f); return { sig: b.subarray(1, 4).toString(), w: b.readUInt32BE(16), h: b.readUInt32BE(20) }; };
 

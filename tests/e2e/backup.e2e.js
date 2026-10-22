@@ -5,7 +5,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { startServers, launch, sleep } from './harness.js';
+import { startServers, launch, sleep } from './helpers/harness.js';
 
 // The zip's files (Tabazing's zip stores them: no compression), read here (utils/backup.js needs the extension's chrome).
 async function unzipFiles(buf) {

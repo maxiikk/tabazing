@@ -1,7 +1,7 @@
 // background.js: opening the switcher (shortcuts, toolbar icon, overlay vs popup window, watchdog).
 import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS, FRAME_MSG, PREVIEW_PREFIX } from '../utils/constants.js';
-import { env, flush, freshWorker, seed, launch, fromSwitcherPage, send } from './background.shared.js';
+import { env, flush, freshWorker, seed, launch, fromSwitcherPage, send } from './helpers/background.js';
 
 freshWorker();
 const bg = () => env.bg;

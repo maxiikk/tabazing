@@ -3,7 +3,7 @@ import { KEY, LIMITS, PREVIEW_PREFIX, previewKey, sharpKey } from '../../utils/c
 
 // capture.js keeps the time of the last screenshot in module state, so each test imports it afresh.
 let cap;
-let canvases; // every OffscreenCanvas shrink() made: { w, h, quality, ctx }
+let canvases; // every OffscreenCanvas the capture made: { w, h, quality, ctx }
 let bitmap;   // size of the next decoded screenshot
 
 const S = () => chrome.storage.session._data;
@@ -14,7 +14,7 @@ beforeEach(async () => {
   vi.useFakeTimers({ now: new Date('2026-10-17T12:00:00Z') });
   canvases = [];
   bitmap = { width: 1600, height: 1000 };
-  // jsdom has no image decoding or OffscreenCanvas: fake just enough for shrink().
+  // jsdom has no image decoding or OffscreenCanvas: fake just enough for the capture.
   vi.stubGlobal('createImageBitmap', vi.fn(async (blob) => {
     expect(blob.type).toBe('image/jpeg');
     return { ...bitmap, close: vi.fn() };
@@ -231,16 +231,6 @@ describe('grabForOpen', () => {
     chrome.tabs.captureVisibleTab.mockRejectedValueOnce(new Error('denied'));
     expect(await cap.grabForOpen(page().w.id)).toBeNull();
     expect(note()).toMatchObject({ stage: 'error', msg: 'denied' });
-  });
-});
-
-describe('shrink', () => {
-  it('makes one copy, at the card size by default, and frees the bitmap', async () => {
-    const close = vi.fn();
-    createImageBitmap.mockImplementation(async () => ({ ...bitmap, close }));
-    expect(await cap.shrink('data:image/jpeg;base64,AAAA')).toBe(PREVIEW_PREFIX + btoa('jpg560x350'));
-    expect(close).toHaveBeenCalledTimes(1);
-    expect(await cap.shrink('garbage')).toBeNull();
   });
 });
 

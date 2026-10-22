@@ -3,7 +3,7 @@
 // keyboard), and every booted module is retired after its test: each boot imports the module afresh, and
 // the old copy's window listeners would otherwise keep reacting to the next test's keys.
 import { vi, afterEach } from 'vitest';
-import { bootSwitcher, waitFor, tick } from '../helpers/switcher.js';
+import { bootSwitcher, waitFor, tick } from './switcher.js';
 
 const booted = [];
 afterEach(() => {

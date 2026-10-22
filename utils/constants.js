@@ -144,17 +144,12 @@ export const REVIEW = Object.freeze({
 export const REVIEW_URL = 'https://chromewebstore.google.com/detail/edjglhlabdmgacehahfdjjffapbkaekk/reviews?utm_source=extension';
 // The website (tabatha-vert.vercel.app). Links only: the extension never sends anything there itself.
 export const SITE_URL = 'https://tabatha-vert.vercel.app';
-export const HELP_URL = SITE_URL + '/manual';
 export const REPO_URL = 'https://github.com/maxiikk/tabazing'; // the source (the header's GitHub button)
 const VERSION = chrome.runtime.getManifest().version;
 // Pages on the site that Tabazing opens. Only where the click came from, the version and the
 // language go in the URL; whatever people write is typed on the page itself, never put in a link.
 // The language is the one Tabazing is shown in (its own setting, see utils/i18n.js), read at the moment of the click.
 export const siteUrl = (path, from, extra = '') => `${SITE_URL}${path}?from=${from}&v=${VERSION}&lang=${uiLang()}${extra}`;
-// "Send feedback" opens the site's feedback form; `from` and the version are prefilled from the URL.
-export const feedbackUrl = () => siteUrl('/feedback', 'extension');
-// Chrome opens this after someone removes Tabazing (chrome.runtime.setUninstallURL). Nothing is sent by the removal itself.
-export const uninstallUrl = () => siteUrl('/uninstall', 'uninstall');
 
 export const SWITCHER_PAGE = 'markup/switcher.html';
 export const SWEEP_PAGE = 'markup/sweep.html';

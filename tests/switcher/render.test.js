@@ -1,7 +1,7 @@
 // Drawing the switcher: cards, sections, the toolbar, the window list, selection, and the small UI pieces.
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
-import { boot, ABC, cards, openCards, titles, titleOf, selectedTitle, tid, tids } from './_ui.js';
+import { boot, ABC, cards, openCards, titles, titleOf, selectedTitle, tid, tids } from '../helpers/switcher-ui.js';
 import { t } from '../../utils/translations.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
@@ -299,7 +299,7 @@ describe('finishCard: the mouse on a card', () => {
   });
 
   it('right-click opens the card menu at the pointer, not Chrome’s', async () => {
-    const sw = await boot({ tabs: ABC(), ctx: { dir: 0 } });
+    await boot({ tabs: ABC(), ctx: { dir: 0 } });
     const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 150, clientY: 60 });
     card('Charlie').dispatchEvent(e);
     expect(e.defaultPrevented).toBe(true);
@@ -961,7 +961,7 @@ describe('small pieces', () => {
   });
 
   it('a GitHub button, last, just right of ⓘ, opens the repository in a new tab beside the page and closes Tabazing', async () => {
-    const sw = await boot();
+    await boot();
     const gh = tid('github-btn');
     expect(gh.previousElementSibling).toBe(tid('keys-btn'));
     expect(gh.nextElementSibling).toBe(null); // the header's last: the one link out of Tabazing

@@ -3,7 +3,7 @@
 // recently run actions. Against the real switcher page and the fake chrome.* API; elements by data-testid only.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
-import { boot, tid, tids, tabByTitle, toastText, closedMsg } from './quiet-boot.js';
+import { boot, tid, tids, tabByTitle, toastText, closedMsg } from '../helpers/quiet-boot.js';
 import { MSG, KEY } from '../../utils/constants.js';
 import { t } from '../../utils/translations.js';
 

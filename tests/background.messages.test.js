@@ -1,7 +1,7 @@
 // background.js: runtime.onMessage. Every message is checked for sender and shape; pages may only ask to open.
 import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS } from '../utils/constants.js';
-import { env, flush, freshWorker, seed, launch, fromSwitcherPage, fromPage, send } from './background.shared.js';
+import { env, flush, freshWorker, seed, launch, fromSwitcherPage, fromPage, send } from './helpers/background.js';
 
 freshWorker();
 const bg = () => env.bg;

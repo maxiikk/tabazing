@@ -3,7 +3,7 @@
 // group actions, the name-and-colour card, the big preview of a group, and the settings around them.
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const S = chrome.storage.session;
@@ -329,7 +329,7 @@ describe('dragging ("By order")', () => {
   const rect = (card) => { card.getBoundingClientRect = () => ({ left: 0, width: 100, top: 0, height: 50, right: 100, bottom: 50 }); return card; };
 
   it('a tab dropped on a tile goes into the group', async () => {
-    const sw = await boot({ tabs: TABS(), ...byOrder() });
+    await boot({ tabs: TABS(), ...byOrder() });
     const a = rect(cardOf('A')), g = rect(tile());
     expect(g.draggable).toBe(true);
     a.dispatchEvent(dragEvent('dragstart'));

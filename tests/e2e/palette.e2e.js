@@ -3,7 +3,7 @@
 // untouched. Once, the <html> element took the palette panel's class and rule (fixed, 660 px, centred), and
 // the whole switcher shrank into a column the palette's width.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { startServers, launch, sleep } from './harness.js';
+import { startServers, launch, sleep } from './helpers/harness.js';
 
 let servers, browser;
 beforeAll(async () => {

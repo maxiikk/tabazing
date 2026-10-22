@@ -2,7 +2,7 @@
 // per-card quick buttons. Everything runs against the real switcher page and the fake chrome.* API.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
-import { boot, frame, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
+import { boot, frame, tid, tids, cardOf, tabByTitle, entryByTitle, toastText, toastButton, closedMsg } from '../helpers/quiet-boot.js';
 import { MSG } from '../../utils/constants.js';
 import { t } from '../../utils/translations.js';
 
@@ -647,7 +647,7 @@ describe('drag to reorder', () => {
   it('dragging one card onto the left half of another moves it there', async () => {
     const sw = await boot({ tabs: ABC });
     sw.state.sort = 'order'; // (By order: cards move before / after others)
-    const [a, c] = [tabByTitle(sw, 'A'), tabByTitle(sw, 'C')];
+    const c = tabByTitle(sw, 'C');
     const from = rect(document.body.appendChild(document.createElement('div')));
     const to = rect(document.body.appendChild(document.createElement('div')));
     sw.dragToMove(from, entryByTitle(sw, 'C'));
@@ -789,7 +789,7 @@ describe('sleep, pin, mute', () => {
   });
 
   it('a speaker Chrome refuses to mute says so', async () => {
-    const sw = await boot({ tabs: [ABC[0], { ...ABC[1], audible: true }] });
+    await boot({ tabs: [ABC[0], { ...ABC[1], audible: true }] });
     chrome.tabs.update.mockRejectedValueOnce(new Error('no'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     tid('card-audio', cardOf('B')).click();
@@ -832,7 +832,7 @@ describe('one-tab quick buttons', () => {
   });
 
   it('⋯ opens the card menu at the button, the same one as Shift+F10', async () => {
-    const sw = await boot({ tabs: ABC });
+    await boot({ tabs: ABC });
     tid('quick-more', cardOf('B')).click();
     await waitFor(() => tid('menu'));
     expect(tid('menu').anchor).toBe(tid('quick-more', cardOf('B')));
@@ -860,7 +860,7 @@ describe('one-tab quick buttons', () => {
   });
 
   it('a failing quick button says what failed', async () => {
-    const sw = await boot({ tabs: ABC });
+    await boot({ tabs: ABC });
     chrome.tabs.update.mockRejectedValue(new Error('nope'));
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     tid('quick-pin', cardOf('B')).click();

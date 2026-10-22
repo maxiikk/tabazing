@@ -1,7 +1,7 @@
 // Dialogs (the first-run tour, the review prompt), the alert bar and its health checks, Settings and the ⓘ card.
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, toastText, closedMsg } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, toastText, closedMsg } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 import { REVIEW_URL } from '../../utils/constants.js';
 import { SETTINGS_TABS } from '../../utils/store.js';

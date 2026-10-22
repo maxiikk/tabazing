@@ -4,7 +4,7 @@
 // counted among the other tabs (moveGroup's arithmetic); a group moves into a new window whole; a tab restored from
 // Chrome's recently closed list goes back into its group by itself (regroup leaves it).
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { startServers, launch } from './harness.js';
+import { startServers, launch } from './helpers/harness.js';
 
 let srv, browser, ext;
 beforeAll(async () => {

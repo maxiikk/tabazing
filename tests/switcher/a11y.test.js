@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, tabByTitle, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, tabByTitle, toastButton } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const ABC = [

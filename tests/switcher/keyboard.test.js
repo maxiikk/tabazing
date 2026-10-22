@@ -1,7 +1,7 @@
 // The keyboard (onKeyDown / onKeyUp, Alt+Q-style holding) and the search box with its dropdown.
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
-import { boot, ABC, openCards, titleOf, selectedTitle, tid, tids } from './_ui.js';
+import { boot, ABC, openCards, titleOf, selectedTitle, tid, tids } from '../helpers/switcher-ui.js';
 
 const keyUp = (k, init = {}) => window.dispatchEvent(new KeyboardEvent('keyup', { key: k, bubbles: true, cancelable: true, ...init }));
 const closedWith = (reason) => expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'tabazing:closed', reason }));

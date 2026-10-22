@@ -4,7 +4,7 @@
 // `overlay: true` boots it as the in-page overlay: window.parent becomes a fake page that hands over the
 // launch token when the switcher says it is standing by (frame() is that page, to check what it was sent).
 import { afterEach, vi } from 'vitest';
-import { bootSwitcher, tick } from '../helpers/switcher.js';
+import { bootSwitcher, tick } from './switcher.js';
 
 let cur = null;
 let frameParent = null;

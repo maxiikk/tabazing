@@ -2,7 +2,7 @@
 // the zip) restores what it holds, without deleting or doubling anything, and says what was added, updated and skipped.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { waitFor, key } from '../helpers/switcher.js';
-import { boot, tid, tids, toastText } from './quiet-boot.js';
+import { boot, tid, tids, toastText } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 import { zipFiles, unzipFiles, backupName } from '../../utils/backup.js';
 

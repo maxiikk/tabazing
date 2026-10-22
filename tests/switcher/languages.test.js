@@ -2,7 +2,7 @@
 // turn it round (dir="rtl"), and there ← / → keep pointing where they go on screen: the next card is on the left.
 import { describe, it, expect } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, ABC, selectedTitle, tid, tids } from './_ui.js';
+import { boot, ABC, selectedTitle, tid, tids } from '../helpers/switcher-ui.js';
 import { LANGS } from '../../utils/i18n.js';
 import HE from '../../dictionaries/he.json';
 import EN from '../../dictionaries/en.json';

@@ -2,7 +2,7 @@
 // a tab's menu, a recently closed one's, a group tile's, the ticked tabs' ⋯ and the palette.
 import { describe, it, expect } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, entryByTitle, toastText, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, entryByTitle, toastText, toastButton } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const ABC = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }, { title: 'C', url: 'https://c.example/' }];

@@ -1,7 +1,7 @@
 // Boot: the launch token, the opening selection, resume notes, and the overlay's clickjacking guard.
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { loadPage, tick, waitFor, key } from '../helpers/switcher.js';
-import { boot, bootOverlay, restoreParent, ABC, selectedTitle, openCards, cards, tid } from './_ui.js';
+import { boot, bootOverlay, restoreParent, ABC, selectedTitle, openCards, cards, tid } from '../helpers/switcher-ui.js';
 
 // Load the page with a launch that is wrong somehow, and let the module run.
 async function bootBad({ urlToken = 'tok', stored = { token: 'tok', t: Date.now(), ctx: { src: 1, win: 1, dir: 1, mode: 'window' } } } = {}) {

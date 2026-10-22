@@ -106,13 +106,6 @@ export async function storeShot(tab, dataUrl) {
   return noteCapture('ok', '', tab.url);
 }
 
-// Downscale to at most `max` px on the longest side (the cards' size by default).
-export async function shrink(dataUrl, max = LIMITS.THUMB_MAX, quality = 0.72) {
-  const bmp = await decode(dataUrl);
-  if (!bmp) return null;
-  try { return await encode(bmp, max, quality); } finally { bmp.close(); }
-}
-
 // Decodes the data URL by hand rather than with the Fetch API, so the extension's CSP can forbid all
 // network access (connect-src 'none'). Null if it isn't an image.
 async function decode(dataUrl) {

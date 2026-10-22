@@ -5,7 +5,7 @@
 // is outlined while it is.
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, toastText, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, toastText, toastButton } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const GROUP = 7;

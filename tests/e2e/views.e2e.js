@@ -2,7 +2,7 @@
 // (Chrome lets a page have them); removing a history page and its Undo (Chrome refuses a title and a time in
 // history.addUrl on some versions, by throwing at once); dragging a bookmark onto a folder (native drag and drop).
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { startServers, launch, sleep } from './harness.js';
+import { startServers, launch, sleep } from './helpers/harness.js';
 
 let srv, browser, ext;
 beforeAll(async () => {

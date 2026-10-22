@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import puppeteer from 'puppeteer';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const REPO = resolve(HERE, '../..');
+const REPO = resolve(HERE, '../../..');
 const PAGE_MEDIA = readFileSync(resolve(HERE, 'page-media.js'));
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

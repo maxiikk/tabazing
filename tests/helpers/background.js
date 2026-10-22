@@ -12,7 +12,7 @@ export function freshWorker() {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     chrome._clearListeners();
     vi.resetModules();
-    env.bg = await import('../background.js');
+    env.bg = await import('../../background.js');
     await flush();
     vi.clearAllMocks(); // forget what the import itself called
   });

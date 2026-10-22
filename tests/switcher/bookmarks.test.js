@@ -5,7 +5,7 @@
 // what comes back next time; the keys.
 import { describe, it, expect } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, toastText, toastButton } from './quiet-boot.js';
+import { boot, tid, tids, toastText, toastButton } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];
@@ -279,7 +279,7 @@ describe('deleting', () => {
   });
 
   it('ticked ones together: tick boxes (folders too), Shift+click for a range, Ctrl+A; the bar deletes them', async () => {
-    const s = seed();
+    seed();
     const sw = await boot({ tabs: AB });
     await open(sw);
     expect(tid('bmv-pick', row('Bookmarks bar'))).toBe(null); // Chrome's own folders can't be ticked

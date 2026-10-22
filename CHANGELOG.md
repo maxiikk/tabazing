@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.16.4] - 2026-10-22
+
+### Removed
+
+- Unused code and styles (nothing you could see or use changes).
+
 ## [6.16.3] - 2026-10-22
 
 ### Changed
@@ -654,7 +660,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.16.3]: https://github.com/maxiikk/tabazing/compare/f7f0038...HEAD
+[6.16.4]: https://github.com/maxiikk/tabazing/compare/4ee72f1...HEAD
+[6.16.3]: https://github.com/maxiikk/tabazing/compare/f7f0038...4ee72f1
 [6.16.2]: https://github.com/maxiikk/tabazing/compare/1bf7dbf...f7f0038
 [6.16.1]: https://github.com/maxiikk/tabazing/compare/1009dfe...1bf7dbf
 [6.16.0]: https://github.com/maxiikk/tabazing/compare/bdd206e...1009dfe

@@ -2,7 +2,7 @@
 // onto the open tabs opens in the background, Tabazing stays open over the page it was opened on, and the tab
 // leaves Recently closed; dragged onto a group's tile, it opens at that group's end.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { startServers, launch, sleep } from './harness.js';
+import { startServers, launch, sleep } from './helpers/harness.js';
 
 let srv, browser, ext;
 beforeAll(async () => {

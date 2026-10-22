@@ -3,7 +3,7 @@
 // the right, and ← goes to the next card; an English title keeps its punctuation in place ("Hello, world!", not
 // "!Hello, world") and still lines up on the right. In English, all of it is back on the left.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { startServers, launch, sleep } from './harness.js';
+import { startServers, launch, sleep } from './helpers/harness.js';
 
 let srv, browser, ext;
 beforeAll(async () => {

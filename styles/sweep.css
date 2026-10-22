@@ -19,7 +19,7 @@
 :root {
   color-scheme: dark;
   --accent: #7DD3FC; --on-accent: #1B2A4A;
-  --primary: var(--accent); --on-primary: var(--on-accent);
+  --primary: var(--accent);
   --surface: #07090d; --container: #151b25; --field: #11161e; --field-hi: #1e2532;
   --line: #242c39; --outline: #3a4557; --track: color-mix(in srgb, var(--accent) 18%, #1e2532);
   --on-surface: #f2f4f8; --on-surface-variant: #a2acbd;
@@ -28,7 +28,7 @@
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --primary: color-mix(in srgb, var(--accent) 52%, #000); --on-primary: #fff;
+    --primary: color-mix(in srgb, var(--accent) 52%, #000);
     --surface: #f6f7f9; --container: #fff; --field: #fafbfc; --field-hi: #eef0f4;
     --line: #e1e5ec; --outline: #c3c9d4; --track: color-mix(in srgb, var(--accent) 24%, #eef0f4);
     --on-surface: #0b0e14; --on-surface-variant: #4d5768;

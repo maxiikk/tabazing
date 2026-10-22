@@ -71,7 +71,6 @@ describe('limits', () => {
 describe('site links', () => {
   it('point at the site', () => {
     expect(C.SITE_URL).toMatch(/^https:\/\/[^/]+$/);
-    expect(C.HELP_URL).toBe(C.SITE_URL + '/manual');
     expect(new URL(C.REVIEW_URL).host).toBe('chromewebstore.google.com');
   });
   it('siteUrl carries only where, the version and the UI language', () => {
@@ -80,15 +79,8 @@ describe('site links', () => {
   });
   it('reads the language at call time', () => {
     setLang('ru');
-    expect(new URL(C.feedbackUrl()).searchParams.get('lang')).toBe('ru');
+    expect(new URL(C.siteUrl('/x', 'menu')).searchParams.get('lang')).toBe('ru');
     setLang('es');
-    expect(new URL(C.uninstallUrl()).searchParams.get('lang')).toBe('es');
-  });
-  it('feedbackUrl and uninstallUrl', () => {
-    const f = new URL(C.feedbackUrl()), u = new URL(C.uninstallUrl());
-    expect(f.origin + f.pathname).toBe(C.SITE_URL + '/feedback');
-    expect(Object.fromEntries(f.searchParams)).toEqual({ from: 'extension', v: VERSION, lang: 'en' });
-    expect(u.origin + u.pathname).toBe(C.SITE_URL + '/uninstall');
-    expect(Object.fromEntries(u.searchParams)).toEqual({ from: 'uninstall', v: VERSION, lang: 'en' });
+    expect(new URL(C.siteUrl('/x', 'menu')).searchParams.get('lang')).toBe('es');
   });
 });

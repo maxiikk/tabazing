@@ -3,7 +3,7 @@
 // Elements are found by data-testid only.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { MSG } from '../utils/constants.js';
-import { env, freshWorker } from './background.shared.js';
+import { env, freshWorker } from './helpers/background.js';
 
 freshWorker();
 const bg = () => env.bg;

@@ -6285,7 +6285,6 @@ let asking = false; // a browser permission prompt is open: its focus change mus
 
 const K = (win, mac) => h('kbd', '', IS_MAC && mac ? mac : win, 'dialog-key');
 const para = (...parts) => { const p = h('p', '', null, 'dialog-text'); p.append(...parts); return p; };
-const list = (...items) => { const u = h('ul', '', null, 'dialog-list'); items.forEach((it) => { const li = h('li', '', null, 'dialog-list-item'); li.append(...[].concat(it)); u.append(li); }); return u; };
 const button = (testid, label, cls, fn) => { const b = h('button', 'btn ' + (cls || ''), label, testid); b.type = 'button'; b.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) fn(); }); return b; };
 
 let dialogBack = null; // what had the focus before the dialog opened: it gets it back
@@ -7689,7 +7688,7 @@ export {
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,
   bmvMove, bmvSort, bmvNudge, bmvOpenAll, bmvImportStars, bmvFilter, bmvFind, bmvOpenSiblings, bmvMoveDialog,
   quickActions, noteOf, paintNote, noteButton, TIP_DELAY_MS, DATE_TIP_DELAY_MS, tipTimer, noteTip, hideTip, notePopover, bigEntry,
-  openBig, closeBig, closePops, menu, fancySelect, asking, K, para, list, button, showDialog, closeDialog,
+  openBig, closeBig, closePops, menu, fancySelect, asking, K, para, button, showDialog, closeDialog,
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,
   goReview, askStep1, askStep2, askLater, showAlert, requestHostAccess, missingPreviews, updateSweepButton,
   plainCaptureError, healthCheck, lightMq, themePref, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,

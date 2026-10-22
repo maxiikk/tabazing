@@ -45,7 +45,6 @@
   --md-primary-container: color-mix(in srgb, var(--accent) 16%, #0c1017);
   --md-on-primary-container: color-mix(in srgb, var(--accent) 78%, #fff);
   --md-secondary-container: color-mix(in srgb, var(--accent) 15%, #10151d);
-  --md-on-secondary-container: #f2f4f8;
   /* cool neutral surfaces, darkest at the back: the page, then cards (paper), then what floats (menus, dialogs) */
   --md-surface: #07090d;
   --md-surface-container-lowest: #05070a;
@@ -61,7 +60,6 @@
   --md-inverse-on-surface: #11161e;
   --md-inverse-primary: color-mix(in srgb, var(--accent) 52%, #000);
   --md-error: #f87171;
-  --md-on-error: #2a0606;
   --md-error-container: rgba(248, 113, 113, .16);
   --md-on-error-container: #fca5a5;
   --md-scrim: rgba(3, 5, 8, .6);
@@ -78,7 +76,6 @@
   --ease-out: cubic-bezier(.05, .7, .1, 1);
   /* the names the rest of the file uses */
   --fg: var(--md-on-surface);
-  --fg-2: var(--md-on-surface-variant);
   --fg-3: #8d98ab; /* the faintest text: still 4.5:1 on every surface, whatever page is under the overlay */
   --line: var(--md-outline-variant);
   --fill: rgba(162, 172, 189, .1);
@@ -412,7 +409,7 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 .qa { height: 36px; padding-block: 0 0; padding-inline: 12px 14px; }
 .qa svg { flex: none; }
 .qa:disabled { opacity: .4; cursor: default; }
-.qa.danger:hover:not(:disabled), .qa.armed, .act.armed { background: var(--danger); border-color: color-mix(in srgb, var(--danger) 70%, #000); color: #fff; }
+.qa.danger:hover:not(:disabled) { background: var(--danger); border-color: color-mix(in srgb, var(--danger) 70%, #000); color: #fff; }
 .tag.stays { background: rgba(74,222,128,.16); color: #86efac; }
 .tag.goes { background: var(--md-error-container); color: var(--md-on-error-container); }
 #dupes-btn[aria-pressed="true"] { color: var(--md-on-surface); background: var(--md-secondary-container); border-color: color-mix(in srgb, var(--md-primary) 50%, transparent); }
@@ -529,7 +526,6 @@ html.lines2 .grid:not(.small):not(.list) .head > :not(.title):not(.hbtns) { marg
 .mi:focus-visible { outline: 0; background: var(--fill-2); box-shadow: inset 0 0 0 2px var(--focus); }
 .mi.danger { color: var(--md-error); }
 .mi.danger:hover, .mi.danger:focus-visible { background: var(--md-error-container); }
-.mi.armed { background: var(--md-error-container); color: var(--md-on-error-container); }
 /* the current choice (a select's list): tinted with the accent, a tick */
 .mi.on { background: var(--md-secondary-container); color: var(--md-on-surface); font-weight: 500; }
 .mi.on svg { flex: none; color: var(--md-primary); }
@@ -829,16 +825,14 @@ html.alttab .bar.narrow #keys-btn { grid-column: 4; }
 .qfilters .chip svg { color: var(--md-primary); }
 
 /* merge windows */
-#merge-btn.armed { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
-#merge-btn.armed svg { color: var(--md-on-primary); }
 .wrow { position: relative; } /* a window's button, with its merge button over its top right corner */
 .wmerge {
   position: absolute; top: 6px; inset-inline-end: 6px; min-width: 24px; height: 24px; padding: 0 5px; border-radius: var(--r-xs); border: 1px solid var(--line);
   display: none; align-items: center; justify-content: center; font: inherit; font-size: 11px; font-weight: 600;
   background: var(--md-surface-container-high); color: var(--md-on-surface-variant); cursor: pointer; box-shadow: var(--el1);
 }
-.wrow:hover .wmerge, .wrow:focus-within .wmerge, .wmerge.armed { display: inline-flex; }
-.wmerge:hover, .wmerge.armed { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
+.wrow:hover .wmerge, .wrow:focus-within .wmerge { display: inline-flex; }
+.wmerge:hover { background: var(--md-primary); color: var(--md-on-primary); border-color: transparent; }
 
 /* snoozed tabs */
 .tag.snz { background: var(--md-secondary-container); color: var(--md-on-surface); }
@@ -1129,7 +1123,6 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
 [data-gc="purple"] { --gc: #c58af9; } [data-gc="cyan"] { --gc: #78d9ec; } [data-gc="orange"] { --gc: #fcad70; }
 .gdot { flex: none; width: 12px; height: 12px; border-radius: 50%; background: var(--gc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gc) 22%, transparent); }
 /* The tile: framed in the group's colour, its picture its first tabs (up to four). */
-.gtile { --stack: color-mix(in srgb, var(--gc) 45%, transparent); }
 .gtile .thumb { overflow: visible; background: transparent; }
 .gtile .gmosaic { display: grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--r-s); grid-auto-flow: dense;
   background: color-mix(in srgb, var(--gc) 26%, var(--md-surface-container)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gc) 70%, transparent); }
@@ -1252,7 +1245,6 @@ html.light {
   --md-primary-container: color-mix(in srgb, var(--accent) 18%, #fff);
   --md-on-primary-container: color-mix(in srgb, var(--accent) 40%, #0b0e14);
   --md-secondary-container: color-mix(in srgb, var(--accent) 15%, #fff);
-  --md-on-secondary-container: #0b0e14;
   --md-surface: #f6f7f9;
   --md-surface-container-lowest: #fff;
   --md-surface-container-low: #fff;
@@ -1267,7 +1259,6 @@ html.light {
   --md-inverse-on-surface: #f2f4f8;
   --md-inverse-primary: var(--accent);
   --md-error: #dc2626;
-  --md-on-error: #fff;
   --md-error-container: #fee2e2;
   --md-on-error-container: #991b1b;
   --md-scrim: rgba(15, 20, 30, .3);

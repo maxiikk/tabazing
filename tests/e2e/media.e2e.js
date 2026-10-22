@@ -3,7 +3,7 @@
 // (page-media.js: WAV tones; webm recordings made once in beforeAll and served over http).
 // Each test opens its own page(s) at a URL of its own (the tab is found by it) and closes them after.
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { startServers, launch, sleep, QUIET_MS } from './harness.js';
+import { startServers, launch, sleep, QUIET_MS } from './helpers/harness.js';
 
 let srv, browser, ext;
 let n = 0;

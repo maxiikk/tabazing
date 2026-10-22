@@ -1,7 +1,7 @@
 // The media player beside the search box, and its list of everything that plays in the tabs (the chevron).
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor, key } from '../helpers/switcher.js';
-import { boot, tid, tids, toastText, closedMsg } from './quiet-boot.js';
+import { boot, tid, tids, toastText, closedMsg } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 import { KEY, MSG } from '../../utils/constants.js';
 

@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS, NUDGE } from '../utils/constants.js';
 import { dayOf } from '../utils/review.js';
-import { env, flush, freshWorker } from './background.shared.js';
+import { env, flush, freshWorker } from './helpers/background.js';
 
 freshWorker();
 const bg = () => env.bg;

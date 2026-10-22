@@ -2,7 +2,7 @@
 // lists them (open one, take one out, keys).
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, tabByTitle, toastText, toastButton, closedMsg } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, tabByTitle, toastText, toastButton, closedMsg } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const ABC = [
@@ -122,7 +122,7 @@ describe('archiveTabs', () => {
   });
 
   it("a card's archive quick button archives that tab", async () => {
-    const sw = await boot({ tabs: ABC });
+    await boot({ tabs: ABC });
     tid('quick-archive', cardOf('C')).click();
     await waitFor(() => !cardOf('C'));
     expect(archivedUrls()).toEqual(['https://c.example/']);

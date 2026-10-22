@@ -2,7 +2,7 @@
 // player, and forgotten when the tab closes or loads a new page.
 import { describe, it, expect, vi } from 'vitest';
 import { MSG, KEY, LIMITS } from '../utils/constants.js';
-import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send, env } from './background.shared.js';
+import { flush, freshWorker, seed, fromSwitcherPage, fromPage, send, env } from './helpers/background.js';
 
 freshWorker();
 const media = () => chrome.storage.session._data.get(KEY.MEDIA);

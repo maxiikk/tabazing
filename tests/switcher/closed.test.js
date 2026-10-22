@@ -3,7 +3,7 @@
 // an archived, bookmarked or visited page's).
 import { describe, it, expect, vi } from 'vitest';
 import { waitFor, tick, key } from '../helpers/switcher.js';
-import { boot, tid, tids, cardOf, toastText, toastButton, closedMsg } from './quiet-boot.js';
+import { boot, tid, tids, cardOf, toastText, toastButton, closedMsg } from '../helpers/quiet-boot.js';
 import { t } from '../../utils/translations.js';
 
 const AB = [{ title: 'A', url: 'https://a.example/' }, { title: 'B', url: 'https://b.example/' }];

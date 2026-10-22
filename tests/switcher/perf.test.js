@@ -2,7 +2,7 @@
 // icons are parsed once, screenshots and untouched cards are kept between redraws, resizes are coalesced.
 import { describe, it, expect, vi } from 'vitest';
 import { tick, waitFor } from '../helpers/switcher.js';
-import { boot, ABC, openCards, titleOf, tid, tids, selectedCard } from './_ui.js';
+import { boot, ABC, openCards, titleOf, tid, tids, selectedCard } from '../helpers/switcher-ui.js';
 
 const IMG = 'data:image/jpeg;base64,AAAA';
 const many = (n) => Array.from({ length: n }, (_, i) => ({ title: 'Tab ' + (i + 1), url: `https://t${i + 1}.example/` }));
