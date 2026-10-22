@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.4] - 2026-10-22
+
+### Changed
+
+- Opening over a page is much faster, most of all on a busy computer: Tabazing now reads and draws your tabs ahead, invisibly, while you browse, so a shortcut only has to show it (then it checks for anything that changed meanwhile). In tests with 60 tabs it appeared in about 50 ms instead of 200–400 ms, and in about a quarter of a second on a heavily loaded machine instead of up to a second and a half.
+
 ## [6.17.3] - 2026-10-22
 
 ### Fixed
@@ -708,7 +714,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...HEAD
+[6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...HEAD
+[6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...a984f93
 [6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...2879214
 [6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...0876167
 [6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...64d77a9

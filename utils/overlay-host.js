@@ -25,7 +25,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
   let host = window.__tabazingOverlay;
   if (host && (!host.launch || !host.frame.isConnected)) { host.cleanup(); host = null; } // an older host, or removed by the page
   if (mode === 'shot-taken') { if (host && host.shotTaken) host.shotTaken(token); return; }
-  if (mode === 'standby') { if (!host) create(); return; }
+  if (mode === 'standby') { if (!host) host = create(); host.setStandby(token); return; }
   if (!host || host.active) { if (host) host.cleanup(); host = create(); }
   host.launch(token, hold, shotPending);
 
@@ -50,9 +50,12 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
 
     let session = null; // { token, hold, previousFocus, sent, shown, released } while open
     let dropTimer = null;
-    const hostHandle = { frame, ready: false, active: false, launch, cleanup, shotTaken };
+    let standbyToken = null; // lets each freshly loaded frame read and draw the tabs ahead (still invisible)
+    const hostHandle = { frame, ready: false, active: false, launch, cleanup, shotTaken, setStandby };
 
     const post = (message) => { try { frame.contentWindow.postMessage(message, extensionOrigin); } catch {} };
+    const sendPrepare = () => { if (standbyToken && hostHandle.ready) post({ tabazing: FRAME.PREPARE, token: standbyToken }); };
+    function setStandby(token) { if (typeof token !== 'string' || token === standbyToken) return; standbyToken = token; sendPrepare(); }
     const sendLaunch = () => { if (session && hostHandle.ready && !session.sent) { session.sent = true; post({ tabazing: FRAME.LAUNCH, token: session.token }); } };
     // Alt+Q / Alt+W work like Alt+Tab: letting go of Alt switches to the selected tab. Until the switcher
     // has the focus that key-up reaches this page, so it is passed on once the switcher has drawn.
@@ -112,7 +115,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     const onMessage = (event) => {
       if (event.source !== frame.contentWindow || !event.data || typeof event.data.tabazing !== 'string') return;
       const messageType = event.data.tabazing;
-      if (messageType === FRAME.STANDBY) { hostHandle.ready = true; sendLaunch(); }
+      if (messageType === FRAME.STANDBY) { hostHandle.ready = true; sendPrepare(); sendLaunch(); }
       else if (messageType === FRAME.READY && session) { session.drawn = true; session.light = !!event.data.light; reveal(); }
       else if (messageType === FRAME.CLOSE) finishSession();
     };

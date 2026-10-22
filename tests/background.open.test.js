@@ -345,18 +345,22 @@ describe('injectInto', () => {
 describe('prepareSwitcher / prepareActiveTabs', () => {
   const standbyCalls = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.func === background().overlayHost && options.args[3] === 'standby');
 
-  it('puts a standby frame into the shown web page, once per burst', () => {
+  it('puts a standby frame into the shown web page, once per burst, with a standby token for that tab', async () => {
     const { tab } = seed();
     background().prepareSwitcher(tab, 250);
     background().prepareSwitcher(tab, 250);
     expect(background().standbyTimers.has(tab.id)).toBe(true);
-    vi.advanceTimersByTime(250);
+    await vi.advanceTimersByTimeAsync(250);
+    await flush();
     expect(standbyCalls()).toHaveLength(1);
+    const token = standbyCalls()[0][0].args[4];
     expect(standbyCalls()[0][0]).toEqual({
       target: { tabId: tab.id }, func: background().overlayHost,
-      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'standby', null, false, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher'],
+      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'standby', token, false, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher'],
       injectImmediately: true,
     });
+    const { checkStandby } = await import('../utils/store.js');
+    expect(await checkStandby(token)).toEqual({ tabId: tab.id, windowId: tab.windowId });
     expect(background().standbyTimers.has(tab.id)).toBe(false);
   });
 
@@ -382,7 +386,8 @@ describe('prepareSwitcher / prepareActiveTabs', () => {
     chrome._addTab({ windowId: thirdChromeWindow.id, url: 'https://b.com/' }); // not active
     chrome._addTab({ windowId: thirdChromeWindow.id, url: 'https://c.com/', active: true });
     await background().prepareActiveTabs();
-    vi.advanceTimersByTime(0);
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
     expect(standbyCalls().map(([options]) => options.target.tabId)).toEqual([1, 4]);
   });
 });

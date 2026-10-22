@@ -295,6 +295,37 @@ describe('tab meta and the closed-tab log', () => {
   });
 });
 
+describe('standby tokens', () => {
+  it('createStandby stores a random token for a tab; checkStandby tells its tab and window, as often as asked', async () => {
+    const token = await store.createStandby(4, 2);
+    expect(token).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await store.checkStandby(token)).toEqual({ tabId: 4, windowId: 2 });
+    expect(await store.checkStandby(token)).toEqual({ tabId: 4, windowId: 2 }); // not used up: each fresh frame prepares with it
+  });
+
+  it('unknown, missing or expired tokens are refused', async () => {
+    const token = await store.createStandby(4, 2);
+    expect(await store.checkStandby('guess')).toBeNull();
+    expect(await store.checkStandby(undefined)).toBeNull();
+    vi.setSystemTime(NOW + LIMITS.STANDBY_TIME_TO_LIVE_MILLISECONDS + 1);
+    expect(await store.checkStandby(token)).toBeNull();
+  });
+
+  it('one per tab: a new one replaces it; other tabs keep theirs; expired ones are dropped', async () => {
+    const old = await store.createStandby(9, 1);
+    vi.setSystemTime(NOW + LIMITS.STANDBY_TIME_TO_LIVE_MILLISECONDS - 1000);
+    const first = await store.createStandby(4, 2);
+    const other = await store.createStandby(5, 2);
+    const second = await store.createStandby(4, 3);
+    expect(await store.checkStandby(first)).toBeNull();
+    expect(await store.checkStandby(second)).toEqual({ tabId: 4, windowId: 3 });
+    expect(await store.checkStandby(other)).toEqual({ tabId: 5, windowId: 2 });
+    vi.setSystemTime(NOW + LIMITS.STANDBY_TIME_TO_LIVE_MILLISECONDS + 1);
+    await store.createStandby(6, 2);
+    expect(Object.keys(sessionArea._data.get(KEY.STANDBY))).not.toContain(old);
+  });
+});
+
 describe('launch tokens', () => {
   const launchContext = { sourceTab: 4, window: 2, state: 'maximized', direction: -1, hold: true, mode: 'overlay', via: 'icon' };
 

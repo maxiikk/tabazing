@@ -80,6 +80,28 @@ describe('overlayHost', () => {
     expect(post).toHaveBeenCalledTimes(1); // only once
   });
 
+  it('standby with a token: the frame gets it (PREPARE) once loaded, to read and draw the tabs ahead; a frame loaded afresh gets it again', () => {
+    host('standby', 'stok');
+    const post = spyPost();
+    expect(post).not.toHaveBeenCalled(); // not loaded yet
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
+    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.PREPARE, token: 'stok' }, ORIGIN);
+    host('standby', 'stok'); // the same again: nothing new
+    expect(post).toHaveBeenCalledTimes(1);
+    host('standby', 'newer'); // renewed: passed on at once
+    expect(post).toHaveBeenLastCalledWith({ tabazing: FRAME_MESSAGE.PREPARE, token: 'newer' }, ORIGIN);
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY }); // (a fresh frame, after a close)
+    expect(post).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenLastCalledWith({ tabazing: FRAME_MESSAGE.PREPARE, token: 'newer' }, ORIGIN);
+  });
+
+  it('standby without a token: no PREPARE', () => {
+    host('standby');
+    const post = spyPost();
+    fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('a prepared frame that is ready gets the token straight away', () => {
     host('standby');
     const post = spyPost();

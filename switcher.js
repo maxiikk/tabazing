@@ -19,7 +19,7 @@
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
 import { MESSAGE, KEY, FRAME_MESSAGE, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
-import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPreferences, updatePreferences, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBookmarkNotes, putBookmarkNotes, setBookmarkNote } from './utils/store.js';
+import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPreferences, updatePreferences, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBookmarkNotes, putBookmarkNotes, setBookmarkNote, checkStandby } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
 import { timeAgo, localizePage, setLang, languageLoaded, uiLang, isRtl } from './utils/i18n.js';
 import { translate, getLocale, setLocale } from './utils/translations.js';
@@ -36,6 +36,7 @@ import { GROUP_COLORS, putInGroup, cleanGroup, groupOf } from './utils/groups.js
 // How long opening takes, as performance marks and measures (DevTools > Performance, or timings() below):
 //   tabazing:module    page start -> this script running (loading and parsing the code and the dictionaries)
 //   tabazing:cards     launched -> the first cards drawn (an overlay is prepared ahead and waits for its launch)
+//   tabazing:prepare   a prepared frame reading and drawing everything ahead (before any launch)
 //   tabazing:render    the first draw itself (building the cards and laying them out), launched or not
 //   tabazing:visible   launched -> the first frame after the switcher said it is ready (on screen from then)
 //   tabazing:previews  launched -> every open tab's preview drawn
@@ -1727,7 +1728,7 @@ function cycleScope(direction) {
 // Single exit path, runs at most once. `reason` tells the background what
 // to do with focus: 'cancel' puts the original window back in front.
 async function finish(reason) {
-  if (state.done) return;
+  if (state.done || !launched) return; // (a prepared frame was never open)
   state.done = true;
   if (state.toSleep.size) chrome.runtime.sendMessage({ type: MESSAGE.SLEEP, tabIds: [...state.toSleep] }).catch(() => {});
   chrome.runtime.sendMessage({
@@ -7180,7 +7181,11 @@ let altDown = false;
 function trackAlt(event) { altDown = event.altKey && !event.ctrlKey; }
 
 function onKeyDown(event) {
-  if (state.done) return;
+  if (state.done || !launched) return;
+  if (refreshing) { // (a prepared frame just shown, reading the tabs again: acts once they are current)
+    if (!MODIFIERS.has(event.key)) { event.preventDefault(); event.stopPropagation(); }
+    return whenCurrent(() => onKeyDown(event));
+  }
   trackAlt(event);
   // Tab moves the focus through the page's controls, within the top layer; only while Alt is still held
   // from Alt+Q / Alt+W does it step through the cards, like Alt+Tab (below).
@@ -7378,7 +7383,8 @@ function stopHolding() {
 }
 
 function onKeyUp(event) {
-  if (state.done) return;
+  if (state.done || !launched) return;
+  if (refreshing) return whenCurrent(() => onKeyUp(event));
   trackAlt(event);
   if (event.key === 'Alt') altDown = false;
   if (state.modal) return;
@@ -7409,6 +7415,7 @@ function watchVisibility() {
   }
 }
 function pointerAllowed() {
+  if (!launched) return false;
   if (CONTEXT.mode !== 'overlay') return true;
   const ok = visibleSince > 0 && performance.now() - visibleSince >= LIMITS.POINTER_VISIBLE_MILLISECONDS;
   if (!ok) stuckFallback();
@@ -7434,7 +7441,10 @@ function keysAllowed() {
 }
 
 let resizeFrame = 0;
+let listening = false;
 function listen() {
+  if (listening) return; // (a prepared frame listens from then on)
+  listening = true;
   window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('keyup', onKeyUp, true);
   elements.search.addEventListener('beforeinput', (event) => { if (altDown) event.preventDefault(); });
@@ -7514,7 +7524,7 @@ function listen() {
   let hadFocus = document.hasFocus();
   window.addEventListener('focus', () => { hadFocus = true; altDown = false; if (document.activeElement && document.activeElement.type === 'color') asking = false; });
   window.addEventListener('blur', () => setTimeout(() => {
-    if (hadFocus && !asking && !document.hasFocus()) finish('blur');
+    if (launched && hadFocus && !asking && !document.hasFocus()) finish('blur');
   }, 80));
   // Dragging a window's edge sends a resize event per mouse move: one redraw per frame is enough.
   window.addEventListener('resize', () => {
@@ -7549,24 +7559,28 @@ function listen() {
   // Only the background service worker may move the selection (content
   // scripts always have sender.tab; the worker doesn't).
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
-    if (state.done || sender.id !== chrome.runtime.id || sender.tab) return;
+    if (state.done || !launched || sender.id !== chrome.runtime.id || sender.tab) return; // (a prepared frame isn't open)
     if (message && message.type === MESSAGE.CYCLE) {
-      if (message.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' }); // Alt+R
-      else if (message.direction === 0) stopHolding(); // Alt+E: stay open
-      else cyclePress(message.direction === -1 ? -1 : 1, message.hold === true);
+      whenCurrent(() => {
+        if (message.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' }); // Alt+R
+        else if (message.direction === 0) stopHolding(); // Alt+E: stay open
+        else cyclePress(message.direction === -1 ? -1 : 1, message.hold === true);
+      });
       respond({ ok: true });
     }
   });
-  chrome.tabs.onRemoved.addListener((id) => { if (!state.done) forgetTab(id); });
+  // (A prepared frame doesn't follow what changes meanwhile: its launch reads everything again.)
+  chrome.tabs.onRemoved.addListener((id) => { if (!state.done && launched) forgetTab(id); });
   // Groups made, renamed, recoloured, collapsed or gone, and tabs moved into or out of one, in Chrome while
   // Tabazing is open: read again (once for a burst).
   let groupsTimer = 0;
-  const groupsChanged = () => { clearTimeout(groupsTimer); groupsTimer = setTimeout(() => { if (!state.done) reload(); }, 150); };
+  const groupsChanged = () => { if (!launched) return; clearTimeout(groupsTimer); groupsTimer = setTimeout(() => { if (!state.done) reload(); }, 150); };
   if (chrome.tabGroups) for (const eventName of ['onCreated', 'onUpdated', 'onRemoved']) if (chrome.tabGroups[eventName]) chrome.tabGroups[eventName].addListener(groupsChanged);
   chrome.tabs.onUpdated.addListener((id, changes) => { if (!state.done && changes && changes.groupId !== undefined) groupsChanged(); });
   // A preview saved while we are open (the current tab's, grabbed just before we opened, is stored as we
   // load): show it on its cards.
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (!launched) return;
     if (area === 'session' && changes[KEY.MEDIA] && !state.done) refreshMedia(); // a page started, stopped or changed its media
     if (area !== 'local' || state.done) return;
     const hit = [];
@@ -7579,7 +7593,7 @@ function listen() {
   });
   // The page saw Alt let go before we had the focus (see injectOverlay in background.js).
   window.addEventListener('message', (event) => {
-    if (!state.done && CONTEXT.mode === 'overlay' && event.source === window.parent && event.data && event.data.tabazing === FRAME_MESSAGE.RELEASED) altReleased();
+    if (!state.done && launched && CONTEXT.mode === 'overlay' && event.source === window.parent && event.data && event.data.tabazing === FRAME_MESSAGE.RELEASED) whenCurrent(altReleased);
   });
 }
 
@@ -7596,10 +7610,19 @@ function getLaunch() {
   // In a page: a prepared frame, loaded ahead and invisible. Say so to the page's overlay host, then wait
   // (for as long as it takes) for the launch it passes on when a shortcut is pressed.
   return new Promise((resolve) => {
-    let attempts = 0;
+    let attempts = 0, prepareAttempts = 0;
     const onMessage = async (event) => {
       const data = event.data;
-      if (event.source !== window.parent || !data || data.tabazing !== FRAME_MESSAGE.LAUNCH || typeof data.token !== 'string') return;
+      if (event.source !== window.parent || !data || typeof data.token !== 'string') return;
+      if (data.tabazing === FRAME_MESSAGE.PREPARE) {
+        if (preparing || ++prepareAttempts > 5) return;
+        const standby = await checkStandby(data.token);
+        // When the computer has a moment: preparing ahead must not slow down what is being done now.
+        const whenIdle = (done) => (window.requestIdleCallback ? requestIdleCallback(done, { timeout: 1500 }) : setTimeout(done, 0));
+        if (standby && !preparing) preparing = new Promise((start) => { hurryPrepare = start; whenIdle(start); }).then(() => prepare(standby));
+        return;
+      }
+      if (data.tabazing !== FRAME_MESSAGE.LAUNCH) return;
       if (++attempts > 5) { window.removeEventListener('message', onMessage); return resolve(null); } // someone is guessing
       const launch = await consumeLaunch(data.token);
       if (launch && launch.mode === 'overlay') { window.removeEventListener('message', onMessage); resolve(launch); }
@@ -7617,24 +7640,147 @@ function tellReady() {
   requestAnimationFrame(() => markEnd('visible', 'launched'));
 }
 
-(async () => {
-  // Anything that loads this page without the token the background just
-  // issued (e.g. a website framing it) gets an empty page and no listeners.
-  CONTEXT = await getLaunch();
-  if (!CONTEXT) return;
-  mark('launched');
+// ------------------------------------------------------------- prepared frame
+// A frame the page's overlay host loaded ahead (invisible, inert) reads and draws everything before any key is
+// pressed, once its standby token checks out (the background issued it for this tab: checkStandby). The launch
+// then only picks the card to select and shows it (showPrepared), and makes sure, right after, that what it
+// drew is still current. Until the launch token checks out it does nothing a page could see or use: it stays
+// invisible (the host shows it only after READY, which only a launch sends), keys and clicks are ignored
+// (launched), and the background's "is one open?" goes unanswered.
+let launched = false;   // the launch token checked out: it may show now, and act
+let preparing = null;   // prepare() under way or done (resolves to the settings it drew with), or null
+let preparedFor = null; // { tabId, windowId } it was prepared for
+let hurryPrepare = null; // starts prepare() now, if it is still waiting for an idle moment
+let refreshing = false; // showing a prepared frame, while it reads the tabs again: keys wait for it (waiting)
+const waiting = [];
+const whenCurrent = (callback) => { if (refreshing) waiting.push(callback); else callback(); };
+
+async function applySettings(preferences) {
+  setLang(preferences.lang);
+  await languageLoaded(); // (its dictionary is read now: the only one of the ten this page needs, with English)
+  applyAccent(preferences.accent);
+  applyTheme(preferences.theme);
+  applyLite(preferences.lite === true);
+  localizePage();
+}
+let decorated = false;
+function decorate() { if (decorated) return; decorated = true; fancySelect(elements.sort); }
+
+async function prepare({ tabId, windowId }) {
+  mark('prepare-start');
+  preparedFor = { tabId, windowId };
+  CONTEXT = Object.freeze({ sourceTab: tabId, sourceWindow: windowId, sourceState: 'normal', direction: 1, hold: false, mode: 'overlay', via: 'key', palette: false });
+  const preferences = await getPreferences().catch(() => PREFERENCES_FALLBACK);
+  await applySettings(preferences);
+  decorate();
+  listen();
+  await load(preferences, { previews: false });
+  searchPlaceholder();
+  derive();
+  await loadPreviews(firstShown());
+  derive();
+  state.media = await loadMedia().catch(() => []);
+  elements.app.hidden = false;
+  mark('render-start');
+  render();
+  markEnd('render', 'render-start');
+  await loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); }).catch(() => {});
+  await loadExtras().then(() => drawLater()).catch(() => {});
+  markEnd('prepare', 'prepare-start');
+  return preferences;
+}
+
+// Opened from a tab outside the group Tabazing was inside of (you went elsewhere, in Chrome itself or by picking
+// a tab outside it here): the group is left, and every way of opening shows all the cards.
+function leaveGroupIfElsewhere() {
+  if (state.inGroup !== null && !state.tabs.some((x) => x.id === CONTEXT.sourceTab && x.groupId === state.inGroup)) {
+    state.group = null;
+    setGroup(null).catch(() => {});
+    derive();
+  }
+}
+// The card to select first, as an index of state.entries (`resume`: back after capturing one tab's preview).
+function firstSelection(resume = null) {
+  const mru = state.mruOrder;
+  // By recent use, the first Alt+W goes to the tab used just before this one, as Alt+Tab does, even when it is pinned
+  // (shown first); every other step follows the cards as shown.
+  const before = state.sort === 'recent' && state.inGroup === null && CONTEXT.direction > 0 ? mru.find((entry) => entry.key !== 't' + CONTEXT.sourceTab) : null;
+  const firstStep = () => { if (before) return before.key; const step = stepFrom('t' + CONTEXT.sourceTab, CONTEXT.direction); return step.leave ? stepOutOfGroup(CONTEXT.direction) : step.key; };
+  // Alt+Q / Alt+W start one card before / after the current tab (in the group view, past its ends out of it),
+  // Alt+E (dir 0) on the current tab itself; anything else (the toolbar icon, opening with Chrome) on the tab
+  // used before it.
+  const first = resume && typeof resume.key === 'string' ? resume.key
+    : CONTEXT.hold ? firstStep()
+    : CONTEXT.direction === 0 ? 't' + CONTEXT.sourceTab
+    : mru.length > 1 ? mru[1].key : null;
+  const at = first ? state.entries.findIndex((entry) => entry.key === cardKey(first)) : -1;
+  if (first && at < 0) { const entry = mru.find((x) => x.key === first); if (entry && entry.section) { state.peek.add(entry.section); derive(); } }
+  return Math.max(0, first ? state.entries.findIndex((entry) => entry.key === cardKey(first)) : 0);
+}
+// What decides how the cards look, for telling whether a prepared frame's are still current.
+const drawnSignature = () => JSON.stringify([
+  state.entries.map((entry) => [entry.key, entry.tab ? [entry.tab.title, urlOf(entry.tab), entry.tab.favIconUrl, entry.tab.pinned, entry.tab.discarded, entry.tab.audible, isMuted(entry.tab), entry.tab.groupId, entry.tab.active] : entry.kind,
+    entry.preview ? entry.preview.t : 0, entry.tabs ? entry.tabs.length : 0]),
+  Object.keys(state.stars).length, Object.keys(state.notes).length, state.snoozed.length, Object.keys(state.woken).length, [...state.groups.values()].map((group) => [group.id, group.title, group.color, group.collapsed]),
+]);
+
+// The launch of a prepared frame: shown at once, as it was drawn; then read again, and drawn again if anything changed.
+async function showPrepared(preparedPreferences) {
+  state.holding = CONTEXT.hold;
+  document.documentElement.classList.toggle('alttab', CONTEXT.hold);
+  document.documentElement.classList.add(CONTEXT.mode);
+  watchVisibility();
+  refreshing = true;
+  const drawn = drawnSignature();
+  leaveGroupIfElsewhere();
+  const at = firstSelection(); // (may open a section, to select a card in it)
+  if (drawnSignature() !== drawn) refresh({ keepKey: (state.entries[at] || {}).key });
+  else if (CONTEXT.hold) relayout(); // (html.alttab hides the search box)
+  if (CONTEXT.palette) openPalette({ from: 'shortcut' });
+  else select(at, { scroll: true });
+  tellReady();
+  window.focus();
+  (state.palette ? elements.paletteInput : elements.search).focus({ preventScroll: true });
+  chrome.runtime.sendMessage({ type: MESSAGE.MEDIA_CHECK }).catch(() => {});
+  try {
+    const preferences = await getPreferences().catch(() => preparedPreferences);
+    const settingsChanged = JSON.stringify(preferences) !== JSON.stringify(preparedPreferences);
+    if (settingsChanged) await applySettings(preferences);
+    const before = drawnSignature();
+    const selectedKey = (state.entries[state.selected] || {}).key;
+    await load(preferences);
+    derive();
+    if (settingsChanged || drawnSignature() !== before) refresh({ keepKey: selectedKey });
+  } catch {}
+  refreshMedia();
+  refreshing = false;
+  for (const callback of waiting.splice(0)) callback();
+  loadExtras().then(() => drawLater()).catch(() => {});
+  firstRun();
+  healthCheck();
+  await handOver();
+}
+
+// Keys pressed while it was still opening, as when it is open: Alt+E keeps it open, Alt+R opens the palette.
+async function handOver() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: MESSAGE.READY });
+    const extra = response && Number.isInteger(response.extra) ? response.extra : 0;
+    for (let i = 0; i < Math.abs(extra); i++) cyclePress(Math.sign(extra));
+    if (response && response.stay === true) stopHolding();
+    if (response && response.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' });
+  } catch {}
+}
+
+// A frame (or window) launched without being prepared: everything is read and drawn now.
+async function boot(resume) {
   state.holding = CONTEXT.hold; // Alt+Q / Alt+W: letting go of Alt will switch...
   document.documentElement.classList.toggle('alttab', CONTEXT.hold); // ...and what needs typing is hidden meanwhile
   document.documentElement.classList.add(CONTEXT.mode);
   // The settings are read once, here: the language, the colours, and (load) which tabs to ask Chrome for.
-  const [bootPreferences, resume] = await Promise.all([getPreferences().catch(() => PREFERENCES_FALLBACK), takeResume().catch(() => null)]);
-  setLang(bootPreferences.lang);
-  await languageLoaded(); // (its dictionary is read now, the only one of the ten this page needs)
-  applyAccent(bootPreferences.accent);
-  applyTheme(bootPreferences.theme);
-  applyLite(bootPreferences.lite === true);
-  localizePage();
-  fancySelect(elements.sort);
+  const bootPreferences = await getPreferences().catch(() => PREFERENCES_FALLBACK);
+  await applySettings(bootPreferences);
+  decorate();
   listen();
   watchVisibility();
   // Alt+R: the palette shows at once, before any tab is read (they fill it in as they come).
@@ -7654,28 +7800,8 @@ function tellReady() {
     state.starOnly = !!resume.starred;
   }
   derive();
-  // Opened from a tab outside the group Tabazing was inside of (you went elsewhere, in Chrome itself or by picking
-  // a tab outside it here): the group is left, and every way of opening shows all the cards.
-  if (state.inGroup !== null && !state.tabs.some((x) => x.id === CONTEXT.sourceTab && x.groupId === state.inGroup)) {
-    state.group = null;
-    setGroup(null).catch(() => {});
-    derive();
-  }
-  const mru = state.mruOrder;
-  // By recent use, the first Alt+W goes to the tab used just before this one, as Alt+Tab does, even when it is pinned
-  // (shown first); every other step follows the cards as shown.
-  const before = state.sort === 'recent' && state.inGroup === null && CONTEXT.direction > 0 ? mru.find((entry) => entry.key !== 't' + CONTEXT.sourceTab) : null;
-  const firstStep = () => { if (before) return before.key; const step = stepFrom('t' + CONTEXT.sourceTab, CONTEXT.direction); return step.leave ? stepOutOfGroup(CONTEXT.direction) : step.key; };
-  // Alt+Q / Alt+W start one card before / after the current tab (in the group view, past its ends out of it),
-  // Alt+E (dir 0) on the current tab itself; anything else (the toolbar icon, opening with Chrome) on the tab
-  // used before it.
-  const first = resume && typeof resume.key === 'string' ? resume.key
-    : CONTEXT.hold ? firstStep()
-    : CONTEXT.direction === 0 ? 't' + CONTEXT.sourceTab
-    : mru.length > 1 ? mru[1].key : null;
-  const at = first ? state.entries.findIndex((entry) => entry.key === cardKey(first)) : -1;
-  if (first && at < 0) { const entry = mru.find((x) => x.key === first); if (entry && entry.section) { state.peek.add(entry.section); derive(); } }
-  state.selected = Math.max(0, first ? state.entries.findIndex((entry) => entry.key === cardKey(first)) : 0);
+  leaveGroupIfElsewhere();
+  state.selected = firstSelection(resume);
   // The previews of what the first draw shows (reading all of them, 50 KB each, kept it waiting); the rest
   // right after it.
   await loadPreviews(firstShown());
@@ -7695,14 +7821,22 @@ function tellReady() {
   loadExtras().then(() => drawLater()).catch(() => {});
   if (!resume) firstRun();
   healthCheck();
-  try {
-    const response = await chrome.runtime.sendMessage({ type: MESSAGE.READY });
-    const extra = response && Number.isInteger(response.extra) ? response.extra : 0;
-    for (let i = 0; i < Math.abs(extra); i++) cyclePress(Math.sign(extra));
-    // Keys pressed while it was still loading, as when it is open: Alt+E keeps it open, Alt+R opens the palette.
-    if (response && response.stay === true) stopHolding();
-    if (response && response.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' });
-  } catch {}
+  await handOver();
+}
+
+(async () => {
+  // Anything that loads this page without the token the background just issued (e.g. a website framing it)
+  // shows nothing and acts on nothing (a prepared frame has drawn the tabs, invisible, but stays inert).
+  const launch = await getLaunch();
+  if (!launch) return;
+  mark('launched');
+  if (hurryPrepare) hurryPrepare();
+  const preparedPreferences = preparing ? await preparing.catch(() => null) : null;
+  const resume = await takeResume().catch(() => null);
+  CONTEXT = launch;
+  launched = true;
+  if (preparedPreferences && !resume && preparedFor && launch.sourceTab === preparedFor.tabId && launch.sourceWindow === preparedFor.windowId) return showPrepared(preparedPreferences);
+  return boot(resume);
 })();
 
 // For the unit tests (tests/): everything above, by name. Nothing in the extension imports this file.
@@ -7735,7 +7869,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  timings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, prepare, showPrepared, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,

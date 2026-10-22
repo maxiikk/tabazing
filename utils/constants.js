@@ -23,7 +23,8 @@ export const MESSAGE = Object.freeze({
 // Messages between the overlay iframe and the content-script code that hosts it.
 // RELEASED: the page saw Alt let go (Alt+Q / Alt+W were held) before the switcher had the focus.
 // STANDBY: the switcher frame has loaded and waits for a launch (it is prepared ahead, invisible).
-export const FRAME_MESSAGE = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby' });
+// PREPARE: the host passes on its standby token: with it, the frame reads and draws the tabs ahead, still invisible.
+export const FRAME_MESSAGE = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby', PREPARE: 'prepare' });
 
 export const KEY = Object.freeze({
   MRU: 'mru',                 // number[] tab ids, most recent first
@@ -51,6 +52,7 @@ export const KEY = Object.freeze({
   RESUME: 'resume',           // storage.session: { t, query, scope, sort, starred, key } reopen the switcher where it was (after a one-tab capture)
   OVERLAY: 'overlay',         // { tabId, t } tab currently covered by the overlay
   LAUNCH: 'launch',           // { token, t, ctx } one-time launch for the next switcher
+  STANDBY: 'standby',         // storage.session: { [token]: { tabId, windowId, t } } what lets a prepared frame read and draw the tabs ahead (one per tab)
   PALETTE_RECENT: 'palRecent', // storage.local: string[] ids of the command palette's actions, most recently run first
   GROUP: 'group',             // storage.session: { id, t } the tab group the switcher is inside of (group ids last one browser session)
   CLOSED_HIDDEN: 'closedHidden', // storage.local: { [key]: t } "Recently closed" entries removed from the list (key: normalized URL, 'w:' + it for a window)
@@ -88,6 +90,7 @@ export const LIMITS = Object.freeze({
   MAX_MRU: 500,
   CAPTURE_GAP_MILLISECONDS: 520,          // Chrome allows ~2 captureVisibleTab calls per second
   LAUNCH_TIME_TO_LIVE_MILLISECONDS: 15000,         // how long a launch token stays valid
+  STANDBY_TIME_TO_LIVE_MILLISECONDS: 30 * 60 * 1000, // ...and a standby token (renewed each time its tab is prepared again)
   OPENING_LOCK_MILLISECONDS: 1500,        // presses during this window are queued, not re-opened
   STANDBY_DROP_MILLISECONDS: 60 * 1000,   // a prepared (invisible) switcher frame is dropped after its tab has been hidden this long
   OVERLAY_WATCHDOG_MILLISECONDS: 2500,

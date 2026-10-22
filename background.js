@@ -17,7 +17,7 @@ import {
   touchMru, removeFromMru, replaceInMru, seedMru, previewFresh, cleanupPreviews, markBoot,
   markDiscarded, moveDiscarded, ensureBoot,
   rememberTab, rememberTabs, forgetTabMeta, logClosedTab, flushClosedTabs, cleanupClosedLog,
-  setOverlayTab, clearOverlayTab, createLaunch, getOnboard, updateOnboard,
+  setOverlayTab, clearOverlayTab, createLaunch, createStandby, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPreferences,
   takeDueSnoozed, putBackSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
 } from './utils/store.js';
@@ -508,12 +508,14 @@ const standbyTimers = new Map(); // tabId -> timeout (bursts of tab events becom
 function prepareSwitcher(tab, delay = 0) {
   if (!tab || !tab.active || tab.incognito || !INJECTABLE.test(tab.url || '')) return;
   clearTimeout(standbyTimers.get(tab.id));
-  standbyTimers.set(tab.id, setTimeout(() => {
+  standbyTimers.set(tab.id, setTimeout(async () => {
     standbyTimers.delete(tab.id);
+    // Its standby token lets the frame read and draw the tabs ahead (invisible): opening then only shows it.
+    const token = await createStandby(tab.id, tab.windowId).catch(() => null);
     chrome.scripting.executeScript({
       target: { tabId: tab.id },
       func: overlayHost,
-      args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'standby', null, false, LIMITS.STANDBY_DROP_MILLISECONDS, translate('overlayLabel')],
+      args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'standby', token, false, LIMITS.STANDBY_DROP_MILLISECONDS, translate('overlayLabel')],
       injectImmediately: true,
     }).catch(() => {});
   }, delay));

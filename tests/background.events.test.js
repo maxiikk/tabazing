@@ -44,7 +44,8 @@ describe('worker start', () => {
   it('prepares the switcher in the active web tabs', async () => {
     const { tab } = seed();
     await reimport();
-    vi.advanceTimersByTime(0);
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: tab.id }, func: background().overlayHost }));
   });
 
@@ -280,7 +281,8 @@ describe('tabs.onActivated', () => {
   it('prepares the switcher in the newly shown tab', async () => {
     const { tab, w: chromeWindow } = seed();
     await chrome.tabs.onActivated._emit({ tabId: tab.id, windowId: chromeWindow.id })[0];
-    vi.advanceTimersByTime(0);
+    await vi.advanceTimersByTimeAsync(0);
+    await flush();
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({ target: { tabId: tab.id }, args: expect.arrayContaining(['standby']) }));
   });
 });
@@ -309,12 +311,14 @@ describe('tabs.onCreated / onUpdated / onRemoved / onReplaced', () => {
     const tab = seed().tab;
     const standby = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.args && options.args[3] === 'standby').length;
     chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, status: 'loading' });
-    vi.advanceTimersByTime(249);
+    await vi.advanceTimersByTimeAsync(249);
     expect(standby()).toBe(0);
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
     expect(standby()).toBe(1);
     chrome.tabs.onUpdated._emit(tab.id, { status: 'loading' }, { ...tab, active: false });
-    vi.advanceTimersByTime(300);
+    await vi.advanceTimersByTimeAsync(300);
+    await flush();
     expect(standby()).toBe(1);
   });
 

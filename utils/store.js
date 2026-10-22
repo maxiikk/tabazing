@@ -984,6 +984,27 @@ export async function isOverlayTab(tabId) {
 // the one-time token the background created for this launch. All launch
 // details are kept here, so the URL (which the page can see) holds nothing
 // but that random token.
+// A prepared frame's credential (KEY.STANDBY): it may read and draw the tabs of `tabId`'s window ahead, invisible,
+// before any launch (only a launch shows it, or lets it act). Reusable until it expires: the frame is loaded
+// afresh after each close and prepares again with the same token. One per tab: a new one replaces it.
+export function createStandby(tabId, windowId) {
+  return withLock('standby', async () => {
+    const token = crypto.randomUUID(), now = Date.now();
+    const kept = Object.entries((await sessionArea.get(KEY.STANDBY))[KEY.STANDBY] || {})
+      .filter(([, entry]) => entry && entry.tabId !== tabId && isTime(entry.t) && now - entry.t < LIMITS.STANDBY_TIME_TO_LIVE_MILLISECONDS)
+      .slice(-50);
+    await sessionArea.set({ [KEY.STANDBY]: Object.fromEntries([...kept, [token, { tabId, windowId, t: now }]]) });
+    return token;
+  });
+}
+/** The tab and window `token` lets a frame prepare for ({ tabId, windowId }), or null (unknown or expired). */
+export async function checkStandby(token) {
+  if (typeof token !== 'string') return null;
+  const entry = ((await sessionArea.get(KEY.STANDBY))[KEY.STANDBY] || {})[token];
+  if (!entry || !isId(entry.tabId) || !isId(entry.windowId) || !isTime(entry.t) || Date.now() - entry.t > LIMITS.STANDBY_TIME_TO_LIVE_MILLISECONDS) return null;
+  return { tabId: entry.tabId, windowId: entry.windowId };
+}
+
 export async function createLaunch(launchContext) {
   const token = crypto.randomUUID();
   await sessionArea.set({ [KEY.LAUNCH]: { token, t: Date.now(), context: launchContext } });
