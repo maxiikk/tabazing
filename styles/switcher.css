@@ -1125,7 +1125,7 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
 /* The tile: framed in the group's colour, its picture its first tabs (up to four). */
 .gtile .thumb { overflow: visible; background: transparent; }
 .gtile .gmosaic { display: grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 4px; padding: 4px; border-radius: var(--r-s); grid-auto-flow: dense;
-  background: color-mix(in srgb, var(--gc) 26%, var(--md-surface-container)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--gc) 70%, transparent); }
+  background: color-mix(in srgb, var(--gc) 26%, var(--md-surface-container)); } /* (no frame of its own: the tile's border has the group's colour) */
 .gcell { position: relative; min-width: 0; min-height: 0; border-radius: var(--r-xs); overflow: hidden; background: var(--md-surface-container-highest); display: flex; align-items: center; justify-content: center; }
 .gcell img.shot { width: 100%; height: 100%; object-fit: cover; object-position: top left; display: block; }
 .gcell img.gfav { width: 22px; height: 22px; }
@@ -1137,7 +1137,7 @@ html.palette-solo #app > :not(.palette):not(.toast):not(.live) { visibility: hid
 .gcell img.gfav { flex: none; }
 .gtile .gmosaic .pill { inset-inline-end: 10px; bottom: 10px; }
 /* A tile says it is a tab group, and which one, at a glance: framed in the group's colour, its name on a chip of that
-   colour (with a stack-of-tabs icon, as Chrome labels a group), its picture in a frame of it. --on-gc: the chip's text. */
+   colour (with a stack-of-tabs icon, as Chrome labels a group). --on-gc: the chip's text. */
 [data-gc] { --on-gc: #10131a; }
 html.light [data-gc] { --on-gc: #fff; }
 .card.gtile { border: 2px solid var(--gc); padding: 6px 6px 8px; background: color-mix(in srgb, var(--gc) 16%, var(--md-surface-container-low)); }
