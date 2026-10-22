@@ -35,7 +35,7 @@ describe('self-contained', () => {
 describe('overlayHost', () => {
   const SOURCE = 'chrome-extension://abc/markup/switcher.html';
   const ORIGIN = 'chrome-extension://abc';
-  const host = (mode, token = null, hold = false) => overlayHost(SOURCE, ORIGIN, FRAME_MESSAGE, mode, token, hold, 60000);
+  const host = (mode, token = null, hold = false, shotPending = false) => overlayHost(SOURCE, ORIGIN, FRAME_MESSAGE, mode, token, hold, 60000, 'Tabazing', shotPending);
   const frame = () => queryTestId('overlay-frame');
   const shade = () => queryTestId('overlay-shade');
   const fromFrame = (data, source = frame().contentWindow) => window.dispatchEvent(new MessageEvent('message', { data, source }));
@@ -86,6 +86,42 @@ describe('overlayHost', () => {
     fromFrame({ tabazing: FRAME_MESSAGE.STANDBY });
     host('launch', 'tok');
     expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.LAUNCH, token: 'tok' }, ORIGIN);
+  });
+
+  it('while the page\'s screenshot is being taken, stays invisible after READY until told it is taken (that launch only)', () => {
+    host('launch', 'tok', false, true);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(shown()).toBe(false);
+    host('shot-taken', 'other');
+    expect(shown()).toBe(false);
+    host('shot-taken', 'tok');
+    expect(shown()).toBe(true);
+  });
+
+  it('told the screenshot is taken before READY: shows on READY', () => {
+    host('launch', 'tok', false, true);
+    host('shot-taken', 'tok');
+    expect(shown()).toBe(false);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(shown()).toBe(true);
+  });
+
+  it('never told: shows 500 ms after the launch anyway (a slower screenshot is thrown away)', () => {
+    vi.useFakeTimers();
+    host('launch', 'tok', false, true);
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    vi.advanceTimersByTime(499);
+    expect(shown()).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(shown()).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('shows and hides at once: no fade', () => {
+    host('launch', 'tok');
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(frame().style.transition || 'none').toBe('none');
+    expect(shade().style.transition || 'none').toBe('none');
   });
 
   it('stays invisible until the switcher says READY, then shows', () => {

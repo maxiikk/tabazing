@@ -21,7 +21,7 @@ let loaded = Promise.resolve();
 function applyLanguage(lang) {
   current = setLocale(LANGS.includes(lang) ? lang : chromeLang());
   relativeTimeFormat = new Intl.RelativeTimeFormat(current, { numeric: 'auto', style: 'short' });
-  loaded = loadDictionary(current).catch(() => {}); // (unreadable: its texts stay in English)
+  loaded = Promise.all([loadDictionary('en'), loadDictionary(current)]).catch(() => {}); // (English: what every missing key falls back to)
   return current;
 }
 applyLanguage(chromeLang());

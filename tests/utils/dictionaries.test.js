@@ -16,7 +16,7 @@ import HE from '../../dictionaries/he.json';
 import RO from '../../dictionaries/ro.json';
 import { LANGS } from '../../utils/i18n.js';
 import { messageArguments, formatMessage } from '../../utils/translations.js';
-import { languages, localeFile, manifestKeys as chromeKeys } from '../../scripts/i18n.js';
+import { languages, localeFile, manifestKeys as chromeKeys, backgroundMessagesFile } from '../../scripts/i18n.js';
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const BOOKS = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, ar: AR, he: HE, ro: RO };
@@ -26,9 +26,12 @@ describe('the dictionaries folder', () => {
     expect(languages()).toEqual([...LANGS].sort());
     expect(Object.keys(BOOKS).sort()).toEqual([...LANGS].sort());
   });
-  it('is the only place translations live: nothing but _locales (generated) holds strings elsewhere', () => {
+  it('is the only place translations live: nothing but _locales and utils/background-messages.js (generated) holds strings elsewhere', () => {
     expect(() => readdirSync(resolve(process.cwd(), 'utils/msgs'))).toThrow();
     expect(readdirSync(resolve(process.cwd(), '_locales')).sort()).toEqual(languages());
+  });
+  it('utils/background-messages.js is generated from them (run `npm run i18n` if this fails)', () => {
+    expect(read('utils/background-messages.js').replace(/\r\n/g, '\n')).toBe(backgroundMessagesFile());
   });
 });
 

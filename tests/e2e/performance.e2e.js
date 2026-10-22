@@ -1,23 +1,33 @@
-// How fast Tabazing opens in real Chrome, with 60 open tabs that all have stored previews: the switcher's own
-// timings (switcher.js "timings": page start -> script running, the first draw, launch -> first cards on screen,
-// launch -> every preview, a keystroke -> its results), taken over a few opens. The numbers are printed for comparison between versions; the
-// budgets are loose, to catch a change that makes opening much slower, not to time the machine.
+// How fast Tabazing opens in real Chrome, with 60 open tabs that all have stored previews, in three situations:
+// an idle machine; a loaded one (every CPU core busy with threads spinning in this process, and the page and the
+// switcher's frame slowed down 4x, as on a weak or overloaded computer); and loaded with the background service
+// worker asleep (Chrome stops it after half a minute idle, and the next press has to start it again).
+// Each open is timed from the key press to the first frame after the switcher said it is ready (it is on screen
+// from then), along with the switcher's own timings (switcher.js "timings"). The numbers are printed for
+// comparison between versions; the budgets are loose, to catch a change that makes opening much slower, not to
+// time the machine.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { Worker } from 'node:worker_threads';
+import { cpus } from 'node:os';
 import { startServers, launch, sleep } from './helpers/harness.js';
 
 const TABS = 60;
 const OPENS = 3;
-const BUDGET = { module: 1500, render: 600, cards: 1500, previews: 4000, search: 150 }; // milliseconds
+const IDLE_BUDGET = { module: 1500, render: 600, search: 150, shown: 1500 }; // milliseconds
+const LOADED_BUDGET = 10000; // press -> on screen, however busy the machine: it must still open
 
-let server, browser, extension;
+// Everything goes through an extension page, never the service worker itself: a DevTools session on the worker makes
+// Chrome hold it, waiting for the debugger, when it starts again after being stopped (the "background asleep" case).
+let server, browser, extension, extensionPage;
 beforeAll(async () => {
   server = await startServers();
   ({ browser, extension } = await launch());
-  await extension.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
+  extensionPage = await extension.extensionPage();
+  await extensionPage.evaluate(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
   const urls = Array.from({ length: TABS }, (unused, i) => `${server.main}/p/Page${i}`);
-  await extension.run((list) => Promise.all(list.map((url) => chrome.tabs.create({ url, active: false }))), urls);
+  await extensionPage.evaluate((list) => Promise.all(list.map((url) => chrome.tabs.create({ url, active: false }))), urls);
   // A preview for each, as a capture stores it: a 560 x 350 WebP drawn and saved by the extension's own code.
-  const page = await extension.extensionPage();
+  const page = extensionPage;
   // (as text: vitest rewrites an import() written in this file, and this runs in the extension's page)
   await page.evaluate(`(async (list) => {
     const { savePreview } = await import('/utils/store.js');
@@ -32,42 +42,102 @@ beforeAll(async () => {
       await savePreview(url, { img: 'data:image/webp;base64,' + btoa(binary), t: Date.now(), sharp: null });
     }
   })(${JSON.stringify(urls)})`);
-  await page.close();
 }, 180_000);
 afterAll(async () => { await browser?.close(); await server?.close(); });
 
-const frameOf = (page) => page.frames().find((frame) => frame.url().includes('markup/switcher.html'));
-const measures = (frame) => frame.evaluate(() => Object.fromEntries(performance.getEntriesByType('measure')
-  .filter((entry) => entry.name.startsWith('tabazing:')).map((entry) => [entry.name.slice(9), Math.round(entry.duration)])));
+// The switcher: in the page (the overlay), or in its own window (where the page was too busy to show it).
+async function switcherFrame(page) {
+  const inPage = page.frames().find((frame) => frame.url().includes('markup/switcher.html'));
+  const popupTarget = browser.targets().find((target) => target.type() === 'page' && target !== extensionPage.target() && target.url().includes('markup/switcher.html') && !target.url().includes('standby='));
+  if (popupTarget) { const popup = await popupTarget.page(); return { frame: popup && popup.mainFrame(), popup }; }
+  return { frame: inPage, popup: null };
+}
+// The switcher's timings, and when it was first on screen (epoch milliseconds, comparable with Date.now() here).
+const measures = (frame) => frame.evaluate(() => {
+  const out = Object.fromEntries(performance.getEntriesByType('measure').filter((entry) => entry.name.startsWith('tabazing:')).map((entry) => [entry.name.slice(9), Math.round(entry.duration)]));
+  const visible = performance.getEntriesByName('tabazing:visible-end')[0];
+  if (visible) out.visibleAt = performance.timeOrigin + visible.startTime;
+  return out;
+});
 const median = (values) => [...values].sort((first, second) => first - second)[Math.floor(values.length / 2)];
+// Every core spinning (until stopped): the machine is as busy as it gets.
+function busyCpu() {
+  const workers = Array.from({ length: cpus().length }, () => new Worker('for (;;) {}', { eval: true }));
+  return () => Promise.all(workers.map((worker) => worker.terminate()));
+}
+// The page and the switcher's frame (each its own process) run SLOWDOWN times slower, until the returned function is
+// called (the sessions stay attached meanwhile: Chrome drops the slowdown with the session).
+const SLOWDOWN = 4;
+async function slowDown(page) {
+  const targets = [page.target(), ...browser.targets().filter((target) => target.url().includes('markup/switcher.html'))];
+  const sessions = [];
+  for (const target of targets) {
+    try { const session = await target.createCDPSession(); await session.send('Emulation.setCPUThrottlingRate', { rate: SLOWDOWN }); sessions.push(session); } catch {}
+  }
+  return () => Promise.all(sessions.map((session) => session.detach().catch(() => {})));
+}
+// As Chrome does after half a minute without events (not a crash): the next press has to start it again.
+async function stopServiceWorker(page) {
+  const session = await page.createCDPSession();
+  await session.send('ServiceWorker.enable');
+  await session.send('ServiceWorker.stopAllWorkers');
+  await session.detach();
+  await sleep(300);
+}
+
+// Opens the switcher OPENS times (Alt+E over a page) and times each open; `search` types into it once open.
+async function measureOpens({ load = false, coldWorker = false, search = false } = {}) {
+  const page = await browser.newPage();
+  await page.setViewport({ width: 1280, height: 800 });
+  await page.goto(`${server.main}/p/Start`);
+  await page.bringToFront();
+  await sleep(1500);
+  const runs = [];
+  for (let open = 0; open < OPENS; open++) {
+    await sleep(3000); // reading the page a while: its screenshot is no longer fresh
+    if (coldWorker) await stopServiceWorker(page);
+    const stop = load ? busyCpu() : null;
+    const speedUp = load ? await slowDown(page) : null;
+    if (load) await sleep(500);
+    const pressed = Date.now();
+    await page.keyboard.down('Alt'); await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
+    let frame = null, popup = null, times = {};
+    for (let wait = 0; wait < 300 && !times.visibleAt; wait++) {
+      await sleep(50);
+      ({ frame, popup } = await switcherFrame(page));
+      if (frame) times = await measures(frame).catch(() => ({}));
+    }
+    if (stop) { await stop(); await speedUp(); }
+    if (search && frame) { for (const character of 'page4') { await page.keyboard.type(character); await sleep(120); } times = { ...times, ...(await measures(frame)) }; }
+    runs.push({ ...times, shown: times.visibleAt ? Math.round(times.visibleAt - pressed) : Infinity, popup: !!popup });
+    if (popup) await popup.close().catch(() => {});
+    else { await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); }
+    await sleep(1200);
+  }
+  await page.close();
+  const pick = (name) => median(runs.map((times) => times[name] ?? Infinity));
+  return { shown: pick('shown'), module: pick('module'), render: pick('render'), search: search ? pick('search') : undefined, each: runs.map((times) => times.shown + (times.popup ? ' (window)' : '')) };
+}
 
 describe('performance', () => {
-  it(`opens with ${TABS} tabs and their previews, and searches, within the budgets`, async () => {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
-    await page.goto(`${server.main}/p/Start`);
-    await page.bringToFront();
-    await sleep(1500);
-    const runs = [];
-    for (let open = 0; open < OPENS; open++) {
-      await page.keyboard.down('Alt'); await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
-      let frame = null, times = {};
-      for (let wait = 0; wait < 100 && !(times.cards && times.previews); wait++) {
-        await sleep(100);
-        frame = frameOf(page);
-        if (frame) times = await measures(frame).catch(() => ({}));
-      }
-      for (const character of 'page4') { await page.keyboard.type(character); await sleep(120); }
-      times = { ...times, ...(await measures(frame)) };
-      runs.push(times);
-      await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
-      await sleep(1200);
-    }
-    const result = Object.fromEntries(Object.keys(BUDGET).map((name) => [name, median(runs.map((times) => times[name] ?? Infinity))]));
-    console.log(`Tabazing timings (median of ${OPENS} opens, ${TABS} tabs, milliseconds):`, JSON.stringify(result), '\n  each open:', JSON.stringify(runs));
-    for (const [name, budget] of Object.entries(BUDGET)) expect(result[name], name).toBeLessThan(budget);
+  it(`opens with ${TABS} tabs and their previews, and searches, within the budgets (idle machine)`, async () => {
+    const result = await measureOpens({ search: true });
+    console.log('Tabazing, idle (median of', OPENS, 'opens, milliseconds):', JSON.stringify(result));
+    for (const [name, budget] of Object.entries(IDLE_BUDGET)) expect(result[name], name).toBeLessThan(budget);
     // The page Tabazing was opened over was captured as it opened, by the service worker: as WebP.
-    const startPreview = await extension.run((url) => chrome.storage.local.get('pv:' + url).then((stored) => stored['pv:' + url]), `${server.main}/p/Start`);
+    const startPreview = await extensionPage.evaluate((url) => chrome.storage.local.get('pv:' + url).then((stored) => stored['pv:' + url]), `${server.main}/p/Start`);
     expect(startPreview && startPreview.img.slice(0, 23)).toBe('data:image/webp;base64,');
-  }, 120_000);
+  }, 180_000);
+
+  it('still opens on a loaded machine', async () => {
+    const result = await measureOpens({ load: true });
+    console.log('Tabazing, loaded (median of', OPENS, 'opens, milliseconds):', JSON.stringify(result));
+    expect(result.shown).toBeLessThan(LOADED_BUDGET);
+  }, 180_000);
+
+  it('still opens on a loaded machine with the background asleep', async () => {
+    const result = await measureOpens({ load: true, coldWorker: true });
+    console.log('Tabazing, loaded, background asleep (median of', OPENS, 'opens, milliseconds):', JSON.stringify(result));
+    expect(result.shown).toBeLessThan(LOADED_BUDGET);
+  }, 180_000);
 });

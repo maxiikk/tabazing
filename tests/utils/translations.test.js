@@ -114,12 +114,13 @@ describe('t', () => {
 });
 
 describe('dictionaries, read when needed', () => {
-  it('a page starts with English only; another language is read once, when it is needed', async () => {
+  it('a page reads a dictionary only when it is needed, and once (English too: nothing is imported up front)', async () => {
     vi.resetModules();
     const fresh = await import('../../utils/translations.js');
     const RU = (await import('../../dictionaries/ru.json')).default;
-    expect(fresh.hasDictionary('en')).toBe(true);
-    expect(fresh.LANGUAGES.filter((lang) => fresh.hasDictionary(lang))).toEqual(['en']);
+    expect(fresh.LANGUAGES.filter((lang) => fresh.hasDictionary(lang))).toEqual([]);
+    expect(fresh.translate('newTab')).toBe('newTab'); // nothing read yet: the key itself
+    await fresh.loadDictionary('en');
     fresh.setLocale('ru');
     expect(fresh.getLocale()).toBe('ru');
     expect(fresh.translate('newTab')).toBe(EN.newTab); // in English until it is read
@@ -130,10 +131,15 @@ describe('dictionaries, read when needed', () => {
     expect(fresh.hasDictionary('xx')).toBe(false);
   });
 
-  it('the service worker registers them all up front (utils/dictionaries.js)', async () => {
+  it('the service worker registers just the texts it shows, in every language (utils/background-messages.js)', async () => {
     vi.resetModules();
-    await import('../../utils/dictionaries.js');
     const fresh = await import('../../utils/translations.js');
+    const messages = (await import('../../utils/background-messages.js')).default;
+    const EL = (await import('../../dictionaries/el.json')).default;
+    fresh.addDictionaries(messages);
     expect(fresh.LANGUAGES.every((lang) => fresh.hasDictionary(lang))).toBe(true);
+    fresh.setLocale('el');
+    expect(fresh.translate('flyoutTitle')).toBe(EL.flyoutTitle);
+    expect(Object.keys(messages.en).length).toBeLessThan(20); // a handful of texts, not the dictionaries
   });
 });

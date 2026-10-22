@@ -23,13 +23,16 @@ import {
 } from './utils/store.js';
 import { dayOf } from './utils/review.js';
 import { loadLang } from './utils/i18n.js';
-import { translate } from './utils/translations.js';
-import './utils/dictionaries.js'; // every language up front: a service worker can't import() one later
+import { translate, addDictionaries } from './utils/translations.js';
+import BACKGROUND_MESSAGES from './utils/background-messages.js';
 import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
 import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './utils/capture.js';
 import { isOwnUrl } from './utils/extension.js';
 import { overlayHost, removeOverlay } from './utils/overlay-host.js';
 import { groupOf, putInGroup } from './utils/groups.js';
+// The texts this worker shows, in every language (it can't read the dictionaries: Chrome can't start a service worker
+// again after it was idle if it imports JSON).
+addDictionaries(BACKGROUND_MESSAGES);
 
 // With use_dynamic_url this is a per-session random origin, so pages can't
 // probe for the extension's permanent id.
@@ -419,10 +422,11 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
   if (!tab || !tab.active) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab || tab.incognito) { opening = null; return; }
 
-  // 3. Refresh the current tab's screenshot before anything covers it. Only the grab itself is waited
-  //    for (quick); shrinking and saving it runs while the switcher opens, which shows it once saved
-  //    (storage.onChanged in switcher.js). The overlay stays invisible until it is READY, but a grab
-  //    that takes too long is dropped all the same, so it can never picture the overlay.
+  // 3. Refresh the current tab's screenshot, alongside opening (not before it: it took up to 400 ms). The
+  //    overlay stays invisible until the switcher has drawn AND the page is told the screenshot is taken
+  //    ('shot-taken'); a grab that takes longer than 400 ms is thrown away, and the page shows the overlay
+  //    then anyway, so the screenshot can never picture it. Shrinking and saving it run while the switcher
+  //    opens, which shows it once saved (storage.onChanged in switcher.js).
   cancelCapture(tab.windowId);
   const [browserWindow, fresh, preferences] = await Promise.all([
     chrome.windows.get(tab.windowId).catch(() => ({})),
@@ -433,31 +437,36 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
     sourceTab: tab.id, window: tab.windowId, direction, via, hold,
     state: WINDOW_STATES.includes(browserWindow.state) ? browserWindow.state : 'normal', ...paletteOption,
   };
-  // The launch token and overlay note are only storage writes, nothing on screen: made during the grab.
-  // Injecting waits for it (step 4), so the screenshot never has the overlay in it.
   const inPage = INJECTABLE.test(tab.url || '') && !preferences.ownWindow; // Settings: "always in its own window"
   const preparation = inPage ? Promise.all([createLaunch({ ...launchContext, mode: 'overlay' }), setOverlayTab(tab.id)]) : null;
   if (preparation) preparation.catch(() => {}); // awaited below; this only keeps an early failure from counting as unhandled
+  let shotTaken = Promise.resolve();
   if (!fresh) {
     let late = false;
-    const shot = await Promise.race([
+    shotTaken = Promise.race([
       grabForOpen(tab.windowId).then((capturedShot) => (late ? null : capturedShot)).catch(() => null),
       new Promise((resolve) => setTimeout(() => { late = true; resolve(null); }, 400)),
-    ]);
-    if (shot) storeShot(shot.tab, shot.dataUrl).catch(() => {});
+    ]).then((shot) => { if (shot) storeShot(shot.tab, shot.dataUrl).catch(() => {}); });
   }
 
-  // 4. Show it inside the page; fall back to a popup window where extensions
-  //    can't inject (chrome://, Chrome's own New Tab, Web Store) or the overlay fails.
+  // 4. Show it inside the page; fall back to a popup window where extensions can't inject (chrome://, Chrome's
+  //    own New Tab, Web Store), where the overlay fails, or where the page is frozen (too busy to run the
+  //    overlay's code within PAGE_FROZEN_MILLISECONDS: it couldn't show it anyway). The popup's launch replaces
+  //    the overlay's (one launch at a time), so an overlay the page runs late finds its token gone, and stays hidden.
   if (inPage) {
     try {
       const [token] = await preparation;
       armWatchdog(token, tab.id, browserWindow, launchContext); // before injecting: READY can arrive very quickly
       overlayOpen = { tabId: tab.id, window: browserWindow, context: launchContext };
-      await injectInto(tab.id, token, hold);
+      await Promise.race([
+        injectInto(tab.id, token, hold, !fresh),
+        new Promise((resolve, reject) => setTimeout(() => reject(new Error('page frozen')), LIMITS.PAGE_FROZEN_MILLISECONDS)),
+      ]);
+      shotTaken.then(() => tellShotTaken(tab.id, token));
       return;
     } catch {
       disarmWatchdog();
+      overlayOpen = null;
       await clearOverlayTab();
     }
   }
@@ -469,13 +478,22 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
 // time, remove the overlay and use the popup window instead.
 // Put the overlay into the page right away: injectImmediately, so a page that is still loading (just
 // switched to, or being reloaded after Chrome unloaded it) doesn't make it wait for the whole page.
-function injectInto(tabId, token, hold) {
+function injectInto(tabId, token, hold, shotPending = false) {
   return chrome.scripting.executeScript({
     target: { tabId },
     func: overlayHost,
-    args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', token, hold, LIMITS.STANDBY_DROP_MILLISECONDS, translate('overlayLabel')],
+    args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', token, hold, LIMITS.STANDBY_DROP_MILLISECONDS, translate('overlayLabel'), shotPending],
     injectImmediately: true,
   });
+}
+// The page's screenshot is taken: the overlay it launched with `token` may show once drawn.
+function tellShotTaken(tabId, token) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    func: overlayHost,
+    args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'shot-taken', token, false, LIMITS.STANDBY_DROP_MILLISECONDS],
+    injectImmediately: true,
+  }).catch(() => {});
 }
 
 // Take a failed overlay away from the page it was injected into.

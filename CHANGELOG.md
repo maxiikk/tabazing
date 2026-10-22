@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.3] - 2026-10-22
+
+### Fixed
+
+- Alt+Q / Alt+W / Alt+E / Alt+R could do nothing at all once Chrome had put Tabazing's background to sleep (after half a minute without use): it failed to start again, over and over, because it loaded the translations in a way Chrome can't restart. It now starts again at once, and loads only the few texts it shows itself.
+
+### Changed
+
+- Opening over a page no longer waits for the page's screenshot first (it is taken alongside), and the switcher appears at once instead of fading in.
+- On a page too busy to show Tabazing (frozen), it opens in its own window after 0.8 s instead of 2.5 s.
+
 ## [6.17.2] - 2026-10-22
 
 ### Changed
@@ -697,7 +708,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...HEAD
+[6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...HEAD
+[6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...2879214
 [6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...0876167
 [6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...64d77a9
 [6.16.6]: https://github.com/maxiikk/tabazing/compare/e5622db...7380a96

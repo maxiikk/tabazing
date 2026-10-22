@@ -6,6 +6,7 @@ import { environment, flush, freshWorker, seed, launch, fromSwitcherPage, send }
 freshWorker();
 const background = () => environment.background;
 const launchInjections = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.func === background().overlayHost && options.args[3] === 'launch');
+const shotTakenCalls = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.func === background().overlayHost && options.args[3] === 'shot-taken');
 const cycleCalls = () => chrome.runtime.sendMessage.mock.calls.map(([message]) => message).filter((message) => message.type === MESSAGE.CYCLE);
 
 describe('constants', () => {
@@ -145,7 +146,7 @@ describe('openSwitcher', () => {
     expect(launchDetails.context).toEqual({ sourceTab: tab.id, window: chromeWindow.id, direction: -1, via: 'key', hold: true, state: 'normal', mode: 'overlay' });
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith({
       target: { tabId: tab.id }, func: background().overlayHost,
-      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', launchDetails.token, true, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher'],
+      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', launchDetails.token, true, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher', true], // (its screenshot is being taken)
       injectImmediately: true,
     });
     expect(chrome.storage.session._data.get(KEY.OVERLAY)).toMatchObject({ tabId: tab.id });
@@ -234,32 +235,57 @@ describe('openSwitcher', () => {
     expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
   });
 
-  it('does not wait more than 400 ms for the screenshot', async () => {
-    const { tab } = seed();
-    chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise(() => {})); // never settles
-    const promise = background().openSwitcher(1, tab);
-    await flush();
-    expect(launchInjections()).toHaveLength(0);
-    await vi.advanceTimersByTimeAsync(400);
-    await promise;
-    expect(launch().context.mode).toBe('overlay');
-    expect(launchInjections()).toHaveLength(1);
-  });
-
-  it('prepares the launch during the screenshot, but injects the overlay only after it', async () => {
+  it('injects the overlay at once, while the screenshot is taken; the page may show it once told the screenshot is taken', async () => {
     const { tab } = seed();
     let shoot;
     chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise((resolve) => { shoot = resolve; }));
+    await background().openSwitcher(1, tab);
+    expect(launch().context).toMatchObject({ sourceTab: tab.id, mode: 'overlay' });
+    expect(launchInjections()).toHaveLength(1); // not waiting for the screenshot...
+    expect(launchInjections()[0][0].args[4]).toBe(launch().token);
+    expect(launchInjections()[0][0].args[8]).toBe(true); // ...but the page keeps it hidden until told
+    expect(shotTakenCalls()).toHaveLength(0);
+    shoot('data:image/jpeg;base64,AAAA');
+    await flush();
+    expect(shotTakenCalls()).toHaveLength(1);
+    expect(shotTakenCalls()[0][0]).toMatchObject({ target: { tabId: tab.id } });
+    expect(shotTakenCalls()[0][0].args[4]).toBe(launch().token);
+  });
+
+  it('a screenshot that takes over 400 ms is not waited for (nor kept): the page is told after 400 ms', async () => {
+    const { tab } = seed();
+    chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise(() => {})); // never settles
+    await background().openSwitcher(1, tab);
+    expect(launchInjections()).toHaveLength(1);
+    await vi.advanceTimersByTimeAsync(399);
+    expect(shotTakenCalls()).toHaveLength(0);
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    expect(shotTakenCalls()).toHaveLength(1);
+  });
+
+  it('a fresh screenshot is not taken again: the overlay may show as soon as it has drawn', async () => {
+    const { tab } = seed('https://example.com/');
+    const { savePreview } = await import('../utils/store.js');
+    await savePreview('https://example.com/', { img: PREVIEW_PREFIX + 'AAAA', t: Date.now() });
+    await background().openSwitcher(1, tab);
+    expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();
+    expect(launchInjections()[0][0].args[8]).toBe(false);
+  });
+
+  it('a page too busy to run the overlay\'s code (frozen) gets the popup window instead, after PAGE_FROZEN_MILLISECONDS', async () => {
+    expect(LIMITS.PAGE_FROZEN_MILLISECONDS).toBeLessThan(background().WATCH_FIRST_MILLISECONDS); // (first: it calls off the watchdog)
+    const { tab } = seed();
+    chrome.scripting.executeScript.mockImplementationOnce(() => new Promise(() => {})); // the page never runs it
     const promise = background().openSwitcher(1, tab);
     await flush();
-    expect(launch().context).toMatchObject({ sourceTab: tab.id, mode: 'overlay' }); // made while the grab runs
-    expect(chrome.storage.session._data.get(KEY.OVERLAY)).toMatchObject({ tabId: tab.id });
-    expect(launchInjections()).toHaveLength(0); // nothing on the page yet
-    shoot('data:image/jpeg;base64,AAAA');
+    expect(chrome.windows.create).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(LIMITS.PAGE_FROZEN_MILLISECONDS);
     await promise;
-    expect(launchInjections()).toHaveLength(1);
-    expect(launchInjections()[0][0].args[4]).toBe(launch().token);
-    expect(chrome.tabs.captureVisibleTab.mock.invocationCallOrder[0]).toBeLessThan(chrome.scripting.executeScript.mock.invocationCallOrder[0]);
+    expect(chrome.windows.create).toHaveBeenCalledTimes(1);
+    expect(launch().context.mode).toBe('window'); // the overlay's launch is gone: if the page runs it late, it stays hidden
+    expect(chrome.storage.session._data.get(KEY.OVERLAY)).toBeUndefined();
+    expect(background().watchdog).toBeNull();
   });
 
   it('queues presses made while a switcher is still loading, and READY hands them over', async () => {
@@ -310,7 +336,7 @@ describe('injectInto', () => {
     await background().injectInto(7, 'tok', false);
     expect(chrome.scripting.executeScript).toHaveBeenCalledWith({
       target: { tabId: 7 }, func: background().overlayHost,
-      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', 'tok', false, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher'],
+      args: [background().SWITCHER_URL, background().EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'launch', 'tok', false, LIMITS.STANDBY_DROP_MILLISECONDS, 'Tabazing tab switcher', false],
       injectImmediately: true,
     });
   });
@@ -365,6 +391,7 @@ describe('watchdog', () => {
   async function openOverlay(hold = false) {
     const seeded = seed();
     await background().openSwitcher(1, seeded.tab, 'key', hold);
+    await flush(); // (the page is told the screenshot is taken)
     chrome.scripting.executeScript.mockClear();
     return seeded;
   }

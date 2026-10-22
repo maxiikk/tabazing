@@ -91,6 +91,7 @@ export const LIMITS = Object.freeze({
   OPENING_LOCK_MILLISECONDS: 1500,        // presses during this window are queued, not re-opened
   STANDBY_DROP_MILLISECONDS: 60 * 1000,   // a prepared (invisible) switcher frame is dropped after its tab has been hidden this long
   OVERLAY_WATCHDOG_MILLISECONDS: 2500,
+  PAGE_FROZEN_MILLISECONDS: 800,   // the page hasn't even run the overlay's code by then: it is frozen (busy): the popup window instead (before the watchdog's first look)
   OVERLAY_VISIBLE_MILLISECONDS: 1200,     // shown this long and Chrome has never reported it visible: a blocked click or key opens the popup window instead    // no READY by then -> overlay failed, use the popup window
   POINTER_VISIBLE_MILLISECONDS: 300,      // overlay must be fully visible this long before clicks count
   KEYS_GRACE_MILLISECONDS: 800,           // keys work right away (quick Alt+Q flick) until visibility is known

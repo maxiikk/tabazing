@@ -37,6 +37,7 @@ import { GROUP_COLORS, putInGroup, cleanGroup, groupOf } from './utils/groups.js
 //   tabazing:module    page start -> this script running (loading and parsing the code and the dictionaries)
 //   tabazing:cards     launched -> the first cards drawn (an overlay is prepared ahead and waits for its launch)
 //   tabazing:render    the first draw itself (building the cards and laying them out), launched or not
+//   tabazing:visible   launched -> the first frame after the switcher said it is ready (on screen from then)
 //   tabazing:previews  launched -> every open tab's preview drawn
 //   tabazing:search    a keystroke in the search box -> its results drawn (the last one)
 const mark = (name) => { try { performance.clearMarks('tabazing:' + name); performance.mark('tabazing:' + name); } catch {} };
@@ -7608,6 +7609,14 @@ function getLaunch() {
   });
 }
 
+// Drawn: the overlay may show now (its page reveals it on READY). `visible` marks the first frame after that.
+function tellReady() {
+  if (readyAt) return;
+  if (CONTEXT.mode === 'overlay') parent.postMessage({ tabazing: FRAME_MESSAGE.READY, light: document.documentElement.classList.contains('light') }, '*');
+  readyAt = performance.now();
+  requestAnimationFrame(() => markEnd('visible', 'launched'));
+}
+
 (async () => {
   // Anything that loads this page without the token the background just
   // issued (e.g. a website framing it) gets an empty page and no listeners.
@@ -7632,10 +7641,7 @@ function getLaunch() {
   if (CONTEXT.palette) {
     elements.app.hidden = false;
     openPalette({ from: 'shortcut' });
-    if (CONTEXT.mode === 'overlay') {
-      parent.postMessage({ tabazing: FRAME_MESSAGE.READY, light: document.documentElement.classList.contains('light') }, '*');
-      readyAt = performance.now();
-    }
+    tellReady();
     window.focus();
   }
   const mediaRead = loadMedia().catch(() => []); // the player's list, read alongside the tabs
@@ -7681,10 +7687,7 @@ function getLaunch() {
   markEnd('render', 'render-start');
   requestAnimationFrame(() => markEnd('cards', 'launched'));
   loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); requestAnimationFrame(() => markEnd('previews', 'launched')); });
-  if (CONTEXT.mode === 'overlay') {
-    parent.postMessage({ tabazing: FRAME_MESSAGE.READY, light: document.documentElement.classList.contains('light') }, '*');
-    readyAt = performance.now();
-  }
+  tellReady();
   window.focus();
   (state.palette ? elements.paletteInput : elements.search).focus({ preventScroll: true });
   // Then "Recently closed" and starred pages that aren't open; drawn once the opening animation is over,
