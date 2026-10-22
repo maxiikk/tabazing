@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.16.2] - 2026-10-22
+
+### Changed
+
+- The license: Tabazing is no longer open source. All rights reserved: it may be installed, used and its code read, but not modified, copied or redistributed without permission (see LICENSE).
+
 ## [6.16.1] - 2026-10-22
 
 ### Added
@@ -642,7 +648,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.16.1]: https://github.com/maxiikk/tabazing/compare/1009dfe...HEAD
+[6.16.2]: https://github.com/maxiikk/tabazing/compare/1bf7dbf...HEAD
+[6.16.1]: https://github.com/maxiikk/tabazing/compare/1009dfe...1bf7dbf
 [6.16.0]: https://github.com/maxiikk/tabazing/compare/bdd206e...1009dfe
 [6.15.0]: https://github.com/maxiikk/tabazing/compare/1f3e285...bdd206e
 [6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...1f3e285
