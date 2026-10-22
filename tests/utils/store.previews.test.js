@@ -54,6 +54,12 @@ describe('getPreview / getPreviews / getSharpPreview', () => {
     expect(localArea.get).toHaveBeenCalledWith(['pv:https://a.com/', 'pv:https://b.com/', 'pv:https://c.com/']);
   });
 
+  it('a JPEG preview stored before (previews are WebP now) is still read; other image types are not', async () => {
+    localArea._data.set(previewKey('https://old.com/'), { img: 'data:image/jpeg;base64,OLD', t: 1 });
+    localArea._data.set(previewKey('https://png.com/'), { img: 'data:image/png;base64,PNG', t: 1 });
+    expect(await store.getPreviews(['https://old.com', 'https://png.com'])).toEqual({ 'https://old.com/': { img: 'data:image/jpeg;base64,OLD', t: 1 } });
+  });
+
   it('getPreviews of nothing usable does not touch storage', async () => {
     expect(await store.getPreviews(['', 'garbage'])).toEqual({});
     expect(localArea.get).not.toHaveBeenCalled();

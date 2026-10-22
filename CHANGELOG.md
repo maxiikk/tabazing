@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.1] - 2026-10-22
+
+### Changed
+
+- Previews are saved as WebP instead of JPEG: about a third smaller at the same quality, so about half again as many fit in the space Tabazing keeps for them. Previews saved before stay as they are and still show.
+- Each Tabazing page reads only the language it shows, instead of all ten.
+
 ## [6.17.0] - 2026-10-22
 
 ### Added
@@ -684,7 +691,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...HEAD
+[6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...HEAD
+[6.17.0]: https://github.com/maxiikk/tabazing/compare/7380a96...64d77a9
 [6.16.6]: https://github.com/maxiikk/tabazing/compare/e5622db...7380a96
 [6.16.5]: https://github.com/maxiikk/tabazing/compare/e090620...e5622db
 [6.16.4]: https://github.com/maxiikk/tabazing/compare/4ee72f1...e090620

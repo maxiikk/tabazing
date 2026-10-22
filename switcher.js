@@ -21,7 +21,7 @@
 import { MESSAGE, KEY, FRAME_MESSAGE, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
 import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPreferences, updatePreferences, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBookmarkNotes, putBookmarkNotes, setBookmarkNote } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
-import { timeAgo, localizePage, setLang, uiLang, isRtl } from './utils/i18n.js';
+import { timeAgo, localizePage, setLang, languageLoaded, uiLang, isRtl } from './utils/i18n.js';
 import { translate, getLocale, setLocale } from './utils/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/extension.js';
 import { applyAccent, ACCENTS } from './utils/accent.js';
@@ -6902,6 +6902,7 @@ function settingsPanes(preferences, anchor) {
   lang.addEventListener('change', async () => {
     await updatePreferences({ lang: lang.value }).catch(() => {});
     setLang(lang.value);
+    await languageLoaded();
     localizePage();
     render();
     openSettings(anchor, true); // redraw it in the new language, on the same category
@@ -7619,6 +7620,7 @@ function getLaunch() {
   // The settings are read once, here: the language, the colours, and (load) which tabs to ask Chrome for.
   const [bootPreferences, resume] = await Promise.all([getPreferences().catch(() => PREFERENCES_FALLBACK), takeResume().catch(() => null)]);
   setLang(bootPreferences.lang);
+  await languageLoaded(); // (its dictionary is read now, the only one of the ten this page needs)
   applyAccent(bootPreferences.accent);
   applyTheme(bootPreferences.theme);
   applyLite(bootPreferences.lite === true);

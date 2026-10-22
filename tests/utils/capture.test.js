@@ -10,7 +10,9 @@ const sessionData = () => chrome.storage.session._data;
 const localData = () => chrome.storage.local._data;
 const note = () => sessionData().get(KEY.CAPTURE_DIAGNOSIS);
 
+let webp; // whether the fake canvas can write WebP (Chrome's can)
 beforeEach(async () => {
+  webp = true;
   vi.useFakeTimers({ now: new Date('2026-10-17T12:00:00Z') });
   canvases = [];
   bitmap = { width: 1600, height: 1000 };
@@ -27,9 +29,10 @@ beforeEach(async () => {
     getContext() { return this.recorder.context; }
     async convertToBlob({ type, quality }) {
       this.recorder.quality = quality;
-      expect(type).toBe('image/jpeg');
+      this.recorder.type = type;
+      expect(type).toBe(webp ? 'image/webp' : this.recorder.type);
       const bytes = new TextEncoder().encode(`jpg${this.recorder.w}x${this.recorder.h}`);
-      return { type, arrayBuffer: async () => bytes.buffer };
+      return { type: webp ? type : type === 'image/webp' ? 'image/png' : type, arrayBuffer: async () => bytes.buffer };
     }
   });
   vi.resetModules();
@@ -293,8 +296,17 @@ describe('storeShot', () => {
       return encode.call(this, options);
     };
     await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
-    expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/jpeg;base64,/);
+    expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/webp;base64,/);
     expect(localData().has(sharpKey('https://a.com/x'))).toBe(false);
     expect(note().stage).toBe('ok');
+  });
+
+  it('stores WebP; a browser that can’t write WebP stores JPEG instead', async () => {
+    await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
+    expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/webp;base64,/);
+    expect(localData().get(sharpKey('https://a.com/x')).img).toMatch(/^data:image\/webp;base64,/);
+    webp = false;
+    await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
+    expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/jpeg;base64,/);
   });
 });

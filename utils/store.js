@@ -10,7 +10,7 @@
 // today, but a bug elsewhere shouldn't be able to turn bad data into bad
 // behaviour.
 
-import { KEY, LIMITS, SNOOZE_ALARM, previewKey, sharpKey, tabMetaKey, PREVIEW_PREFIX, WINDOW_STATES, MODES } from './constants.js';
+import { KEY, LIMITS, SNOOZE_ALARM, previewKey, sharpKey, tabMetaKey, PREVIEW_PREFIXES, WINDOW_STATES, MODES } from './constants.js';
 import { normalizeUrl, isWorthReopening } from './extension.js';
 import { emptyReview } from './review.js';
 import { isAccent, DEFAULT_ACCENT } from './accent.js';
@@ -39,7 +39,7 @@ export function withLock(name, task) {
 // ---------- validation ----------
 const isId = (value) => Number.isInteger(value) && value >= 0;
 const isTime = (value) => Number.isFinite(value) && value > 0;
-const isImage = (value) => typeof value === 'string' && value.startsWith(PREVIEW_PREFIX) && value.length < 4 * 1024 * 1024; // a sharp copy is ~0.2-0.6 MB
+const isImage = (value) => typeof value === 'string' && PREVIEW_PREFIXES.some((prefix) => value.startsWith(prefix)) && value.length < 4 * 1024 * 1024; // a sharp copy is ~0.1-0.4 MB
 const isPreview = (preview) => !!preview && typeof preview === 'object' && isImage(preview.img) && isTime(preview.t);
 
 // The preview index: { [normalizedUrl]: { t: capturedAt, n: imageLength, s: last time an open tab had this URL } }.

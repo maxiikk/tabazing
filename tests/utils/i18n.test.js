@@ -22,7 +22,7 @@ describe('language choice', () => {
       expect((await import('../../utils/i18n.js')).uiLang(), String(chromeLanguage)).toBe(want);
     }
   });
-  it('settingsLanguage switches right away; "auto" and unknown values follow Chrome', () => {
+  it('setLang switches right away; "auto" and unknown values follow Chrome', () => {
     expect(setLang('ru')).toBe('ru');
     expect(uiLang()).toBe('ru');
     expect(translate('newTab')).toBe(RU.newTab);
@@ -75,7 +75,7 @@ describe('right to left', () => {
   });
 });
 
-describe('t, in the language settingsLanguage chose', () => {
+describe('translate(), in the language setLang chose', () => {
   it('looks up the current language', () => {
     expect(translate('newTab')).toBe('New tab');
     setLang('es');
@@ -100,6 +100,7 @@ describe('t, in the language settingsLanguage chose', () => {
     const i18n = await import('../../utils/i18n.js');
     const { translate: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
+    await i18n.languageLoaded();
     expect(get('newTab')).toBe('Новая');
     expect(get('justNow')).toBe(EN.justNow);
   });
@@ -127,6 +128,7 @@ describe('plural messages', () => {
     const i18n = await import('../../utils/i18n.js');
     const { translate: get } = await import('../../utils/translations.js');
     i18n.setLang('ru');
+    await i18n.languageLoaded();
     expect(get('onlyOther', { count: 1 })).toBe('1 x');
     expect(get('tabs', { count: 5 })).toBe('5 tabs');
     expect(get('nothing', { count: 3 })).toBe('nothing');

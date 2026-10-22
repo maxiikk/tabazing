@@ -1,5 +1,6 @@
-// utils/translations.js: the ICU MessageFormat subset (formatMessage) and t over the dictionaries.
-import { describe, it, expect, afterEach } from 'vitest';
+// utils/translations.js: the ICU MessageFormat subset (formatMessage) and translate() over the dictionaries.
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import EN from '../../dictionaries/en.json';
 import { formatMessage, translate, setLocale, getLocale, LANGUAGES } from '../../utils/translations.js';
 
 afterEach(() => setLocale('en'));
@@ -109,5 +110,30 @@ describe('t', () => {
     expect(translate('newTab')).toBe('Nueva pestaña');
     setLocale('en');
     expect(translate('newTab')).toBe('New tab');
+  });
+});
+
+describe('dictionaries, read when needed', () => {
+  it('a page starts with English only; another language is read once, when it is needed', async () => {
+    vi.resetModules();
+    const fresh = await import('../../utils/translations.js');
+    const RU = (await import('../../dictionaries/ru.json')).default;
+    expect(fresh.hasDictionary('en')).toBe(true);
+    expect(fresh.LANGUAGES.filter((lang) => fresh.hasDictionary(lang))).toEqual(['en']);
+    fresh.setLocale('ru');
+    expect(fresh.getLocale()).toBe('ru');
+    expect(fresh.translate('newTab')).toBe(EN.newTab); // in English until it is read
+    await Promise.all([fresh.loadDictionary('ru'), fresh.loadDictionary('ru')]); // (read once)
+    expect(fresh.translate('newTab')).toBe(RU.newTab);
+    expect(fresh.LANGUAGES.filter((lang) => fresh.hasDictionary(lang))).toEqual(['en', 'ru']); // nothing else
+    await fresh.loadDictionary('xx'); // unknown: nothing to read
+    expect(fresh.hasDictionary('xx')).toBe(false);
+  });
+
+  it('the service worker registers them all up front (utils/dictionaries.js)', async () => {
+    vi.resetModules();
+    await import('../../utils/dictionaries.js');
+    const fresh = await import('../../utils/translations.js');
+    expect(fresh.LANGUAGES.every((lang) => fresh.hasDictionary(lang))).toBe(true);
   });
 });

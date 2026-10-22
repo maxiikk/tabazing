@@ -61,7 +61,10 @@ export const SNOOZE_ALARM = 'tabazing:snooze'; // chrome.alarms name: the next s
 export const previewKey = (url) => 'pv:' + url; // storage.local, `url` already normalized
 export const sharpKey = (url) => 'pvhd:' + url; // storage.local: the sharp copy of the same capture (big preview)
 export const tabMetaKey = (tabId) => 'm:' + tabId; // storage.session: { u, ti, f } last known url/title/icon of an open tab
-export const PREVIEW_PREFIX = 'data:image/jpeg;base64,';
+// Previews are WebP (a third smaller than JPEG at the same quality, so more of them fit). Those stored before 6.18
+// are JPEG, and still read: PREVIEW_PREFIXES.
+export const PREVIEW_PREFIX = 'data:image/webp;base64,';
+export const PREVIEW_PREFIXES = Object.freeze([PREVIEW_PREFIX, 'data:image/jpeg;base64,']);
 
 export const WINDOW_STATES = Object.freeze(['normal', 'maximized', 'fullscreen']);
 export const MODES = Object.freeze(['overlay', 'window']);

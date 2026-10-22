@@ -32,8 +32,9 @@ describe('message and storage names', () => {
     expect(new Set(built).size).toBe(3);
     for (const keyName of Object.values(C.KEY)) expect(keyName).not.toMatch(/^(pv:|pvhd:|m:)/);
   });
-  it('PREVIEW_PREFIX is a JPEG data URL prefix', () => {
-    expect(C.PREVIEW_PREFIX).toBe('data:image/jpeg;base64,');
+  it('PREVIEW_PREFIX is a WebP data URL prefix; JPEG (stored before) is still read', () => {
+    expect(C.PREVIEW_PREFIX).toBe('data:image/webp;base64,');
+    expect(C.PREVIEW_PREFIXES).toEqual(['data:image/webp;base64,', 'data:image/jpeg;base64,']);
   });
   it('lists the window states, modes and close reasons', () => {
     expect(C.WINDOW_STATES).toEqual(['normal', 'maximized', 'fullscreen']);

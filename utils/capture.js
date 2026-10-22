@@ -125,7 +125,8 @@ async function decode(dataUrl) {
   }
 }
 
-// One JPEG copy of `bmp` (left open: the caller closes it). Null on failure.
+// One WebP copy of `bitmap` (left open: the caller closes it). Null on failure. (A browser that can't write WebP
+// gives a PNG instead: then JPEG, as before.)
 async function encode(bitmap, maxDimension = LIMITS.THUMB_MAX, quality = 0.72) {
   try {
     const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
@@ -136,10 +137,12 @@ async function encode(bitmap, maxDimension = LIMITS.THUMB_MAX, quality = 0.72) {
     context.imageSmoothingQuality = 'high';
     context.drawImage(bitmap, 0, 0, width, height);
 
-    const out = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality })).arrayBuffer());
+    let blob = await canvas.convertToBlob({ type: 'image/webp', quality });
+    if (blob.type !== 'image/webp') blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    const out = new Uint8Array(await blob.arrayBuffer());
     let binaryString = '';
     for (let i = 0; i < out.length; i += 0x8000) binaryString += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));
-    return PREVIEW_PREFIX + btoa(binaryString);
+    return (blob.type === 'image/webp' ? PREVIEW_PREFIX : 'data:image/jpeg;base64,') + btoa(binaryString);
   } catch {
     return null; // never store a full-size screenshot as a fallback
   }

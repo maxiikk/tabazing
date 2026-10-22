@@ -24,6 +24,7 @@ import {
 import { dayOf } from './utils/review.js';
 import { loadLang } from './utils/i18n.js';
 import { translate } from './utils/translations.js';
+import './utils/dictionaries.js'; // every language up front: a service worker can't import() one later
 import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
 import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './utils/capture.js';
 import { isOwnUrl } from './utils/extension.js';

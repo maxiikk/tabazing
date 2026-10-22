@@ -19,33 +19,46 @@
 //                                           as in "don't", are plain text)
 // A key missing in the language falls back to English, then to the key itself (easy to spot); a value missing
 // from `params` leaves its {placeholder} in the text.
+//
+// English is always loaded (every key falls back to it). Another language is read the first time it is needed
+// (loadDictionary), so a page reads one dictionary of the ten, not all. The service worker can't import() a
+// file once it runs, so it registers them all up front instead (utils/dictionaries.js).
 import EN from '../dictionaries/en.json' with { type: 'json' };
-import EL from '../dictionaries/el.json' with { type: 'json' };
-import DE from '../dictionaries/de.json' with { type: 'json' };
-import IT from '../dictionaries/it.json' with { type: 'json' };
-import FR from '../dictionaries/fr.json' with { type: 'json' };
-import ES from '../dictionaries/es.json' with { type: 'json' };
-import RU from '../dictionaries/ru.json' with { type: 'json' };
-import AR from '../dictionaries/ar.json' with { type: 'json' };
-import HE from '../dictionaries/he.json' with { type: 'json' };
-import RO from '../dictionaries/ro.json' with { type: 'json' };
 
-const DICTIONARIES = { en: EN, el: EL, de: DE, it: IT, fr: FR, es: ES, ru: RU, ar: AR, he: HE, ro: RO };
-/** The languages there is a dictionary for. */
-export const LANGUAGES = Object.freeze(Object.keys(DICTIONARIES));
+/** The languages there is a dictionary for (dictionaries/<lang>.json). */
+export const LANGUAGES = Object.freeze(['en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']);
+const DICTIONARIES = { en: EN };
+const loading = new Map(); // lang -> the read in progress
+
+/** Make these dictionaries ({ lang: { key: message } }) available at once. */
+export function addDictionaries(books) {
+  for (const [lang, book] of Object.entries(books)) if (LANGUAGES.includes(lang)) DICTIONARIES[lang] = book;
+}
+/** Read a language's dictionary, once. Resolves when translate() can use it (at once if it already can). */
+export function loadDictionary(lang) {
+  if (!LANGUAGES.includes(lang) || DICTIONARIES[lang]) return Promise.resolve();
+  if (!loading.has(lang)) {
+    loading.set(lang, import(`../dictionaries/${lang}.json`, { with: { type: 'json' } })
+      .then((module) => { DICTIONARIES[lang] = module.default; })
+      .finally(() => loading.delete(lang)));
+  }
+  return loading.get(lang);
+}
+export const hasDictionary = (lang) => !!DICTIONARIES[lang];
 
 let locale = 'en';
-/** Switch the language translate() uses (an unknown one means English). Returns the one in use. */
+/** Switch the language translate() uses (an unknown one means English). Returns the one in use. Until its
+ * dictionary is read (loadDictionary), its texts come in English. */
 export function setLocale(lang) {
-  locale = DICTIONARIES[lang] ? lang : 'en';
+  locale = LANGUAGES.includes(lang) ? lang : 'en';
   return locale;
 }
 export const getLocale = () => locale;
 
 /** The text for `key` in the current language, its placeholders filled from `params`. */
 export function translate(key, params = {}) {
-  const dict = DICTIONARIES[locale];
-  const lang = key in dict ? locale : key in EN ? 'en' : null;
+  const dict = DICTIONARIES[locale] || EN;
+  const lang = key in dict && DICTIONARIES[locale] ? locale : key in EN ? 'en' : null;
   if (!lang) return key;
   return formatMessage(DICTIONARIES[lang][key], params, lang, lang + '\u0000' + key);
 }

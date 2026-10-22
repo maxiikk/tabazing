@@ -3,7 +3,7 @@
 // Chrome reads for the manifest's name and shortcuts) is generated from them by `npm run i18n`. Chrome gives
 // extensions no way to switch language, so Tabazing picks its own: "auto" follows Chrome's language, or the
 // user chooses one in Settings. Call loadLang() (or settingsLanguage) once before the first translate().
-import { LANGUAGES, setLocale, translate } from './translations.js';
+import { LANGUAGES, setLocale, translate, loadDictionary } from './translations.js';
 
 export const LANGS = Object.freeze(['en', 'el', 'de', 'it', 'fr', 'es', 'ru', 'ar', 'he', 'ro']);
 /** The languages written right to left: the pages turn round for them (dir="rtl"). */
@@ -15,21 +15,28 @@ const chromeLang = () => {
 };
 let current = 'en';
 let relativeTimeFormat = null;
+let loaded = Promise.resolve();
 
+// The language switches at once; its dictionary is read if it isn't yet (languageLoaded() resolves then).
 function applyLanguage(lang) {
   current = setLocale(LANGS.includes(lang) ? lang : chromeLang());
   relativeTimeFormat = new Intl.RelativeTimeFormat(current, { numeric: 'auto', style: 'short' });
+  loaded = loadDictionary(current).catch(() => {}); // (unreadable: its texts stay in English)
   return current;
 }
 applyLanguage(chromeLang());
 
-/** Read the language setting ("auto" or a language). Resolves to the language in use. */
+/** Resolves once the language in use has its dictionary (after setLang, before drawing in it). */
+export const languageLoaded = () => loaded;
+/** Read the language setting ("auto" or a language), and that language's dictionary. Resolves to the language in use. */
 export async function loadLang() {
   let preference = 'auto';
   try { const stored = await chrome.storage.local.get('prefs'); preference = (stored.prefs && stored.prefs.lang) || 'auto'; } catch {}
-  return applyLanguage(preference === 'auto' ? chromeLang() : preference);
+  const lang = applyLanguage(preference === 'auto' ? chromeLang() : preference);
+  await loaded;
+  return lang;
 }
-/** Switch right away (Settings). */
+/** Switch right away (Settings); await languageLoaded() before drawing texts in it. */
 export const setLang = (preference) => applyLanguage(preference === 'auto' ? chromeLang() : preference);
 /** The language the interface is in now: one of LANGS. Also what the website pages are opened in. */
 export const uiLang = () => current;

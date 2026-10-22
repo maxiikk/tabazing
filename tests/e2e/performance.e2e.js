@@ -16,7 +16,7 @@ beforeAll(async () => {
   await extension.run(() => chrome.storage.local.set({ onb: { at: 1, tour: true, flyout: true } })); // no tour over the switcher
   const urls = Array.from({ length: TABS }, (unused, i) => `${server.main}/p/Page${i}`);
   await extension.run((list) => Promise.all(list.map((url) => chrome.tabs.create({ url, active: false }))), urls);
-  // A preview for each, as a capture stores it: a 560 x 350 JPEG drawn and saved by the extension's own code.
+  // A preview for each, as a capture stores it: a 560 x 350 WebP drawn and saved by the extension's own code.
   const page = await extension.extensionPage();
   // (as text: vitest rewrites an import() written in this file, and this runs in the extension's page)
   await page.evaluate(`(async (list) => {
@@ -25,11 +25,11 @@ beforeAll(async () => {
       const canvas = new OffscreenCanvas(560, 350), context = canvas.getContext('2d');
       context.fillStyle = 'hsl(' + ((i * 37) % 360) + ' 60% 70%)'; context.fillRect(0, 0, 560, 350);
       for (let line = 0; line < 30; line++) { context.fillStyle = '#333'; context.fillRect(20, 20 + line * 11, 100 + ((i * 13 + line * 29) % 400), 6); }
-      const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.72 });
+      const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.72 });
       const bytes = new Uint8Array(await blob.arrayBuffer());
       let binary = '';
       for (const byte of bytes) binary += String.fromCharCode(byte);
-      await savePreview(url, { img: 'data:image/jpeg;base64,' + btoa(binary), t: Date.now(), sharp: null });
+      await savePreview(url, { img: 'data:image/webp;base64,' + btoa(binary), t: Date.now(), sharp: null });
     }
   })(${JSON.stringify(urls)})`);
   await page.close();
@@ -66,5 +66,8 @@ describe('performance', () => {
     const result = Object.fromEntries(Object.keys(BUDGET).map((name) => [name, median(runs.map((times) => times[name] ?? Infinity))]));
     console.log(`Tabazing timings (median of ${OPENS} opens, ${TABS} tabs, milliseconds):`, JSON.stringify(result), '\n  each open:', JSON.stringify(runs));
     for (const [name, budget] of Object.entries(BUDGET)) expect(result[name], name).toBeLessThan(budget);
+    // The page Tabazing was opened over was captured as it opened, by the service worker: as WebP.
+    const startPreview = await extension.run((url) => chrome.storage.local.get('pv:' + url).then((stored) => stored['pv:' + url]), `${server.main}/p/Start`);
+    expect(startPreview && startPreview.img.slice(0, 23)).toBe('data:image/webp;base64,');
   }, 120_000);
 });
