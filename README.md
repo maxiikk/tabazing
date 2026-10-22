@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.16.2** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.16.3** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -595,6 +595,6 @@ See `CLAUDE.md` for the full rules. In short, every finished change is committed
 
 ## License
 
-Copyright (c) 2026 MaxiiKK. All rights reserved: see [LICENSE](LICENSE). The source code is published to be read, not reused: you may install and use Tabazing as published, and read its code, but not modify, copy or redistribute it, or any part of it, without written permission.
+Tabazing is open source under the [MIT License](LICENSE): you may use, copy, change and share it, as long as the copyright and license notice stay with it. Copyright (c) 2026 MaxiiKK.
 
 The bundled Roboto font (`styles/fonts/`) keeps its own license, the [SIL Open Font License 1.1](styles/fonts/OFL.txt).

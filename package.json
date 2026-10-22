@@ -2,7 +2,7 @@
   "name": "tabazing",
   "private": true,
   "author": "MaxiiKK",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "MIT",
   "type": "module",
   "description": "Development tooling only: the tests, `npm run i18n` (writes _locales/ from dictionaries/) and `npm run icons` (draws icons/*.png). The extension itself has no build step and no dependencies.",
   "scripts": {
