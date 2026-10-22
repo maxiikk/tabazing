@@ -3689,7 +3689,8 @@ async function openArchive(sel = 0) {
   x.focus({ preventScroll: true });
 }
 // An archived page as a row: its preview (or its icon), its title, its site and when it was archived, and its button
-// that takes it out of the archive. A click (Enter) opens it, and takes it out.
+// that takes it out of the archive. A click (Enter) opens it, and takes it out; a middle-click (Ctrl+Enter) the same,
+// behind Tabazing, which stays.
 function archiveCard(item, i) {
   const entry = { kind: 'archived', item, url: item.url, preview: state.archivePreviews[normalizeUrl(item.url)] || null };
   const title = item.title || hostOf(item.url) || t('untitled');
@@ -3714,8 +3715,22 @@ function archiveCard(item, i) {
   row.append(...(state.cardSize === 'list' ? [] : [pic]), text, acts); // (Settings -> Card size: List, no pictures)
   mouseOnly(row); // its button is Del
   row.addEventListener('click', (e) => { e.stopPropagation(); if (pointerAllowed()) openArchived(item); });
-  onMiddleClick(row, () => dropArchived(item, i).catch((err) => toast(t('errUnarchive'), err))); // as its ×
+  onMiddleClick(row, () => archivedBehind(item, i).catch((err) => toast(t('actFailed'), err)));
   return row;
+}
+// Open an archived page in a new tab behind Tabazing, which stays (a middle-click, Ctrl+Enter): it leaves the archive,
+// as when it is opened. Undo puts it back there and closes that tab.
+async function archivedBehind(item, i) {
+  const tab = await chrome.tabs.create({ url: item.url, windowId: CTX.srcWin, active: false });
+  await removeArchived([item.id]);
+  if (archiveOpen()) await openArchive(i);
+  toast(t('openedN', { count: 1 }), null, { label: t('undo'), fn: async () => {
+    await addArchived([item]);
+    await chrome.tabs.remove(tab.id).catch(() => {});
+    if (archiveOpen()) await openArchive(i);
+    await reload();
+  } });
+  await reload();
 }
 // Take a page out of the archive without opening it (the × on its card, or Del). Undo puts it back.
 async function dropArchived(item, i) {
@@ -3754,6 +3769,7 @@ function archiveKey(e) {
   }
   if (k === 'Enter') {
     if (!keysAllowed()) return finish('cancel');
+    if (e.ctrlKey || e.metaKey) { if (!e.repeat) archivedBehind(state.archived[state.archSel], state.archSel).catch((err) => toast(t('actFailed'), err)); return; } // behind, Tabazing stays
     return openArchived(state.archived[state.archSel]);
   }
   if (['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp'].includes(k)) return archSelect(state.archSel + (k === 'ArrowDown' ? 1 : k === 'ArrowUp' ? -1 : ahead(k))); // a list: one row at a time
@@ -4114,8 +4130,6 @@ async function openHistory() {
     if (H && seen.some((x) => x.isIntersecting) && H.more && !H.busy) moreHistory({ select: false }).catch(() => {}); // (scrolled to: the selection stays)
   }, { root: body, rootMargin: '0px 0px 240px 0px' });
   state.hist.io.observe(more);
-  // the last search comes back, selected: typing replaces it
-  if (view.histQ) { find.input.value = view.histQ; state.hist.q = view.histQ; }
   updateInert();
   find.input.focus({ preventScroll: true });
   find.input.select();
@@ -4141,11 +4155,11 @@ async function refreshHistory({ keepQ = false } = {}) {
   histSelect(0, false);
   H.body.scrollTop = 0;
 }
-// The search box's text: the list starts again with the newest 50 pages that have it (and the box is remembered).
+// The search box's text: the list starts again with the newest 50 pages that have it. (The box starts empty each
+// time the history opens: a search is for now, not for next time.)
 async function findHistory(q) {
   const H = state.hist;
   if (!H || q === H.q) return;
-  updateView({ histQ: q }).catch(() => {});
   H.find.value = H.find.value.trim() === q ? H.find.value : q;
   await refreshHistory();
 }
@@ -4347,6 +4361,7 @@ function histSelect(i, scroll = true) {
 function closeHistory() {
   closePops();
   if (state.hist && state.hist.io) state.hist.io.disconnect();
+  if (state.hist) state.hist.find.value = ''; // (a search still waiting then finds no history to run in)
   document.querySelectorAll('.hist').forEach((n) => n.remove());
   state.hist = null;
   updateInert();
@@ -4629,12 +4644,11 @@ async function openBookmarks() {
     previews: {}, byId: new Map(), tops: [], filter: null, dupes: new Map(), dupesBtn: dupes, starsBtn: stars,
   };
   bmvIndex(B, tree);
-  // What was open, the selected row and the search come back (the folders that are still there); the first time,
-  // Chrome's own folders are open.
+  // What was open and the selected row come back (the folders that are still there); the first time, Chrome's own
+  // folders are open. The search box starts empty.
   const kept = (view.bmvOpen || []).filter((id) => B.byId.has(id));
   (kept.length ? kept : B.tops).forEach((id) => B.open.add(id));
   if (view.bmvSel && B.byId.has(view.bmvSel)) B.curId = view.bmvSel;
-  if (view.bmvQ) { find.input.value = view.bmvQ; B.q = view.bmvQ; }
   pruneBmNotes(B).catch(() => {});
   drawBookmarks();
   updateInert();
@@ -4711,14 +4725,13 @@ function bmvRows() {
   B.tops.forEach((id) => walk(id, 0));
   return rows;
 }
-// The search box's text (it waits for a pause in typing): its first bookmark found is selected; the box is remembered.
+// The search box's text (it waits for a pause in typing): its first bookmark found is selected.
 function bmvFind(text) {
   const B = state.bmv;
   if (!B) return;
   B.q = text;
   B.curId = null;
   B.cur = 0;
-  updateView({ bmvQ: text.trim() }).catch(() => {});
   drawBookmarks();
   const first = B.rows.findIndex((r) => r.n.url);
   if ((B.q.trim() || B.filter) && first >= 0) bmvSelect(first);
@@ -5071,7 +5084,7 @@ function bmvHere() {
 }
 function closeBookmarks() {
   closePops();
-  if (state.bmv) clearTimeout(state.bmv.saveTimer);
+  if (state.bmv) { clearTimeout(state.bmv.saveTimer); state.bmv.find.value = ''; state.bmv.q = ''; }
   bmvRemember();
   if (bmvIO) { bmvIO.disconnect(); bmvIO = null; }
   document.querySelectorAll('.bmv').forEach((n) => n.remove());
@@ -5229,7 +5242,7 @@ async function bmvEdit(n = null, { parentId = null, folder = false } = {}) {
       if (note) state.bmNotes = await setBmNote(id, note.value, address);
       B.curId = id;
       for (let p = B.byId.get(to); p; p = B.byId.get(p.parentId)) B.open.add(p.id); // where it went is shown
-      if (B.q || B.filter) { B.q = ''; B.find.value = ''; B.filter = null; updateView({ bmvQ: '' }).catch(() => {}); }
+      if (B.q || B.filter) { B.q = ''; B.find.value = ''; B.filter = null; }
       closeDialog();
       await reloadBookmarks();
       bmvSelect(B.cur);
@@ -7670,7 +7683,7 @@ export {
   restoreClosed, openPage, mergeWindows, snoozeChoices, whenLabel, snoozeMenu, snoozeTabs, unsnooze, drag,
   clearDrop, dropAfter, dragToMove, dragToOpen, cardDrop, openDropped, moveToWin, startDrag, endDrag, moveTabs, moveGroup, addToGroup, groupFlags, sleepTabs, pinTabs, muteTabs, dupeUrls, duplicates, closeDupes,
   isMuted, audioBadge, togglePin, toggleMute, reloadTab, duplicateTab, loadArchived, archiveTabs, unarchive,
-  openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archSelect, closeArchive, archiveKey,
+  openArchived, archiveOpen, openArchive, archiveCard, dropArchived, archivedBehind, archSelect, closeArchive, archiveKey,
   viewKey, backupOpen, openBackup, closeBackup, exportBackup, importBackup, backupKey, BACKUP_KINDS, drawerOpen, openDrawer, closeDrawer, drawerKey, viewBack, viewDialog, historyOpen, openHistory, moreHistory, historyItem, histSelect, closeHistory, removeHistory, historyMenu, historyKey, HISTORY_PAGE, deleteButton, findHistory, searchField,
   refreshHistory, setHistoryLayout, histPick, agoShort, agoTag, showTip, historyMoreFrom, historyForgetSite, dayLabel, confirmDialog, fetchHistory,
   bookmarksOpen, openBookmarks, closeBookmarks, drawBookmarks, bmvRows, bmvSelect, bmvToggle, bmvPick, bmvDelete, bmvEdit, bmvMenu, bmvKey, bmvNote, webAddress, bmNoteOf, reloadBookmarks,

@@ -4,7 +4,7 @@
 
 Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.14.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.16.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -319,7 +319,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 - **Archive a tab:** click the **box** button on its card, or select several tabs and choose **More → Archive**. A message offers **Undo**, which takes the tabs out of the archive and reopens them where they were.
 - **See the archive:** choose **Archive** in the menu (☰). It opens as a dialog, like Settings, listing every archived tab as a compact row, newest first, with its preview when one is available (otherwise its icon) and when it was archived; **↑ / ↓**, **Home / End** move.
-  - **Open** a page by clicking it, or select it with the arrow keys and press **Enter**. It opens in a new tab and is **taken out of the archive**.
+  - **Open** a page by clicking it, or select it with the arrow keys and press **Enter**. It opens in a new tab and is **taken out of the archive**. A **middle-click** or **Ctrl+Enter** opens it in the background instead: Tabazing stays open (Undo puts it back in the archive and closes that tab).
   - **Remove** a page without opening it with the trash button on its row, or **Del** (⌘⌫). Undo is offered.
   - Close the archive with **Esc** or the red ×.
 - Archived pages also show up in [search](#search) with an Archived icon.
@@ -331,7 +331,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 - It shows **50 pages** at a time; reaching the bottom of the list loads the next 50 by itself (so do **Show 50 more** there and **↓** past the last one). The count says "50 shown" while there are more.
 - Each page shows its **preview** when Tabazing has one, and otherwise just the **page's icon**, with its site and a **last opened** tag saying how long ago ("5m ago", "3h ago", "1 year ago"); hold the pointer on the tag for half a second for the full date and time, the row for the number of visits. The **Cards** / **List** button switches between rows and cards (remembered).
-- **Search** with the box at the top (where the focus starts): it finds pages by title, site, address or the note you left on the page (a closed tab keeps its note), forgiving typos, with the words marked. It looks through your newest 5000 visits and whatever Chrome's own history search finds further back, and says so when there are more. The last search comes back next time, selected, so typing replaces it.
+- **Search** with the box at the top (where the focus starts): it finds pages by title, site, address or the note you left on the page (a closed tab keeps its note), forgiving typos, with the words marked. It looks through your newest 5000 visits and whatever Chrome's own history search finds further back, and says so when there are more. The box starts empty each time the history opens, and is emptied when it closes.
 - **Time range:** All time, Today, Last 7 days or Last 30 days (remembered). **Clear browsing data…** opens Chrome's own page for it.
 - **Open** a page by clicking it, or select it with the arrow keys and press **Enter**: its tab if one is open, otherwise a new tab beside the page you came from. A **middle-click** or **Ctrl+Enter** opens it behind Tabazing, which stays open.
 - **Big preview:** the expand button, **Shift+click**, or **Space** (outside the search box); **← →** step through the history, **Enter** opens that page, **Esc** goes back. A page without a preview shows its address, last visit and number of visits.
@@ -344,7 +344,7 @@ The archive is for tabs you want to keep but not have open. Archiving a tab save
 
 **Bookmarks** in the menu (☰; or **Ctrl+Shift+O**, ⌘⌥B on a Mac, or the command palette's **Open the Bookmarks view**) opens all your Chrome bookmarks as a tree, in a dialog like Settings; a press beside it closes it.
 
-- **Folders** open and close with a click, or **→ / ←**; **\*** opens every folder beside the selected one. Chrome's own folders start open the first time; after that, the folders you left open, the selected row and the last search come back.
+- **Folders** open and close with a click, or **→ / ←**; **\*** opens every folder beside the selected one. Chrome's own folders start open the first time; after that, the folders you left open and the selected row come back. The search box starts empty each time, and is emptied when the view closes.
 - Each **bookmark** shows its **preview** when Tabazing has one (otherwise its icon), its site, and its **note**. Click it (or **Enter**) to open it: its tab if one is open, otherwise a new tab. A **middle-click** or **Ctrl+Enter** opens it behind Tabazing. **Shift+click**, **Space** or its expand button shows it big (with its address, folder and when it was added).
 - **Search** with the box at the top: it finds bookmarks by name, site, address or note, and folders by name, forgiving typos, with the words marked and each bookmark's folder path. The folders around each match are shown with it, and the first match is selected.
 - **Duplicates** (shown when there are some) lists only the addresses bookmarked more than once, each marked with how many times.
@@ -501,7 +501,7 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
   - **Closed-tabs log:** address, title and icon of tabs you closed (and the name and colour of the tab group each was in), kept **7 days** (up to 200 entries), for search.
   - **Stars, notes and snoozed tabs** (address, title, time, and a snoozed tab's group name and colour) until you remove them. **Notes on bookmarks** are kept by bookmark, on this computer only, until you remove them or the bookmark.
-  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, the ids of the last few command-palette actions you ran, and what the History and Bookmarks views bring back (their last search, the history's look and time range, the open folders and the selected row).
+  - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, the ids of the last few command-palette actions you ran, and what the History and Bookmarks views bring back (the history's look and time range, the open folders and the selected row; not their searches).
   - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
 
   - **Tab usage order**, and the tab group Tabazing is showing, kept only in memory and cleared when Chrome closes.

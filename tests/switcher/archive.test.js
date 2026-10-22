@@ -239,14 +239,30 @@ describe('the archive overlay', () => {
     expect(archivedUrls()).toContain('https://mid.example/');
   });
 
-  it('a middle-click on a card takes it out too, without opening it', async () => {
+  it('a middle-click on a card opens it behind Tabazing, which stays; it leaves the archive; Undo puts it back', async () => {
     const { sw } = await bootArchived();
     const o = await openOverlay(sw);
     tids('card-archived', o)[1].dispatchEvent(new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
     await waitFor(() => tids('card-archived').length === 2);
     expect(archivedUrls()).toEqual(['https://old.example/', 'https://new.example/']);
-    expect(chrome.tabs.create).not.toHaveBeenCalled();
-    expect(toastText()).toBe(t('archiveRemoved'));
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://mid.example/', active: false }));
+    expect(sw.state.done).toBe(false);
+    expect(sw.archiveOpen()).toBe(true);
+    expect(toastText()).toBe(t('openedN', { count: 1 }));
+    toastButton().click();
+    await waitFor(() => tids('card-archived').length === 3);
+    expect(archivedUrls()).toContain('https://mid.example/');
+    expect(chrome._data.tabs.some((x) => x.url === 'https://mid.example/')).toBe(false); // the tab it opened closed again
+  });
+
+  it('Ctrl+Enter opens the selected one behind Tabazing too', async () => {
+    const { sw } = await bootArchived();
+    await openOverlay(sw);
+    sw.archSelect(0);
+    key('Enter', { ctrlKey: true });
+    await waitFor(() => tids('card-archived').length === 2);
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
+    expect(sw.state.done).toBe(false);
   });
 
   it('dropArchived redraws an open overlay without that page', async () => {

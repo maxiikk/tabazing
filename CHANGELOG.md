@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.16.0] - 2026-10-22
+
+### Changed
+
+- Archive: a middle-click (or Ctrl+Enter) now opens the page in the background, and Tabazing stays open, as in the history and the bookmarks (it no longer takes the page out without opening it: its × still does); Undo puts it back in the archive.
+- The history's and the bookmarks' search boxes start empty each time they open, and are emptied when they close; the last search no longer comes back.
+
 ## [6.15.0] - 2026-10-21
 
 ### Added
@@ -629,7 +636,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.15.0]: https://github.com/maxiikk/tabazing/compare/1f3e285...HEAD
+[6.16.0]: https://github.com/maxiikk/tabazing/compare/bdd206e...HEAD
+[6.15.0]: https://github.com/maxiikk/tabazing/compare/1f3e285...bdd206e
 [6.14.0]: https://github.com/maxiikk/tabazing/compare/19f50c5...1f3e285
 [6.13.1]: https://github.com/maxiikk/tabazing/compare/e092117...19f50c5
 [6.13.0]: https://github.com/maxiikk/tabazing/compare/ff28464...e092117

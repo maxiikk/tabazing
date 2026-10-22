@@ -244,7 +244,7 @@ describe('stars', () => {
   });
 });
 
-const VIEWS = { histQ: '', histLayout: 'list', histRange: 'all', bmvQ: '', bmvOpen: [], bmvSel: '' }; // the History and Bookmarks views' own
+const VIEWS = { histLayout: 'list', histRange: 'all', bmvOpen: [], bmvSel: '' }; // the History and Bookmarks views' own
 describe('view', () => {
   it('SORTS lists the sort orders', () => {
     expect(s.SORTS).toEqual(['recent', 'order', 'name']);
@@ -263,7 +263,8 @@ describe('view', () => {
     L._data.set(KEY.VIEW, { sort: 'size', collapsed: 'a', settingsTab: 'colours', markFolder: 'no such id!' });
     expect(await s.getView()).toEqual({ sort: 'recent', collapsed: [], settingsTab: 'look', markFolder: '', ...VIEWS });
     L._data.set(KEY.VIEW, { histQ: 'x'.repeat(300), histLayout: 'grid', histRange: 'week', bmvQ: 7, bmvOpen: ['1', 'bad id!', 5, '22'], bmvSel: '9' });
-    expect(await s.getView()).toMatchObject({ histQ: 'x'.repeat(200), histLayout: 'grid', histRange: 'week', bmvQ: '', bmvOpen: ['1', '22'], bmvSel: '9' });
+    expect(await s.getView()).toMatchObject({ histLayout: 'grid', histRange: 'week', bmvOpen: ['1', '22'], bmvSel: '9' });
+    expect('histQ' in (await s.getView()) || 'bmvQ' in (await s.getView())).toBe(false); // (the searches aren't kept)
     L._data.set(KEY.VIEW, { histLayout: 'tiles', histRange: 'year', bmvSel: 'no!' });
     expect(await s.getView()).toMatchObject({ histLayout: 'list', histRange: 'all', bmvSel: '' });
     L._data.set(KEY.VIEW, { settingsTab: ['keys'] });

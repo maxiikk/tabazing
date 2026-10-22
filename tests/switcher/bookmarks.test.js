@@ -73,7 +73,7 @@ describe('the tree', () => {
     expect(titles()).not.toContain('Wiki');
   });
 
-  it('what was open, the selected row and the search come back next time', async () => {
+  it('what was open and the selected row come back next time; the search box starts empty', async () => {
     seed();
     let sw = await boot({ tabs: AB });
     await open(sw);
@@ -86,12 +86,22 @@ describe('the tree', () => {
     expect(titles()).toContain('Tracker');
     expect(sel()).toBe('Tracker');
     await find('recipes');
+    expect(titles()).toEqual(['Other bookmarks', 'Recipes']);
+    const box = tid('bookmarks-search');
     sw.closeBookmarks();
-    await tick(20);
+    expect(box.value).toBe(''); // emptied as it closes
+    await open(sw);
+    expect(tid('bookmarks-search').value).toBe('');
+    expect(titles()).toContain('Docs'); // the whole tree again
+    // typed, then closed before the pause: nothing of it comes back
+    tid('bookmarks-search').value = 'wiki';
+    tid('bookmarks-search').dispatchEvent(new Event('input', { bubbles: true }));
+    sw.closeBookmarks();
+    await tick(130);
     sw = await boot({ tabs: AB });
     await open(sw);
-    expect(tid('bookmarks-search').value).toBe('recipes');
-    expect(titles()).toEqual(['Other bookmarks', 'Recipes']);
+    expect(tid('bookmarks-search').value).toBe('');
+    expect(titles()).toContain('Docs');
   });
 
   it('a bookmark shows its preview when there is one, else its icon; its site; a click opens it, a middle-click behind', async () => {

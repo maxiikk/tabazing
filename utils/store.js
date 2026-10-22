@@ -728,11 +728,10 @@ export async function getView() {
     collapsed: Array.isArray(v.collapsed) ? v.collapsed.filter((x) => typeof x === 'string' && x.length <= 300).slice(0, LIMITS.MAX_COLLAPSED) : [],
     settingsTab: SETTINGS_TABS.includes(v.settingsTab) ? v.settingsTab : 'look', // the category Settings last showed
     markFolder: typeof v.markFolder === 'string' && /^\w{1,40}$/.test(v.markFolder) ? v.markFolder : '', // the bookmarks folder "Bookmark…" last saved into
-    // the History and Bookmarks views: their last search, the history's look and time range, the open folders, the selected row
-    histQ: typeof v.histQ === 'string' ? v.histQ.slice(0, 200) : '',
+    // the History and Bookmarks views: the history's look and time range, the open folders, the selected row (their
+    // search boxes start empty each time)
     histLayout: v.histLayout === 'grid' ? 'grid' : 'list',
     histRange: ['all', 'today', 'week', 'month'].includes(v.histRange) ? v.histRange : 'all',
-    bmvQ: typeof v.bmvQ === 'string' ? v.bmvQ.slice(0, 200) : '',
     bmvOpen: Array.isArray(v.bmvOpen) ? v.bmvOpen.filter((x) => typeof x === 'string' && /^\w{1,40}$/.test(x)).slice(-500) : [],
     bmvSel: typeof v.bmvSel === 'string' && /^\w{1,40}$/.test(v.bmvSel) ? v.bmvSel : '',
   };

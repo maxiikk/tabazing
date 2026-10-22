@@ -150,16 +150,31 @@ describe('the search box and the range', () => {
     expect(document.activeElement).toBe(tid('menu-btn'));
   });
 
-  it('the last search comes back next time, selected (typing replaces it)', async () => {
+  it('the search box starts empty each time: closing empties it, and nothing of it comes back next time', async () => {
     seedHistory(5);
     let sw = await boot({ tabs: AB });
     await openHistory(sw);
     await search(sw, 'Page 3');
     await tick(20);
+    expect(titles()).toEqual(['Page 3']);
+    const box = tid('history-search');
+    key('Escape', { target: box }); // (empties the box first)
+    key('Escape', { target: box });
+    expect(sw.historyOpen()).toBe(false);
+    expect(box.value).toBe('');
+    await openHistory(sw);
+    expect(tid('history-search').value).toBe('');
+    expect(titles()).toHaveLength(5);
+    // closed while a search still waits (typed, no pause): it doesn't come back either
+    tid('history-search').value = 'Page 2';
+    tid('history-search').dispatchEvent(new Event('input', { bubbles: true }));
+    sw.closeHistory();
+    await tick(300);
     sw = await boot({ tabs: AB });
     await openHistory(sw);
-    expect(tid('history-search').value).toBe('Page 3');
-    expect(titles()).toContain('Page 3');
+    expect(tid('history-search').value).toBe('');
+    expect(titles()).toHaveLength(5);
+    expect((await chrome.storage.local.get('view')).view?.histQ).toBe(undefined);
   });
 
   it('the range keeps to a time: today, the last 7 or 30 days', async () => {
