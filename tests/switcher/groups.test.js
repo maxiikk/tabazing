@@ -428,3 +428,111 @@ describe('a tile looks like a tab group (styles/switcher.css)', () => {
     expect(css).toMatch(/html\.light \[data-group-color\] \{ --on-group-color: #fff; \}/);
   });
 });
+
+describe('group views with filters, scopes, undo and captures', () => {
+  const menuItem = (label) => allByTestId('menu-item').find((item) => item.textContent === label);
+  const asleepFilterOnW2 = (switcher) => { switcher.state.toSleep.add(tabByTitle(switcher, 'W2').id); switcher.setFilter('asleep'); };
+  const openTileMenu = (switcher) => { switcher.select(switcher.state.entries.findIndex((entry) => entry.kind === 'group')); key('F10', { shiftKey: true }); };
+
+  it('under a filter that shows one of its tabs, Ungroup ungroups every tab of the group', async () => {
+    const switcher = await boot({ tabs: TABS(), ...withGroup() });
+    asleepFilterOnW2(switcher); openTileMenu(switcher);
+    menuItem(translate('groupUngroup')).click();
+    await waitFor(() => chrome.tabs.ungroup.mock.calls.length > 0);
+    expect(chrome._data.tabs.filter((x) => x.groupId === GROUP)).toEqual([]);
+  });
+
+  it('under such a filter, Move group to new window, then Undo: every tab back in this window', async () => {
+    const switcher = await boot({ tabs: TABS(), ...withGroup() });
+    asleepFilterOnW2(switcher); openTileMenu(switcher);
+    menuItem(translate('groupToWindow')).click();
+    await waitFor(() => toastButton());
+    toastButton().click();
+    await waitFor(() => chrome._data.tabs.find((x) => x.title === 'W2').windowId === 1);
+    await tick(50);
+    expect(chrome._data.tabs.filter((x) => x.windowId !== 1).map((x) => x.title)).toEqual([]);
+  });
+
+  it('under such a filter, Close group closes the whole group, as the palette’s Close group does', async () => {
+    const switcher = await boot({ tabs: TABS(), ...withGroup() });
+    asleepFilterOnW2(switcher); openTileMenu(switcher);
+    menuItem(translate('groupClose')).click();
+    await waitFor(() => chrome.tabs.remove.mock.calls.length > 0);
+    expect(chrome._data.tabs.map((x) => x.title)).toEqual(['A', 'B']);
+  });
+
+  it('the duplicates view shows every copy its button closes, with one window chosen in the window list', async () => {
+    const switcher = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'D1', url: 'https://d.example/' }], preferences: { allWindows: true }, beforeImport: () => {
+      chrome._addWindow({ id: 2 });
+      chrome._addTab({ windowId: 2, title: 'D2', url: 'https://d.example/' });
+      chrome._addTab({ windowId: 2, title: 'E1', url: 'https://e.example/' });
+      chrome._addTab({ windowId: 2, title: 'E2', url: 'https://e.example/' });
+    } });
+    allByTestId('window-item')[0].click(); // This window
+    byTestId('duplicates-button').click();
+    expect(byTestId('duplicates-close-label').textContent).toBe(translate('duplicatesClose', { count: 2 }));
+    expect(kinds(switcher).sort()).toEqual(['D1', 'D2', 'E1', 'E2']);
+  });
+
+  it('the palette doesn’t offer Duplicates in a group view (the toolbar’s button is hidden there)', async () => {
+    const switcher = await boot({ tabs: [...INSIDE(), { title: 'W1 again', url: 'https://w1.example/' }], ...withGroup({ inside: true }) });
+    expect(byTestId('duplicates-button').hidden).toBe(true);
+    expect(switcher.paletteActions().map((action) => action.id)).not.toContain('dupes');
+  });
+
+  it('a tab closed in the group view, Esc, Ctrl+Z: it comes back, and the switcher stays on all the tabs', async () => {
+    const switcher = await boot({ tabs: INSIDE(), ...withGroup({ inside: true }) });
+    switcher.select(switcher.state.entries.findIndex((entry) => entry.kind === 'tab' && entry.tab.title === 'W2'));
+    key('Delete');
+    await waitFor(() => chrome._data.tabs.length === 4);
+    key('Escape');
+    await waitFor(() => switcher.state.inGroup === null);
+    key('z', { code: 'KeyZ', ctrlKey: true });
+    await waitFor(() => chrome._data.tabs.length === 5);
+    await tick(50);
+    expect(byTestId('body').classList.contains('in-group')).toBe(false);
+    expect(byTestId('card-group')).not.toBe(null);
+    expect(await stored()).toBe(undefined);
+  });
+
+  it('in a group view the quick filters count only its tabs, and one none of them match isn’t offered', async () => {
+    const tabs = [{ title: 'A', url: 'https://a.example/', pinned: true, audible: true }, ...work(3).map((x) => ({ ...x, active: x.title === 'W1', audible: x.title === 'W2' })), { title: 'B', url: 'https://b.example/', audible: true }];
+    await boot({ tabs, ...withGroup({ inside: true }) });
+    expect(byTestId('filter-count', byTestId('filter-audio')).textContent).toBe('1');
+    expect(byTestId('filter-pinned')).toBe(null);
+  });
+
+  it('entered from the search under a filter none of its tabs pass: its tabs show (the filter goes), not an empty group', async () => {
+    const switcher = await boot({ tabs: TABS().map((x) => ({ ...x, audible: x.title === 'B' })), ...withGroup() });
+    byTestId('filter-audio').click();
+    await switcher.enterGroup(GROUP);
+    await waitFor(() => byTestId('body').classList.contains('in-group'));
+    expect(kinds(switcher)).toEqual(['W1', 'W2', 'W3']);
+    expect(switcher.state.filter).toBe(null);
+  });
+
+  it('Ctrl+← / → in a group view leave the window scope as it was (the window list is hidden there)', async () => {
+    const switcher = await boot({ tabs: INSIDE(), preferences: { allWindows: true }, beforeImport: async () => {
+      await withGroup({ inside: true }).beforeImport();
+      chrome._addWindow({ id: 2 });
+      chrome._addTab({ windowId: 2, title: 'X', url: 'https://x.example/' });
+    } });
+    expect(byTestId('windows').hidden).toBe(true);
+    key('ArrowRight', { ctrlKey: true });
+    key('Escape');
+    await waitFor(() => !byTestId('body').classList.contains('in-group'));
+    expect(switcher.state.scope).toBe('all');
+    expect(kinds(switcher)).toContain('X');
+  });
+
+  it('back from capturing a tab’s preview inside a group: in the group view again, with the quick filter on', async () => {
+    const audible = () => TABS().map((x) => ({ ...x, audible: x.title !== 'W3' }));
+    const switcher = await boot({ tabs: audible(), overlay: true, beforeImport: async () => {
+      await withGroup().beforeImport();
+      await session.set({ group: { id: GROUP, t: Date.now() }, resume: { query: '', scope: 'all', starred: false, filter: 'audio', key: 't2', t: Date.now() } });
+    } });
+    expect(byTestId('body').classList.contains('in-group')).toBe(true);
+    expect(kinds(switcher)).toEqual(['W1', 'W2']);
+    expect(switcher.state.filter).toBe('audio');
+  });
+});

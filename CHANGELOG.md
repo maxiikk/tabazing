@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.8] - 2026-10-23
+
+### Fixed
+
+- Opening Tabazing from a tab outside a group you had entered in another tab showed that group’s view instead of all your tabs.
+- Capturing a tab’s preview (Alt+P) inside a group view brought you back to all the tabs, without the quick filter that was on: you now come back where you were.
+- A group tile’s menu acted only on the tabs a filter showed (Ungroup left the others grouped, Close group closed only some, Undo of Move group to new window left tabs behind): it now acts on the whole group, as the palette does.
+- The duplicates view now shows every copy its button closes, also those in other windows; the palette no longer offers Duplicates inside a group view.
+- Undo after leaving a group view no longer takes you back into it.
+- In a group view the quick filters count only the group’s tabs, and a filter none of them match is no longer offered.
+- Entering a group under a filter (or Starred only) that none of its tabs pass now shows its tabs instead of an empty group.
+- Ctrl+← / → inside a group view no longer change the window scope out of sight.
+
 ## [6.17.7] - 2026-10-23
 
 ### Fixed
@@ -741,7 +754,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...HEAD
+[6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...HEAD
+[6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...ad49393
 [6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...49bc61b
 [6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...49d059d
 [6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...48c4298

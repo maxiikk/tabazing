@@ -717,7 +717,8 @@ function derive() {
   state.inGroup = inGroup;
   const open = state.tabs
     .filter((x) => !duplicateKeys || duplicateKeys.has(normalizeUrl(urlOf(x))))
-    .filter((tab) => (inGroup !== null ? tab.groupId === inGroup : state.scope === 'all' || tab.windowId === state.scope))
+    // (The duplicates view shows every copy its button closes, whatever the window chosen.)
+    .filter((tab) => duplicateKeys || (inGroup !== null ? tab.groupId === inGroup : state.scope === 'all' || tab.windowId === state.scope))
     .filter((tab) => !state.starOnly || isStarred(urlOf(tab)))
     .filter((tab) => !state.filter || FILTERS[state.filter].test(tab))
     .map((tab) => ({ kind: 'tab', key: 't' + tab.id, tab, preview: state.previews[tab.id] || null }));
@@ -1341,7 +1342,7 @@ function renderSection(section, startIndex) {
 
 function renderTools() {
   // Quick filters: a chip per filter some tab matches (or that is on), with how many.
-  const inScope = state.tabs.filter((x) => state.scope === 'all' || x.windowId === state.scope);
+  const inScope = state.tabs.filter((x) => (state.inGroup !== null ? x.groupId === state.inGroup : state.scope === 'all' || x.windowId === state.scope)); // (a group view shows its tabs, whatever the window)
   elements.quickFilters.replaceChildren(...Object.entries(FILTERS).map(([id, filter]) => {
     const count = inScope.filter(filter.test).length;
     if (!count && state.filter !== id) return null;
@@ -1692,7 +1693,7 @@ async function captureOne(entry) {
   const tab = entry.tab;
   const leaves = CONTEXT.mode === 'overlay' && tab.windowId === CONTEXT.sourceWindow;
   if (leaves) {
-    await setResume({ query: state.query, scope: state.scope, starred: state.starOnly, key: entry.key }).catch(() => {});
+    await setResume({ query: state.query, scope: state.scope, starred: state.starOnly, filter: state.filter, key: entry.key }).catch(() => {});
     chrome.runtime.sendMessage({ type: MESSAGE.CAPTURE_ONE, tabId: tab.id, reopen: CONTEXT.sourceTab }).catch(() => {});
     return finish('switch');
   }
@@ -1721,7 +1722,7 @@ function setScope(scope) {
   toTop();
 }
 function cycleScope(direction) {
-  if (state.windows.length < 2) return;
+  if (state.windows.length < 2 || state.inGroup !== null) return; // (a group view hides the window list)
   const scopeIds = ['all', ...state.windows.map((windowEntry) => windowEntry.id)];
   const i = scopeIds.indexOf(state.scope);
   setScope(scopeIds[(((i + direction) % scopeIds.length) + scopeIds.length) % scopeIds.length]);
@@ -1788,6 +1789,11 @@ async function enterGroup(id) {
   closePops();
   state.group = id;
   state.leftGroup = null;
+  // A filter none of its tabs pass would show an empty group: it goes (so does the duplicates view).
+  const groupTabs = state.tabs.filter((x) => x.groupId === id);
+  if (state.filter && !groupTabs.some(FILTERS[state.filter].test)) state.filter = null;
+  if (state.starOnly && !groupTabs.some((x) => isStarred(urlOf(x)))) state.starOnly = false;
+  state.duplicatesView = false;
   elements.search.value = state.query = ''; // the group's cards, none of them dimmed
   state.dropdown.hidden = true;
   await setGroup(id).catch(() => {});
@@ -1823,7 +1829,7 @@ async function switchToTab(tab) {
 async function closeTab(entry) {
   if (entry && entry.kind === 'star') return star(entry); // Del on a starred, not-open page unstars it
   if (entry && entry.kind === 'closed') return forgetClosed(entry); // Del on a recently closed one: off the list (Undo puts it back)
-  if (entry && entry.kind === 'group') return closeMany(entry.tabs); // Del or middle-click on a tile: the group's tabs (Undo brings them back, in their group)
+  if (entry && entry.kind === 'group') return closeMany(groupEntry(entry.group).tabs); // Del or middle-click on a tile: all the group's tabs, also those a filter hides (Undo brings them back, in their group)
   if (entry && entry.kind === 'snoozed') { // Del / × on a snoozed tab: cancel the snooze (Undo snoozes it again)
     const i = state.entries.indexOf(entry);
     const next = [state.entries[i + 1], state.entries[i - 1]].find((candidate) => candidate && candidate !== entry);
@@ -2108,9 +2114,12 @@ async function undoLast() {
   if (!undoEntry || state.done) return toast(translate('undoNothing'));
   const closed = undoEntry.kind === 'close';
   try {
+    const wasIn = undoEntry.inGroup !== null && undoEntry.inGroup !== undefined;
+    const groupGone = wasIn && chrome.tabGroups && !(await chrome.tabGroups.get(undoEntry.inGroup).catch(() => null));
     const groups = closed ? await reopenAt(undoEntry.tabs, undoEntry.at) : await moveBack(undoEntry.tabs);
-    // Done in a group view whose group went with it (its last tab closed): back in the group as it is again.
-    if (undoEntry.inGroup !== null && undoEntry.inGroup !== undefined && groups && groups.has(undoEntry.inGroup)) { state.group = groups.get(undoEntry.inGroup); await setGroup(state.group).catch(() => {}); }
+    // Done in a group view whose group went with it (its last tab closed): back in the group as it is again. (One
+    // still there was left since: the view stays where it is now.)
+    if (groupGone && groups && groups.has(undoEntry.inGroup)) { state.group = groups.get(undoEntry.inGroup); await setGroup(state.group).catch(() => {}); }
     toast(translate(closed ? 'reopenedCount' : 'movedBackCount', { count: undoEntry.tabs.length }));
   } catch (error) { toast(translate('errorUndo'), error); }
   await loadClosed();
@@ -5564,7 +5573,8 @@ function cardMenu(entry = state.entries[state.selected], { anchor = null, at = n
     if (isWorthReopening(entry.url)) items.push({ icon: 'bookmark', label: translate('markMenu'), error: translate('markError'), run: () => bookmarkDialog([pageOf(tab)]) });
     items.push(null, { icon: 'close', label: translate('tabClose'), danger: true, error: translate('errorClose'), run: () => closeTab(entry) });
   } else if (entry.kind === 'group') {
-    const tabs = entry.tabs, group = entry.group;
+    // A tile's actions act on the whole group, also when a filter shows only some of its tabs (as the palette's do).
+    const whole = groupEntry(entry.group), tabs = whole.tabs, group = entry.group;
     const allMuted = tabs.every(isMuted);
     items.push(
       { icon: 'goto', label: translate('groupOpen'), run: () => enterGroup(group.id) },
@@ -5572,14 +5582,14 @@ function cardMenu(entry = state.entries[state.selected], { anchor = null, at = n
       null,
       { icon: 'link', label: translate('actionCopy'), error: translate('copyFailed'), run: () => copyLinks(tabs, 'plain') },
       { icon: 'bookmark', label: translate('markMenu'), error: translate('markError'), run: () => bookmarkDialog(tabs.filter((x) => isWorthReopening(urlOf(x))).map(pageOf), { folder: groupName(group) }) },
-      { icon: 'window', label: translate('groupToWindow'), error: translate('errorMove'), run: () => groupToWindow(entry) },
+      { icon: 'window', label: translate('groupToWindow'), error: translate('errorMove'), run: () => groupToWindow(whole) },
       { icon: 'chevron', label: translate(group.collapsed ? 'groupExpand' : 'groupCollapse'), error: translate('actionFailed'), run: () => collapseGroup(group) },
       { icon: 'moon', label: translate('actionSleep'), error: translate('errorSleep'), run: () => sleepTabs(tabs) },
       { icon: allMuted ? 'speaker' : 'muted', label: translate(allMuted ? 'actionUnmute' : 'actionMute'), error: translate('errorMute'), run: () => muteTabs(tabs) },
       { icon: 'clock', label: translate('actionSnooze'), error: translate('errorSnooze'), run: () => snoozeMenu(tabs, anchor || card) },
       { icon: 'archive', label: translate('actionArchive'), error: translate('errorArchive'), run: () => archiveTabs(tabs) },
       null,
-      { icon: 'tab', label: translate('groupUngroup'), error: translate('actionFailed'), run: () => ungroup(entry) },
+      { icon: 'tab', label: translate('groupUngroup'), error: translate('actionFailed'), run: () => ungroup(whole) },
       { icon: 'close', label: translate('groupClose'), danger: true, error: translate('errorClose'), run: () => closeMany(tabs) },
     );
   } else if (entry.kind === 'closed') {
@@ -6016,7 +6026,7 @@ const PALETTE_ACTIONS = [
   { id: 'copy-md', group: 'tab', icon: 'markdown', after: 'stay', tab: true, title: () => translate('paletteCopyMarkdown'), keywords: () => translate('paletteKeywordsCopyMarkdown'), error: () => translate('copyFailed'), run: (tab) => copyLinks([tab], 'markdown') },
   { id: 'bookmark', group: 'tab', icon: 'bookmark', opensView: true, tab: true, when: () => isWeb(sourceTab()), title: () => translate('paletteBookmarkThis'), keywords: () => translate('paletteKeywordsBookmark'), error: () => translate('paletteErrorBookmark'), run: (tab) => bookmarkDialog([pageOf(tab)]) },
   // Tabazing
-  { id: 'dupes', group: 'tabazing', icon: 'duplicate', after: 'switcher', when: () => duplicates().length > 0, title: () => translate('paletteDuplicates'), keywords: () => translate('paletteKeywordsDuplicates'), subtitle: () => translate('duplicatesButton', { count: duplicates().length }), error: () => translate('errorClose'), run: () => closeDuplicates() },
+  { id: 'dupes', group: 'tabazing', icon: 'duplicate', after: 'switcher', when: () => state.inGroup === null && duplicates().length > 0, title: () => translate('paletteDuplicates'), keywords: () => translate('paletteKeywordsDuplicates'), subtitle: () => translate('duplicatesButton', { count: duplicates().length }), error: () => translate('errorClose'), run: () => closeDuplicates() },
   { id: 'merge', group: 'tabazing', icon: 'merge', after: 'switcher', when: () => state.otherWindows.length > 0, title: () => translate('mergeAll'), keywords: () => translate('paletteKeywordsMerge'), subtitle: () => translate('mergeCount', { count: state.otherWindows.length }), error: () => translate('errorMerge'), run: () => mergeWindows(state.otherWindows) },
   { id: 'sleep-old', group: 'tabazing', icon: 'moon', after: 'switcher', when: () => staleTabs().length > 0, title: () => translate('paletteSleepOld'), keywords: () => translate('paletteKeywordsSleepOld'), subtitle: () => translate('tabs', { count: staleTabs().length }), error: () => translate('errorSleep'), run: () => sleepTabs(staleTabs()) },
   { id: 'snooze', group: 'tabazing', icon: 'clock', opensView: true, tab: true, when: () => isWorthReopening(urlOf(sourceTab())), title: () => translate('paletteSnooze'), keywords: () => translate('paletteKeywordsSnooze'), error: () => translate('errorSnooze'),
@@ -7773,6 +7783,7 @@ async function showPrepared(preparedPreferences) {
     const shownKey = (state.entries[state.selected] || {}).key;
     await load(preferences);
     derive();
+    leaveGroupIfElsewhere(); // (a group entered since it was prepared, in a switcher over another tab)
     // Keys wait meanwhile, so the first card is still selected (unless the mouse moved on): picked again from what was just read.
     const selectedKey = state.selected === shownAt ? (state.entries[firstSelection()] || {}).key : shownKey;
     if (settingsChanged || drawnSignature() !== before || selectedKey !== shownKey) refresh({ keepKey: selectedKey });
@@ -7825,9 +7836,10 @@ async function boot(resume) {
     state.query = elements.search.value = typeof resume.query === 'string' ? resume.query : '';
     state.scope = resume.scope === 'all' || Number.isInteger(resume.scope) ? resume.scope : 'all';
     state.starOnly = !!resume.starred;
+    state.filter = FILTERS[resume.filter] ? resume.filter : null;
   }
   derive();
-  leaveGroupIfElsewhere();
+  if (!resume) leaveGroupIfElsewhere(); // (back from capturing a tab's preview: in the group view it was in)
   state.selected = firstSelection(resume);
   // The previews of what the first draw shows (reading all of them, 50 KB each, kept it waiting); the rest
   // right after it.

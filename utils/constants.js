@@ -49,7 +49,7 @@ export const KEY = Object.freeze({
   PREFERENCES: 'prefs',             // storage.local: { lang: 'auto'|one of LANGS (utils/i18n.js), startup: boolean, cardSize: 'default'|'small'|'list', accent: '#rrggbb', allWindows: boolean, theme: 'dark'|'light'|'system',
                               //   pinnedFirst, showClosed, showSnoozed, showAge, showGroups, groupWrap, ownWindow, searchHistory, searchBookmarks, lite: boolean, titleLines: 1|2, iconTips: number } Settings (store.js getPreferences has the defaults)
   NO_CAPTURE: 'nocap',             // storage.session: normalized URLs Chrome refused to screenshot (the Web Store, some built-in pages)
-  RESUME: 'resume',           // storage.session: { t, query, scope, sort, starred, key } reopen the switcher where it was (after a one-tab capture)
+  RESUME: 'resume',           // storage.session: { t, query, scope, sort, starred, filter, key } reopen the switcher where it was (after a one-tab capture)
   OVERLAY: 'overlay',         // { tabId, t } tab currently covered by the overlay
   LAUNCH: 'launch',           // { token, t, ctx } one-time launch for the next switcher
   STANDBY: 'standby',         // storage.session: { [token]: { tabId, windowId, t } } what lets a prepared frame read and draw the tabs ahead (one per tab)

@@ -18,10 +18,12 @@ afterEach(() => {
 
 // Loads the frame as the overlay host does: it says "standby", the host answers with PREPARE and the standby token
 // (`token`: another one, or none). Resolves once it has drawn (or after a while, if it doesn't).
-async function loadPrepared({ tabs = ['Alpha', 'Bravo', 'Charlie'], token, preferences } = {}) {
+// `grouped`: the titles of the tabs in group 7 ("Work").
+async function loadPrepared({ tabs = ['Alpha', 'Bravo', 'Charlie'], grouped = [], token, preferences } = {}) {
   loadPage();
   chrome._addWindow({ id: 1, focused: true });
-  const made = tabs.map((title, i) => chrome._addTab({ windowId: 1, active: i === 0, title, url: `https://${title.toLowerCase()}.example/` }));
+  if (grouped.length) chrome._addGroup({ id: 7, title: 'Work', color: 'blue', windowId: 1 });
+  const made = tabs.map((title, i) => chrome._addTab({ windowId: 1, active: i === 0, title, url: `https://${title.toLowerCase()}.example/`, ...(grouped.includes(title) ? { groupId: 7 } : {}) }));
   await chrome.storage.local.set({ onb: { tour: true, flyout: true, at: Date.now() }, ...(preferences ? { prefs: preferences } : {}) });
   const standby = token === undefined ? await createStandby(made[0].id, 1) : token;
   const parent = { postMessage: vi.fn() };
@@ -101,6 +103,14 @@ describe('prepared frame', () => {
     await launch({ hold: true, direction: 1 });
     await waitFor(() => selectedTitle() === 'Delta');
     expect(titles()).toEqual(['Alpha', 'Delta', 'Bravo', 'Charlie']);
+  });
+
+  it('a group entered since it was prepared (in a switcher over another tab) is left when it opens from a tab outside it', async () => {
+    const { launch } = await loadPrepared({ grouped: ['Bravo', 'Charlie'] });
+    await chrome.storage.session.set({ group: { id: 7, t: Date.now() } });
+    await launch({ direction: 0 });
+    await waitFor(() => switcher.state.inGroup === null && byTestId('card-group'));
+    await waitFor(async () => !(await chrome.storage.session.get('group')).group);
   });
 
   it('Alt+E (direction 0) selects the current tab', async () => {
