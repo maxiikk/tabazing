@@ -79,6 +79,7 @@
   "unmutedCount": "{count, plural, one {Son réactivé pour # onglet} other {Son réactivé pour # onglets}}",
   "tour2Title": "Se déplacer",
   "keyPick": "sélectionner une carte",
+  "keyJump": "première carte, dernière, un écran plus haut / plus bas",
   "keyOpen": "ouvrir la carte ou le résultat sélectionné",
   "keyClose": "fermer l’onglet ; un onglet récemment fermé ou mis en veille quitte sa liste",
   "keyLeave": "fermer Tabazing",

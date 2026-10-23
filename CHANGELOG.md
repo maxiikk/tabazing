@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.18.0] - 2026-10-23
+
+### Added
+
+- Home and End select the first and the last card, PgUp and PgDn move about a screen up or down (listed in the shortcuts card ⓘ).
+
+### Fixed
+
+- Double-clicking a group tile no longer switches to whatever tab ends up under the pointer once the group opens.
+- A quick Alt+W between two tabs of the same group switches back to the other tab, like Alt+Tab, instead of opening the group view.
+- Changing the sort keeps the selected card in view.
+- While ticking cards, the selected card no longer slides under the floating actions bar.
+- Ctrl+Z after closing a tab selects the tab it brought back.
+
 ## [6.17.9] - 2026-10-23
 
 ### Fixed
@@ -768,7 +782,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...HEAD
+[6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...HEAD
+[6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...5372ff1
 [6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...7568459
 [6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...ad49393
 [6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...49bc61b

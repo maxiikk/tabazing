@@ -536,3 +536,25 @@ describe('group views with filters, scopes, undo and captures', () => {
     expect(switcher.state.filter).toBe('audio');
   });
 });
+
+describe('clicks and quick switches around tiles', () => {
+  it('the second click of a double-click on a tile does not switch to the card then under the pointer', async () => {
+    const tabs = [{ title: 'Alpha', url: 'https://alpha.example/' }, { title: 'Work1', url: 'https://work1.example/', groupId: GROUP }, { title: 'Work2', url: 'https://work2.example/', groupId: GROUP }];
+    const switcher = await boot({ tabs, context: { direction: 0 }, ...withGroup() });
+    tile().dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+    await waitFor(() => switcher.state.inGroup === GROUP);
+    allByTestId('card-tab')[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 2 }));
+    await tick(20);
+    expect(chrome.tabs.update.mock.calls.some(([, properties]) => properties.active)).toBe(false);
+    expect(switcher.state.done).toBe(false);
+  });
+
+  it('a quick Alt+W from a grouped tab whose previous tab is in the same group switches to that tab', async () => {
+    const tabs = [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: GROUP, active: true }, { title: 'W2', url: 'https://w2.example/', groupId: GROUP }, { title: 'B', url: 'https://b.example/' }];
+    // ids by creation: A 1, W1 2, W2 3, B 4. W1 now, W2 just before it.
+    const switcher = await boot({ tabs, context: { hold: true, direction: 1 }, beforeImport: async () => { await withGroup().beforeImport(); await session.set({ mru: [2, 3, 1, 4] }); } });
+    expect(switcher.state.entries[switcher.state.selected].tab.title).toBe('W2');
+    switcher.altReleased();
+    await waitFor(() => chrome.tabs.update.mock.calls.some(([id, properties]) => id === tabByTitle(switcher, 'W2').id && properties.active));
+  });
+});

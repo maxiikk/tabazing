@@ -235,6 +235,8 @@ main {
   scrollbar-gutter: stable; /* the cards are sized to the width: a scrollbar appearing must not push one to the next row */
 }
 .with-windows main { padding-inline-start: 16px; }
+/* Ticking: the actions bar floats over the bottom of the cards; the last row, and a card scrolled to, stay clear of it. */
+html.picking main { padding-block-end: 100px; scroll-padding-block-end: 84px; }
 /* the window list down the left */
 .windows { flex: 0 0 204px; width: 204px; min-width: 0; margin-block: 8px 12px; margin-inline: 20px 0; padding: 2px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
 .window-button {

@@ -1632,6 +1632,18 @@ function moveSpatial(deltaX, deltaY) {
   const best = cardToward(cards, state.selected, deltaY);
   if (best >= 0) select(best);
 }
+// PgUp / PgDn: about a screen up or down, in the same column (as far as ↑ / ↓ steps go in one screen).
+function movePage(deltaY) {
+  const cards = [...document.querySelectorAll('#scroller .card')];
+  if (!cards[state.selected]) return;
+  const top = cards[state.selected].getBoundingClientRect().top, height = elements.scroller.clientHeight;
+  let at = state.selected;
+  for (let next = cardToward(cards, at, deltaY); next >= 0; next = cardToward(cards, at, deltaY)) {
+    at = next;
+    if (Math.abs(cards[at].getBoundingClientRect().top - top) >= height * 0.8) break;
+  }
+  select(at);
+}
 // The card above (dy < 0) or below (dy > 0) cards[from]: the nearest row that way, the closest across. -1 if none.
 function cardToward(cards, from, deltaY) {
   const fromBounds = cards[from].getBoundingClientRect();
@@ -1659,8 +1671,8 @@ function setSort(sort) {
   if (sort === state.sort) return;
   state.sort = sort;
   updateView({ sort }).catch(() => {});
-  refresh();
   toTop();
+  refresh(); // (last: it scrolls the selected card into view)
 }
 
 function setFilter(id) {
@@ -2123,6 +2135,7 @@ async function undoLast() {
   const undoEntry = state.undo.pop();
   if (!undoEntry || state.done) return toast(translate('undoNothing'));
   const closed = undoEntry.kind === 'close';
+  const known = new Set(state.tabs.map((x) => x.id));
   try {
     const wasIn = undoEntry.inGroup !== null && undoEntry.inGroup !== undefined;
     const groupGone = wasIn && chrome.tabGroups && !(await chrome.tabGroups.get(undoEntry.inGroup).catch(() => null));
@@ -2133,7 +2146,8 @@ async function undoLast() {
     toast(translate(closed ? 'reopenedCount' : 'movedBackCount', { count: undoEntry.tabs.length }));
   } catch (error) { toast(translate('errorUndo'), error); }
   await loadClosed();
-  await reload();
+  // The tab it brought back (a move: the first tab moved back) is selected, as it was before.
+  await reload(() => { const back = closed ? state.tabs.find((x) => !known.has(x.id)) : undoEntry.tabs[0]; return back && 't' + back.id; });
 }
 // Reopen closed tabs (undoRecord) where they were. One Chrome still lists as recently closed, closed within
 // UNDO_SESSION_MILLISECONDS of `at` (when Tabazing closed it), comes back through Chrome, with its back/forward history.
@@ -2219,12 +2233,13 @@ function drawLater(tabIds) {
 }
 
 // Reload the tab list after Chrome has acted (pin, mute, move...), keeping the selection.
-async function reload() {
+// `pick`: the key of the card to select afterwards (null: the one selected now).
+async function reload(pick = null) {
   if (state.done) return;
   const key = (state.entries[state.selected] || {}).key;
   await load();
   await loadExtras();
-  if (!state.done) refresh({ keepKey: key });
+  if (!state.done) refresh({ keepKey: (pick && pick()) || key });
 }
 
 async function closeMany(tabs) {
@@ -7099,7 +7114,7 @@ function shortcutGroups() {
       [[translate('keyboardWheel', { key: ALT_KEY })], translate('keyWheel')], [[altPrefix + 'Tab', 'Shift+' + altPrefix + 'Tab'], translate('keyTabHeld')],
     ]],
     ['move', translate('keysGroupMove'), [
-      [['←', '→', '↑', '↓'], translate('keyPick')], [[altPrefix + '1', '…', altPrefix + '9'], translate('keyNumber')], [['1', '…', '9'], translate('keyNumberPlain')],
+      [['←', '→', '↑', '↓'], translate('keyPick')], [['Home', 'End', 'PgUp', 'PgDn'], translate('keyJump')], [[altPrefix + '1', '…', altPrefix + '9'], translate('keyNumber')], [['1', '…', '9'], translate('keyNumberPlain')],
       [[IS_MAC ? '⌃←' : 'Ctrl+←', IS_MAC ? '⌃→' : 'Ctrl+→'], translate('keyWindow')], [[IS_MAC ? '⌫' : 'Backspace'], translate('keyLeaveGroup')],
     ]],
     ['action', translate('keysGroupAction'), [
@@ -7394,6 +7409,8 @@ function onKeyDown(event) {
       if (!elements.search.value && !event.altKey && !event.ctrlKey && !event.metaKey && state.entries[state.selected]) { event.preventDefault(); openBig(state.entries[state.selected]); }
       return;
     case 'Tab': event.preventDefault(); return cycle(event.shiftKey ? -1 : 1); // (Alt held: see the top)
+    case 'Home': case 'End': if (!typing) { event.preventDefault(); select(key === 'Home' ? 0 : state.entries.length - 1); } return;
+    case 'PageDown': case 'PageUp': event.preventDefault(); return movePage(key === 'PageDown' ? 1 : -1);
     case 'ArrowRight': case 'ArrowLeft': if (!typing) { event.preventDefault(); moveSpatial(ahead(key), 0); } return;
     case 'ArrowDown': event.preventDefault(); if (document.activeElement === elements.search && showDropdownAgain()) return; return dropdownShown() ? dropdownMove(1) : moveSpatial(0, 1);
     case 'ArrowUp': event.preventDefault(); return dropdownShown() ? dropdownMove(-1) : moveSpatial(0, -1);
@@ -7595,6 +7612,9 @@ function listen() {
   });
   window.addEventListener('contextmenu', (event) => { if (menuKeyAt && performance.now() - menuKeyAt < 1000) event.preventDefault(); }); // the card's menu took that key
   elements.scroller.addEventListener('scroll', hideTip, { passive: true });
+  // The second click of a double-click: the first one already acted (a tile opened its group, and the cards moved), so
+  // what is under the pointer now is another card. It is not a choice.
+  elements.scroller.addEventListener('click', (event) => { if (event.detail > 1 && event.target instanceof Element && event.target.closest('.card')) { event.stopPropagation(); event.preventDefault(); } }, true);
   setupDropZones();
   document.addEventListener('dragend', endDrag); // (its card may be gone by then: a drop redraws the cards)
   document.addEventListener('drop', (event) => { if (!event.defaultPrevented) { event.preventDefault(); endDrag(); } }); // (a link dropped anywhere else isn't opened as a page in Tabazing's frame)
@@ -7768,6 +7788,9 @@ function firstSelection(resume = null) {
   // By recent use, the first Alt+W goes to the tab used just before this one, as Alt+Tab does, even when it is pinned
   // (shown first); every other step follows the cards as shown.
   const before = state.sort === 'recent' && state.inGroup === null && CONTEXT.direction > 0 ? mru.find((entry) => entry.key !== 't' + CONTEXT.sourceTab) : null;
+  // The tab used before is in the current tab's own group (one tile, the one it is "on"): show that group, so Alt+W
+  // lands on the tab itself, as Alt+Tab would (letting go on the tile would open the group instead).
+  if (before && CONTEXT.hold && state.tileOf.has(before.key) && state.tileOf.get(before.key) === state.tileOf.get('t' + CONTEXT.sourceTab)) { state.group = before.tab.groupId; derive(); }
   const firstStep = () => { if (before) return before.key; const step = stepFrom('t' + CONTEXT.sourceTab, CONTEXT.direction); return step.leave ? stepOutOfGroup(CONTEXT.direction) : step.key; };
   // Alt+Q / Alt+W start one card before / after the current tab (in the group view, past its ends out of it),
   // Alt+E (dir 0) on the current tab itself; anything else (the toolbar icon, opening with Chrome) on the tab

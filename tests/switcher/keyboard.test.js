@@ -772,3 +772,48 @@ describe('ticking from the keyboard', () => {
     expect(switcher.state.picked.size).toBe(0);
   });
 });
+
+describe('moving far, sorting and undoing: where the selection goes', () => {
+  const named = (...names) => names.map((title) => ({ title, url: `https://${title.toLowerCase()}.example/` }));
+
+  it('Home and End (search box empty) select the first and the last card', async () => {
+    await boot({ tabs: named('Alpha', 'Bravo', 'Charlie', 'Delta'), context: { direction: 0 } });
+    byTestId('search').focus();
+    expect(key('End').defaultPrevented).toBe(true);
+    expect(selectedTitle()).toBe('Delta');
+    key('Home');
+    expect(selectedTitle()).toBe('Alpha');
+  });
+
+  it('PgDn and PgUp move the selection (as far as there are cards that way)', async () => {
+    await boot({ tabs: named('Alpha', 'Bravo', 'Charlie'), context: { direction: 0 } });
+    byTestId('search').focus();
+    expect(key('PageDown').defaultPrevented).toBe(true);
+    expect(key('PageUp').defaultPrevented).toBe(true);
+    expect(selectedTitle()).toBe('Alpha');
+  });
+
+  it('changing the sort keeps the selected card in view (its scroll into view comes last)', async () => {
+    const switcher = await boot({ tabs: named('Zulu', 'Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo'), context: { direction: 0 } });
+    const scrolls = [];
+    Object.defineProperty(byTestId('scroller'), 'scrollTop', { configurable: true, get: () => 0, set: (value) => scrolls.push('top ' + value) });
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function () { scrolls.push('into view ' + byTestId('card-title', this)?.textContent); });
+    switcher.setSort('name');
+    scrollIntoView.mockRestore();
+    expect(selectedTitle()).toBe('Zulu');
+    expect(scrolls.at(-1)).toBe('into view Zulu');
+  });
+
+  it('Ctrl+Z after Del selects the tab it brought back', async () => {
+    const switcher = await boot({ tabs: named('Alpha', 'Bravo', 'Charlie', 'Delta') });
+    switcher.selectKey('t2');
+    key('Delete');
+    await waitFor(() => !openCards().some((card) => titleOf(card) === 'Bravo'));
+    expect(selectedTitle()).toBe('Charlie');
+    key('z', { code: 'KeyZ', ctrlKey: true });
+    await waitFor(() => openCards().length === 4);
+    await tick(20);
+    const reopened = chrome._data.tabs.find((x) => x.url === 'https://bravo.example/');
+    expect(switcher.state.entries[switcher.state.selected].tab.id).toBe(reopened.id);
+  });
+});

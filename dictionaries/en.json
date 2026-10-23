@@ -79,6 +79,7 @@
   "unmutedCount": "{count, plural, one {Unmuted # tab} other {Unmuted # tabs}}",
   "tour2Title": "Move",
   "keyPick": "select a card",
+  "keyJump": "the first card, the last, a screen up / down",
   "keyOpen": "open the selected card or search result",
   "keyClose": "close the tab; a recently closed or snoozed one leaves its list",
   "keyLeave": "close Tabazing",

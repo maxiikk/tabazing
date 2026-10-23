@@ -79,6 +79,7 @@
   "unmutedCount": "{count, plural, one {Audio riattivato per # scheda} other {Audio riattivato per # schede}}",
   "tour2Title": "Spostarsi",
   "keyPick": "seleziona un riquadro",
+  "keyJump": "primo riquadro, ultimo, una schermata su / giù",
   "keyOpen": "apri il riquadro o il risultato selezionato",
   "keyClose": "chiudi la scheda; una chiusa di recente o posticipata esce dal suo elenco",
   "keyLeave": "chiudi Tabazing",

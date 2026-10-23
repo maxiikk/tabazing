@@ -79,6 +79,7 @@
   "unmutedCount": "{count, plural, one {Ton für # Tab an} other {Ton für # Tabs an}}",
   "tour2Title": "Bewegen",
   "keyPick": "eine Karte auswählen",
+  "keyJump": "erste Karte, letzte, eine Seite hoch / runter",
   "keyOpen": "ausgewählte Karte oder Suchergebnis öffnen",
   "keyClose": "Tab schließen; ein kürzlich geschlossener oder zurückgestellter verlässt seine Liste",
   "keyLeave": "Tabazing schließen",
