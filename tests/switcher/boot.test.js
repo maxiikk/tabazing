@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { loadPage, tick, waitFor, key } from '../helpers/switcher.js';
 import { boot, bootOverlay, restoreParent, ABC, selectedTitle, openCards, cards, byTestId } from '../helpers/switcher-ui.js';
+import { MESSAGE } from '../../utils/constants.js';
 
 // Load the page with a launch that is wrong somehow, and let the module run.
 async function bootBad({ urlToken = 'tok', stored = { token: 'tok', t: Date.now(), context: { sourceTab: 1, window: 1, direction: 1, mode: 'window' } } } = {}) {
@@ -211,5 +212,46 @@ describe('clickjacking guard', () => {
     await tick(10);
     expect(switcher.state.done).toBe(false);
     expect(switcher.state.holding).toBe(true);
+  });
+});
+
+describe('presses while it starts up, and a tap already over', () => {
+  // A window launch over Alpha, Bravo, Charlie, Delta (most recently used in that order); `hold`: Alt+W.
+  async function bootWindow(context = {}, beforeImport = () => {}) {
+    loadPage();
+    chrome._addWindow({ id: 1, focused: true });
+    const made = ['Alpha', 'Bravo', 'Charlie', 'Delta'].map((title, i) => chrome._addTab({ windowId: 1, active: i === 0, title, url: `https://${title.toLowerCase()}.example/` }));
+    await chrome.storage.local.set({ onb: { tour: true, flyout: true, at: Date.now() } });
+    await chrome.storage.session.set({ mru: made.map((tab) => tab.id), launch: { token: 'token-x', t: Date.now(), context: { sourceTab: made[0].id, window: 1, direction: 1, via: 'key', hold: true, state: 'normal', mode: 'window', ...context } } });
+    history.replaceState(null, '', '/switcher.html?t=token-x');
+    Object.defineProperty(window, 'parent', { value: window, configurable: true }); // its own window, not a frame
+    beforeImport();
+    vi.resetModules();
+    chrome._clearListeners();
+    return { switcher: await import('../../switcher.js'), made };
+  }
+
+  it('a second Alt+W that arrives while it is still reading the tabs counts (lands on the next card)', async () => {
+    let release = null;
+    const realQuery = chrome.tabs.query;
+    const { switcher } = await bootWindow({}, () => {
+      chrome.tabs.query = (...values) => (!release && values[0] && values[0].windowId === 1
+        ? new Promise((resolve) => { release = () => { chrome.tabs.query = realQuery; resolve(realQuery(...values)); }; })
+        : realQuery(...values));
+    });
+    await waitFor(() => release);
+    chrome.runtime.onMessage._emit({ type: MESSAGE.CYCLE, direction: 1, hold: true }, { id: chrome.runtime.id }, vi.fn());
+    release();
+    await waitFor(() => !byTestId('app').hidden);
+    await tick(30);
+    expect(switcher.state.entries[switcher.state.selected].tab.title).toBe('Charlie');
+    switcher.state.done = true;
+  });
+
+  it('in its own window, a quick tap the page saw end (released) switches to the selected tab once drawn', async () => {
+    const { switcher, made } = await bootWindow({ released: true });
+    await waitFor(() => chrome.tabs.update.mock.calls.length > 0);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(made[1].id, { active: true });
+    switcher.state.done = true;
   });
 });

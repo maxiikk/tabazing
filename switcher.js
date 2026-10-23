@@ -7282,11 +7282,15 @@ let altDown = false;
 function trackAlt(event) { altDown = event.altKey && !event.ctrlKey; }
 
 function onKeyDown(event) {
-  if (state.done || !launched) return;
-  if (refreshing) { // (a prepared frame just shown, reading the tabs again: acts once they are current)
+  if (state.done) return;
+  if (refreshing) { // (still opening, or a prepared frame just shown, reading the tabs again: acts once they are current)
+    // A letter goes into the box as typed (Chrome types it there; played back later, it would only focus the box).
+    const letter = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+    if (letter) { const field = state.palette ? elements.paletteInput : elements.search; if (document.activeElement !== field) field.focus({ preventScroll: true }); return; }
     if (!MODIFIERS.has(event.key)) { event.preventDefault(); event.stopPropagation(); }
     return whenCurrent(() => onKeyDown(event));
   }
+  if (!launched) return;
   trackAlt(event);
   // Tab moves the focus through the page's controls, within the top layer; only while Alt is still held
   // from Alt+Q / Alt+W does it step through the cards, like Alt+Tab (below).
@@ -7491,8 +7495,9 @@ function stopHolding() {
 }
 
 function onKeyUp(event) {
-  if (state.done || !launched) return;
+  if (state.done) return;
   if (refreshing) return whenCurrent(() => onKeyUp(event));
+  if (!launched) return;
   trackAlt(event);
   if (event.key === 'Alt') altDown = false;
   if (state.modal) return;
@@ -7740,8 +7745,10 @@ function getLaunch() {
       }
       if (data.tabazing !== FRAME_MESSAGE.LAUNCH) return;
       if (++attempts > 5) { window.removeEventListener('message', onMessage); return resolve(null); } // someone is guessing
+      refreshing = true; // (keys pressed while its token is checked wait for it, and act once it is open)
       const launch = await consumeLaunch(data.token);
       if (launch && launch.mode === 'overlay') { window.removeEventListener('message', onMessage); resolve(launch); }
+      else { refreshing = false; waiting.length = 0; }
     };
     window.addEventListener('message', onMessage);
     parent.postMessage({ tabazing: FRAME_MESSAGE.STANDBY }, '*');
@@ -7800,9 +7807,11 @@ async function prepare({ tabId, windowId }) {
   mark('render-start');
   render();
   markEnd('render', 'render-start');
-  await loadPreviews(state.tabs).then((ids) => { if (ids.length) drawLater(ids); }).catch(() => {});
-  await loadExtras().then(() => drawLater()).catch(() => {});
   markEnd('prepare', 'prepare-start');
+  // The rest of the previews and "Recently closed" afterwards: a launch meanwhile doesn't wait for them (it reads
+  // everything again itself).
+  loadPreviews(state.tabs).then((ids) => { if (ids.length && !launched) drawLater(ids); }).catch(() => {});
+  loadExtras().then(() => { if (!launched) drawLater(); }).catch(() => {});
   return preferences;
 }
 
@@ -7889,6 +7898,7 @@ async function showPrepared(preparedPreferences) {
 
 // Keys pressed while it was still opening, as when it is open: Alt+E keeps it open, Alt+R opens the palette.
 async function handOver() {
+  if (CONTEXT.hold && CONTEXT.released) releaseWaiting = true; // (a quick tap, over before it opened: letting go is done)
   try {
     const response = await chrome.runtime.sendMessage({ type: MESSAGE.READY });
     const extra = response && Number.isInteger(response.extra) ? response.extra : 0;
@@ -7902,6 +7912,7 @@ async function handOver() {
 
 // A frame (or window) launched without being prepared: everything is read and drawn now.
 async function boot(resume) {
+  refreshing = true; // keys, and Alt+Q / Alt+W pressed again, wait for the cards (whenCurrent)
   state.holding = CONTEXT.hold; // Alt+Q / Alt+W: letting go of Alt will switch...
   document.documentElement.classList.toggle('alttab', CONTEXT.hold); // ...and what needs typing is hidden meanwhile
   document.documentElement.classList.add(CONTEXT.mode);
@@ -7945,6 +7956,8 @@ async function boot(resume) {
   tellReady();
   window.focus();
   (state.palette ? elements.paletteInput : elements.search).focus({ preventScroll: true });
+  refreshing = false;
+  for (const callback of waiting.splice(0)) callback();
   // Then "Recently closed" and starred pages that aren't open; drawn once the opening animation is over,
   // so it doesn't restart on the cards.
   loadExtras().then(() => drawLater()).catch(() => {});

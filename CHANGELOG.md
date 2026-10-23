@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.18.2] - 2026-10-23
+
+### Fixed
+
+- A quick tap of Alt+Q / Alt+W with the keyboard in an embedded frame (an editor, a player) left Tabazing open instead of switching: it now switches.
+- With Settings → “always in its own window” (and on pages Tabazing can’t open over), a quick tap left the window open with the search box hidden: it now switches.
+- Letters typed right after opening are no longer lost: they all land in the search box.
+- Opening soon after a page loads no longer waits for every preview and “Recently closed” to be read first.
+- A second Alt+Q / Alt+W while Tabazing was still starting up could be dropped: it now counts.
+
 ## [6.18.1] - 2026-10-23
 
 ### Fixed
@@ -794,7 +804,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...HEAD
+[6.18.2]: https://github.com/maxiikk/tabazing/compare/f099e17...HEAD
+[6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...f099e17
 [6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...ceb1587
 [6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...5372ff1
 [6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...7568459

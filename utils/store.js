@@ -1030,6 +1030,7 @@ export function consumeLaunch(token) {
       mode: MODES.includes(launchContext.mode) ? launchContext.mode : 'window',
       via: ['key', 'icon', 'startup'].includes(launchContext.via) ? launchContext.via : 'key', // how it was opened
       palette: launchContext.palette === true, // Alt+R: open straight into the command palette
+      released: launchContext.released === true, // Alt+Q / Alt+W: Alt was already let go when it was opened (a quick tap)
     });
   });
 }

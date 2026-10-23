@@ -113,6 +113,30 @@ describe('prepared frame', () => {
     await waitFor(async () => !(await chrome.storage.session.get('group')).group);
   });
 
+  it('a letter typed while it reads the tabs again goes into the search box (as Chrome types it)', async () => {
+    const { launch } = await loadPrepared();
+    let release = null;
+    chrome.tabs.query.mockImplementationOnce((...values) => new Promise((resolve) => { release = () => resolve(chrome.tabs.query(...values)); }));
+    await launch({ direction: 0 });
+    await waitFor(() => release);
+    const event = key('g', { target: byTestId('search') });
+    release();
+    await tick(50);
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(byTestId('search'));
+  });
+
+  it('a launch while it is still preparing shows once the cards are drawn, without waiting for Recently closed', async () => {
+    let releaseClosed = null;
+    chrome.sessions.getRecentlyClosed.mockImplementation(() => new Promise((resolve) => { releaseClosed = () => resolve([]); }));
+    const { launch } = await loadPrepared();
+    await waitFor(() => releaseClosed);
+    const shown = await Promise.race([launch().then(() => true), tick(1000).then(() => false)]);
+    releaseClosed();
+    await tick(50);
+    expect(shown).toBe(true);
+  });
+
   it('Alt+E (direction 0) selects the current tab', async () => {
     const { launch } = await loadPrepared();
     await launch({ direction: 0 });

@@ -466,6 +466,7 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
         new Promise((resolve, reject) => setTimeout(() => reject(new Error('page frozen')), LIMITS.PAGE_FROZEN_MILLISECONDS)),
       ]);
       shotTaken.then(() => tellShotTaken(tab.id, token));
+      if (hold) altLetGo(tab.id).then((letGo) => { if (letGo) tellAltLetGo(tab.id, token); });
       return;
     } catch {
       disarmWatchdog();
@@ -473,7 +474,9 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
       await clearOverlayTab();
     }
   }
-  await openPopupWindow(browserWindow, await createLaunch({ ...launchContext, mode: 'window' }));
+  // A quick tap is over by the time the window opens, which never hears that key-up: it is told.
+  const released = hold && (await altLetGo(tab.id));
+  await openPopupWindow(browserWindow, await createLaunch({ ...launchContext, mode: 'window', ...(released ? { released: true } : {}) }));
 }
 
 // Some pages block the overlay's scripts (e.g. a "Content-Security-Policy:
@@ -495,6 +498,33 @@ function tellShotTaken(tabId, token) {
     target: { tabId },
     func: overlayHost,
     args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'shot-taken', token, false, LIMITS.STANDBY_DROP_MILLISECONDS],
+    injectImmediately: true,
+  }).catch(() => {});
+}
+
+// Alt+Q / Alt+W: had the page already seen Alt let go, in any of its frames (the focus may be in an embedded one,
+// whose key-up the overlay never hears)? The frame that saw Alt last tells; false when that can't be known in time.
+// Still down there: asked again a few times, a moment apart (that frame may not have had the key-up yet; by the time
+// it is asked last the overlay has the focus, and hears a key-up itself).
+async function altLetGo(tabId, tries = 4) {
+  const latest = await Promise.race([
+    chrome.scripting.executeScript({
+      target: { tabId, allFrames: true }, injectImmediately: true,
+      func: () => { const hotkey = window.__tabazingHotkey; return hotkey && typeof hotkey.altSeen === 'function' ? hotkey.altSeen() : null; },
+    }).catch(() => []),
+    new Promise((resolve) => setTimeout(() => resolve([]), 100)),
+  ]).then((results) => (results || []).map((result) => result && result.result).filter((seen) => seen && Number.isFinite(seen.at) && seen.at > 0).sort((first, second) => second.at - first.at)[0]);
+  if (latest && latest.state === 'up') return true;
+  if (!latest || latest.state !== 'down' || tries <= 1) return false;
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  return altLetGo(tabId, tries - 1);
+}
+// ...then the overlay launched with `token` is told, as if its page had seen it.
+function tellAltLetGo(tabId, token) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    func: overlayHost,
+    args: [SWITCHER_URL, EXTENSION_REAL_ORIGIN, FRAME_MESSAGE, 'released', token, false, LIMITS.STANDBY_DROP_MILLISECONDS],
     injectImmediately: true,
   }).catch(() => {});
 }
@@ -870,6 +900,6 @@ export {
   SWITCHER_URL, EXTENSION_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
   trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed, wakeOne, lastNormalWindow,
-  WATCH_FIRST_MILLISECONDS, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
+  WATCH_FIRST_MILLISECONDS, altLetGo, tellAltLetGo, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
   flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MILLISECONDS, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

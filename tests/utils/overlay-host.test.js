@@ -226,6 +226,18 @@ describe('overlayHost', () => {
     expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
   });
 
+  it('hold: Alt let go in an embedded frame (the background tells it, same token) is passed on as well', () => {
+    window.__tabazingHotkey = { altState: () => 'unknown' };
+    host('launch', 'tok', true);
+    const post = spyPost();
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
+    host('released', 'other');
+    expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
+    host('released', 'tok');
+    expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
+  });
+
   it('without hold nothing is released', () => {
     window.__tabazingHotkey = { altState: () => 'up' };
     host('launch', 'tok', false);

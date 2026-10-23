@@ -25,6 +25,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
   let host = window.__tabazingOverlay;
   if (host && (!host.launch || !host.frame.isConnected)) { host.cleanup(); host = null; } // an older host, or removed by the page
   if (mode === 'shot-taken') { if (host && host.shotTaken) host.shotTaken(token); return; }
+  if (mode === 'released') { if (host && host.altLetGo) host.altLetGo(token); return; }
   if (mode === 'standby') { if (!host) host = create(); host.setStandby(token); return; }
   if (!host || host.active) { if (host) host.cleanup(); host = create(); }
   host.launch(token, hold, shotPending);
@@ -51,7 +52,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     let session = null; // { token, hold, previousFocus, sent, shown, released } while open
     let dropTimer = null;
     let standbyToken = null; // lets each freshly loaded frame read and draw the tabs ahead (still invisible)
-    const hostHandle = { frame, ready: false, active: false, launch, cleanup, shotTaken, setStandby };
+    const hostHandle = { frame, ready: false, active: false, launch, cleanup, shotTaken, setStandby, altLetGo };
 
     const post = (message) => { try { frame.contentWindow.postMessage(message, extensionOrigin); } catch {} };
     const sendPrepare = () => { if (standbyToken && hostHandle.ready) post({ tabazing: FRAME.PREPARE, token: standbyToken }); };
@@ -94,6 +95,12 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
       if (!session || session.shown || !session.drawn || session.shotPending) return;
       shade.style.background = session.light ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.55)';
       session.shown = true; setShown(true); frame.focus(); tellReleased();
+    }
+    // The background saw Alt let go in one of the page's frames (the focus was in an embedded one): as the page's own key-up.
+    function altLetGo(forToken) {
+      if (!session || session.token !== forToken || !session.hold) return;
+      session.released = true;
+      tellReleased();
     }
     function shotTaken(forToken) {
       if (!session || session.token !== forToken) return;

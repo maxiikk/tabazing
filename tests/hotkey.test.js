@@ -163,6 +163,13 @@ describe('hotkey.js', () => {
       expect(state()).toBe('up');
     });
 
+    it('altSeen says what this frame saw of Alt, and when (the background asks every frame)', () => {
+      expect(window.__tabazingHotkey.altSeen()).toEqual({ state: 'unknown', at: 0 });
+      key('keydown', { key: 'Alt', code: 'AltLeft', altKey: true });
+      key('keyup', { key: 'Alt', code: 'AltLeft' });
+      expect(window.__tabazingHotkey.altSeen()).toEqual({ state: 'up', at: expect.any(Number) });
+    });
+
     it('ignores untrusted Alt events', () => {
       key('keydown', { key: 'Alt', altKey: true }, false);
       expect(state()).toBe('unknown');

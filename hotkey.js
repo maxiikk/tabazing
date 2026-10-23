@@ -33,6 +33,9 @@
     altAt = Date.now();
   }
   const onBlur = () => { altAt = 0; };
+  // What this frame saw of Alt, and when: the background asks every frame of the page, as the focus may be in one
+  // the overlay doesn't hear (an embedded editor or player).
+  const altSeen = () => ({ state: altState(), at: altAt });
 
   // Alt+Q: open, card before the current tab; Alt+W: the card after it (both: letting go of Alt switches);
   // Alt+E: open and stay. Shift turns the direction around.
@@ -65,5 +68,5 @@
   window.addEventListener('keydown', onAlt, true);
   window.addEventListener('keyup', onAlt, true);
   window.addEventListener('blur', onBlur, true);
-  window.__tabazingHotkey = { alive, onKey, onAlt, onBlur, altState };
+  window.__tabazingHotkey = { alive, onKey, onAlt, onBlur, altState, altSeen };
 })();

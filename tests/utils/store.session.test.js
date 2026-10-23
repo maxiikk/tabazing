@@ -334,7 +334,7 @@ describe('launch tokens', () => {
     expect(token).toMatch(/^[0-9a-f-]{36}$/);
     expect(sessionArea._data.get(KEY.LAUNCH)).toEqual({ token, t: NOW, context: launchContext });
     const launch = await store.consumeLaunch(token);
-    expect(launch).toEqual({ sourceTab: 4, sourceWindow: 2, sourceState: 'maximized', direction: -1, hold: true, mode: 'overlay', via: 'icon', palette: false });
+    expect(launch).toEqual({ sourceTab: 4, sourceWindow: 2, sourceState: 'maximized', direction: -1, hold: true, mode: 'overlay', via: 'icon', palette: false, released: false });
     expect(Object.isFrozen(launch)).toBe(true);
     expect(await store.consumeLaunch(token)).toBeNull();
   });
@@ -368,7 +368,7 @@ describe('launch tokens', () => {
 
   it('defaults bad optional fields', async () => {
     const token = await store.createLaunch({ sourceTab: 0, window: 0, state: 'minimized', direction: 7, hold: 'yes', mode: 'popup', via: 'evil' });
-    expect(await store.consumeLaunch(token)).toEqual({ sourceTab: 0, sourceWindow: 0, sourceState: 'normal', direction: 1, hold: false, mode: 'window', via: 'key', palette: false });
+    expect(await store.consumeLaunch(token)).toEqual({ sourceTab: 0, sourceWindow: 0, sourceState: 'normal', direction: 1, hold: false, mode: 'window', via: 'key', palette: false, released: false });
     const secondToken = await store.createLaunch({ sourceTab: 1, window: 1, direction: 0, via: 'startup' });
     expect(await store.consumeLaunch(secondToken)).toMatchObject({ direction: 0, via: 'startup' });
   });

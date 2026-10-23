@@ -548,3 +548,39 @@ describe('captureOne / reopenOver', () => {
     expect(await promise).toEqual({ ok: false });
   });
 });
+
+describe('a quick Alt+Q / Alt+W tap the overlay or the window could not hear end', () => {
+  // The page's frames: the top one saw nothing, an embedded one (where the focus was) saw Alt let go.
+  const framesSawAltUp = () => chrome.scripting.executeScript.mockImplementation(async (options) => (options.target.allFrames
+    ? [{ frameId: 0, result: { state: 'unknown', at: 0 } }, { frameId: 4, result: { state: 'up', at: Date.now() } }]
+    : [{ frameId: 0, result: undefined }]));
+  const releasedCalls = () => chrome.scripting.executeScript.mock.calls.filter(([options]) => options.func === background().overlayHost && options.args[3] === 'released');
+
+  it('over a page: the overlay is told, with its launch token', async () => {
+    const { tab } = seed();
+    framesSawAltUp();
+    chrome.commands.onCommand._emit('open-switcher', tab);
+    await flush(10);
+    expect(releasedCalls()).toHaveLength(1);
+    expect(releasedCalls()[0][0].args[4]).toBe(launchInjections()[0][0].args[4]);
+  });
+
+  it('Settings "own window": the window opens already released', async () => {
+    const { tab } = seed();
+    await chrome.storage.local.set({ prefs: { ownWindow: true } });
+    framesSawAltUp();
+    chrome.commands.onCommand._emit('open-switcher', tab);
+    await flush(10);
+    expect(launch().context).toMatchObject({ mode: 'window', hold: true, released: true });
+  });
+
+  it('Alt still held in the frame that saw it last: nothing is told', async () => {
+    const { tab } = seed();
+    chrome.scripting.executeScript.mockImplementation(async (options) => (options.target.allFrames
+      ? [{ frameId: 0, result: { state: 'up', at: Date.now() - 5000 } }, { frameId: 4, result: { state: 'down', at: Date.now() } }]
+      : [{ frameId: 0, result: undefined }]));
+    chrome.commands.onCommand._emit('open-switcher', tab);
+    await flush(10);
+    expect(releasedCalls()).toHaveLength(0);
+  });
+});
