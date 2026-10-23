@@ -536,6 +536,13 @@ function scoreWord(typedWord, field) {
   if (field.text.includes(typedWord)) return 3;
   if (typedWord.length >= 2 && field.words.some((x) => x[0] === typedWord[0] && inOrder(typedWord, x))) return 2;
   if (typedWord.length >= 4 && !/\d/.test(typedWord) && field.words.some((x) => typoNear(typedWord, x))) return 1;
+  // Punctuation inside a typed word ("don't", "my_repo"): the page's words are split at it, so are these; each part
+  // must be found, and the weakest counts.
+  const parts = typedWord.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if (parts.length && parts.join('') !== typedWord) {
+    const partScores = parts.map((part) => scoreWord(part, field));
+    if (partScores.every((partScore) => partScore > 0)) return Math.min(...partScores);
+  }
   return 0;
 }
 // A field may be a page's state ({ status }: pageStatus, tabStatus): its words count only as typed, from their start
@@ -577,12 +584,14 @@ const pageStatus = (url, where = null) => ({ status: statusText(where, isStarred
 // A title that starts with what was typed (or with its first word) comes before one that has it elsewhere.
 const queryWords = (query) => fold(query).split(/\s+/).filter(Boolean);
 const fieldHit = (query, text) => !!text && queryWords(query).some((typedWord) => wordScore(typedWord, fieldOf(text)) > 0);
-function matchTier(query, tab) {
-  if (fieldHit(query, noteOf(urlOf(tab)))) return 4;
-  const title = fold(tab.title || '').trim();
-  if (title && (title.startsWith(fold(query)) || title.startsWith(queryWords(query)[0]))) return 3;
-  return fieldHit(query, tab.title) ? 2 : 1;
+// The same for any page (a closed tab, a bookmark, a visit...): `notes` are its notes, a bookmark's own as well.
+function pageTier(query, title, ...notes) {
+  if (notes.some((note) => fieldHit(query, note))) return 4;
+  const folded = fold(title || '').trim();
+  if (folded && (folded.startsWith(fold(query)) || folded.startsWith(queryWords(query)[0]))) return 3;
+  return fieldHit(query, title) ? 2 : 1;
 }
+const matchTier = (query, tab) => pageTier(query, tab.title, noteOf(urlOf(tab)));
 
 // The search's words marked in `text` (for the dropdown): where they appear as typed, or, for a word with a
 // typo, the word it matched. Built with text nodes and <mark> elements only (page text is never HTML).
@@ -1411,7 +1420,8 @@ function render(only) {
   }
   elements.snoozedSection.hidden = snoozedPart.length === 0;
   // While searching, "Recently closed" reaches back 7 days: say so, so nobody expects more.
-  elements.closedHeading.textContent = state.starOnly ? translate('starredNotOpen') : state.query ? translate('closedSearchHeading') : translate('recentlyClosed');
+  // (The section doesn't follow the search, whose results are in the dropdown: "Show more" is what reaches the 7 days.)
+  elements.closedHeading.textContent = state.starOnly ? translate('starredNotOpen') : state.closedMore ? translate('closedSearchHeading') : translate('recentlyClosed');
   // Nothing found: say what Enter does with the text (open it as an address, or search the web for it).
   const trimmedQuery = state.query.trim();
   elements.openEmpty.textContent = state.starOnly && !trimmedQuery ? translate('noStarredOpen')
@@ -2430,36 +2440,38 @@ function dropdownRows(text = state.query) {
   const { found, foundClosed } = foundFor(query);
   const best = new Map();
   let order = 0;
-  const add = (key, score, row) => {
+  // `tier`: where it matched (matchTier: its note, its title, else only its address), which decides first.
+  const add = (key, score, row, tier) => {
     if (score <= 0) return;
-    const x = { ...row, key, score, rank: DROPDOWN_SOURCES[row.kind].rank, order: order++ };
+    const x = { ...row, key, score, tier, rank: DROPDOWN_SOURCES[row.kind].rank, order: order++ };
     const current = best.get(key);
     if (!current) return best.set(key, x);
-    if (x.rank < current.rank) best.set(key, { ...x, score: Math.max(score, current.score) });
-    else current.score = Math.max(score, current.score);
+    if (x.rank < current.rank) best.set(key, { ...x, score: Math.max(score, current.score), tier: Math.max(tier, current.tier) });
+    else { current.score = Math.max(score, current.score); current.tier = Math.max(tier, current.tier); }
   };
-  for (const entry of found) add(urlKey(urlOf(entry.tab)), searchScore(query, entry.tab.title, urlOf(entry.tab), noteOf(urlOf(entry.tab)), tabStatus(entry.tab)), { kind: 'tab', entry });
+  for (const entry of found) add(urlKey(urlOf(entry.tab)), searchScore(query, entry.tab.title, urlOf(entry.tab), noteOf(urlOf(entry.tab)), tabStatus(entry.tab)), { kind: 'tab', entry }, matchTier(query, entry.tab));
   // Tab groups by their name (Enter opens the group), just above their tabs that match as well.
   if (preference('showGroups')) {
     for (const group of state.groups.values()) {
       const score = searchScore(query, groupName(group));
       const tabs = score > 0 ? state.tabs.filter((x) => x.groupId === group.id) : NONE;
-      if (tabs.length) add('g' + group.id, score + 1, { kind: 'group', group, tabs });
+      if (tabs.length) add('g' + group.id, score + 1, { kind: 'group', group, tabs }, pageTier(query, groupName(group)));
     }
   }
   for (const closedEntry of foundClosed) {
     const score = Math.max(0, ...closedEntry.fields.map(([title, url]) => searchScore(query, title, url, noteOf(url), pageStatus(url, 'closed'))));
-    add(closedEntry.kind === 'window' ? 'w:' + closedEntry.id : urlKey(closedEntry.url), score, { kind: 'closed', closed: closedEntry });
+    const tier = Math.max(...closedEntry.fields.map(([title, url]) => pageTier(query, title, noteOf(url))));
+    add(closedEntry.kind === 'window' ? 'w:' + closedEntry.id : urlKey(closedEntry.url), score, { kind: 'closed', closed: closedEntry }, tier);
   }
   // A note is found wherever its page turns up (archived, bookmarked, visited), as on an open tab.
-  for (const archivedEntry of state.archived || NONE) { const score = searchScore(query, archivedEntry.title, archivedEntry.url, noteOf(archivedEntry.url), pageStatus(archivedEntry.url, 'archived')); if (score > 0) add(urlKey(archivedEntry.url), score, { kind: 'archived', archived: archivedEntry }); }
+  for (const archivedEntry of state.archived || NONE) { const score = searchScore(query, archivedEntry.title, archivedEntry.url, noteOf(archivedEntry.url), pageStatus(archivedEntry.url, 'archived')); if (score > 0) add(urlKey(archivedEntry.url), score, { kind: 'archived', archived: archivedEntry }, pageTier(query, archivedEntry.title, noteOf(archivedEntry.url))); }
   // Bookmarks and history only while Settings -> Search includes them.
   const marks = preference('searchBookmarks'), historyEnabled = preference('searchHistory');
-  if (marks) for (const { item: bookmark, score } of scoreBig('marks', state.marks || NONE, query, (bookmark) => searchScore(query, bookmark.title, bookmark.url, bookmark.path, noteOf(bookmark.url), bookmarkNoteOf(bookmark.id), pageStatus(bookmark.url, 'bookmarked')))) add(urlKey(bookmark.url), score, { kind: 'mark', bookmark });
-  if (historyEnabled) for (const { item: x, score } of scoreBig('history', historyItems(typed), query, (x) => searchScore(query, x.title, x.url, noteOf(x.url), pageStatus(x.url, 'visited')))) add(urlKey(x.url), score, { kind: 'visit', visit: x });
+  if (marks) for (const { item: bookmark, score } of scoreBig('marks', state.marks || NONE, query, (bookmark) => searchScore(query, bookmark.title, bookmark.url, bookmark.path, noteOf(bookmark.url), bookmarkNoteOf(bookmark.id), pageStatus(bookmark.url, 'bookmarked')))) add(urlKey(bookmark.url), score, { kind: 'mark', bookmark }, pageTier(query, bookmark.title, noteOf(bookmark.url), bookmarkNoteOf(bookmark.id)));
+  if (historyEnabled) for (const { item: x, score } of scoreBig('history', historyItems(typed), query, (x) => searchScore(query, x.title, x.url, noteOf(x.url), pageStatus(x.url, 'visited')))) add(urlKey(x.url), score, { kind: 'visit', visit: x }, pageTier(query, x.title, noteOf(x.url)));
   // In the group view the group's own tabs come first.
   const mine = (row) => (state.inGroup !== null && row.kind === 'tab' && row.entry.tab.groupId === state.inGroup ? 1 : 0);
-  const rows = [...best.values()].sort((firstRow, secondRow) => mine(secondRow) - mine(firstRow) || secondRow.score - firstRow.score || firstRow.rank - secondRow.rank || firstRow.order - secondRow.order).slice(0, DROPDOWN_MAX);
+  const rows = [...best.values()].sort((firstRow, secondRow) => mine(secondRow) - mine(firstRow) || secondRow.tier - firstRow.tier || secondRow.score - firstRow.score || firstRow.rank - secondRow.rank || firstRow.order - secondRow.order).slice(0, DROPDOWN_MAX);
   if (!rows.length) {
     const url = asUrl(typed);
     if (url) rows.push({ kind: 'url', url, key: 'url:' + url });
@@ -2485,6 +2497,13 @@ function flushSearch() {
   renderCount();
   renderActions();
   markEnd('search', 'keystroke');
+}
+// The search's results, hidden by a click elsewhere or a view, shown again (with text in the box). True when it did.
+function showDropdownAgain() {
+  if (!state.dropdown.hidden || !state.query.trim() || state.palette || document.documentElement.classList.contains('alttab')) return false;
+  state.dropdown.hidden = false;
+  renderDropdown();
+  return true;
 }
 const dropdownShown = () => !state.palette && !state.dropdown.hidden && state.dropdown.items.length > 0 && !!state.query.trim() && !document.documentElement.classList.contains('alttab');
 
@@ -3532,6 +3551,13 @@ function playerCommand(action) {
   if (!mediaItem) return;
   state.mediaCurrent = mediaItem.tabId;
   mediaCommand(mediaItem, action);
+}
+// The palette's media actions: a page that doesn't act fails the action (runAction then says so and keeps the palette).
+async function paletteMedia(action) {
+  const mediaItem = currentMedia();
+  state.mediaCurrent = mediaItem.tabId;
+  if (action === 'toggle') action = mediaItem.playing ? 'pause' : 'play';
+  if (!(await mediaAction(mediaItem.tabId, mediaItem.frameId, action))) throw new Error('the page did not act');
 }
 function pickMedia(mediaItem) {
   state.mediaCurrent = mediaItem.tabId;
@@ -6057,11 +6083,11 @@ const PALETTE_ACTIONS = [
     subtitle: () => translate('tabs', { count: missingPreviews().length }), error: () => translate('errorCapture'), run: () => captureAll() },
   { id: 'tour', group: 'tabazing', icon: 'bolt', opensView: true, title: () => translate('settingsTour'), keywords: () => translate('paletteKeywordsTour'), run: () => tourStep(0) },
   { id: 'media-toggle', group: 'tabazing', icon: 'play', after: 'close', when: () => !!currentMedia(), title: () => translate(currentMedia().playing ? 'paletteMediaPause' : 'paletteMediaPlay'), keywords: () => translate('paletteKeywordsMedia'),
-    subtitle: () => [currentMedia().title, currentMedia().site].filter(Boolean).join(' · '), error: () => translate('mediaFailed'), run: () => playerCommand('toggle') },
+    subtitle: () => [currentMedia().title, currentMedia().site].filter(Boolean).join(' · '), error: () => translate('mediaFailed'), run: () => paletteMedia('toggle') },
   { id: 'media-next', group: 'tabazing', icon: 'next', after: 'close', when: () => !!currentMedia() && currentMedia().canNext, title: () => translate('paletteMediaNext'), keywords: () => translate('paletteKeywordsMedia'),
-    subtitle: () => currentMedia().title, error: () => translate('mediaFailed'), run: () => playerCommand('nexttrack') },
+    subtitle: () => currentMedia().title, error: () => translate('mediaFailed'), run: () => paletteMedia('nexttrack') },
   { id: 'media-prev', group: 'tabazing', icon: 'previous', after: 'close', when: () => !!currentMedia() && currentMedia().canPrevious, title: () => translate('paletteMediaPrevious'), keywords: () => translate('paletteKeywordsMedia'),
-    subtitle: () => currentMedia().title, error: () => translate('mediaFailed'), run: () => playerCommand('previoustrack') },
+    subtitle: () => currentMedia().title, error: () => translate('mediaFailed'), run: () => paletteMedia('previoustrack') },
 ];
 const PALETTE_BY_ID = new Map(PALETTE_ACTIONS.map((action) => [action.id, action]));
 // The actions that can run now: one about the current tab needs that tab (it may still be loading).
@@ -6289,8 +6315,10 @@ function paletteKey(event) {
   const key = event.key;
   const palette = state.palette;
   if (MODIFIERS.has(key) || key === 'Shift') return;
+  if (event.isComposing) return; // the input method's keys (Esc cancels it, the arrows pick), as in the search box
   if (paletteFrame && (key === 'Enter' || key.startsWith('Arrow'))) renderPalette(); // act on what was just typed
-  if (key === 'Escape') { event.preventDefault(); event.stopPropagation(); return palette.from === 'shortcut' ? finish('cancel') : exitPalette(); }
+  // One layer per press: a held Esc leaves the palette and stops there.
+  if (key === 'Escape') { event.preventDefault(); event.stopPropagation(); if (event.repeat) return; return palette.from === 'shortcut' ? finish('cancel') : exitPalette(); }
   if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyK') {
     event.preventDefault();
     if (palette.from === 'shortcut') { elements.paletteInput.focus({ preventScroll: true }); elements.paletteInput.select(); } else exitPalette();
@@ -6299,11 +6327,11 @@ function paletteKey(event) {
   if (key === 'ArrowDown' || key === 'ArrowUp') { event.preventDefault(); return paletteMove(key === 'ArrowDown' ? 1 : -1); }
   if (key === 'Enter') {
     event.preventDefault();
-    if (event.repeat || event.isComposing) return;
+    if (event.repeat) return;
     if (!keysAllowed()) return finish('cancel');
     return paletteRun(palette.items[palette.highlighted], { shift: event.shiftKey });
   }
-  if (key === 'Backspace' && !elements.paletteInput.value && palette.from === 'switcher' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); return exitPalette(); }
+  if (key === 'Backspace' && !elements.paletteInput.value && palette.from === 'switcher' && !event.ctrlKey && !event.metaKey && !event.altKey) { event.preventDefault(); if (!event.repeat) exitPalette(); return; } // (a held one, emptying the box, stops there)
   if (event.target !== elements.paletteInput && key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) elements.paletteInput.focus({ preventScroll: true });
 }
 function onPaletteInput() {
@@ -7349,6 +7377,7 @@ function onKeyDown(event) {
     case 'Escape':
       event.preventDefault();
       event.stopPropagation();
+      if (event.repeat) return; // one layer per press: a held Esc doesn't go on to close Tabazing
       if (elements.search.value) { elements.search.value = ''; state.query = ''; refresh(); }
       else if (state.duplicatesView) duplicatesView(false);
       else if (state.picked.size) clearPicks();
@@ -7366,7 +7395,7 @@ function onKeyDown(event) {
       return;
     case 'Tab': event.preventDefault(); return cycle(event.shiftKey ? -1 : 1); // (Alt held: see the top)
     case 'ArrowRight': case 'ArrowLeft': if (!typing) { event.preventDefault(); moveSpatial(ahead(key), 0); } return;
-    case 'ArrowDown': event.preventDefault(); return dropdownShown() ? dropdownMove(1) : moveSpatial(0, 1);
+    case 'ArrowDown': event.preventDefault(); if (document.activeElement === elements.search && showDropdownAgain()) return; return dropdownShown() ? dropdownMove(1) : moveSpatial(0, 1);
     case 'ArrowUp': event.preventDefault(); return dropdownShown() ? dropdownMove(-1) : moveSpatial(0, -1);
     default:
       if (MODIFIERS.has(key)) { event.preventDefault(); return; }
@@ -7476,10 +7505,13 @@ function listen() {
   listening = true;
   window.addEventListener('keydown', onKeyDown, true);
   window.addEventListener('keyup', onKeyUp, true);
-  elements.search.addEventListener('beforeinput', (event) => { if (altDown) event.preventDefault(); });
+  // Alt still held from the shortcut, a character into the empty box is a slip (as in onKeyDown); one typed with
+  // Option mid-word ("@" on a German Mac is Option+L) is meant.
+  const altSlip = () => altDown && (state.holding || !state.query);
+  elements.search.addEventListener('beforeinput', (event) => { if (altSlip()) event.preventDefault(); });
   elements.search.addEventListener('input', () => {
     mark('keystroke');
-    if (altDown && elements.search.value !== state.query) { elements.search.value = state.query; return; } // slipped through anyway
+    if (altSlip() && elements.search.value !== state.query) { elements.search.value = state.query; return; } // slipped through anyway
     // '>' first: the command palette, with whatever followed it; the box keeps what it had.
     if (elements.search.value.startsWith('>')) {
       const rest = elements.search.value.slice(1).trimStart();
@@ -7492,8 +7524,10 @@ function listen() {
   });
   elements.paletteInput.addEventListener('input', onPaletteInput);
   elements.paletteList.addEventListener('mousedown', (event) => event.preventDefault()); // keep the focus (and the caret) in the palette's box
-  // A click anywhere but the search box or its dropdown closes the dropdown (typing brings it back).
+  // A click anywhere but the search box or its dropdown closes the dropdown; a click in the box (or ↓, or typing)
+  // brings it back.
   document.addEventListener('mousedown', (event) => {
+    if (event.target === elements.search) return showDropdownAgain();
     if (!(event.target instanceof Element) || event.target.closest('.search, .dropdown')) return;
     if (!state.dropdown.hidden && state.dropdown.items.length) { state.dropdown.hidden = true; renderDropdown(); }
   }, true);
@@ -7908,7 +7942,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  timings, prepare, showPrepared, sortByUse, rangeIds, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, prepare, showPrepared, sortByUse, rangeIds, pageTier, paletteMedia, showDropdownAgain, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,

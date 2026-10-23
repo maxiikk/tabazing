@@ -1,6 +1,8 @@
 // The switcher's search: word scoring (typos and all), highlighting, and the dropdown's merged result list.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { bootSwitcher, tick } from '../helpers/switcher.js';
+import { bootSwitcher, tick, key } from '../helpers/switcher.js';
+import { boot as quietBoot } from '../helpers/quiet-boot.js';
+import { translate } from '../../utils/translations.js';
 
 const byTestId = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
 const allByTestId = (id, root = document) => [...root.querySelectorAll(`[data-testid="${id}"]`)];
@@ -430,5 +432,64 @@ describe('searching by what a page is', () => {
     const titles = (query) => { switcher.state.query = query; switcher.deriveSearch(); return switcher.state.found.map((entry) => entry.tab.title); };
     expect(titles('fijada')).toEqual(['Docs']);
     expect(titles('pinned')).toEqual(['Docs']);
+  });
+});
+
+describe('the search, as a person uses it', () => {
+  const typeInSearch = (text) => { const box = byTestId('search'); box.focus(); box.value = text; box.dispatchEvent(new Event('input', { bubbles: true })); };
+  const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+
+  it('"alpha": the tab with alpha in its title before the one with it only in its address', async () => {
+    await quietBoot({ tabs: [tab('Start', 'https://start.example/'), tab('Docs', 'https://alpha.com/'), tab('Xalpha', 'https://c.com/')] });
+    typeInSearch('alpha');
+    await nextFrame();
+    expect(allByTestId('dropdown-title', byTestId('search-dropdown')).map((x) => x.textContent)).toEqual(['Xalpha', 'Docs']);
+  });
+
+  it('"Recently closed" keeps its heading while searching (the section doesn’t follow the search)', async () => {
+    const quiet = await quietBoot({ tabs: [tab('Start', 'https://start.example/'), tab('Bravo', 'https://bravo.example/')] });
+    quiet.state.closed = [{ id: 'l1', kind: 'tab', url: 'https://zeta.example/', title: 'Zeta', timestamp: Date.now() - 60e3, count: 1, fields: [['Zeta', 'https://zeta.example/']] }];
+    typeInSearch('bra');
+    await nextFrame();
+    quiet.refresh();
+    expect(allByTestId('card-closed')).toHaveLength(1);
+    expect(byTestId('closed-heading').textContent).toBe(translate('recentlyClosed'));
+  });
+
+  it('"don’t" typed with a plain apostrophe, and "my_repo" with an underscore, still find their tabs', async () => {
+    const quiet = await quietBoot({ tabs: [tab('Start', 'https://start.example/'), tab('Don’t Starve Wiki', 'https://wiki.example/'), tab('my-repo issues', 'https://git.example/x')] });
+    typeInSearch("don't"); await nextFrame();
+    expect(quiet.state.dropdown.items.map((row) => row.kind)).toEqual(['tab']);
+    typeInSearch('my_repo'); await nextFrame();
+    expect(quiet.state.dropdown.items.map((row) => row.kind)).toEqual(['tab']);
+  });
+
+  it('a character typed with Option mid-word goes in (only a slip into the empty box is refused)', async () => {
+    await quietBoot({ tabs: [tab('Alpha', 'https://alpha.example/')] });
+    typeInSearch('john'); await nextFrame();
+    key('@', { code: 'KeyL', altKey: true });
+    const beforeInput = new InputEvent('beforeinput', { data: '@', inputType: 'insertText', cancelable: true, bubbles: true });
+    byTestId('search').dispatchEvent(beforeInput);
+    expect(beforeInput.defaultPrevented).toBe(false);
+  });
+
+  it('↓ in the search box with text shows its results again after a click elsewhere hid them', async () => {
+    const quiet = await quietBoot({ tabs: [tab('Alpha', 'https://alpha.example/'), tab('Bravo', 'https://bravo.example/')] });
+    typeInSearch('bravo'); await nextFrame();
+    byTestId('scroller').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(quiet.dropdownShown()).toBe(false);
+    byTestId('search').focus();
+    key('ArrowDown');
+    expect(quiet.dropdownShown()).toBe(true);
+  });
+
+  it('a held Esc clears the search and stops there (Tabazing stays)', async () => {
+    const quiet = await quietBoot({ tabs: [tab('Alpha', 'https://alpha.example/'), tab('Bravo', 'https://bravo.example/')] });
+    typeInSearch('bra'); await nextFrame();
+    key('Escape');
+    key('Escape', { repeat: true });
+    await tick();
+    expect(byTestId('search').value).toBe('');
+    expect(quiet.state.done).toBe(false);
   });
 });

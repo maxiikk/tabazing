@@ -740,3 +740,48 @@ describe('the highlighted result (styles/switcher.css)', () => {
     expect(css).not.toMatch(/\.media-row:hover|\.media-row\.on \{|\.media-pick:focus/);
   });
 });
+
+describe('keys that belong elsewhere, and actions that fail', () => {
+  it('Esc and the arrows during a composition belong to the input method (as in the search box), not to the palette', async () => {
+    const switcher = await boot({ tabs: defaultTabs, context: { palette: true, direction: 0 } });
+    key('ArrowDown', { isComposing: true });
+    expect(switcher.state.palette.highlighted).toBe(0);
+    key('Escape', { isComposing: true });
+    await tick();
+    expect(switcher.state.done).toBe(false);
+    expect(shown()).toBe(true);
+  });
+
+  it('a held Esc leaves the palette and stops there (the search and the switcher stay)', async () => {
+    const switcher = await boot({ tabs: defaultTabs });
+    byTestId('search').value = switcher.state.query = 'bra';
+    switcher.flushSearch();
+    switcher.openPalette({ from: 'switcher', saved: 'bra' });
+    key('Escape');
+    key('Escape', { repeat: true });
+    key('Escape', { repeat: true });
+    await tick();
+    expect(switcher.state.palette).toBe(null);
+    expect(byTestId('search').value).toBe('bra');
+    expect(switcher.state.done).toBe(false);
+    expect(closedMessage()).toBe(undefined);
+  });
+
+  it('a held Backspace empties the palette’s box but does not leave the palette', async () => {
+    const switcher = await boot({ tabs: defaultTabs });
+    switcher.openPalette({ from: 'switcher', text: '' });
+    const event = key('Backspace', { repeat: true });
+    expect(event.defaultPrevented).toBe(true);
+    expect(switcher.state.palette).not.toBe(null);
+  });
+
+  it('a media action the page doesn’t act on says so and keeps the palette, as every other action does', async () => {
+    const switcher = await boot({ tabs: [...defaultTabs, { title: 'Song', url: 'https://music.example/', audible: true }] });
+    const song = tabByTitle(switcher, 'Song');
+    switcher.state.media = [{ tabId: song.id, frameId: 0, playing: true, title: 'Song', site: 'music.example', canNext: true, canPrevious: true, tab: song }];
+    chrome.scripting.executeScript = vi.fn(async () => [{ result: false }]);
+    await switcher.runAction(switcher.PALETTE_BY_ID.get('media-toggle'));
+    expect(switcher.state.done).toBe(false);
+    expect(toastText()).toContain(translate('mediaFailed'));
+  });
+});

@@ -1025,7 +1025,7 @@ html.alttab .bar.narrow #keys-button { grid-column: 4; }
 .dropdown-icon { flex: none; width: 20px; height: 20px; margin: 0 4px; border-radius: 4px; }
 .dropdown-google { display: inline-flex; align-items: center; justify-content: center; font: 700 13px 'Roboto', system-ui, sans-serif; color: #fff; background: #4285f4; border-radius: 50%; }
 .dropdown-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.dropdown-text.dropdown-one-line { flex-direction: row; font-size: 14px; }
+.dropdown-text.dropdown-one-line { display: block; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* (a long query without spaces stays inside the row) */
 .dropdown-title { font-size: 14px; font-weight: 500; color: var(--md-on-surface); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the title row: the title at the start, tags after it, where the result comes from at the far right */
 .dropdown-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }

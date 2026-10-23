@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.9] - 2026-10-23
+
+### Fixed
+
+- In the command palette, Esc and the arrow keys while typing with an input method (Japanese, Chinese…) went to the palette, and Esc could close Tabazing: they now go to the input method.
+- Holding Esc or Backspace a moment too long went through several layers (leaving the palette, clearing the search, closing Tabazing): each press now steps back one layer.
+- A long search without spaces (a token, a mangled address) no longer runs off the side of the results.
+- The results list now puts tabs whose title matches before those that match only by their address, as intended.
+- While searching, “Recently closed” no longer changes its heading to “Closed in the last 7 days” without showing more.
+- A word typed with punctuation (“don't” with a plain apostrophe, “my_repo”) now finds its tab.
+- On a Mac, characters typed with Option in the middle of a search (such as @ on some layouts) are no longer refused.
+- The palette’s media actions now say so when the page doesn’t act on them, instead of closing silently.
+- After a click elsewhere hid the search results, clicking in the search box or pressing ↓ shows them again.
+
 ## [6.17.8] - 2026-10-23
 
 ### Fixed
@@ -754,7 +768,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...HEAD
+[6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...HEAD
+[6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...7568459
 [6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...ad49393
 [6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...49bc61b
 [6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...49d059d
