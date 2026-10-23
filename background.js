@@ -22,7 +22,7 @@ import {
   takeDueSnoozed, putBackSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
 } from './utils/store.js';
 import { dayOf } from './utils/review.js';
-import { loadLang } from './utils/i18n.js';
+import { loadLang, isRtl, uiLang } from './utils/i18n.js';
 import { translate, addDictionaries } from './utils/translations.js';
 import BACKGROUND_MESSAGES from './utils/background-messages.js';
 import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
@@ -198,6 +198,8 @@ async function watchCycling(tab) {
   }
 }
 let settleTimer = null, settleWindow = null;
+// The language of the cards put on pages (the nudge, the first-run flyout), and its direction: Arabic and Hebrew right to left.
+const pageDirection = () => ({ dir: isRtl() ? 'rtl' : 'ltr', lang: uiLang() });
 async function onCyclingRun(tab) {
   const now = Date.now();
   const today = dayOf(now);
@@ -211,7 +213,7 @@ async function onCyclingRun(tab) {
   const isMac = await chrome.runtime.getPlatformInfo().then((platform) => platform.os === 'mac').catch(() => false);
   await loadLang();
   const key = isMac ? 'Option+Q' : 'Alt+Q';
-  const text = { title: translate('nudgeTitle'), body: translate('nudgeBody', { key }), tryIt: translate('nudgeTry'), ok: translate('nudgeOk'), never: translate('nudgeNever'), close: translate('dismiss') };
+  const text = { title: translate('nudgeTitle'), body: translate('nudgeBody', { key }), tryIt: translate('nudgeTry'), ok: translate('nudgeOk'), never: translate('nudgeNever'), close: translate('dismiss'), ...pageDirection() };
   await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: injectNudge, args: [MESSAGE.NUDGE, NUDGE.SHOW_MILLISECONDS, text, key] });
   await updateNudge((x) => ({ ...x, shown: x.shown + 1, last: now }));
 }
@@ -221,7 +223,7 @@ function injectNudge(type, showMilliseconds, text, key) {
   if (window.__tabazingNudge) return;
   const host = document.createElement('div');
   host.dataset.testid = 'nudge-host';
-  host.style.cssText = 'all:initial;position:fixed;bottom:20px;right:20px;z-index:2147483646';
+  host.style.cssText = 'all:initial;position:fixed;bottom:20px;z-index:2147483646;' + (text.dir === 'rtl' ? 'left:20px' : 'right:20px');
   const root = host.attachShadow({ mode: 'closed' });
   // A card in the switcher's look (today's Material UI, dark), the same on every page.
   const css = `
@@ -229,19 +231,20 @@ function injectNudge(type, showMilliseconds, text, key) {
        width:320px;padding:18px 18px 14px;border-radius:14px;box-shadow:0 4px 10px rgba(0,0,0,.35),0 14px 36px rgba(0,0,0,.55);
        animation:in .25s cubic-bezier(.05,.7,.1,1) both}
     @keyframes in{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-    .t{font-weight:600;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 14px;color:#a2acbd}
+    .t{font-weight:600;font-size:16px;line-height:24px;margin-block:0 6px;margin-inline:0 32px}.p{margin:0 0 14px;color:#a2acbd}
     kbd{font:500 12px ui-monospace,Consolas,monospace;background:#1e2532;color:#f2f4f8;border:1px solid #3a4557;border-bottom-width:2px;border-radius:5px;padding:1px 6px}
     .r{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
     .b{font:inherit;font-weight:500;font-size:13px;height:32px;padding:0 12px;border:1px solid #242c39;border-radius:8px;background:#11161e;color:#f2f4f8;cursor:pointer}
     .b:hover{background:#1e2532;border-color:#3a4557}
     .b.p1{background:linear-gradient(to bottom,#a4e0fc,#7DD3FC);border-color:#4f9fc2;color:#0b2733;box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}.b.p1:hover{background:#7DD3FC}
     .q{background:none;border-color:transparent;color:#a2acbd}.q:hover{background:rgba(162,172,189,.1);border-color:transparent}
-    .x{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
+    .x{position:absolute;top:10px;inset-inline-end:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
     .x:hover{background:rgba(162,172,189,.1);color:#f2f4f8}
     button:focus-visible{outline:3px solid rgba(125,211,252,.5);outline-offset:2px}`;
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
   const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', text.title); box.dataset.testid = 'nudge';
+  box.dir = text.dir || 'ltr'; box.lang = text.lang || ''; // (all:initial on the host resets the page's direction)
   const titleParagraph = document.createElement('p'); titleParagraph.className = 't'; titleParagraph.textContent = text.title; titleParagraph.dataset.testid = 'nudge-title';
   const bodyParagraph = document.createElement('p'); bodyParagraph.className = 'p'; bodyParagraph.dataset.testid = 'nudge-body';
   const [before, after] = text.body.split(key);
@@ -665,7 +668,7 @@ async function offerFlyout(tab) {
     await loadLang();
     await chrome.scripting.executeScript({
       target: { tabId: tab.id }, func: injectFlyout,
-      args: [MESSAGE.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MILLISECONDS, { title: translate('flyoutTitle'), body: translate('flyoutBody', { key: '$KEY$' }), subtitle: translate('flyoutSubtitle'), close: translate('dismiss') }],
+      args: [MESSAGE.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MILLISECONDS, { title: translate('flyoutTitle'), body: translate('flyoutBody', { key: '$KEY$' }), subtitle: translate('flyoutSubtitle'), close: translate('dismiss'), ...pageDirection() }],
     });
   } catch {}
 }
@@ -677,7 +680,7 @@ function injectFlyout(doneType, showMilliseconds, text) {
   const isMac = /mac/i.test((navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '');
   const host = document.createElement('div');
   host.dataset.testid = 'flyout-host';
-  host.style.cssText = 'all:initial;position:fixed;top:16px;right:16px;z-index:2147483646';
+  host.style.cssText = 'all:initial;position:fixed;top:16px;z-index:2147483646;' + (text.dir === 'rtl' ? 'left:16px' : 'right:16px');
   const root = host.attachShadow({ mode: 'closed' });
   // A card in the switcher's look (today's Material UI, dark), the same on every page.
   const css = `
@@ -685,16 +688,17 @@ function injectFlyout(doneType, showMilliseconds, text) {
        width:300px;padding:18px 18px 16px;border-radius:14px;box-shadow:0 4px 10px rgba(0,0,0,.35),0 14px 36px rgba(0,0,0,.55);
        animation:in .25s cubic-bezier(.05,.7,.1,1) both}
     @keyframes in{from{transform:translateY(-12px);opacity:0}to{transform:none;opacity:1}}
-    .t{font-weight:600;font-size:16px;line-height:24px;margin:0 32px 6px 0}.p{margin:0 0 10px;color:#a2acbd}
+    .t{font-weight:600;font-size:16px;line-height:24px;margin-block:0 6px;margin-inline:0 32px}.p{margin:0 0 10px;color:#a2acbd}
     kbd{font:500 12px ui-monospace,Consolas,monospace;background:#7DD3FC;color:#0b2733;border:1px solid #4f9fc2;border-bottom-width:2px;border-radius:5px;padding:1px 6px}
     .s{font-size:12px;color:#8d98ab;margin:0}
-    button{position:absolute;top:10px;right:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
+    button{position:absolute;top:10px;inset-inline-end:10px;width:32px;height:32px;border:0;border-radius:8px;background:none;font-size:18px;line-height:1;cursor:pointer;color:#a2acbd}
     button:hover{background:rgba(162,172,189,.1);color:#f2f4f8}
     button:focus-visible{outline:3px solid rgba(125,211,252,.5);outline-offset:2px}`;
   // A constructable stylesheet is not blocked by a page's Content-Security-Policy (an inline <style> can be).
   try { const sheet = new CSSStyleSheet(); sheet.replaceSync(css); root.adoptedStyleSheets = [sheet]; }
   catch { const style = document.createElement('style'); style.textContent = css; root.append(style); }
   const box = document.createElement('div'); box.className = 'c'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', text.title); box.dataset.testid = 'flyout';
+  box.dir = text.dir || 'ltr'; box.lang = text.lang || ''; // (all:initial on the host resets the page's direction)
   const titleParagraph = document.createElement('p'); titleParagraph.className = 't'; titleParagraph.textContent = text.title; titleParagraph.dataset.testid = 'flyout-title';
   const bodyParagraph = document.createElement('p'); bodyParagraph.className = 'p'; bodyParagraph.dataset.testid = 'flyout-body';
   const keyElement = document.createElement('kbd'); keyElement.textContent = isMac ? 'Option+Q' : 'Alt+Q'; keyElement.dataset.testid = 'flyout-key';

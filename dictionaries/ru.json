@@ -165,6 +165,7 @@
   "urlTooLong": "Адрес этой страницы слишком длинный: Tabazing не может сохранить для неё звезду или заметку.",
   "ageDays": "{count, plural, one {# день назад} many {# дней назад} other {# дня назад}}",
   "settingsAccent": "Акцентный цвет",
+  "settingsAccentName": "{color, select, sky {Голубой} teal {Бирюзовый} green {Зелёный} yellow {Жёлтый} orange {Оранжевый} red {Красный} pink {Розовый} other {Лавандовый}}",
   "settingsAccentCustom": "Выбрать любой цвет",
   "muteThis": "Выключить звук вкладки",
   "unmuteThis": "Включить звук вкладки",

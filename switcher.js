@@ -25,6 +25,8 @@ import { timeAgo, localizePage, setLang, languageLoaded, uiLang, isRtl } from '.
 import { translate, getLocale, setLocale } from './utils/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/extension.js';
 import { applyAccent, ACCENTS } from './utils/accent.js';
+// What each of ACCENTS is called (Settings reads it out): settingsAccentName's choices, in the same order.
+const ACCENT_NAMES = ['sky', 'teal', 'green', 'yellow', 'orange', 'red', 'pink', 'lavender'];
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './utils/archive.js';
 import { makeBackup, restoreBackup, readBackup, unzipFiles, zipFiles, backupName } from './utils/backup.js';
 import { loadMedia, mediaAction } from './utils/media.js';
@@ -3766,7 +3768,7 @@ async function openArchive(selectedIndex = 0) {
   x.title = translate('archiveClose') + ' (Esc)';
   x.setAttribute('aria-label', translate('archiveClose'));
   x.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) closeArchive(); });
-  head.append(title, makeElement('span', 'archive-subtitle', translate('archiveWhere'), 'archive-location'), x);
+  head.append(title, dialogSubtitle(translate('archiveWhere'), 'archive-location'), x);
   const body = makeElement('div', 'archive-body', null, 'archive-body');
   if (!chrome.bookmarks) body.append(makeElement('p', 'empty', translate('dropdownNoMarks'), 'archive-no-bookmarks'));
   else if (!state.archived.length) body.append(makeElement('p', 'empty', translate('archiveEmpty'), 'archive-empty'));
@@ -3774,13 +3776,14 @@ async function openArchive(selectedIndex = 0) {
     const grid = makeElement('div', 'history-list', null, 'archive-grid');
     grid.setAttribute('role', 'listbox');
     grid.setAttribute('aria-labelledby', 'archive-heading');
+    grid.tabIndex = 0; // the focus: the keys move its selection, Enter opens it (Tab reaches the ×, where Enter closes)
     grid.append(...state.archived.map((item, i) => archiveCard(item, i)));
     body.append(grid);
   }
   panel.replaceChildren(head, body);
   updateInert();
   archiveSelect(selectedIndex);
-  x.focus({ preventScroll: true });
+  (panel.querySelector('[data-testid="archive-grid"]') || x).focus({ preventScroll: true });
 }
 // An archived page as a row: its preview (or its icon), its title, its site and when it was archived, and its button
 // that takes it out of the archive. A click (Enter) opens it, and takes it out; a middle-click (Ctrl+Enter) the same,
@@ -3846,9 +3849,16 @@ function closeArchive() {
   viewBack(elements.archiveButton).focus({ preventScroll: true }); // back to what opened it
 }
 // While the archive is open it has the keyboard.
+// A dialog's subtitle, beside its title: cut short where there is no room, so the whole of it is its tooltip.
+function dialogSubtitle(text, testid) {
+  const element = makeElement('span', 'archive-subtitle', text, testid);
+  element.title = text;
+  return element;
+}
 function archiveKey(event) {
   const key = event.key;
   if (MODIFIERS.has(key)) return;
+  if ((key === 'Enter' || key === ' ') && event.target instanceof Element && event.target.closest('button')) return; // a focused button (its ×) does what it says
   event.preventDefault();
   event.stopPropagation();
   if (key === 'Escape') return closeArchive();
@@ -3943,7 +3953,7 @@ function openBackup() {
   x.title = translate('backupClose') + ' (Esc)';
   x.setAttribute('aria-label', translate('backupClose'));
   x.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) closeBackup(); });
-  head.append(title, makeElement('span', 'archive-subtitle', translate('backupSubtitle'), 'backup-subtitle'), x);
+  head.append(title, dialogSubtitle(translate('backupSubtitle'), 'backup-subtitle'), x);
   const body = makeElement('div', 'archive-body backup-body', null, 'backup-body');
   // back up
   const name = backupName();
@@ -4035,7 +4045,7 @@ async function importBackup(input) {
     backup.report.replaceChildren(makeElement('p', 'backup-done', translate('backupDone'), 'backup-done'), reportList);
     state.marks = null; // the search reads them again
     await reload();
-    if (done.settings) { const preferences = await getPreferences(); state.preferences = preferences; applyAccent(preferences.accent); applyTheme(preferences.theme); } // (the language: at the next open)
+    if (done.settings) { const preferences = await getPreferences(); state.preferences = preferences; await applySettings(preferences); render(); } // (all of them at once, as in Settings: the language, colours, Lite mode)
   } catch (error) {
     if (state.backup === backup) backup.report.replaceChildren(makeElement('p', 'popover-error', translate('backupError'), 'backup-error'));
     console.warn('[Tabazing] restore failed:', error && error.message);
@@ -4141,6 +4151,7 @@ function confirmDialog({ title, text, testid, actions }) {
 async function openHistory() {
   closeDrawer(false);
   if (settingsOpen()) closeSettings(); // (Ctrl+H over Settings: the history comes in its place)
+  if (backupOpen()) closeBackup(); // (and over Backup & Restore)
   closePops();
   closeBig();
   hideTip();
@@ -4164,7 +4175,7 @@ async function openHistory() {
   x.title = translate('historyClose') + ' (Esc)';
   x.setAttribute('aria-label', translate('historyClose'));
   x.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) closeHistory(); });
-  head.append(title, makeElement('span', 'archive-subtitle', translate('historySubtitle'), 'history-subtitle'), x);
+  head.append(title, dialogSubtitle(translate('historySubtitle'), 'history-subtitle'), x);
   // the bar: the search box (it waits for a pause in typing), the range, the layout, Clear browsing data; with pages
   // picked, how many and what can be done to them
   const tools = makeElement('div', 'bookmarks-view-tools', null, 'history-tools');
@@ -4667,6 +4678,7 @@ async function openBookmarks() {
   closeDrawer(false);
   if (!chrome.bookmarks) return toast(translate('dropdownNoMarks'));
   if (settingsOpen()) closeSettings();
+  if (backupOpen()) closeBackup();
   closePops();
   closeBig();
   hideTip();
@@ -4690,7 +4702,7 @@ async function openBookmarks() {
   x.title = translate('bookmarksViewClose') + ' (Esc)';
   x.setAttribute('aria-label', translate('bookmarksViewClose'));
   x.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) closeBookmarks(); });
-  head.append(title, makeElement('span', 'archive-subtitle', translate('bookmarksViewSubtitle'), 'bookmarks-subtitle'), x);
+  head.append(title, dialogSubtitle(translate('bookmarksViewSubtitle'), 'bookmarks-subtitle'), x);
   // the bar: the search box, Add bookmark, New folder, Duplicates, the stars; with rows ticked, how many
   // and what can be done to them
   const tools = makeElement('div', 'bookmarks-view-tools', null, 'bookmarks-tools');
@@ -7000,20 +7012,37 @@ function settingsPanes(preferences, anchor) {
   const custom = makeElement('input', 'custom', null, 'settings-accent-custom');
   const pickAccent = (color, save = true) => {
     const now = applyAccent(color);
-    accents.querySelectorAll('.swatch').forEach((swatch) => swatch.setAttribute('aria-checked', String(swatch.dataset.c === now)));
+    const swatches = [...accents.querySelectorAll('.swatch')];
+    swatches.forEach((swatch) => swatch.setAttribute('aria-checked', String(swatch.dataset.c === now)));
+    // One Tab stop, as a group of radio buttons: the chosen colour (the first while the custom one is chosen).
+    swatches.forEach((swatch, i) => { swatch.tabIndex = swatch.dataset.c === now || (!ACCENTS.includes(now) && i === 0) ? 0 : -1; });
     custom.classList.toggle('on', !ACCENTS.includes(now));
     if (save) updatePreferences({ accent: now }).catch(() => {});
   };
-  for (const color of ACCENTS) {
+  ACCENTS.forEach((color, i) => {
     const swatch = makeElement('button', 'swatch', null, 'settings-accent');
     swatch.type = 'button';
     swatch.dataset.c = color;
     swatch.setAttribute('role', 'radio');
-    swatch.setAttribute('aria-label', color);
+    swatch.setAttribute('aria-label', translate('settingsAccentName', { color: ACCENT_NAMES[i] }));
+    swatch.title = swatch.getAttribute('aria-label');
     swatch.style.setProperty('--swatch-color', color);
     swatch.addEventListener('click', (event) => { event.stopPropagation(); pickAccent(color); });
     accents.append(swatch);
-  }
+  });
+  // ← → ↑ ↓ choose the colour before or after (round), Home / End the first or the last, as in any group of radio buttons.
+  accents.addEventListener('keydown', (event) => {
+    const swatches = [...accents.querySelectorAll('.swatch')];
+    const at = swatches.indexOf(event.target);
+    if (at < 0) return;
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowLeft' ? ahead(event.key) : event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    const to = event.key === 'Home' ? 0 : event.key === 'End' ? swatches.length - 1 : step ? (at + step + swatches.length) % swatches.length : -1;
+    if (to < 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pickAccent(swatches[to].dataset.c);
+    swatches[to].focus();
+  });
   custom.type = 'color';
   custom.value = preferences.accent.toLowerCase();
   custom.title = translate('settingsAccentCustom');
@@ -7173,6 +7202,10 @@ function openShortcuts(anchor = elements.keysButton) {
   x.append(svgOf(ICON.close));
   x.addEventListener('click', (event) => { event.stopPropagation(); popover.close(); });
   const body = makeElement('div', 'keys-body', null, 'keys-body');
+  // It can take the focus, so the keyboard scrolls it (the arrows, PgUp / PgDn, Home / End): the list is longer than the card.
+  body.tabIndex = 0;
+  body.setAttribute('role', 'region');
+  body.setAttribute('aria-labelledby', 'keys-heading');
   body.append(...shortcutSections('kg-'), makeElement('p', 'popover-fine-print', translate('keysInSettings'), 'keys-settings-note'));
   const head = makeElement('div', 'keys-head', null, 'keys-header');
   head.append(title, x);
@@ -7965,7 +7998,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  timings, prepare, showPrepared, sortByUse, rangeIds, pageTier, paletteMedia, showDropdownAgain, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, prepare, showPrepared, sortByUse, rangeIds, pageTier, paletteMedia, showDropdownAgain, movePage, dialogSubtitle, ACCENT_NAMES, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,

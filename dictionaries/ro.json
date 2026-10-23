@@ -165,6 +165,7 @@
   "urlTooLong": "Adresa acestei pagini este prea lungă pentru ca Tabazing să păstreze o stea sau o notă pentru ea.",
   "ageDays": "{count, plural, one {acum # zi} few {acum # zile} other {acum # de zile}}",
   "settingsAccent": "Culoare de accent",
+  "settingsAccentName": "{color, select, sky {Bleu} teal {Turcoaz} green {Verde} yellow {Galben} orange {Portocaliu} red {Roșu} pink {Roz} other {Lavandă}}",
   "settingsAccentCustom": "Alege orice culoare",
   "muteThis": "Dezactivează sunetul filei",
   "unmuteThis": "Activează sunetul filei",

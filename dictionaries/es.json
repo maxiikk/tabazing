@@ -165,6 +165,7 @@
   "urlTooLong": "La dirección de esta página es demasiado larga para que Tabazing guarde una estrella o una nota.",
   "ageDays": "{count, plural, one {hace # día} other {hace # días}}",
   "settingsAccent": "Color de acento",
+  "settingsAccentName": "{color, select, sky {Celeste} teal {Turquesa} green {Verde} yellow {Amarillo} orange {Naranja} red {Rojo} pink {Rosa} other {Lavanda}}",
   "settingsAccentCustom": "Elegir cualquier color",
   "muteThis": "Silenciar esta pestaña",
   "unmuteThis": "Activar el sonido de esta pestaña",

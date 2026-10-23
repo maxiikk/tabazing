@@ -801,7 +801,11 @@ describe('the shortcuts card (ⓘ)', () => {
   it('keeps Tab inside, and Esc, its × or a press outside close it, with the focus back on ⓘ', async () => {
     const switcher = await boot({ tabs: defaultTabs });
     await openKeys();
-    expect(key('Tab').defaultPrevented).toBe(true); // its only control: Tab stays on it
+    expect(document.activeElement).toBe(byTestId('keys-close'));
+    // Its × and its list, which the keyboard scrolls (it is longer than the card); Tab goes round them.
+    expect(switcher.tabbables(byTestId('keys-popover'))).toEqual([byTestId('keys-close'), byTestId('keys-body')]);
+    byTestId('keys-body').focus();
+    expect(key('Tab').defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(byTestId('keys-close'));
     key('Escape');
     expect(byTestId('keys-popover')).toBe(null);
@@ -851,5 +855,46 @@ describe('Recently closed: Show more', () => {
     chrome._data.closed = closed(3);
     await boot({ tabs: defaultTabs });
     expect(byTestId('closed-more').hidden).toBe(true);
+  });
+});
+
+describe('one dialog at a time, keys that do what they show, colours by name', () => {
+  it('Ctrl+H over Backup & Restore: the history comes in its place', async () => {
+    const switcher = await boot({ tabs: defaultTabs });
+    byTestId('backup-button').click();
+    await waitFor(() => switcher.backupOpen());
+    key('h', { ctrlKey: true, code: 'KeyH' });
+    await waitFor(() => switcher.historyOpen());
+    expect(switcher.backupOpen()).toBe(false);
+    expect(byTestId('history-overlay').hasAttribute('inert')).toBe(false);
+  });
+
+  it('the archive: Enter on its focused × closes it, and does not open (and un-archive) the selected page', async () => {
+    const folder = chrome._addBookmark({ parentId: '2', title: 'Tabs Archive' });
+    chrome._addBookmark({ parentId: folder.id, title: 'Old one', url: 'https://old.example/' });
+    const switcher = await boot({ tabs: defaultTabs });
+    byTestId('archive-button').click();
+    await waitFor(() => switcher.archiveOpen());
+    byTestId('archive-close').focus();
+    const event = key('Enter');
+    await tick(50);
+    expect(event.defaultPrevented).toBe(false); // (Chrome then clicks the button)
+    expect(chrome._findBookmark(folder.id).children).toHaveLength(1);
+    expect(chrome._data.tabs.some((tab) => tab.url === 'https://old.example/')).toBe(false);
+  });
+
+  it('accent colours: named in words, one Tab stop, → chooses the next', async () => {
+    await boot({ tabs: defaultTabs });
+    byTestId('settings-button').click();
+    await waitFor(() => byTestId('settings'));
+    byTestId('settings-tab-look').click();
+    const swatches = allByTestId('settings-accent');
+    expect(swatches.map((swatch) => swatch.getAttribute('aria-label'))).toEqual(['Sky blue', 'Teal', 'Green', 'Yellow', 'Orange', 'Red', 'Pink', 'Lavender']);
+    expect(swatches.filter((swatch) => swatch.tabIndex === 0)).toHaveLength(1);
+    swatches[0].focus();
+    key('ArrowRight', { target: swatches[0] });
+    expect(document.activeElement).toBe(swatches[1]);
+    expect(swatches[1].getAttribute('aria-checked')).toBe('true');
+    expect(swatches[1].tabIndex).toBe(0);
   });
 });

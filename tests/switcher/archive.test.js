@@ -167,7 +167,7 @@ describe('the archive overlay', () => {
     expect(byTestId('card-tile-favicon', byTestId('card-no-preview', cards[0]))).not.toBe(null); // no preview: its icon
     expect(byTestId('card-archived-ago', cards[0]).textContent).not.toBe('');
     expect(cards.map((card) => card.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
-    expect(document.activeElement).toBe(byTestId('archive-close', overlay));
+    expect(document.activeElement).toBe(byTestId('archive-grid', overlay)); // the list: the keys move its selection, Enter opens it
   });
 
   it('has no previews in list size', async () => {

@@ -165,6 +165,7 @@
   "urlTooLong": "Die Adresse dieser Seite ist zu lang: Tabazing kann dafür keinen Stern und keine Notiz speichern.",
   "ageDays": "{count, plural, one {vor # Tag} other {vor # Tagen}}",
   "settingsAccent": "Akzentfarbe",
+  "settingsAccentName": "{color, select, sky {Himmelblau} teal {Türkis} green {Grün} yellow {Gelb} orange {Orange} red {Rot} pink {Rosa} other {Lavendel}}",
   "settingsAccentCustom": "Beliebige Farbe wählen",
   "muteThis": "Diesen Tab stummschalten",
   "unmuteThis": "Stummschaltung dieses Tabs aufheben",

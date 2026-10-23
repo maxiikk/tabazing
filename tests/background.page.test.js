@@ -152,3 +152,21 @@ describe('injectFlyout', () => {
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
   });
 });
+
+describe('the cards put on pages, right to left', () => {
+  it('in Arabic or Hebrew the flyout and the nudge are laid out right to left, at the left of the page', () => {
+    background().injectFlyout(MESSAGE.FLYOUT_DONE, 20000, { title: 'מוכן', body: 'לחצו $KEY$', subtitle: 'קטן', close: 'סגירה', dir: 'rtl', lang: 'he' });
+    background().injectNudge(MESSAGE.NUDGE, 12000, { title: 'מחפשים?', body: 'Alt+Q מציג הכול', tryIt: 'נסו', ok: 'הבנתי', never: 'לעולם לא', close: 'סגירה', dir: 'rtl', lang: 'he' }, 'Alt+Q');
+    expect(queryTestId('flyout', roots[0]).dir).toBe('rtl');
+    expect(queryTestId('flyout', roots[0]).lang).toBe('he');
+    expect(queryTestId('nudge', roots[1]).dir).toBe('rtl');
+    expect(queryTestId('flyout-host').style.left).toBe('16px');
+    expect(queryTestId('nudge-host').style.left).toBe('20px');
+  });
+
+  it('left to right otherwise, at the right of the page', () => {
+    background().injectFlyout(MESSAGE.FLYOUT_DONE, 20000, { title: 'Ready', body: 'Press $KEY$', subtitle: 'Small', close: 'Dismiss', dir: 'ltr', lang: 'en' });
+    expect(queryTestId('flyout', roots[0]).dir).toBe('ltr');
+    expect(queryTestId('flyout-host').style.right).toBe('16px');
+  });
+});

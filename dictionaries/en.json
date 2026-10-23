@@ -165,6 +165,7 @@
   "urlTooLong": "This page's address is too long for Tabazing to keep a star or a note for it.",
   "ageDays": "{count, plural, one {# day ago} other {# days ago}}",
   "settingsAccent": "Accent colour",
+  "settingsAccentName": "{color, select, sky {Sky blue} teal {Teal} green {Green} yellow {Yellow} orange {Orange} red {Red} pink {Pink} other {Lavender}}",
   "settingsAccentCustom": "Pick any colour",
   "muteThis": "Mute this tab",
   "unmuteThis": "Unmute this tab",

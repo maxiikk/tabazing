@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.18.1] - 2026-10-23
+
+### Fixed
+
+- Ctrl+H or Ctrl+Shift+O over Backup & Restore left two dialogs stacked, the visible one not responding: the history or bookmarks now come in its place.
+- The archive opens with the keyboard on its list; Enter on its × closes it instead of opening (and un-archiving) a page.
+- The shortcuts card (ⓘ) can be scrolled with the keyboard, so every shortcut can be read.
+- In Arabic and Hebrew, the first-run card and the Alt+Q tip on pages are laid out right to left.
+- Settings → Accent colour: screen readers now hear each colour’s name in your language instead of a colour code, and the arrow keys move between the colours (one Tab stop).
+- The search box’s hint is no longer cut off in Greek and Arabic, and dialog subtitles cut short show their whole text on hover.
+- Settings restored from a backup (Lite mode, the language) now apply at once.
+
 ## [6.18.0] - 2026-10-23
 
 ### Added
@@ -782,7 +794,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...HEAD
+[6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...HEAD
+[6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...ceb1587
 [6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...5372ff1
 [6.17.8]: https://github.com/maxiikk/tabazing/compare/ad49393...7568459
 [6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...ad49393

@@ -188,3 +188,19 @@ describe('restoring', () => {
     input.dispatchEvent(new Event('cancel'));
   });
 });
+
+describe('restored settings', () => {
+  it('apply at once, as in Settings (Lite mode, the language)', async () => {
+    const switcher = await boot({ tabs: twoTabs });
+    await openBackup(switcher);
+    byTestId('backup-settings').checked = true;
+    const zip = fileOf('tabazing-backup-2026-10-21.zip', zipFiles([
+      { name: 'backup/info.json', data: JSON.stringify({ app: 'Tabazing', version: '6.12.0' }) },
+      { name: 'backup/settings.json', data: JSON.stringify({ lite: true, lang: 'de' }) },
+    ]));
+    choose(byTestId('backup-zip-input'), [zip]);
+    await waitFor(() => byTestId('backup-done'));
+    await waitFor(() => document.documentElement.classList.contains('lite'));
+    await waitFor(() => document.documentElement.lang === 'de');
+  });
+});

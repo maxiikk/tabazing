@@ -165,6 +165,7 @@
   "urlTooLong": "הכתובת של הדף הזה ארוכה מדי ו־Tabazing לא יכול לשמור עבורה כוכב או הערה.",
   "ageDays": "{count, plural, one {לפני יום} two {לפני יומיים} other {לפני # ימים}}",
   "settingsAccent": "צבע הדגשה",
+  "settingsAccentName": "{color, select, sky {תכלת} teal {טורקיז} green {ירוק} yellow {צהוב} orange {כתום} red {אדום} pink {ורוד} other {לבנדר}}",
   "settingsAccentCustom": "בחירת צבע כלשהו",
   "muteThis": "השתקת הכרטיסייה הזו",
   "unmuteThis": "ביטול השתקת הכרטיסייה הזו",

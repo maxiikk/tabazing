@@ -111,7 +111,7 @@ describe('onCyclingRun', () => {
     expect(options.target).toEqual({ tabId: 1 });
     expect(options.args).toEqual([MESSAGE.NUDGE, NUDGE.SHOW_MILLISECONDS, {
       title: 'Looking for a tab?', body: 'Press Alt+Q and keep holding Alt: all your tabs, with previews. Let go of Alt to switch.',
-      tryIt: expect.any(String), ok: expect.any(String), never: expect.any(String), close: expect.any(String),
+      tryIt: expect.any(String), ok: expect.any(String), never: expect.any(String), close: expect.any(String), dir: 'ltr', lang: 'en',
     }, 'Alt+Q']);
     expect(localData().get(KEY.NUDGE)).toMatchObject({ runs: 2, shown: 1, last: Date.now() });
   });
@@ -188,8 +188,15 @@ describe('offerFlyout', () => {
     expect(flyoutCalls()).toHaveLength(1);
     expect(flyoutCalls()[0][0]).toEqual({
       target: { tabId: 3 }, func: background().injectFlyout,
-      args: [MESSAGE.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MILLISECONDS, { title: expect.any(String), body: 'Press $KEY$ and keep holding Alt to see your tabs; let go to switch.', subtitle: expect.any(String), close: expect.any(String) }],
+      args: [MESSAGE.FLYOUT_DONE, LIMITS.FLYOUT_SHOW_MILLISECONDS, { title: expect.any(String), body: 'Press $KEY$ and keep holding Alt to see your tabs; let go to switch.', subtitle: expect.any(String), close: expect.any(String), dir: 'ltr', lang: 'en' }],
     });
+  });
+
+  it('in Hebrew it asks for a right-to-left card', async () => {
+    fresh();
+    await chrome.storage.local.set({ prefs: { lang: 'he' } });
+    await background().offerFlyout(tab());
+    expect(flyoutCalls()[0][0].args[2]).toMatchObject({ dir: 'rtl', lang: 'he' });
   });
 
   it('not on pages it cannot reach', async () => {
