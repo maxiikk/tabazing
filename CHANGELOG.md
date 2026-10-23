@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.7] - 2026-10-23
+
+### Fixed
+
+- Snoozing a tab with a very long address closed it for good while saying it was snoozed: such a tab now stays open, with “can’t snooze”.
+- Undo of a close over a page (the overlay) closed Tabazing: the tab comes back and Tabazing stays open.
+- Ctrl+Z now does what the note’s Undo does (a snooze, an archive, a page taken off Recently closed), instead of reopening an older close; with text in the search box it still undoes a close or snooze while its note shows.
+- Undo of a snooze or an archive puts the tabs back in their place (not at the end of the window), keeps an unnamed group together, and brings them back with their history.
+- Archiving, snoozing or closing one card, or putting one to sleep from its menu, no longer unticks the other ticked cards (or leaves them looking ticked while the actions did nothing).
+- Duplicating the last tab of a group keeps the copy in the group, as Chrome’s own Duplicate does.
+- Waking a snoozed tab from its card brings it back pinned or in its group, as when its time comes.
+- Cancelling a snooze (×, Del, middle-click) now offers Undo.
+- Shift+click and Shift+arrows tick the group tiles between the two cards too.
+
 ## [6.17.6] - 2026-10-23
 
 ### Fixed
@@ -727,7 +741,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...HEAD
+[6.17.7]: https://github.com/maxiikk/tabazing/compare/49bc61b...HEAD
+[6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...49bc61b
 [6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...49d059d
 [6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...48c4298
 [6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...a984f93

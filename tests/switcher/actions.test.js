@@ -1,7 +1,7 @@
 // Actions on tabs in the switcher: opening, closing (with undo), ticking, the quick-actions bar and the
 // per-card quick buttons. Everything runs against the real switcher page and the fake chrome.* API.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { tick, waitFor } from '../helpers/switcher.js';
+import { tick, waitFor, key } from '../helpers/switcher.js';
 import { boot, frame, byTestId, allByTestId, cardOf, tabByTitle, entryByTitle, toastText, toastButton, closedMessage } from '../helpers/quiet-boot.js';
 import { MESSAGE } from '../../utils/constants.js';
 import { translate } from '../../utils/translations.js';
@@ -75,7 +75,7 @@ describe('choose', () => {
     expect(i).toBeGreaterThan(0);
     await switcher.choose(i);
     expect((await chrome.storage.local.get('snoozed')).snoozed).toEqual([]);
-    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: snoozedTab.url, windowId: 1, active: true });
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: snoozedTab.url, windowId: 1, active: true, pinned: false });
     expect(closedMessage().reason).toBe('switch');
   });
 
@@ -565,7 +565,7 @@ describe('snooze', () => {
     expect(switcher.state.tabs.some((x) => x.id === bravo.id)).toBe(false);
     toastButton().click(); // Undo
     await waitFor(() => chrome._data.tabs.some((x) => x.url === 'https://b.example/'));
-    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, active: false, pinned: false });
+    expect(chrome.tabs.create).toHaveBeenCalledWith({ url: 'https://b.example/', windowId: 1, index: 1, active: false, pinned: false }); // in its place
     expect((await chrome.storage.local.get('snoozed')).snoozed).toEqual([]);
   });
 
@@ -619,9 +619,9 @@ describe('snooze', () => {
   it('unsnooze reopens where the tab was, or in this window if that one is gone', async () => {
     const switcher = await boot({ tabs: THREE_TABS });
     chrome.tabs.create.mockRejectedValueOnce(new Error('No window'));
-    await switcher.unsnooze([{ id: 'q', url: 'https://q.example/', windowId: 7, pinned: true }]);
+    await switcher.unsnooze([{ id: 'q' }], [{ url: 'https://q.example/', windowId: 7, index: 2, pinned: true }], 0);
     expect(chrome.tabs.create.mock.calls.map((call) => call[0])).toEqual([
-      { url: 'https://q.example/', windowId: 7, active: false, pinned: true },
+      { url: 'https://q.example/', windowId: 7, index: 2, active: false, pinned: true },
       { url: 'https://q.example/', windowId: 1, active: false },
     ]);
     expect(toastText()).toBe(translate('reopenedCount', { count: 1 }));
@@ -953,5 +953,112 @@ describe('star and capture', () => {
     chrome.runtime.sendMessage.mockClear();
     await switcher.captureOne(entryByTitle(switcher, 'Ext'));
     expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe('undo and ticks after snoozing, archiving and other actions', () => {
+  const GROUPED = [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: 7 }, { title: 'W2', url: 'https://w2.example/', groupId: 7 }, { title: 'C', url: 'https://c.example/' }];
+  const FOUR_TABS = [...THREE_TABS, { title: 'D', url: 'https://d.example/' }];
+  const urlOrder = () => chrome._data.tabs.filter((x) => x.windowId === 1).sort((first, second) => first.index - second.index).map((x) => x.url);
+
+  it('a tab whose address is too long to keep is left open, not lost', async () => {
+    const longUrl = 'https://long.example/?q=' + 'x'.repeat(3000);
+    const switcher = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'Long', url: longUrl }] });
+    await switcher.snoozeTabs([tabByTitle(switcher, 'Long')], Date.now() + 3600e3);
+    expect(chrome._data.tabs.some((x) => x.url === longUrl)).toBe(true);
+    expect(toastText()).toBe(translate('snoozeCant'));
+  });
+
+  it('Undo of a snooze puts the tabs back in their place, an unnamed group as one group', async () => {
+    const switcher = await boot({ tabs: GROUPED, beforeImport: () => { chrome._addGroup({ id: 7, title: '', color: 'blue', windowId: 1 }); } });
+    await switcher.snoozeTabs([tabByTitle(switcher, 'W1'), tabByTitle(switcher, 'W2')], Date.now() + 3600e3);
+    toastButton().click();
+    await waitFor(() => toastText() === translate('reopenedCount', { count: 2 }));
+    expect(urlOrder()).toEqual(['https://a.example/', 'https://w1.example/', 'https://w2.example/', 'https://c.example/']);
+    expect(new Set(chrome._data.tabs.filter((x) => x.url.startsWith('https://w')).map((x) => x.groupId)).size).toBe(1);
+    expect((await chrome.storage.local.get('snoozed')).snoozed || []).toEqual([]);
+  });
+
+  it('Undo of an archive brings the tab back through Chrome (its history; it leaves Recently closed)', async () => {
+    const switcher = await boot({ tabs: THREE_TABS });
+    await switcher.archiveTabs([tabByTitle(switcher, 'B')]);
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000), tab: { sessionId: 's-b', url: 'https://b.example/', title: 'B' } }];
+    toastButton().click();
+    await waitFor(() => toastText() === translate('reopenedCount', { count: 1 }));
+    expect(chrome.sessions.restore).toHaveBeenCalledWith('s-b');
+  });
+
+  it('in an overlay, Undo reopens a tab of its own window without Chrome showing it (that would close the overlay)', async () => {
+    const switcher = await boot({ tabs: THREE_TABS, overlay: true });
+    await switcher.closeTab(entryByTitle(switcher, 'B'));
+    chrome._data.closed = [{ lastModified: Math.floor(Date.now() / 1000), tab: { sessionId: 's-b', url: 'https://b.example/', title: 'B' } }];
+    await switcher.undoLast();
+    expect(chrome.sessions.restore).not.toHaveBeenCalled();
+    expect(chrome.tabs.create).toHaveBeenCalledWith(expect.objectContaining({ url: 'https://b.example/', index: 1, active: false }));
+    expect(switcher.state.done).toBe(false);
+    expect(Object.keys((await chrome.storage.local.get('closedHidden')).closedHidden || {})).toHaveLength(1); // Chrome's entry: off the list
+  });
+
+  it('Ctrl+Z after archiving takes the archive back, not a close made before it', async () => {
+    const switcher = await boot({ tabs: THREE_TABS });
+    await switcher.closeTab(entryByTitle(switcher, 'A'));
+    await switcher.archiveTabs([tabByTitle(switcher, 'C')]);
+    byTestId('search').focus();
+    key('z', { code: 'KeyZ', ctrlKey: true });
+    await waitFor(() => toastText() === translate('reopenedCount', { count: 1 }));
+    expect(urlOrder()).toEqual(['https://b.example/', 'https://c.example/']);
+  });
+
+  it('archiving one card from its button keeps the other ticks working', async () => {
+    await boot({ tabs: FOUR_TABS });
+    byTestId('card-pick', cardOf('A')).click();
+    byTestId('card-pick', cardOf('C')).click();
+    byTestId('quick-archive', cardOf('B')).click();
+    await waitFor(() => !cardOf('B'));
+    byTestId('action-close').click();
+    await waitFor(() => chrome._data.tabs.length === 1);
+    expect(chrome._data.tabs.map((x) => x.title)).toEqual(['D']);
+  });
+
+  it('Sleep from one card’s menu keeps the other ticks', async () => {
+    const switcher = await boot({ tabs: FOUR_TABS });
+    byTestId('card-pick', cardOf('A')).click();
+    byTestId('card-pick', cardOf('C')).click();
+    byTestId('quick-more', cardOf('D')).click();
+    allByTestId('menu-item').find((item) => item.textContent === translate('sleepThis')).click();
+    await tick(20);
+    expect(switcher.state.picked.size).toBe(2);
+  });
+
+  it('a copy of the last tab of a group stays in the group', async () => {
+    const switcher = await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: 7 }], beforeImport: () => { chrome._addGroup({ id: 7, title: 'Work', color: 'blue', windowId: 1 }); } });
+    chrome.tabs.create.mockImplementationOnce(async (properties) => ({ ...chrome._addTab({ url: properties.url, windowId: properties.windowId }), groupId: -1 })); // (as Chrome does after a group's last tab)
+    await switcher.duplicateTab(tabByTitle(switcher, 'W1'));
+    expect(chrome.tabs.group).toHaveBeenCalledWith(expect.objectContaining({ groupId: 7 }));
+  });
+
+  it('a snoozed tab woken from its card goes back into its group', async () => {
+    const snoozed = { id: 'z1', url: 'https://snooze.example/', title: 'Snz', at: Date.now() + 3600e3, windowId: 1, pinned: false, t: Date.now(), group: { id: 7, title: 'Work', color: 'blue' } };
+    await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: 7 }], beforeImport: async () => { chrome._addGroup({ id: 7, title: 'Work', color: 'blue', windowId: 1 }); await chrome.storage.local.set({ snoozed: [snoozed] }); } });
+    cardOf('Snz', 'snoozed').click();
+    await waitFor(() => chrome._data.tabs.some((x) => x.url === 'https://snooze.example/' && x.groupId === 7));
+  });
+
+  it('the × of a snoozed card offers Undo, which snoozes it again', async () => {
+    const snoozed = { id: 'z1', url: 'https://snooze.example/', title: 'Snz', at: Date.now() + 3600e3, windowId: 1, pinned: false, t: Date.now() };
+    await boot({ tabs: THREE_TABS, beforeImport: () => chrome.storage.local.set({ snoozed: [snoozed] }) });
+    byTestId('card-cancel-snooze').click();
+    await waitFor(() => !byTestId('card-snoozed'));
+    toastButton().click();
+    await waitFor(() => byTestId('card-snoozed'));
+    expect((await chrome.storage.local.get('snoozed')).snoozed.map((x) => x.id)).toEqual(['z1']);
+  });
+
+  it('Shift+click ticks a group tile that lies inside the range', async () => {
+    await boot({ tabs: [{ title: 'A', url: 'https://a.example/' }, { title: 'W1', url: 'https://w1.example/', groupId: 7 }, { title: 'W2', url: 'https://w2.example/', groupId: 7 }, { title: 'B', url: 'https://b.example/' }],
+      preferences: { sort: 'order' }, beforeImport: () => { chrome._addGroup({ id: 7, title: 'Work', color: 'blue', windowId: 1 }); } });
+    byTestId('card-pick', cardOf('A')).click();
+    byTestId('card-pick', cardOf('B')).dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true }));
+    expect(byTestId('card-group').getAttribute('aria-checked')).toBe('true');
   });
 });

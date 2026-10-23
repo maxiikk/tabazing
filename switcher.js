@@ -1754,10 +1754,12 @@ async function choose(i) {
   if (state.done || !entry) return;
   if (entry.kind === 'group') return enterGroup(entry.group.id); // its tabs, and Tabazing stays
   try {
-    if (entry.kind === 'snoozed') { // wake it now
+    if (entry.kind === 'snoozed') { // wake it now, pinned or in its group as it was (as its alarm would)
+      const snooze = entry.item.snooze;
       await removeSnoozed([entry.item.id]).catch(() => {});
       if (CONTEXT.mode === 'window') await chrome.windows.update(CONTEXT.sourceWindow, { focused: true }).catch(() => {});
-      await chrome.tabs.create({ url: entry.item.url, windowId: CONTEXT.sourceWindow, active: true });
+      const tab = await chrome.tabs.create({ url: entry.item.url, windowId: CONTEXT.sourceWindow, active: true, pinned: !!snooze.pinned });
+      if (snooze.group && !snooze.pinned) await putInGroup([tab.id], snooze.group, CONTEXT.sourceWindow).catch(() => {});
       return finish('switch');
     }
     if (entry.kind === 'star') { // a starred page that isn't open: open it
@@ -1822,11 +1824,11 @@ async function closeTab(entry) {
   if (entry && entry.kind === 'star') return star(entry); // Del on a starred, not-open page unstars it
   if (entry && entry.kind === 'closed') return forgetClosed(entry); // Del on a recently closed one: off the list (Undo puts it back)
   if (entry && entry.kind === 'group') return closeMany(entry.tabs); // Del or middle-click on a tile: the group's tabs (Undo brings them back, in their group)
-  if (entry && entry.kind === 'snoozed') { // Del / × on a snoozed tab: cancel the snooze
+  if (entry && entry.kind === 'snoozed') { // Del / × on a snoozed tab: cancel the snooze (Undo snoozes it again)
     const i = state.entries.indexOf(entry);
     const next = [state.entries[i + 1], state.entries[i - 1]].find((candidate) => candidate && candidate !== entry);
     state.snoozed = await removeSnoozed([entry.item.id]).catch(() => state.snoozed);
-    toast(translate('snoozeCancelled'));
+    toast(translate('snoozeCancelled'), null, { label: translate('undo'), run: async () => { state.snoozed = await addSnoozed([entry.item.snooze]).catch(() => state.snoozed); await afterClosedChange(entry.key); } });
     return refresh({ keepKey: next && next.key });
   }
   if (!entry || entry.kind !== 'tab' || state.done) return;
@@ -1893,11 +1895,9 @@ function pick(entry, { range = false } = {}) {
     return redraw(tickChanged(before), { keepKey: entry.key });
   }
   const id = entry.tab.id;
-  const onScreen = state.entries.filter((entry) => entry.kind === 'tab').map((entry) => entry.tab.id);
-  const fromIndex = range && state.lastPick !== null ? onScreen.indexOf(state.lastPick) : -1;
-  const toIndex = onScreen.indexOf(id);
+  const inRange = range && state.lastPick !== null ? rangeIds(state.lastPick, id) : null;
   const before = new Set(state.picked);
-  if (fromIndex >= 0 && toIndex >= 0) onScreen.slice(Math.min(fromIndex, toIndex), Math.max(fromIndex, toIndex) + 1).forEach((x) => state.picked.add(x));
+  if (inRange) inRange.forEach((x) => state.picked.add(x));
   else if (state.picked.has(id)) state.picked.delete(id);
   else state.picked.add(id);
   state.lastPick = id;
@@ -1920,12 +1920,20 @@ function extendPick(key) {
   else moveSpatial(0, key === 'ArrowDown' ? 1 : -1);
   const to = state.entries[state.selected];
   if (from.kind !== 'tab' || !to || to.kind !== 'tab') return; // from a tile or a closed card: it only moves
-  const onScreen = state.entries.filter((entry) => entry.kind === 'tab').map((entry) => entry.tab.id);
-  const fromIndex = onScreen.indexOf(state.lastPick), toIndex = onScreen.indexOf(to.tab.id);
-  if (fromIndex < 0) return;
+  const inRange = rangeIds(state.lastPick, to.tab.id);
+  if (!inRange) return;
   const before = new Set(state.picked);
-  state.picked = new Set([...state.shiftBase, ...onScreen.slice(Math.min(fromIndex, toIndex), Math.max(fromIndex, toIndex) + 1)]);
+  state.picked = new Set([...state.shiftBase, ...inRange]);
   redraw(tickChanged(before), { keepKey: to.key });
+}
+// The tab ids from one tab's card to another's, as shown, a group tile between them with all of its tabs; null when
+// either isn't shown.
+function rangeIds(fromTabId, toTabId) {
+  const cards = state.entries.filter((entry) => entry.kind === 'tab' || entry.kind === 'group');
+  const at = (tabId) => cards.findIndex((entry) => entry.kind === 'tab' && entry.tab.id === tabId);
+  const fromIndex = at(fromTabId), toIndex = at(toTabId);
+  if (fromIndex < 0 || toIndex < 0) return null;
+  return cards.slice(Math.min(fromIndex, toIndex), Math.max(fromIndex, toIndex) + 1).flatMap((entry) => (entry.kind === 'tab' ? [entry.tab.id] : entry.tabs.map((x) => x.id)));
 }
 
 // Quick actions act only on ticked tabs. While searching, "Select all N matching tabs" ticks the matches.
@@ -2111,17 +2119,20 @@ async function undoLast() {
 // Reopen closed tabs (undoRecord) where they were. One Chrome still lists as recently closed, closed within
 // UNDO_SESSION_MILLISECONDS of `at` (when Tabazing closed it), comes back through Chrome, with its back/forward history.
 // Chrome shows a tab it restores, so each window then shows the tab it showed before. The others are opened
-// afresh, in the background.
+// afresh, in the background. Over a page (the overlay) a tab of its own window is too: Chrome showing it would hide
+// the page, and Tabazing with it. Chrome's entry for it is then taken off "Recently closed" (the tab is open again).
 const UNDO_SESSION_MILLISECONDS = 10000;
 async function reopenAt(group, at = 0) {
   const sessions = at ? await chrome.sessions.getRecentlyClosed({ maxResults: 25 }).catch(() => []) : [];
   const used = new Set();
   const restoredWindows = new Set(); // windows a restore showed a tab in
   const made = []; // [{ x, tab }] what came back, for regroup
+  const hidden = {}; // Chrome's entries for tabs opened afresh instead
   for (const x of [...group].sort((firstTab, secondTab) => firstTab.index - secondTab.index)) {
     const session = sessions.find((session) => session.tab && !used.has(session.tab.sessionId) && normalizeUrl(urlOf(session.tab)) === normalizeUrl(x.url)
       && Math.abs((session.lastModified || 0) * 1000 - at) <= UNDO_SESSION_MILLISECONDS);
-    if (session) {
+    if (session && CONTEXT.mode === 'overlay' && x.windowId === CONTEXT.sourceWindow) { used.add(session.tab.sessionId); hidden[closedKey({ url: x.url })] = session.lastModified * 1000; }
+    else if (session) {
       used.add(session.tab.sessionId);
       asking = true; // Chrome shows the restored tab for a moment: that is not the user leaving
       try { const restoredSession = await chrome.sessions.restore(session.tab.sessionId); restoredWindows.add(x.windowId); made.push({ x, tab: restoredSession && restoredSession.tab }); continue; } catch {}
@@ -2129,6 +2140,7 @@ async function reopenAt(group, at = 0) {
     try { made.push({ x, tab: await chrome.tabs.create({ url: x.url, windowId: x.windowId, index: x.index, pinned: x.pinned, active: false }) }); }
     catch { made.push({ x, tab: await chrome.tabs.create({ url: x.url, windowId: CONTEXT.sourceWindow, active: false }).catch(() => null) }); } // its window is gone
   }
+  if (Object.keys(hidden).length) state.closedHidden = await hideClosed(hidden).catch(() => state.closedHidden);
   const groups = await regroup(made);
   for (const x of state.tabs) if (x.active && restoredWindows.has(x.windowId)) await chrome.tabs.update(x.id, { active: true }).catch(() => {});
   if (used.size) { asking = false; window.focus(); }
@@ -2201,7 +2213,7 @@ async function closeMany(tabs) {
   const includesOwnTab = CONTEXT.mode === 'overlay' && tabIds.includes(CONTEXT.sourceTab); // closing the tab we sit on closes us: do it last
   const undo = undoRecord(tabs);
   await chrome.tabs.remove(tabIds.filter((id) => !includesOwnTab || id !== CONTEXT.sourceTab));
-  state.picked.clear();
+  tabIds.forEach((id) => state.picked.delete(id)); // (the other cards keep their ticks)
   if (includesOwnTab) return chrome.tabs.remove(CONTEXT.sourceTab);
   tabIds.forEach((id) => { state.tabs = state.tabs.filter((x) => x.id !== id); });
   pushUndo(undo);
@@ -2824,28 +2836,28 @@ function snoozePicker(tabs, anchor, run = (at) => snoozeTabs(tabs, at)) {
   input.focus({ preventScroll: true });
 }
 async function snoozeTabs(tabs, at) {
-  const reopenableTabs = tabs.filter((x) => isWorthReopening(urlOf(x)));
-  if (!reopenableTabs.length) return toast(translate('snoozeCant'));
   const now = Date.now();
-  const items = reopenableTabs.map((x, i) => ({ id: `${x.id}-${now}-${i}`, url: urlOf(x), title: x.title || '', at, windowId: x.windowId, pinned: !!x.pinned, t: now, group: groupFor(x) })); // (it wakes in its group)
-  state.snoozed = await addSnoozed(items);
-  const tabIds = reopenableTabs.map((x) => x.id);
+  const items = tabs.filter((x) => isWorthReopening(urlOf(x))).map((x, i) => ({ id: `${x.id}-${now}-${i}`, url: urlOf(x), title: x.title || '', at, windowId: x.windowId, pinned: !!x.pinned, t: now, group: groupFor(x), tab: x })); // (it wakes in its group)
+  if (items.length) state.snoozed = await addSnoozed(items.map(({ tab, ...item }) => item));
+  // Only the tabs kept in the list close (one whose address is too long to keep, for one, stays open).
+  const kept = new Set(state.snoozed.map((x) => x.id));
+  const snoozedItems = items.filter((x) => kept.has(x.id));
+  if (!snoozedItems.length) return toast(translate('snoozeCant'));
+  const snoozedTabs = snoozedItems.map((x) => x.tab);
+  const undo = undoRecord(snoozedTabs);
+  const tabIds = snoozedTabs.map((x) => x.id);
   const includesOwnTab = CONTEXT.mode === 'overlay' && tabIds.includes(CONTEXT.sourceTab); // closing the tab we sit on closes us: do it last
   await chrome.tabs.remove(tabIds.filter((id) => !includesOwnTab || id !== CONTEXT.sourceTab)).catch(() => {});
-  state.picked.clear();
   if (includesOwnTab) return chrome.tabs.remove(CONTEXT.sourceTab);
+  const closedAt = Date.now();
   tabIds.forEach((id) => forgetTab(id));
-  toast(translate('snoozedCount', { count: items.length, time: whenLabel(at) }), null, { label: translate('undo'), run: () => unsnooze(items) });
+  toast(translate('snoozedCount', { count: snoozedItems.length, time: whenLabel(at) }), null, { label: translate('undo'), run: () => unsnooze(snoozedItems, undo, closedAt) });
 }
-// Undo a snooze: forget it and reopen the tabs where they were.
-async function unsnooze(items) {
+// Undo a snooze: forget it and reopen the tabs as a closing's Undo does (reopenAt: in their places and groups, with
+// their history).
+async function unsnooze(items, group, closedAt) {
   state.snoozed = await removeSnoozed(items.map((x) => x.id)).catch(() => state.snoozed);
-  for (const x of items) {
-    let tab = null;
-    try { tab = await chrome.tabs.create({ url: x.url, windowId: x.windowId, active: false, pinned: x.pinned }); }
-    catch { tab = await chrome.tabs.create({ url: x.url, windowId: CONTEXT.sourceWindow, active: false }).catch(() => null); }
-    if (tab && x.group && !x.pinned) await putInGroup([tab.id], x.group, tab.windowId).catch(() => {});
-  }
+  await reopenAt(group, closedAt);
   toast(translate('reopenedCount', { count: items.length }));
   await reload();
 }
@@ -3310,8 +3322,8 @@ async function sleepTabs(tabs) {
   if (!sleepableTabs.length) return toast(translate('sleptNone'));
   const undo = sleepableTabs.every((x) => state.toSleep.has(x.id));
   sleepableTabs.forEach((x) => (undo ? state.toSleep.delete(x.id) : state.toSleep.add(x.id)));
-  const changed = new Set([...state.picked, ...sleepableTabs.map((x) => x.id)]);
-  state.picked.clear();
+  const changed = new Set(tabs.map((x) => x.id).filter((id) => state.picked.has(id)).concat(sleepableTabs.map((x) => x.id)));
+  tabs.forEach((x) => state.picked.delete(x.id)); // (only the tabs acted on lose their ticks)
   toast(undo ? translate('sleepUndone') : translate('sleepLaterCount', { count: sleepableTabs.length }));
   if (state.filter) refresh(); // (the Asleep filter may show or hide them now)
   else redraw((entry) => entry.kind === 'tab' && changed.has(entry.tab.id));
@@ -3406,9 +3418,11 @@ async function reloadTab(tab) {
   if (CONTEXT.mode === 'overlay' && tab.id === CONTEXT.sourceTab) return finish('cancel');
   toast(translate('reloadingOne', { title: tab.title || siteOf(urlOf(tab)) }));
 }
-// Duplicate a tab: the copy opens right after it, in the background, so Tabazing stays open and shows it.
+// Duplicate a tab: the copy opens right after it, in the background, so Tabazing stays open and shows it. In its group
+// too, as Chrome's own Duplicate does (Chrome leaves a tab opened after a group's last one outside it).
 async function duplicateTab(tab) {
-  await chrome.tabs.create({ url: urlOf(tab), windowId: tab.windowId, index: tab.index + 1, active: false, pinned: !!tab.pinned, openerTabId: tab.id });
+  const copy = await chrome.tabs.create({ url: urlOf(tab), windowId: tab.windowId, index: tab.index + 1, active: false, pinned: !!tab.pinned, openerTabId: tab.id });
+  if (tab.groupId >= 0 && !tab.pinned && copy && copy.groupId !== tab.groupId && chrome.tabs.group) await chrome.tabs.group({ tabIds: copy.id, groupId: tab.groupId }).catch(() => {});
   await reload();
   toast(translate('duplicatedOne', { title: tab.title || siteOf(urlOf(tab)) }));
 }
@@ -3646,15 +3660,15 @@ async function archiveTabs(tabs) {
   const tabIds = reopenableTabs.map((x) => x.id);
   const includesOwnTab = CONTEXT.mode === 'overlay' && tabIds.includes(CONTEXT.sourceTab); // closing the tab we sit on closes us: do it last
   await chrome.tabs.remove(tabIds.filter((id) => !includesOwnTab || id !== CONTEXT.sourceTab)).catch(() => {});
-  state.picked.clear();
   if (includesOwnTab) return chrome.tabs.remove(CONTEXT.sourceTab);
-  tabIds.forEach((id) => forgetTab(id));
-  toast(translate('archivedCount', { count: added.length }), null, { label: translate('undo'), run: () => unarchive(added, undo) });
+  const closedAt = Date.now();
+  tabIds.forEach((id) => forgetTab(id)); // (their ticks go with them; the other cards keep theirs)
+  toast(translate('archivedCount', { count: added.length }), null, { label: translate('undo'), run: () => unarchive(added, undo, closedAt) });
 }
-// Undo an archive: out of the folder, and the tabs back where they were.
-async function unarchive(added, group) {
+// Undo an archive: out of the folder, and the tabs back where they were (with their history, as a closing's Undo).
+async function unarchive(added, group, closedAt) {
   await removeArchived(added.map((x) => x.id));
-  await reopenAt(group);
+  await reopenAt(group, closedAt);
   toast(translate('reopenedCount', { count: group.length }));
   await reload();
 }
@@ -7286,8 +7300,9 @@ function onKeyDown(event) {
   if ((event.ctrlKey || event.metaKey) && event.code === 'KeyF') { event.preventDefault(); elements.search.focus(); elements.search.select(); return; }
   // Ctrl+K (⌘K): the command palette (Esc comes back here).
   if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.code === 'KeyK') { event.preventDefault(); if (!event.repeat) openPalette({ from: 'switcher' }); return; }
-  // Ctrl+Z undoes what was last done here: a close, a merge, a move (in a search box with text, it stays the box's own undo).
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.code === 'KeyZ' && !elements.search.value) { event.preventDefault(); if (!event.repeat) undoLast(); return; }
+  // Ctrl+Z does what the shown note's Undo does (a snooze, an archive...); without one, it takes back the last close,
+  // merge or move. In a search box with text and no note offering Undo, it stays the box's own undo.
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.code === 'KeyZ' && (!elements.search.value || (toastAction && !elements.toast.hidden))) { event.preventDefault(); if (!event.repeat && !toastUndo()) undoLast(); return; }
   // Ctrl+Space (⌘Space) ticks or unticks the selected card; Space alone is its big preview.
   if (key === ' ' && (event.ctrlKey || event.metaKey) && !event.altKey) {
     event.preventDefault();
@@ -7881,7 +7896,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  timings, prepare, showPrepared, sortByUse, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, prepare, showPrepared, sortByUse, rangeIds, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,
