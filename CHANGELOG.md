@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.5] - 2026-10-23
+
+### Fixed
+
+- Alt+Q / Alt+W went to the wrong tab most of the time (since 6.17.4): Tabazing started from the order your tabs were in when it drew them ahead, not from the order they are in now. Alt+W goes to the tab you used just before again, and Alt+Q to the one used longest ago, however quickly you switch.
+
 ## [6.17.4] - 2026-10-22
 
 ### Changed
@@ -714,7 +720,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...HEAD
+[6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...HEAD
+[6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...48c4298
 [6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...a984f93
 [6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...2879214
 [6.17.1]: https://github.com/maxiikk/tabazing/compare/64d77a9...0876167

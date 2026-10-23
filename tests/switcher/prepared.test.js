@@ -82,6 +82,27 @@ describe('prepared frame', () => {
     expect(selectedTitle()).toBe('Bravo');
   });
 
+  it('tabs used since it was drawn: Alt+W selects the one used just before this one, as of the launch', async () => {
+    const { made, launch } = await loadPrepared();
+    await chrome.storage.session.set({ mru: [made[0].id, made[1].id, made[2].id] });
+    switcher.state.tabs.sort((first, second) => first.index - second.index); // drawn by that order: Alpha, Bravo, Charlie
+    await chrome.storage.session.set({ mru: [made[0].id, made[2].id, made[1].id] }); // then Charlie, and back to Alpha
+    await launch({ hold: true, direction: 1 });
+    expect(selectedTitle()).toBe('Charlie'); // already when it shows
+    await waitFor(() => !switcher.state.holding || titles()[1] === 'Charlie');
+    expect(titles()).toEqual(['Alpha', 'Charlie', 'Bravo']);
+    expect(selectedTitle()).toBe('Charlie');
+  });
+
+  it('the first card is picked again from what is read after the launch (a tab it has not drawn)', async () => {
+    const { made, launch } = await loadPrepared();
+    const delta = chrome._addTab({ windowId: 1, title: 'Delta', url: 'https://delta.example/' }); // opened, used, and back
+    await chrome.storage.session.set({ mru: [made[0].id, delta.id, made[1].id, made[2].id] });
+    await launch({ hold: true, direction: 1 });
+    await waitFor(() => selectedTitle() === 'Delta');
+    expect(titles()).toEqual(['Alpha', 'Delta', 'Bravo', 'Charlie']);
+  });
+
   it('Alt+E (direction 0) selects the current tab', async () => {
     const { launch } = await loadPrepared();
     await launch({ direction: 0 });

@@ -250,6 +250,14 @@ const PREFERENCES_FALLBACK = {
 // nothing animates. For slow computers and windows with hundreds of tabs.
 const isLite = () => preference('lite') === true;
 const readPreviews = (urls) => (isLite() ? Promise.resolve({}) : getPreviews(urls));
+// By recent use (`mru`: tab ids, most recent first), the current tab first of all; then by window and position.
+function sortByUse(tabs, mru) {
+  const rank = new Map(mru.map((id, i) => [id, i]));
+  const rankOf = (tab) => (tab.id === CONTEXT.sourceTab ? -1 : rank.has(tab.id) ? rank.get(tab.id) : Infinity);
+  const inSourceWindow = (tab) => (tab.windowId === CONTEXT.sourceWindow ? 0 : 1);
+  return tabs.sort((firstTab, secondTab) => rankOf(firstTab) - rankOf(secondTab) || inSourceWindow(firstTab) - inSourceWindow(secondTab) || firstTab.windowId - secondTab.windowId || firstTab.index - secondTab.index);
+}
+
 async function load(preferences = null, { previews = true } = {}) {
   const preferencesRead = preferences ? Promise.resolve(preferences) : getPreferences().catch(() => PREFERENCES_FALLBACK);
   const tabsRead = preferencesRead.then((resolvedPreferences) => chrome.tabs.query(resolvedPreferences.allWindows ? { windowType: 'normal' } : { windowId: CONTEXT.sourceWindow }));
@@ -290,12 +298,7 @@ async function load(preferences = null, { previews = true } = {}) {
     state.collapsed = new Set(view.collapsed);
   }
   // This window, or all of them (Settings); Tabazing's own pages left out.
-  const tabs = allTabs.filter((tab) => !isOwnUrl(urlOf(tab)));
-
-  const rank = new Map(mru.map((id, i) => [id, i]));
-  const rankOf = (tab) => (tab.id === CONTEXT.sourceTab ? -1 : rank.has(tab.id) ? rank.get(tab.id) : Infinity);
-  const inSourceWindow = (tab) => (tab.windowId === CONTEXT.sourceWindow ? 0 : 1);
-  tabs.sort((firstTab, secondTab) => rankOf(firstTab) - rankOf(secondTab) || inSourceWindow(firstTab) - inSourceWindow(secondTab) || firstTab.windowId - secondTab.windowId || firstTab.index - secondTab.index);
+  const tabs = sortByUse(allTabs.filter((tab) => !isOwnUrl(urlOf(tab))), mru);
   state.tabs = tabs;
 
   // Hand each tab the preview for its current URL. The tabs of each address are kept, for a preview saved
@@ -7732,12 +7735,16 @@ async function showPrepared(preparedPreferences) {
   watchVisibility();
   refreshing = true;
   const drawn = drawnSignature();
+  // The order of use as it is now: switching to this tab since it was drawn changed it, and Alt+Q / Alt+W start from it.
+  const mru = await getMru().catch(() => null);
+  if (mru) { sortByUse(state.tabs, mru); derive(); }
   leaveGroupIfElsewhere();
   const at = firstSelection(); // (may open a section, to select a card in it)
   if (drawnSignature() !== drawn) refresh({ keepKey: (state.entries[at] || {}).key });
   else if (CONTEXT.hold) relayout(); // (html.alttab hides the search box)
   if (CONTEXT.palette) openPalette({ from: 'shortcut' });
   else select(at, { scroll: true });
+  const shownAt = CONTEXT.palette ? -1 : state.selected;
   tellReady();
   window.focus();
   (state.palette ? elements.paletteInput : elements.search).focus({ preventScroll: true });
@@ -7747,10 +7754,12 @@ async function showPrepared(preparedPreferences) {
     const settingsChanged = JSON.stringify(preferences) !== JSON.stringify(preparedPreferences);
     if (settingsChanged) await applySettings(preferences);
     const before = drawnSignature();
-    const selectedKey = (state.entries[state.selected] || {}).key;
+    const shownKey = (state.entries[state.selected] || {}).key;
     await load(preferences);
     derive();
-    if (settingsChanged || drawnSignature() !== before) refresh({ keepKey: selectedKey });
+    // Keys wait meanwhile, so the first card is still selected (unless the mouse moved on): picked again from what was just read.
+    const selectedKey = state.selected === shownAt ? (state.entries[firstSelection()] || {}).key : shownKey;
+    if (settingsChanged || drawnSignature() !== before || selectedKey !== shownKey) refresh({ keepKey: selectedKey });
   } catch {}
   refreshMedia();
   refreshing = false;
@@ -7869,7 +7878,7 @@ export {
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
   settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
   altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
-  timings, prepare, showPrepared, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
+  timings, prepare, showPrepared, sortByUse, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,
   firstShown, loadSnoozePreviews, shots, shotImage, redrawCards, redraw, topOf, cardList, selectedCard, cardAt,
