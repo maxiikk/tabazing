@@ -148,4 +148,18 @@ describe('prepared frame', () => {
     release();
     await waitFor(() => selectedTitle() === 'Bravo');
   });
+
+  it('Alt+W, W while it opened, then Alt let go: the second press counts before the release (lands on Charlie)', async () => {
+    const { parent, made, launch } = await loadPrepared();
+    let answerReady;
+    chrome.runtime.sendMessage.mockImplementation(async (message) => (message && message.type === MESSAGE.READY ? new Promise((resolve) => { answerReady = resolve; }) : undefined));
+    await launch({ hold: true, direction: 1 });
+    window.dispatchEvent(new MessageEvent('message', { data: { tabazing: 'released' }, source: parent })); // Alt let go in the page
+    await waitFor(() => answerReady);
+    await tick(20);
+    expect(chrome.tabs.update).not.toHaveBeenCalled();
+    answerReady({ extra: 1 }); // the background kept the second W, pressed before the switcher could take it
+    await waitFor(() => chrome.tabs.update.mock.calls.length > 0);
+    expect(chrome.tabs.update).toHaveBeenCalledWith(made[2].id, { active: true });
+  });
 });

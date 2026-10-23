@@ -246,6 +246,17 @@ describe('Alt+Q / Alt+W (Alt held)', () => {
     expect(switcher.state.done).toBe(false);
   });
 
+  // ids by creation: A 1, W1 2, W2 3, B 4. From A, W1 was used before it; from W2 (on its group's tile), A was.
+  it.each([['A', [1, 2, 4], 1], ['W2', [3, 1, 2], -1]])('letting go of Alt on a tile selects the first of the group\'s cards (from %s)', async (active, mru, direction) => {
+    const switcher = await boot({ tabs: STRIP(active), context: { hold: true, direction }, beforeImport: async () => { await two().beforeImport(); await session.set({ mru }); } });
+    if (active === 'W2') switcher.cyclePress(1); // from the card before the tile, back onto it
+    expect(selectedLabel(switcher)).toBe('G' + GROUP);
+    switcher.altReleased();
+    await waitFor(() => switcher.state.inGroup === GROUP);
+    expect(switcher.state.selected).toBe(0);
+    expect(selectedLabel(switcher)).toBe(kinds(switcher)[0]);
+  });
+
   it('inside a group they step through its tabs; letting go switches to that tab', async () => {
     const switcher = await boot({ tabs: STRIP('W1'), context: { hold: true, direction: 1 }, ...two({ inside: GROUP }) });
     expect(switcher.state.inGroup).toBe(GROUP);

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.17.6] - 2026-10-23
+
+### Fixed
+
+- Opening a tab group with Alt+Q / Alt+W (letting go of Alt on its tile) selected its second tab instead of its first when you were on one of its tabs, or when the cards were not sorted by recent use. It now always selects the first.
+- Pressing Alt+W twice very quickly and letting go could switch to the first tab instead of the second: a press made while Tabazing was still opening now always counts before letting go of Alt.
+
 ## [6.17.5] - 2026-10-23
 
 ### Fixed
@@ -720,7 +727,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...HEAD
+[6.17.6]: https://github.com/maxiikk/tabazing/compare/49d059d...HEAD
+[6.17.5]: https://github.com/maxiikk/tabazing/compare/48c4298...49d059d
 [6.17.4]: https://github.com/maxiikk/tabazing/compare/a984f93...48c4298
 [6.17.3]: https://github.com/maxiikk/tabazing/compare/2879214...a984f93
 [6.17.2]: https://github.com/maxiikk/tabazing/compare/0876167...2879214

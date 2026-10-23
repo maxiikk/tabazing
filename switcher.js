@@ -1778,8 +1778,8 @@ async function choose(i) {
   }
 }
 
-// Into a tab group (its tile): the cards show only its tabs, remembered for every open until it is left. The
-// group's most recently used tab other than the current one is selected (Enter goes back to where you were).
+// Into a tab group (its tile): the cards show only its tabs, remembered for every open until it is left. Its first
+// card is selected, as shown (by recent use: the current tab when it is in the group, else the one used last).
 async function enterGroup(id) {
   if (state.done || !state.groups.has(id)) return;
   stopHolding();
@@ -1790,9 +1790,7 @@ async function enterGroup(id) {
   state.dropdown.hidden = true;
   await setGroup(id).catch(() => {});
   if (state.done) return;
-  const recent = state.tabs.filter((x) => x.groupId === id);
-  const pick = recent.find((x) => x.id !== CONTEXT.sourceTab) || recent[0];
-  refresh({ keepKey: pick ? 't' + pick.id : '-' });
+  refresh({ keepKey: '-' }); // (no card has that key: the first is selected)
   toTop();
   elements.search.focus({ preventScroll: true });
   elements.live.textContent = translate('groupEntered', { name: groupName(state.groups.get(id)), tabs: translate('tabs', { count: state.matchCount }) });
@@ -7365,8 +7363,11 @@ function cyclePress(direction, hold = true) {
   cycle(direction);
 }
 // Alt was let go: here, or in the page before the switcher had the focus (FRAME_MESSAGE.RELEASED).
+// The presses made while it was opening (handOver) come first: Alt+W, W, let go switches to the second card.
+let handedOver = false, releaseWaiting = false;
 function altReleased() {
   if (!state.holding) return;
+  if (!handedOver) { releaseWaiting = true; return; }
   if (state.modal || document.querySelector('.big-backdrop') || archiveOpen() || historyOpen() || bookmarksOpen() || drawerOpen() || backupOpen() || settingsOpen() || elements.search.value || !state.entries.length) return stopHolding();
   state.holding = false;
   keysAllowed() ? choose(state.selected) : finish('cancel');
@@ -7779,6 +7780,8 @@ async function handOver() {
     if (response && response.stay === true) stopHolding();
     if (response && response.palette === true) openPalette({ from: state.palette ? state.palette.from : 'switcher' });
   } catch {}
+  handedOver = true;
+  if (releaseWaiting) { releaseWaiting = false; altReleased(); }
 }
 
 // A frame (or window) launched without being prepared: everything is read and drawn now.
