@@ -1,10 +1,10 @@
 # Tabazing
 
-**Alt+Tab for Chrome tabs.** Tabazing shows every open tab as a card with a live preview of the page, so you can see where you are going before you get there. Hold Alt and tap Q to flick between tabs, or open it and type to find any tab, a tab you closed earlier, a bookmark or a page from your history. It also stars, notes, snoozes, archives, sleeps, mutes and tidies tabs, one at a time or many at once.
+**Alt+Tab for your browser tabs, in Chrome and Firefox.** Tabazing shows every open tab as a card with a live preview of the page, so you can see where you are going before you get there. Hold Alt and tap Q to flick between tabs, or open it and type to find any tab, a tab you closed earlier, a bookmark or a page from your history. It also stars, notes, snoozes, archives, sleeps, mutes and tidies tabs, one at a time or many at once.
 
-Everything stays on your computer. Previews, notes, stars and settings are stored locally by Chrome; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
+Everything stays on your computer. Previews, notes, stars and settings are stored locally by the browser; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
 
-Current version: **6.18.2** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.19.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -23,7 +23,7 @@ Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
 ## Installation
 
-Tabazing needs **Chrome 123 or later**.
+Tabazing runs in **Chrome 123 or later** and **Firefox 140 or later** ([Firefox](#firefox) below). This guide says "Chrome" for both where they work the same.
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode** (top right).
@@ -35,6 +35,19 @@ Right after installing, a small card on the page you are on says "Tabazing is re
 **Changing the shortcuts:** go to `chrome://extensions/shortcuts`, or open Tabazing → **Settings** → **Shortcuts**, which shows the key each command has now and a **Change** button that takes you there. If another app or extension already uses Alt+Q, Chrome leaves it unassigned. Tabazing then shows a warning with a button that takes you to that page. On ordinary web pages Alt+Q still works, because the page itself listens for it.
 
 Tabazing does not run in Incognito windows.
+
+### Firefox
+
+1. Build the Firefox copy: `npm install` once, then `npm run firefox`. It writes `dist/firefox/` (the extension, with Firefox's own manifest) and `dist/tabazing-firefox-<version>.zip` (the file for [addons.mozilla.org](https://addons.mozilla.org)).
+2. To try it: open `about:debugging` → **This Firefox** → **Load Temporary Add-on…** and choose `dist/firefox/manifest.json` (Firefox forgets a temporary add-on when it closes; an installed one comes from the signed zip).
+3. Change the shortcuts at `about:addons` → ⚙ → **Manage Extension Shortcuts**, or from Tabazing → **Settings** → **Shortcuts** → **Change**, which opens that dialog.
+
+Everything works as in Chrome, over the page and in its own window, with these differences, all Firefox's rules:
+
+- **The command palette** offers only what Firefox lets an extension open: its keyboard shortcuts dialog. Firefox refuses extensions every `about:` page (settings, add-ons, downloads, passwords, clearing data), so those actions aren't offered; **History** and **Bookmarks** open Tabazing's own History and Bookmarks views, and the History view has no **Clear browsing data** button.
+- **Site icons:** Firefox gives extensions no icon service, so Tabazing keeps each site's icon itself, from your tabs (the 1000 most recently seen sites, as small pictures, with your other data). A page from a site you haven't had open since shows a plain globe.
+- **Previews** are taken by Firefox as in Chrome: the tab on screen only.
+- In Firefox the texts say "Firefox", "private window" and "Firefox Add-ons" where Chrome's say "Chrome", "Incognito window" and "Chrome Web Store".
 
 ---
 
@@ -532,6 +545,14 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 
 The extension itself has no build step and no runtime dependencies. Load the folder unpacked (see [Installation](#installation)); after editing, click the reload button on Tabazing's card at `chrome://extensions`. Reload the extension after a change to `manifest.json` permissions; Chrome only grants new permissions then.
 
+**Firefox** runs the same code from `dist/firefox/` (`npm run firefox`, `scripts/firefox.js`), whose only difference is its manifest: the background as a script (Firefox has no extension service workers), Firefox's own settings (`browser_specific_settings`), and nothing only Chrome knows. In the code:
+
+- `utils/browser.js` says which browser it is and holds what differs (the extension's origin, the bookmark folders' ids, closing times in seconds or milliseconds).
+- Firefox gives the switcher framed in a page only a content script's APIs (no tabs, windows, history, bookmarks, no `storage.session`) and lets no background broadcast reach it: `utils/api-bridge.js` puts the missing calls in place, made by the background through a port (`callBridged` in `background.js`, only those on its list). A call the switcher starts making must be added to `BRIDGED_CALLS`.
+- Firefox can't tell a frame whether it is visible (IntersectionObserver v2): the page's overlay host checks it and tells the switcher (`FRAME_MESSAGE.VISIBLE`, with the launch token).
+- Site icons come from `utils/favicons.js` (Chrome's are its `/_favicon/` page).
+- `{browser}` in a message is the browser's name, filled in by `translate()` itself.
+
 ### Layout
 
 - The root holds `manifest.json`, the service worker (`background.js`), the content scripts (`hotkey.js`, `media-hook.js`, `media-relay.js`) and each page's script (`switcher.js`, `sweep.js`).
@@ -550,6 +571,8 @@ npm install                              # once
 npm test                                 # run everything
 npx vitest run tests/switcher/archive    # run part of it
 npm run test:watch                       # re-run on change
+npm run test:e2e                         # in real Chrome (Chrome for Testing)
+npm run test:firefox                     # in real Firefox (the one installed; FIREFOX_PATH to choose another)
 ```
 
 - `tests/` mirrors the source: `tests/utils/<module>.test.js`, `tests/background*.test.js`, `tests/switcher/<area>.test.js`, `tests/scripts/<script>.test.js`, `tests/hotkey.test.js`, `tests/media-hook.test.js`, `tests/media-relay.test.js`, `tests/sweep-page.test.js`. Shared test code lives in `tests/helpers/` (and `tests/e2e/helpers/` for the real-browser tests).

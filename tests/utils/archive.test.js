@@ -28,7 +28,7 @@ describe('archiveFolder', () => {
     chrome._addBookmark({ parentId: '1', title: ARCHIVE_FOLDER });
     expect(await archiveFolder()).toBe(null);
   });
-  it('prefers the folder typed "other", then id "2", then the second root child', async () => {
+  it('prefers the folder typed "other", then id "2" (Firefox: "unfiled_____"), then the second root child', async () => {
     let roots;
     chrome.bookmarks.getChildren.mockImplementation(async (id) => (id === '0' ? roots : []));
     const tree = (kids) => { roots = kids; };

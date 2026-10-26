@@ -18,13 +18,17 @@
 //     action keys close it instead of acting on something you can't see;
 //   - all page-provided text (titles, URLs) is rendered with textContent.
 
+// First: in Firefox's overlay the APIs this page lacks are put in place before any module uses them (utils/api-bridge.js).
+import { onBackgroundMessage, onStorageChange } from './utils/api-bridge.js';
 import { MESSAGE, KEY, FRAME_MESSAGE, LIMITS, REVIEW_URL, REPO_URL, siteUrl } from './utils/constants.js';
-import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPreferences, updatePreferences, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBookmarkNotes, putBookmarkNotes, setBookmarkNote, checkStandby } from './utils/store.js';
+import { getNoCapture, getMru, getPreviews, getClosedLog, getSlept, consumeLaunch, getReview, updateReview, getOnboard, updateOnboard, getCaptureNote, getStars, toggleStar, getNotes, setNote, getSharpPreview, getSnoozed, addSnoozed, removeSnoozed, getWoken, getView, updateView, setResume, takeResume, getPreferences, updatePreferences, getPaletteRecent, notePaletteRecent, getGroup, setGroup, getClosedHidden, hideClosed, closedKey, getBookmarkNotes, putBookmarkNotes, setBookmarkNote, checkStandby, getFavicons } from './utils/store.js';
 import { reviewPrompt, dayOf } from './utils/review.js';
 import { timeAgo, localizePage, setLang, languageLoaded, uiLang, isRtl } from './utils/i18n.js';
 import { translate, getLocale, setLocale } from './utils/translations.js';
 import { isOwnUrl, normalizeUrl, isWorthReopening, isCapturableUrl } from './utils/extension.js';
 import { applyAccent, ACCENTS } from './utils/accent.js';
+import { faviconHost } from './utils/favicons.js';
+import { IS_FIREFOX, closedTime, folderTypeOf, topFolder } from './utils/browser.js';
 // What each of ACCENTS is called (Settings reads it out): settingsAccentName's choices, in the same order.
 const ACCENT_NAMES = ['sky', 'teal', 'green', 'yellow', 'orange', 'red', 'pink', 'lavender'];
 import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './utils/archive.js';
@@ -105,6 +109,7 @@ const state = {
   cardSize: 'default', // Settings: 'default' | 'small' | 'list' cards
   starOnly: false, // the Starred filter is on
   stars: {},       // normalized URL -> { u, ti, t } starred pages
+  favicons: {},    // Firefox: host -> its icon, a data: URL (utils/favicons.js)
   notes: {},       // normalized URL -> { u, n, t } notes on tabs
   allWindows: false, // Settings: show the tabs of every window (else only the one Tabazing was opened in)
   otherWindows: [], // ids of the other normal windows ("Merge" pulls their tabs in)
@@ -219,7 +224,10 @@ const ICON = {
 
 // ---------------------------------------------------------------- helpers
 const urlOf = (tab) => (tab && (tab.url || tab.pendingUrl)) || '';
-const favicon = (url) => chrome.runtime.getURL('/_favicon/') + '?pageUrl=' + encodeURIComponent(url) + '&size=32';
+// A page's icon: Chrome's favicon service; in Firefox, the one the background kept for its site (utils/favicons.js),
+// else a plain globe.
+const FALLBACK_FAVICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="#8d98ab" stroke-width="1.2"><circle cx="8" cy="8" r="6.4"/><path d="M1.6 8h12.8M8 1.6c1.9 1.8 2.9 4 2.9 6.4S9.9 12.6 8 14.4C6.1 12.6 5.1 10.4 5.1 8S6.1 3.4 8 1.6z"/></svg>');
+const favicon = (url) => (IS_FIREFOX ? state.favicons[faviconHost(url)] || FALLBACK_FAVICON : chrome.runtime.getURL('/_favicon/') + '?pageUrl=' + encodeURIComponent(url) + '&size=32');
 function hostOf(url) {
   try { const parsedUrl = new URL(url); return parsedUrl.host || parsedUrl.protocol.replace(':', ''); } catch { return ''; }
 }
@@ -278,6 +286,7 @@ async function load(preferences = null, { previews = true } = {}) {
     getWoken().catch(() => ({})),
     chrome.tabGroups ? chrome.tabGroups.query({}).catch(() => []) : [],
     getGroup().catch(() => null),
+    IS_FIREFOX ? getFavicons().catch(() => ({})).then((favicons) => { state.favicons = favicons; }) : null, // (Firefox: the sites' icons)
   ]);
   preferences = { ...PREFERENCES_FALLBACK, ...(await preferencesRead) };
   state.groups = new Map(groups.map((tabGroup) => [tabGroup.id, tabGroup]));
@@ -401,7 +410,7 @@ async function loadClosed(before) {
   ]);
   state.closedHidden = hidden;
   const now = Date.now();
-  const stamp = (session) => (session.lastModified > 0 ? session.lastModified * 1000 : 0); // 0 = Chrome gave no time (e.g. some closed windows)
+  const stamp = closedTime; // 0 = no time given (e.g. some closed windows)
   const rank = (closedEntry) => closedEntry.timestamp || now;                                         // ...which we treat as "just now" for sorting
 
   const items = [];
@@ -2165,8 +2174,8 @@ async function reopenAt(group, at = 0) {
   const hidden = {}; // Chrome's entries for tabs opened afresh instead
   for (const x of [...group].sort((firstTab, secondTab) => firstTab.index - secondTab.index)) {
     const session = sessions.find((session) => session.tab && !used.has(session.tab.sessionId) && normalizeUrl(urlOf(session.tab)) === normalizeUrl(x.url)
-      && Math.abs((session.lastModified || 0) * 1000 - at) <= UNDO_SESSION_MILLISECONDS);
-    if (session && CONTEXT.mode === 'overlay' && x.windowId === CONTEXT.sourceWindow) { used.add(session.tab.sessionId); hidden[closedKey({ url: x.url })] = session.lastModified * 1000; }
+      && Math.abs(closedTime(session) - at) <= UNDO_SESSION_MILLISECONDS);
+    if (session && CONTEXT.mode === 'overlay' && x.windowId === CONTEXT.sourceWindow) { used.add(session.tab.sessionId); hidden[closedKey({ url: x.url })] = closedTime(session); }
     else if (session) {
       used.add(session.tab.sessionId);
       asking = true; // Chrome shows the restored tab for a moment: that is not the user leaving
@@ -2358,7 +2367,7 @@ async function loadMarks() {
     state.bookmarkNotes = bookmarkNotes;
     // Archived tabs have their own section: leave out the "Tabs Archive" folder in "Other bookmarks" (as utils/archive.js finds it).
     const kids = (tree[0] && tree[0].children) || [];
-    const other = kids.find((node) => node.folderType === 'other') || kids.find((node) => node.id === '2') || kids[1] || kids[0];
+    const other = topFolder(kids, 'other') || kids[1] || kids[0];
     const archiveFolder = other && (other.children || []).find((node) => !node.url && node.title === ARCHIVE_FOLDER);
     const walk = (node, path) => {
       if (archiveFolder && node.id === archiveFolder.id) return;
@@ -4200,8 +4209,9 @@ async function openHistory() {
   const clear = makeElement('button', 'action', null, 'history-clear-data');
   clear.type = 'button';
   clear.append(svgOf(ICON.eraser), makeElement('span', '', translate('historyClearData'), 'history-clear-data-label'));
-  clear.title = 'chrome://settings/clearBrowserData';
-  clear.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) chromePage('chrome://settings/clearBrowserData')(); });
+  clear.title = browserPage('clearData') || '';
+  clear.hidden = !browserPage('clearData'); // (Firefox lets no extension open its privacy settings)
+  clear.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) chromePage(browserPage('clearData'))(); });
   const selectionBar = makeElement('div', 'bookmarks-view-selected', null, 'history-selection');
   const selectedCount = makeElement('span', '', '', 'history-selected');
   const picked = () => state.historyView.items.filter((entry) => state.historyView.picked.has(entry.key));
@@ -4766,13 +4776,15 @@ async function openBookmarks() {
 function bookmarksViewIndex(bookmarksView, tree) {
   bookmarksView.byId = new Map();
   bookmarksView.tops = [];
+  const rootId = tree[0] && tree[0].id; // ('0' in Chrome, 'root________' in Firefox)
   const walk = (rawNode) => {
-    const node = { id: rawNode.id, parentId: rawNode.parentId, title: rawNode.title || '', url: rawNode.url || '', dateAdded: rawNode.dateAdded || 0, top: rawNode.parentId === '0', fixed: rawNode.parentId === '0' || !!rawNode.unmodifiable, kids: [] };
+    const top = rawNode.parentId === rootId;
+    const node = { id: rawNode.id, parentId: rawNode.parentId, title: rawNode.title || '', url: rawNode.url || '', dateAdded: rawNode.dateAdded || 0, top, type: top ? folderTypeOf(rawNode) : null, fixed: top || !!rawNode.unmodifiable, kids: [] };
     bookmarksView.byId.set(rawNode.id, node);
     for (const child of rawNode.children || []) { node.kids.push(child.id); walk(child); }
   };
   for (const top of (tree[0] && tree[0].children) || []) { bookmarksView.tops.push(top.id); walk(top); }
-  const other = bookmarksView.tops.map((id) => bookmarksView.byId.get(id)).find((node) => /other/i.test(node.title)) || bookmarksView.byId.get('2');
+  const other = bookmarksView.tops.map((id) => bookmarksView.byId.get(id)).find((node) => node.type === 'other');
   for (const id of (other && other.kids) || []) { const node = bookmarksView.byId.get(id); if (node && !node.url && node.title === ARCHIVE_FOLDER) node.archive = true; }
   // the same address bookmarked more than once (Duplicates), by its normalized address
   const by = new Map();
@@ -6034,6 +6046,29 @@ const isWeb = (tab) => /^(https?|file):/i.test(urlOf(tab));
 const staleTabs = () => state.tabs.filter((x) => !x.active && !x.discarded && x.lastAccessed > 0 && Date.now() - x.lastAccessed >= 7 * DAY_MILLISECONDS && !state.toSleep.has(x.id));
 const otherTabs = () => state.tabs.filter((x) => x.windowId === CONTEXT.sourceWindow && x.id !== CONTEXT.sourceTab && !x.pinned);
 const chromePage = (url) => () => openPage(url);
+// The browser's own pages, [Chrome's, Firefox's]. Firefox lets no extension open any of its own (about:preferences,
+// about:addons... are "illegal" addresses for one): its palette offers only what works there. The shortcuts have a
+// dialog of their own (openShortcutSettings), History and Bookmarks open Tabazing's views (paletteViewInstead).
+const BROWSER_PAGES = {
+  settings: ['chrome://settings', null],
+  extension: ['chrome://extensions/?id=' + chrome.runtime.id, null],
+  extensions: ['chrome://extensions', null],
+  shortcuts: ['chrome://extensions/shortcuts', 'about:addons'],
+  history: ['chrome://history', null],
+  downloads: ['chrome://downloads', null],
+  bookmarks: ['chrome://bookmarks', null],
+  clearData: ['chrome://settings/clearBrowserData', null],
+  passwords: ['chrome://password-manager/passwords', null],
+};
+const browserPage = (name) => BROWSER_PAGES[name][IS_FIREFOX ? 1 : 0];
+// A palette action that opens one of them, its address as its second line; offered only where the browser lets it.
+const pageAction = (name, action) => ({ group: 'chrome', after: 'close', subtitle: () => browserPage(name), run: chromePage(browserPage(name)), when: () => !!browserPage(name), ...action });
+const paletteViewInstead = (name, open) => (browserPage(name) ? {} : { subtitle: () => 'Tabazing', run: open, after: 'switcher', opensView: true, when: () => true });
+// Where the extension shortcuts are changed: Chrome's page; Firefox's dialog for them (about:addons, where it has none).
+function openShortcutSettings() {
+  if (IS_FIREFOX && chrome.commands && typeof chrome.commands.openShortcutSettings === 'function') { chrome.commands.openShortcutSettings().catch(() => {}); return finish('switch'); }
+  return openUrl(browserPage('shortcuts'));
+}
 const isFullscreen = () => CONTEXT.sourceState === 'fullscreen'; // the window Tabazing was opened from, as it opened
 
 // Every action. `title` and `kw` (words it is also found by) are messages; `when`: offered only then;
@@ -6051,16 +6086,15 @@ const PALETTE_ACTIONS = [
       await chrome.sessions.restore(); // the most recently closed tab or window, with its history
       finish('restore');
     } },
-  { id: 'chrome-settings', group: 'chrome', icon: 'gear', after: 'close', title: () => translate('paletteChromeSettings'), keywords: () => translate('paletteKeywordsChromeSettings'), subtitle: () => 'chrome://settings', run: chromePage('chrome://settings') },
-  { id: 'ext-page', group: 'chrome', icon: 'puzzle', after: 'close', title: () => translate('paletteExtensionPage'), keywords: () => translate('paletteKeywordsExtensionPage'), subtitle: () => 'chrome://extensions/?id=' + chrome.runtime.id,
-    run: () => openPage('chrome://extensions/?id=' + chrome.runtime.id) },
-  { id: 'extensions', group: 'chrome', icon: 'puzzle', after: 'close', title: () => translate('paletteExtensions'), keywords: () => translate('paletteKeywordsExtensions'), subtitle: () => 'chrome://extensions', run: chromePage('chrome://extensions') },
-  { id: 'chrome-shortcuts', group: 'chrome', icon: 'keyboard', after: 'close', title: () => translate('paletteChromeShortcuts'), keywords: () => translate('paletteKeywordsChromeShortcuts'), subtitle: () => 'chrome://extensions/shortcuts', run: chromePage('chrome://extensions/shortcuts') },
-  { id: 'history', group: 'chrome', icon: 'visited', after: 'close', title: () => translate('paletteHistory'), keywords: () => translate('paletteKeywordsHistory'), subtitle: () => 'chrome://history', run: chromePage('chrome://history') },
-  { id: 'downloads', group: 'chrome', icon: 'download', after: 'close', title: () => translate('paletteDownloads'), keywords: () => translate('paletteKeywordsDownloads'), subtitle: () => 'chrome://downloads', run: chromePage('chrome://downloads') },
-  { id: 'bookmarks', group: 'chrome', icon: 'bookmark', after: 'close', title: () => translate('paletteBookmarks'), keywords: () => translate('paletteKeywordsBookmarks'), subtitle: () => 'chrome://bookmarks', run: chromePage('chrome://bookmarks') },
-  { id: 'clear-data', group: 'chrome', icon: 'eraser', after: 'close', title: () => translate('paletteClearData'), keywords: () => translate('paletteKeywordsClearData'), subtitle: () => 'chrome://settings/clearBrowserData', run: chromePage('chrome://settings/clearBrowserData') },
-  { id: 'passwords', group: 'chrome', icon: 'key', after: 'close', title: () => translate('palettePasswords'), keywords: () => translate('paletteKeywordsPasswords'), subtitle: () => 'chrome://password-manager/passwords', run: chromePage('chrome://password-manager/passwords') },
+  pageAction('settings', { id: 'chrome-settings', icon: 'gear', title: () => translate('paletteChromeSettings'), keywords: () => translate('paletteKeywordsChromeSettings') }),
+  pageAction('extension', { id: 'ext-page', icon: 'puzzle', title: () => translate('paletteExtensionPage'), keywords: () => translate('paletteKeywordsExtensionPage') }),
+  pageAction('extensions', { id: 'extensions', icon: 'puzzle', title: () => translate('paletteExtensions'), keywords: () => translate('paletteKeywordsExtensions') }),
+  pageAction('shortcuts', { id: 'chrome-shortcuts', icon: 'keyboard', title: () => translate('paletteChromeShortcuts'), keywords: () => translate('paletteKeywordsChromeShortcuts'), run: openShortcutSettings, ...(IS_FIREFOX ? { subtitle: () => 'about:addons' } : {}) }),
+  pageAction('history', { id: 'history', icon: 'visited', title: () => translate('paletteHistory'), keywords: () => translate('paletteKeywordsHistory'), ...paletteViewInstead('history', () => openHistory()) }),
+  pageAction('downloads', { id: 'downloads', icon: 'download', title: () => translate('paletteDownloads'), keywords: () => translate('paletteKeywordsDownloads') }),
+  pageAction('bookmarks', { id: 'bookmarks', icon: 'bookmark', title: () => translate('paletteBookmarks'), keywords: () => translate('paletteKeywordsBookmarks'), ...paletteViewInstead('bookmarks', () => openBookmarks()) }),
+  pageAction('clearData', { id: 'clear-data', icon: 'eraser', title: () => translate('paletteClearData'), keywords: () => translate('paletteKeywordsClearData') }),
+  pageAction('passwords', { id: 'passwords', icon: 'key', title: () => translate('palettePasswords'), keywords: () => translate('paletteKeywordsPasswords') }),
   // The tab Tabazing was opened over
   { id: 'reload', group: 'tab', icon: 'reload', after: 'close', tab: true, title: () => translate('reloadThis'), keywords: () => translate('paletteKeywordsReload'), error: () => translate('errorReload'), run: (tab) => reloadTab(tab) },
   { id: 'duplicate', group: 'tab', icon: 'duplicate', after: 'switcher', tab: true, title: () => translate('duplicateThis'), keywords: () => translate('paletteKeywordsDuplicate'), error: () => translate('errorDuplicate'), run: (tab) => duplicateTab(tab) },
@@ -6547,7 +6581,7 @@ const pageOf = (tab) => ({ title: tab.title || '', url: urlOf(tab) });
 function markFolders(tree) {
   const out = [];
   const tops = (tree[0] && tree[0].children) || [];
-  const other = tops.find((node) => node.folderType === 'other') || tops.find((node) => node.id === '2');
+  const other = topFolder(tops, 'other');
   const archiveFolder = other && (other.children || []).find((node) => !node.url && node.title === ARCHIVE_FOLDER);
   const walk = (node, depth, path) => {
     if (node.url || node.unmodifiable || (archiveFolder && node.id === archiveFolder.id)) return;
@@ -6762,7 +6796,7 @@ async function healthCheck() {
   // Alt+Q itself can be left unassigned by Chrome (another app or extension owns it): say so, with the fix.
   let shortcut = 'assigned';
   try { const command = (await chrome.commands.getAll()).find((x) => x.name === 'open-switcher'); if (command && !command.shortcut) shortcut = 'missing'; } catch {}
-  if (shortcut === 'missing') return showAlert(translate('shortcutMissing'), translate('settingsShortcut'), () => openUrl(SHORTCUTS_URL));
+  if (shortcut === 'missing') return showAlert(translate('shortcutMissing'), translate('settingsShortcut'), openShortcutSettings);
   // Opened with the toolbar icon: the tip about Alt+Q, the first few times only (it has made its point by then).
   if (CONTEXT.via === 'icon' && preference('iconTips') < ICON_TIPS) {
     toast(translate('iconTip', { key: IS_MAC ? 'Option+Q' : 'Alt+Q' }));
@@ -6828,7 +6862,6 @@ const COMMANDS = [
   { name: 'open-switcher-stay', label: 'settingsKeyStay', description: 'commandStay', key: 'E' },
   { name: 'open-palette', label: 'settingsKeyPalette', description: 'commandPalette', key: 'R' },
 ];
-const SHORTCUTS_URL = 'chrome://extensions/shortcuts'; // the only place Chrome lets anyone change them
 const SETTINGS_NARROW_WIDTH = 640; // below this the categories are a row of tabs above the content
 let settingsTab = 'look';
 let settingsAnchor = null; // what opened Settings: it gets the focus back
@@ -7073,7 +7106,7 @@ function settingsPanes(preferences, anchor) {
   const chromeH = makeElement('h3', '', translate('settingsKeysChrome'), 'settings-keys-chrome-title');
   chromeH.id = 'settings-keys-chrome';
   const chromeHead = makeElement('div', 'settings-section-head', null, 'settings-keys-chrome-header');
-  chromeHead.append(chromeH, button('settings-keys-change-all', translate('settingsKeysChangeAll'), 'small', () => openUrl(SHORTCUTS_URL)));
+  chromeHead.append(chromeH, button('settings-keys-change-all', translate('settingsKeysChangeAll'), 'small', openShortcutSettings));
   const commandList = makeElement('ul', 'command-list', null, 'settings-command-list');
   commandList.setAttribute('aria-labelledby', 'settings-keys-chrome');
   const chromeSection = makeElement('section', 'settings-section', null, 'settings-keys-chrome');
@@ -7125,7 +7158,7 @@ function commandRow(command, shortcut) {
   const keys = makeElement('span', 'command-keys', null, 'settings-command-keys');
   if (shortcut) keys.append(...keyCaps(shortcut).map((key) => makeElement('kbd', '', key, 'settings-command-key')));
   else keys.append(makeElement('span', 'command-unset', translate('settingsKeysUnset'), 'settings-command-unset'));
-  const change = button('settings-command-change', translate('settingsKeysChange'), 'small', () => openUrl(SHORTCUTS_URL));
+  const change = button('settings-command-change', translate('settingsKeysChange'), 'small', openShortcutSettings);
   change.setAttribute('aria-label', translate('settingsKeysChangeAria', { name }));
   row.append(text, keys, change);
   return row;
@@ -7514,9 +7547,22 @@ function onKeyUp(event) {
 let visibleSince = 0;   // when the overlay last became fully visible (0 = not visible)
 let everVisible = false;
 let bootedAt = 0;
+// Whether the browser itself can tell if the frame is visible (IntersectionObserver v2: Chrome). Firefox can't: there
+// the page's overlay host checks it and says so (FRAME_MESSAGE.VISIBLE, with the launch token).
+const browserTracksVisibility = () => typeof IntersectionObserverEntry === 'undefined' || 'isVisible' in IntersectionObserverEntry.prototype;
+let launchToken = null; // the overlay's launch token (only its host knows it besides us)
 function watchVisibility() {
   bootedAt = performance.now();
   if (CONTEXT.mode !== 'overlay') return;
+  if (!browserTracksVisibility()) {
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      if (event.source !== window.parent || !data || data.tabazing !== FRAME_MESSAGE.VISIBLE || !launchToken || data.token !== launchToken) return;
+      if (data.visible === true) everVisible = true;
+      visibleSince = data.visible === true ? (visibleSince || performance.now()) : 0;
+    });
+    return;
+  }
   try {
     new IntersectionObserver((entries) => {
       const entry = entries[entries.length - 1];
@@ -7679,7 +7725,7 @@ function listen() {
 
   // Only the background service worker may move the selection (content
   // scripts always have sender.tab; the worker doesn't).
-  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+  onBackgroundMessage((message, sender, respond) => {
     if (state.done || !launched || sender.id !== chrome.runtime.id || sender.tab) return; // (a prepared frame isn't open)
     if (message && message.type === MESSAGE.CYCLE) {
       whenCurrent(() => {
@@ -7700,9 +7746,10 @@ function listen() {
   chrome.tabs.onUpdated.addListener((id, changes) => { if (!state.done && changes && changes.groupId !== undefined) groupsChanged(); });
   // A preview saved while we are open (the current tab's, grabbed just before we opened, is stored as we
   // load): show it on its cards.
-  chrome.storage.onChanged.addListener((changes, area) => {
+  onStorageChange((changes, area) => {
     if (!launched) return;
     if (area === 'session' && changes[KEY.MEDIA] && !state.done) refreshMedia(); // a page started, stopped or changed its media
+    if (area === 'local' && changes[KEY.FAVICONS] && IS_FIREFOX) getFavicons().then((favicons) => { state.favicons = favicons; }).catch(() => {}); // (Firefox: a site's icon kept)
     if (area !== 'local' || state.done) return;
     const hit = [];
     if (changes[KEY.SNOOZED]) { getSnoozed().then((list) => { state.snoozed = list; drawLater(); }).catch(() => {}); }
@@ -7747,7 +7794,7 @@ function getLaunch() {
       if (++attempts > 5) { window.removeEventListener('message', onMessage); return resolve(null); } // someone is guessing
       refreshing = true; // (keys pressed while its token is checked wait for it, and act once it is open)
       const launch = await consumeLaunch(data.token);
-      if (launch && launch.mode === 'overlay') { window.removeEventListener('message', onMessage); resolve(launch); }
+      if (launch && launch.mode === 'overlay') { launchToken = data.token; window.removeEventListener('message', onMessage); resolve(launch); }
       else { refreshing = false; waiting.length = 0; }
     };
     window.addEventListener('message', onMessage);
@@ -8009,8 +8056,8 @@ export {
   whenTapMode, keyRows, ALT, TOUR_ALL, TOUR, tourAt, tourStep, placeTour, endTour, openUrl, reviewDone,
   goReview, askStep1, askStep2, askLater, showAlert, requestHostAccess, missingPreviews, updateSweepButton,
   plainCaptureError, healthCheck, lightMediaQuery, themePreference, applyTheme, openSettings, closeSettings, settingsOpen, settingsSelect, settingsTabKey, settingsLayout, settingsKey, settingsPanes,
-  settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, SHORTCUTS_URL, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
-  altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
+  settingsCommands, settingsDetach, commandRow, keyCaps, COMMANDS, BROWSER_PAGES, browserPage, openShortcutSettings, SETTINGS_NARROW_WIDTH, SETTINGS_CATEGORIES, shortcutSections, firstRun, dialogKey, MODIFIERS,
+  browserTracksVisibility, launchToken, altDown, trackAlt, onKeyDown, cyclePress, altReleased, stopHolding, onKeyUp, visibleSince, everVisible, bootedAt,
   timings, prepare, showPrepared, sortByUse, rangeIds, pageTier, paletteMedia, showDropdownAgain, movePage, dialogSubtitle, ACCENT_NAMES, boot, firstSelection, drawnSignature, applySettings, isLite, applyLite, readPreviews, MANY_CARDS, MANY_CARDS_WIDTH, watchVisibility, pointerAllowed, readyAt, stuckFallback, keysAllowed, listen, getLaunch, syncCombo, focusMark,
   refocus, mouseOnly, toastAction, toastUndo, tipHide, hideTipSoon, updateInert, TABBABLE, tabbables, focusLayer,
   keepFocusIn, menuKeyAt, cardMenu, dialogBack, svgTemplates, svgOf, PREFERENCES_FALLBACK, loadPreviews, FIRST_PREVIEWS,

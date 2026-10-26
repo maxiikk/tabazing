@@ -5,7 +5,7 @@ import { FRAME_MESSAGE } from '../../utils/constants.js';
 import { overlayHost, removeOverlay } from '../../utils/overlay-host.js';
 
 const queryTestId = (id, root = document) => root.querySelector(`[data-testid="${id}"]`);
-beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] }); });
+beforeEach(() => { vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] }); });
 afterEach(() => {
   if (window.__tabazingOverlay) window.__tabazingOverlay.cleanup();
   for (const id of ['overlay-shade', 'overlay-frame']) document.querySelectorAll(`[data-testid="${id}"]`).forEach((element) => element.remove());
@@ -236,6 +236,29 @@ describe('overlayHost', () => {
     expect(post).not.toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
     host('released', 'tok');
     expect(post).toHaveBeenCalledWith({ tabazing: FRAME_MESSAGE.RELEASED }, ORIGIN);
+  });
+
+  it('once shown it tells the frame whether it is really what the page shows, with its token (for Firefox’s guard)', () => {
+    host('launch', 'tok', false);
+    const post = spyPost();
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' });
+    document.elementFromPoint = () => frame();
+    frame().getBoundingClientRect = () => ({ left: 0, top: 0, right: innerWidth, bottom: innerHeight });
+    fromFrame({ tabazing: FRAME_MESSAGE.READY });
+    expect(post).toHaveBeenLastCalledWith({ tabazing: FRAME_MESSAGE.VISIBLE, token: 'tok', visible: true }, ORIGIN);
+    document.elementFromPoint = () => document.body; // the page puts something over it
+    vi.advanceTimersByTime(100);
+    expect(post).toHaveBeenLastCalledWith({ tabazing: FRAME_MESSAGE.VISIBLE, token: 'tok', visible: false }, ORIGIN);
+    document.elementFromPoint = () => frame();
+    frame().style.setProperty('opacity', '0.5', 'important'); // ...or makes it see-through
+    vi.advanceTimersByTime(100);
+    expect(post).toHaveBeenLastCalledWith({ tabazing: FRAME_MESSAGE.VISIBLE, token: 'tok', visible: false }, ORIGIN);
+    fromFrame({ tabazing: FRAME_MESSAGE.CLOSE });
+    post.mockClear();
+    vi.advanceTimersByTime(500);
+    expect(post).not.toHaveBeenCalledWith(expect.objectContaining({ tabazing: FRAME_MESSAGE.VISIBLE }), ORIGIN); // closed: it stops
+    delete document.visibilityState;
+    delete document.elementFromPoint;
   });
 
   it('without hold nothing is released', () => {

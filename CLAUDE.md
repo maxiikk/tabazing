@@ -50,6 +50,15 @@ When a change set spans several levels, use the highest one that applies.
 - `_locales/` is generated, never edited by hand: Chrome reads it only for what `manifest.json` names with `__MSG_key__`. After changing one of those keys, run `npm run i18n` (`scripts/i18n.js`). `tests/utils/dictionaries.test.js` fails while they disagree, or while a key the code uses is missing.
 - A new language: add `dictionaries/<lang>.json` with every key, add the language to `LANGS` in `utils/i18n.js`, to `LANGUAGES` in `utils/translations.js`, to `tests/setup/dictionaries.js` and to the Settings list in `switcher.js`, then run `npm run i18n`. A right-to-left one also goes in `RTL` in `utils/i18n.js`; styles use start / end (`margin-inline-start`, `inset-inline-end`), never left / right, except for what is placed on screen by coordinates.
 
+## Firefox
+
+The same code runs in Firefox 140+. `npm run firefox` (`scripts/firefox.js`) builds `dist/firefox/` and its zip with Firefox's manifest: a manifest key only Chrome knows must be left out there (`firefoxManifest`).
+
+- What differs between the browsers lives in `utils/browser.js` (`IS_FIREFOX`, the extension's origin, bookmark folders by kind, closing times). Never hard-code `chrome-extension://`, a `chrome://` page (use `BROWSER_PAGES` in `switcher.js`; Firefox lets no extension open its `about:` pages), the bookmark ids `'0'` / `'1'` / `'2'`, or `sessions` times as seconds.
+- In Firefox the switcher framed in a page has only a content script's APIs and hears no background broadcast: `utils/api-bridge.js` makes the calls through the background. A `chrome.*` call `switcher.js` (or a module it imports) starts making goes in `BRIDGED_CALLS`, an event it starts listening to in `BRIDGED_EVENTS`, a function it passes to `scripting.executeScript` in `INJECTED` (`background.js`); listen to the background's messages with `onBackgroundMessage`, to storage with `onStorageChange`.
+- A message never names the browser: `{browser}` ("Chrome" / "Firefox", filled in by `translate()`), with a `select` on it where Firefox says it otherwise (`{browser, select, Firefox {…} other {…}}`).
+- Run `npm run test:firefox` (`tests/e2e/firefox/`, the installed Firefox) after changing the bridge, how pages host the switcher, the background or the manifest.
+
 ## Tests
 
 Vitest + jsdom (`npm install` once, then `npm test` for everything, `npx vitest run <path>` for part of it).

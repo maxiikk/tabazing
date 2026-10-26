@@ -15,7 +15,7 @@ import AR from '../../dictionaries/ar.json';
 import HE from '../../dictionaries/he.json';
 import RO from '../../dictionaries/ro.json';
 import { LANGS } from '../../utils/i18n.js';
-import { messageArguments, formatMessage } from '../../utils/translations.js';
+import { messageArguments, formatMessage, GLOBAL_VALUES } from '../../utils/translations.js';
 import { languages, localeFile, manifestKeys as chromeKeys, backgroundMessagesFile } from '../../scripts/i18n.js';
 
 const read = (path) => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -138,7 +138,7 @@ describe('keys used in the code', () => {
     const wrong = [];
     for (const call of found) {
       for (const messageKey of call.keys) {
-        const need = Object.keys(messageArguments(EN[messageKey] ?? '')).sort();
+        const need = Object.keys(messageArguments(EN[messageKey] ?? '')).filter((name) => !(name in GLOBAL_VALUES)).sort(); // ({browser} comes by itself)
         const given = (call.props || []).slice().sort();
         // A value passed through a variable (not an object literal) can't be checked here.
         if (call.props === null && argumentCount(call.text) > 1) continue;
@@ -149,7 +149,7 @@ describe('keys used in the code', () => {
   });
   it('every data-i18n* key exists in English and needs no values', () => {
     expect([...htmlKeys].filter((messageKey) => !(messageKey in EN))).toEqual([]);
-    expect([...htmlKeys].filter((messageKey) => Object.keys(messageArguments(EN[messageKey])).length)).toEqual([]);
+    expect([...htmlKeys].filter((messageKey) => Object.keys(messageArguments(EN[messageKey])).some((name) => !(name in GLOBAL_VALUES)))).toEqual([]);
   });
   it('every __MSG_ key in manifest.json exists in every dictionary, as plain text', () => {
     for (const lang of Object.keys(BOOKS)) {

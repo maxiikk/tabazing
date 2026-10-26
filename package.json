@@ -10,7 +10,9 @@
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.e2e.config.js",
     "i18n": "node scripts/i18n.js",
-    "icons": "node scripts/icons.js"
+    "icons": "node scripts/icons.js",
+    "firefox": "node scripts/firefox.js",
+    "test:firefox": "vitest run --config vitest.firefox.config.js"
   },
   "devDependencies": {
     "jsdom": "^26.1.0",

@@ -143,3 +143,24 @@ describe('dictionaries, read when needed', () => {
     expect(Object.keys(messages.en).length).toBeLessThan(20); // a handful of texts, not the dictionaries
   });
 });
+
+describe('{browser}: the browser’s name, which every message may use without it being passed', () => {
+  it('is Chrome here (the tests run as Chrome), filled in by itself', () => {
+    expect(translate('sleepingTip')).toBe('Asleep: Chrome unloaded this tab to save memory. It reloads when you open it.');
+    expect(translate('reviewButton')).toBe('Review on the Chrome Web Store');
+  });
+  it('in Firefox the same messages name Firefox, and what differs there says it its way', () => {
+    const firefox = (key) => formatMessage(EN[key], { browser: 'Firefox' }, 'en');
+    expect(firefox('sleepingTip')).toBe('Asleep: Firefox unloaded this tab to save memory. It reloads when you open it.');
+    expect(firefox('reviewButton')).toBe('Review on Firefox Add-ons');
+    expect(firefox('paletteIncognito')).toBe('New private window');
+    expect(firefox('dropdownNoHistory')).toContain('about:addons');
+    expect(firefox('hostBlockedTip')).toContain('Access your data for all websites');
+  });
+  it('no message names Chrome outright any more (the manifest’s description says neither)', () => {
+    for (const [key, message] of Object.entries(EN)) {
+      const firefox = formatMessage(message, { browser: 'Firefox', count: 2, number: 2, title: 't', name: 'n', key: 'k', tabs: 't', time: 't', address: 'a', text: 't', what: 'w', added: 1, updated: 1, skipped: 1, color: 'sky', window: 'w' }, 'en');
+      expect(firefox, key).not.toMatch(/\bChrome\b|chrome:\/\//);
+    }
+  });
+});

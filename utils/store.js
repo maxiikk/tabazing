@@ -674,6 +674,34 @@ export function mergeBookmarkNotes(changes) {
 // Pages the user starred, keyed by normalized URL (tab ids don't survive a restart).
 // Not bookmarks: they live only in Tabazing, on this computer.
 const isStar = (value) => !!value && typeof value === 'object' && typeof value.u === 'string' && value.u.length <= LIMITS.MAX_URL_KEY && isTime(value.t);
+// ---------- site icons (Firefox: storage.local) ----------
+// Firefox gives extensions no favicon service (Chrome's /_favicon/), and the switcher's pages show only their own and
+// data: pictures: the background keeps each site's icon as a small data: URL (utils/favicons.js), by host.
+const isFaviconEntry = (entry) => !!entry && typeof entry === 'object' && typeof entry.d === 'string' && entry.d.startsWith('data:image/') && entry.d.length <= LIMITS.FAVICON_MAX_LENGTH && isTime(entry.t);
+/** { [host]: data: URL } */
+export async function getFavicons() {
+  const stored = (await localArea.get(KEY.FAVICONS))[KEY.FAVICONS];
+  const out = {};
+  if (stored && typeof stored === 'object' && !Array.isArray(stored)) for (const [host, entry] of Object.entries(stored)) if (host && isFaviconEntry(entry)) out[host] = entry.d;
+  return out;
+}
+/** When the icon of `host` was kept, from which address: { s, t }, or null. */
+export async function faviconSource(host) {
+  const entry = ((await localArea.get(KEY.FAVICONS))[KEY.FAVICONS] || {})[host];
+  return isFaviconEntry(entry) ? { s: entry.s, t: entry.t } : null;
+}
+/** Keep `dataUrl` as the icon of `host` (taken from `source`); the oldest go past LIMITS.MAX_FAVICONS. */
+export function putFavicon(host, dataUrl, source) {
+  if (!host || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/') || dataUrl.length > LIMITS.FAVICON_MAX_LENGTH) return Promise.resolve();
+  return withLock('favicons', async () => {
+    const stored = (await localArea.get(KEY.FAVICONS))[KEY.FAVICONS];
+    const all = stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    all[host] = { d: dataUrl, s: String(source || '').slice(0, 512), t: Date.now() };
+    const kept = Object.entries(all).filter(([, entry]) => isFaviconEntry(entry)).sort((first, second) => second[1].t - first[1].t).slice(0, LIMITS.MAX_FAVICONS);
+    await localArea.set({ [KEY.FAVICONS]: Object.fromEntries(kept) });
+  });
+}
+
 export async function getStars() {
   const stored = (await localArea.get(KEY.STARS))[KEY.STARS];
   const out = {};

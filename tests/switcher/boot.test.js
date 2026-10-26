@@ -153,6 +153,29 @@ describe('clickjacking guard', () => {
     expect(switcher.pointerAllowed()).toBe(false);
   });
 
+  it('overlay in Firefox (no IntersectionObserver v2): it goes by its page’s host, and only with its launch token', async () => {
+    vi.stubGlobal('IntersectionObserverEntry', class {}); // (no isVisible: as in Firefox)
+    const { switcher, parent } = await bootOverlay({ tabs: ABC() });
+    expect(switcher.browserTracksVisibility()).toBe(false);
+    const token = 'guess';
+    const fromHost = (data) => window.dispatchEvent(new MessageEvent('message', { data, source: parent }));
+    const now = vi.spyOn(performance, 'now');
+    const startTime = Math.floor(performance.now());
+    now.mockReturnValue(startTime);
+    fromHost({ tabazing: 'visible', token, visible: true }); // a page guessing: not the launch token
+    now.mockReturnValue(startTime + 400);
+    expect(switcher.pointerAllowed()).toBe(false);
+    const launchToken = switcher.launchToken; // (what the host was given with the launch)
+    expect(typeof launchToken).toBe('string');
+    now.mockReturnValue(startTime + 1000);
+    fromHost({ tabazing: 'visible', token: launchToken, visible: true });
+    expect(switcher.pointerAllowed()).toBe(false); // just became visible
+    now.mockReturnValue(startTime + 1300);
+    expect(switcher.pointerAllowed()).toBe(true);
+    fromHost({ tabazing: 'visible', token: launchToken, visible: false }); // covered
+    expect(switcher.pointerAllowed()).toBe(false);
+  });
+
   it('overlay: keys action during the first moments, then only while visible', async () => {
     const { switcher, observer } = await bootOverlay({ tabs: ABC() });
     const now = vi.spyOn(performance, 'now');

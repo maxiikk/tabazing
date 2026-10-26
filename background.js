@@ -29,6 +29,10 @@ import { runSweep, cancelSweep, isSweeping, sweepJobs } from './utils/sweep.js';
 import { scheduleCapture, cancelCapture, grabForOpen, storeShot } from './utils/capture.js';
 import { isOwnUrl } from './utils/extension.js';
 import { overlayHost, removeOverlay } from './utils/overlay-host.js';
+import { IS_FIREFOX, EXTENSION_ORIGIN } from './utils/browser.js';
+import { keepFavicon } from './utils/favicons.js';
+import { BRIDGED_CALLS, BRIDGED_EVENTS, BRIDGE_PORT } from './utils/api-bridge.js';
+import { pageMediaAction } from './utils/media.js';
 import { groupOf, putInGroup } from './utils/groups.js';
 // The texts this worker shows, in every language (it can't read the dictionaries: Chrome can't start a service worker
 // again after it was idle if it imports JSON).
@@ -37,9 +41,9 @@ addDictionaries(BACKGROUND_MESSAGES);
 // With use_dynamic_url this is a per-session random origin, so pages can't
 // probe for the extension's permanent id.
 const SWITCHER_URL = chrome.runtime.getURL(SWITCHER_PAGE);
-// The origin extension frames actually run in (the real id). Used as the
+// The origin extension frames actually run in (Chrome: the real id; Firefox: its moz-extension uuid). Used as the
 // postMessage target so the launch token can only ever reach our own frame.
-const EXTENSION_REAL_ORIGIN = `chrome-extension://${chrome.runtime.id}`;
+const EXTENSION_REAL_ORIGIN = EXTENSION_ORIGIN;
 const INJECTABLE = /^(https?|file):/;
 // Tabazing's own pages (the switcher's window, the sweep window) aren't tabs the user works in.
 const ownPage = (url) => isOwnUrl(url);
@@ -104,6 +108,8 @@ function remember(tab) {
 }
 chrome.tabs.onUpdated.addListener((tabId, changes, tab) => {
   if (changes.url || changes.title || changes.favIconUrl || changes.groupId !== undefined) remember(tab);
+  // Firefox: the site's icon, kept for the switcher (utils/favicons.js); Chrome draws them itself.
+  if (IS_FIREFOX && tab.favIconUrl && (changes.favIconUrl || changes.status === 'complete')) keepFavicon(tab).catch(() => {});
   // A new page in the tab being looked at: prepare the switcher in it as soon as it exists (a moment after
   // the load starts, when the new document is usually there), and again once loaded in case it wasn't.
   if (tab.active && changes.status === 'loading') prepareSwitcher(tab, 250);
@@ -294,6 +300,10 @@ async function checkShortcut() {
   } catch {}
 }
 
+// One at a time, so a window of many tabs doesn't fetch all their icons at once.
+async function keepFavicons(tabs) {
+  for (const tab of tabs) await keepFavicon(tab).catch(() => {});
+}
 async function setup({ fresh = false } = {}) {
   checkShortcut();
   // After an install/update every tab already exists, so it's safe to expire old previews now.
@@ -302,7 +312,10 @@ async function setup({ fresh = false } = {}) {
   if (fresh) cleanupPreviews().catch(() => {});
   cleanupClosedLog().catch(() => {}); // ...and the 7-day closed-tab log
   Promise.all([chrome.tabs.query({ windowType: 'normal' }), chrome.tabGroups ? chrome.tabGroups.query({}).catch(() => []) : []]) // what each open tab is, for the log
-    .then(([tabs, groups]) => rememberTabs(tabs, new Map(groups.map((group) => [group.id, groupOf(group)])))).catch(() => {});
+    .then(([tabs, groups]) => {
+      if (IS_FIREFOX) keepFavicons(tabs); // (Firefox: the icons of the sites already open)
+      return rememberTabs(tabs, new Map(groups.map((group) => [group.id, groupOf(group)])));
+    }).catch(() => {});
   const active = await chrome.tabs.query({ active: true, windowType: 'normal' });
   await seedMru(active.map((tab) => tab.id));
   const [focused] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
@@ -405,10 +418,9 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
   // 1. Already open anywhere? Just move its selection (or show its palette).
   // `palette` is only added when set, so every other message and launch stays exactly as it was.
   const paletteOption = palette ? { palette: true } : {};
-  try {
-    const response = await chrome.runtime.sendMessage({ type: MESSAGE.CYCLE, direction, hold, ...paletteOption });
-    if (response && response.ok) return;
-  } catch { /* no switcher open */ }
+  const cycle = { type: MESSAGE.CYCLE, direction, hold, ...paletteOption };
+  const answers = await Promise.all([chrome.runtime.sendMessage(cycle).catch(() => null), askBridged(cycle)]); // (no switcher open: none answers)
+  if (answers.some((response) => response && response.ok)) return;
 
   // 2. Still loading from a press a moment ago? Queue the move for it, and an Alt+R (palette) or Alt+E
   //    (stay open), which move nothing: READY hands them all over.
@@ -791,6 +803,72 @@ async function reopenOver(tabId) {
 const fromContentScript = (sender) => !!sender.tab && Number.isInteger(sender.tab.id) && !isOwnUrl(sender.url);
 const fromSwitcher = (sender) => isOwnUrl(sender.url, SWITCHER_PAGE);
 
+// ---------------------------------------------------------- the switcher framed in a page, in Firefox (utils/api-bridge.js)
+// It has the APIs of a content script only, and hears nothing broadcast: through its port (only the switcher page may open
+// one) this worker makes the calls it asks for (BRIDGED_CALLS, nothing else), passes on the events it listens to, and asks
+// it what the switcher in a window hears as a message (MESSAGE.CYCLE).
+const bridgePorts = new Set();
+// The functions the switcher has run in pages (a function can't go by message: it is named).
+const INJECTED = { pageMediaAction };
+async function callBridged(path, args) {
+  const dot = path.lastIndexOf('.');
+  const namespacePath = path.slice(0, dot), method = path.slice(dot + 1);
+  if (!Object.hasOwn(BRIDGED_CALLS, namespacePath) || !BRIDGED_CALLS[namespacePath].includes(method) || !Array.isArray(args)) throw new Error('not allowed: ' + path);
+  const namespace = namespacePath.split('.').reduce((object, part) => object && object[part], chrome);
+  if (!namespace || typeof namespace[method] !== 'function') throw new Error('not available: ' + path);
+  if (path === 'scripting.executeScript') {
+    const func = args[0] && INJECTED[args[0].func];
+    if (!func) throw new Error('not allowed: that function');
+    args = [{ ...args[0], func }];
+  }
+  return namespace[method](...args);
+}
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== BRIDGE_PORT || !port.sender || !fromSwitcher(port.sender)) return port.disconnect();
+  bridgePorts.add(port);
+  port.onMessage.addListener((message) => {
+    if (!message || typeof message !== 'object') return;
+    if (Number.isInteger(message.id) && typeof message.call === 'string') {
+      callBridged(message.call, message.args)
+        .then((result) => port.postMessage({ id: message.id, result: result === undefined ? null : result }))
+        .catch((error) => port.postMessage({ id: message.id, error: String((error && error.message) || error) }));
+    } else if (message.answer !== undefined) {
+      const waiting = bridgeQuestions.get(message.answer);
+      if (waiting) waiting(message.value);
+    }
+  });
+  port.onDisconnect.addListener(() => bridgePorts.delete(port));
+});
+const bridgeQuestions = new Map(); // question id -> what takes an answer
+let nextQuestion = 1;
+// What the framed switchers answer `body`: the first answer that is { ok: true }, or null (none open, none answers in time).
+function askBridged(body) {
+  if (!bridgePorts.size) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let left = bridgePorts.size;
+    const ids = [];
+    const done = (value) => { ids.forEach((id) => bridgeQuestions.delete(id)); clearTimeout(timer); resolve(value); };
+    const timer = setTimeout(() => done(null), 300);
+    for (const port of bridgePorts) {
+      const id = nextQuestion++;
+      ids.push(id);
+      bridgeQuestions.set(id, (value) => { if (value && value.ok) done(value); else if (--left === 0) done(null); });
+      try { port.postMessage({ question: id, body }); } catch { if (--left === 0) done(null); }
+    }
+  });
+}
+// The events they listen to. Registered at once (a worker that starts again must have its listeners at the start).
+if (IS_FIREFOX) {
+  for (const name of BRIDGED_EVENTS) {
+    const [namespace, event] = name.split('.');
+    if (!chrome[namespace] || !chrome[namespace][event]) continue;
+    chrome[namespace][event].addListener((...args) => {
+      if (name === 'storage.onChanged' && args[1] !== 'session') return; // (the local area they hear themselves)
+      for (const port of bridgePorts) { try { port.postMessage({ event: name, args }); } catch {} }
+    });
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object' || typeof message.type !== 'string') return;
   switch (message.type) {
@@ -900,6 +978,6 @@ export {
   SWITCHER_URL, EXTENSION_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
   trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed, wakeOne, lastNormalWindow,
-  WATCH_FIRST_MILLISECONDS, altLetGo, tellAltLetGo, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
+  WATCH_FIRST_MILLISECONDS, altLetGo, tellAltLetGo, callBridged, askBridged, bridgePorts, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
   flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MILLISECONDS, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

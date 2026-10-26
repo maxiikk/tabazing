@@ -95,6 +95,32 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
       if (!session || session.shown || !session.drawn || session.shotPending) return;
       shade.style.background = session.light ? 'rgba(255,255,255,.35)' : 'rgba(0,0,0,.55)';
       session.shown = true; setShown(true); frame.focus(); tellReleased();
+      watchShown();
+    }
+    // Is the frame really what the page shows: on top of everything, whole, untouched by the page's styles? The page's
+    // scripts can restyle or cover it, but can't reach this code. Told to the frame ten times a second while open, with
+    // the launch token (which the page never sees); a browser that can tell the frame itself (Chrome) goes by that instead.
+    function fullyShown() {
+      if (!frame.isConnected || document.visibilityState !== 'visible') return false;
+      const frameStyle = getComputedStyle(frame);
+      const is = (value, plain) => !value || value === plain; // (a value the browser doesn't give: its default)
+      if (frameStyle.visibility !== 'visible' || frameStyle.display === 'none' || !is(frameStyle.transform, 'none') || !is(frameStyle.clipPath, 'none')) return false;
+      for (const element of [frame, document.documentElement, document.body]) {
+        if (!element) continue;
+        const style = getComputedStyle(element);
+        if (parseFloat(style.opacity || '1') < 1 || !is(style.filter, 'none') || !is(style.mixBlendMode, 'normal')) return false;
+      }
+      const width = innerWidth, height = innerHeight, bounds = frame.getBoundingClientRect();
+      if (bounds.left > 1 || bounds.top > 1 || bounds.right < width - 1 || bounds.bottom < height - 1) return false;
+      return [[0.5, 0.5], [0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].every(([x, y]) => document.elementFromPoint(width * x, height * y) === frame);
+    }
+    let shownTimer = null;
+    function watchShown() {
+      clearInterval(shownTimer);
+      const shownNow = () => { try { return fullyShown(); } catch { return false; } }; // (unknown: not shown)
+      const tell = () => { if (session && session.shown) post({ tabazing: FRAME.VISIBLE, token: session.token, visible: shownNow() }); else clearInterval(shownTimer); };
+      tell();
+      shownTimer = setInterval(tell, 100);
     }
     // The background saw Alt let go in one of the page's frames (the focus was in an embedded one): as the page's own key-up.
     function altLetGo(forToken) {
@@ -110,6 +136,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     }
     // Closed (or the tab was hidden): hide at once, give the page its focus back, prepare a fresh frame.
     function finishSession() {
+      clearInterval(shownTimer);
       if (session) clearTimeout(session.shotTimer);
       const previousFocus = session && session.previousFocus;
       session = null;
@@ -136,6 +163,7 @@ export function overlayHost(sourceUrl, extensionOrigin, FRAME, mode, token, hold
     };
     function cleanup() {
       clearTimeout(dropTimer);
+      clearInterval(shownTimer);
       window.removeEventListener('message', onMessage, true);
       window.removeEventListener('keyup', onKeyUp, true);
       document.removeEventListener('visibilitychange', onVisibilityChange, true);

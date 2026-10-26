@@ -2,13 +2,15 @@
 // there and closes it; opening it from the archive removes the bookmark again. Being plain bookmarks,
 // archived tabs sync with Chrome and survive removing Tabazing.
 
+import { BOOKMARKS_ROOT, topFolder } from './browser.js';
+
 export const ARCHIVE_FOLDER = 'Tabs Archive';
 
-// "Other bookmarks": Chrome 134+ names it (folderType), older versions have it second, with id "2".
+// "Other bookmarks" (Firefox: "Other Bookmarks"), whatever its id in this browser (utils/browser.js folderTypeOf).
 // Only the root's own children are read (not getTree): this runs on every save over the preview caps.
 async function otherBookmarks() {
-  const kids = (await chrome.bookmarks.getChildren('0')) || [];
-  return kids.find((node) => node.folderType === 'other') || kids.find((node) => node.id === '2') || kids[1] || kids[0] || null;
+  const kids = (await chrome.bookmarks.getChildren(BOOKMARKS_ROOT)) || [];
+  return topFolder(kids, 'other') || kids[1] || kids[0] || null;
 }
 
 /** The archive folder, or null when there is none yet (`create` makes it). */

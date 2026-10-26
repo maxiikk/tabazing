@@ -1,5 +1,6 @@
 // Shared names and limits used by the background worker and the switcher UI.
 import { uiLang } from './i18n.js';
+import { IS_FIREFOX } from './browser.js';
 // (hotkey.js and media-relay.js are classic content scripts and can't import this, so they
 // repeat MESSAGE.HOTKEY / MESSAGE.MEDIA as string literals. Keep them in sync.)
 
@@ -24,7 +25,9 @@ export const MESSAGE = Object.freeze({
 // RELEASED: the page saw Alt let go (Alt+Q / Alt+W were held) before the switcher had the focus.
 // STANDBY: the switcher frame has loaded and waits for a launch (it is prepared ahead, invisible).
 // PREPARE: the host passes on its standby token: with it, the frame reads and draws the tabs ahead, still invisible.
-export const FRAME_MESSAGE = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby', PREPARE: 'prepare' });
+// VISIBLE: the host says whether the frame is really what the page shows (with the launch token), where the browser can't
+// tell the frame itself (Firefox has no IntersectionObserver v2): the switcher's clickjacking guard goes by it there.
+export const FRAME_MESSAGE = Object.freeze({ LAUNCH: 'launch', READY: 'ready', CLOSE: 'close', RELEASED: 'released', STANDBY: 'standby', PREPARE: 'prepare', VISIBLE: 'visible' });
 
 export const KEY = Object.freeze({
   MRU: 'mru',                 // number[] tab ids, most recent first
@@ -43,6 +46,7 @@ export const KEY = Object.freeze({
   NOTES: 'notes',             // storage.local: { [normalizedUrl]: { u, n, t } } notes the user wrote on tabs
   BOOKMARK_NOTES: 'bmNotes',        // storage.local: { [bookmarkId]: { u, n, t } } notes on bookmarks (kept by the bookmark, not its address)
   STARS: 'stars',             // storage.local: { [normalizedUrl]: { u, ti, t } } pages the user starred
+  FAVICONS: 'favicons',       // storage.local (Firefox only): { [host]: { d, s, t } } each site's icon as a data: URL (d), from s, kept at t
   VIEW: 'view',               // storage.local: { sort, collapsed: string[], settingsTab } how the switcher lays tabs out, and Settings' last category
   NUDGE: 'nudge',             // storage.local: { day, runs, shown, last, never } the "use Alt+Q" nudge (never sent anywhere)
   LAST_OPEN: 'lastOpen',      // storage.session: when the switcher last opened
@@ -88,6 +92,8 @@ export const LIMITS = Object.freeze({
   MAX_CLOSED_LOG: 200,          // ...and at most this many entries
   CLOSED_PREVIEW_LOOKUP: 60,    // previews are looked up for the newest this-many closed entries
   MAX_MRU: 500,
+  MAX_FAVICONS: 1000,                     // site icons kept (Firefox): the most recently seen sites
+  FAVICON_MAX_LENGTH: 24 * 1024,          // ...each a data: URL this long at most (a 32 px PNG is 1-3 KB)
   CAPTURE_GAP_MILLISECONDS: 520,          // Chrome allows ~2 captureVisibleTab calls per second
   LAUNCH_TIME_TO_LIVE_MILLISECONDS: 15000,         // how long a launch token stays valid
   STANDBY_TIME_TO_LIVE_MILLISECONDS: 30 * 60 * 1000, // ...and a standby token (renewed each time its tab is prepared again)
@@ -148,7 +154,9 @@ export const REVIEW = Object.freeze({
   ASK_MAX: 0,                   // never: Tabazing is not on the Chrome Web Store
 });
 
-export const REVIEW_URL = 'https://chromewebstore.google.com/detail/edjglhlabdmgacehahfdjjffapbkaekk/reviews?utm_source=extension';
+// Where to review Tabazing: its Chrome Web Store page, or its Firefox Add-ons page.
+export const REVIEW_URL = IS_FIREFOX ? 'https://addons.mozilla.org/firefox/addon/tabazing/reviews/'
+  : 'https://chromewebstore.google.com/detail/edjglhlabdmgacehahfdjjffapbkaekk/reviews?utm_source=extension';
 // The website (tabatha-vert.vercel.app). Links only: the extension never sends anything there itself.
 export const SITE_URL = 'https://tabatha-vert.vercel.app';
 export const REPO_URL = 'https://github.com/maxiikk/tabazing'; // the source (the header's GitHub button)

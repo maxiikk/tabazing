@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.19.0] - 2026-10-26
+
+### Added
+
+- Firefox support (Firefox 140 or later): the same Tabazing, over the page and in its own window, with every feature. `npm run firefox` builds the Firefox copy and the file for Firefox Add-ons.
+- In Firefox, Tabazing keeps each site’s icon itself (Firefox gives extensions none), from the tabs you have open.
+
+### Changed
+
+- The texts name the browser you use (“Firefox”, “private window”, “Firefox Add-ons” in Firefox); the extension’s description no longer says “Chrome”.
+- In Firefox the command palette offers only what Firefox lets an extension open (its shortcuts dialog); History and Bookmarks open Tabazing’s own views there.
+
 ## [6.18.2] - 2026-10-23
 
 ### Fixed
@@ -804,7 +816,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.18.2]: https://github.com/maxiikk/tabazing/compare/f099e17...HEAD
+[6.19.0]: https://github.com/maxiikk/tabazing/compare/50a3861...HEAD
+[6.18.2]: https://github.com/maxiikk/tabazing/compare/f099e17...50a3861
 [6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...f099e17
 [6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...ceb1587
 [6.17.9]: https://github.com/maxiikk/tabazing/compare/7568459...5372ff1
