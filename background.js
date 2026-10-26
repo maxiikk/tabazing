@@ -33,6 +33,7 @@ import { IS_FIREFOX, EXTENSION_ORIGIN } from './utils/browser.js';
 import { keepFavicon } from './utils/favicons.js';
 import { BRIDGED_CALLS, BRIDGED_EVENTS, BRIDGE_PORT } from './utils/api-bridge.js';
 import { pageMediaAction } from './utils/media.js';
+import { exchangeRates, weatherNow } from './utils/lookups.js';
 import { groupOf, putInGroup } from './utils/groups.js';
 // The texts this worker shows, in every language (it can't read the dictionaries: Chrome can't start a service worker
 // again after it was idle if it imports JSON).
@@ -878,6 +879,17 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (message.palette === true) trigger(0, sender.tab, 'key', false, true); // Alt+R: nothing else is taken from it
       else trigger(message.direction === -1 ? -1 : message.direction === 0 ? 0 : 1, sender.tab, 'key', message.hold === true);
       return;
+    case MESSAGE.LOOKUP: {
+      // The command palette asks for today's exchange rates or the weather (the only things Tabazing fetches).
+      if (!fromSwitcher(sender)) return;
+      const lookup = message.what === 'rates' ? exchangeRates()
+        : message.what === 'weather' && typeof message.place === 'string' && message.place.length <= 80
+          ? weatherNow(message.place, typeof message.lang === 'string' ? message.lang.slice(0, 5) : 'en')
+          : null;
+      if (!lookup) return;
+      lookup.then((answer) => respond({ ok: true, answer }), (error) => respond({ ok: false, error: String((error && error.message) || error) }));
+      return true;
+    }
     case MESSAGE.READY:
       if (!fromSwitcher(sender)) return;
       disarmWatchdog();

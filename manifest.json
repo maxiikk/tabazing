@@ -80,7 +80,7 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://open.er-api.com https://geocoding-api.open-meteo.com https://api.open-meteo.com; object-src 'none'; base-uri 'none'; form-action 'none'"
   },
   "default_locale": "en",
   "description": "__MSG_extensionDescription__",
@@ -110,7 +110,7 @@
     "tabGroups"
   ],
   "short_name": "__MSG_extensionShortName__",
-  "version": "6.19.0",
+  "version": "6.20.0",
   "web_accessible_resources": [
     {
       "matches": [

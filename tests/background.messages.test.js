@@ -379,3 +379,26 @@ describe('FALLBACK', () => {
     expect(chrome.windows.create).not.toHaveBeenCalled();
   });
 });
+
+describe('MESSAGE.LOOKUP (the command palette asks for exchange rates or the weather)', () => {
+  it('answers the switcher with what utils/lookups.js fetched; refuses anyone else and anything else', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ result: 'success', time_last_update_unix: 1793000000, rates: { USD: 1, EUR: 0.9 } }) })));
+    const { result, respond } = send({ type: MESSAGE.LOOKUP, what: 'rates' }, fromSwitcherPage());
+    expect(result).toBe(true); // (answers later)
+    await vi.waitFor(() => expect(respond).toHaveBeenCalled());
+    expect(respond).toHaveBeenCalledWith({ ok: true, answer: { rates: { USD: 1, EUR: 0.9 }, updated: 1793000000000 } });
+    const page = { id: chrome.runtime.id, url: 'https://evil.example/', tab: { id: 3, url: 'https://evil.example/' }, frameId: 0 };
+    expect(send({ type: MESSAGE.LOOKUP, what: 'rates' }, page).result).toBe(undefined);
+    expect(send({ type: MESSAGE.LOOKUP, what: 'weather', place: 'x'.repeat(200) }, fromSwitcherPage()).result).toBe(undefined);
+    expect(send({ type: MESSAGE.LOOKUP, what: 'files' }, fromSwitcherPage()).result).toBe(undefined);
+    vi.unstubAllGlobals();
+  });
+
+  it('a lookup that fails is answered as such', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('offline'); }));
+    const { respond } = send({ type: MESSAGE.LOOKUP, what: 'weather', place: 'Athens', lang: 'en' }, fromSwitcherPage());
+    await vi.waitFor(() => expect(respond).toHaveBeenCalled());
+    expect(respond).toHaveBeenCalledWith({ ok: false, error: 'offline' });
+    vi.unstubAllGlobals();
+  });
+});

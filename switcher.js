@@ -35,7 +35,8 @@ import { ARCHIVE_FOLDER, getArchived, addArchived, removeArchived } from './util
 import { makeBackup, restoreBackup, readBackup, unzipFiles, zipFiles, backupName } from './utils/backup.js';
 import { loadMedia, mediaAction } from './utils/media.js';
 import { asUrl, googleUrl } from './utils/web.js';
-import { quick } from './utils/quick.js';
+import { quick, convertCurrency } from './utils/quick.js';
+import { weatherCondition } from './utils/lookups.js';
 import { GROUP_COLORS, putInGroup, cleanGroup, groupOf } from './utils/groups.js';
 
 // ----------------------------------------------------------------- timings
@@ -6179,7 +6180,7 @@ function paletteItems(text) {
   }
   const out = [];
   const result = quick(typed, { lang: uiLang() });
-  if (result) out.push(result.kind === 'currency' ? { kind: 'currency' } : { kind: 'quick', result });
+  if (result) out.push(result.kind === 'currency' || result.kind === 'weather' ? lookupItem(result) : { kind: 'quick', result });
   const actions = availableActions.map((action) => ({ kind: 'action', action, score: searchScore(query, ...actionFields(action)) })).filter((x) => x.score > 0)
     .sort((x, y) => y.score - x.score).slice(0, PALETTE_TYPED_MAX);
   const rows = dropdownRows(typed);
@@ -6216,7 +6217,7 @@ function paletteQuickRow(result, on, id) {
   if (result.swatch) { icon = makeElement('span', 'palette-icon palette-swatch', null, 'palette-swatch'); icon.style.background = result.swatch; }
   else icon = PALETTE_ICON('calculator', 'palette-quick-icon');
   const value = result.kind === 'days' ? translate('paletteDays', { count: result.count }) : result.value;
-  const caption = result.kind === 'calculation' ? translate('paletteQuickCalculation') : result.kind === 'unit' ? translate('paletteQuickUnit') : result.kind === 'base' ? translate('paletteQuickBase')
+  const caption = result.caption ? result.caption : result.kind === 'calculation' ? translate('paletteQuickCalculation') : result.kind === 'unit' ? translate('paletteQuickUnit') : result.kind === 'base' ? translate('paletteQuickBase')
     : result.kind === 'color' ? translate('paletteQuickColor') : result.kind === 'time' ? translate('paletteQuickTime', { place: result.place }) : translate('paletteQuickDate');
   const textColumn = makeElement('span', 'dropdown-text', null, 'dropdown-text');
   const big = makeElement('span', 'dropdown-title palette-value', value, 'palette-quick-value');
@@ -6233,14 +6234,60 @@ function paletteQuickRow(result, on, id) {
   row.setAttribute('aria-description', translate('paletteCopyHint'));
   return row;
 }
-function paletteCurrencyRow(on, id) {
-  const row = makeElement('div', 'dropdown-row palette-row palette-off' + (on ? ' on' : ''), null, 'palette-row-currency');
+// ---- money and the weather: today's exchange rates and the weather now, which the background fetches (utils/lookups.js;
+// the only things Tabazing reads from the internet). Each is asked once per open (one that failed again on Enter), and
+// the palette is drawn again when the answer comes.
+const lookups = new Map(); // 'rates' | 'weather:<place>' -> { status: 'loading' | 'done' | 'failed', answer }
+const lookupKey = (asked) => (asked.kind === 'weather' ? 'weather:' + asked.place.toLowerCase() : 'rates');
+const LOOKUP_SERVICE = { currency: 'open.er-api.com', weather: 'Open-Meteo' };
+function lookupFor(asked) {
+  const key = lookupKey(asked);
+  if (lookups.has(key)) return lookups.get(key);
+  const entry = { status: 'loading', answer: null };
+  lookups.set(key, entry);
+  const message = asked.kind === 'weather' ? { type: MESSAGE.LOOKUP, what: 'weather', place: asked.place, lang: uiLang() } : { type: MESSAGE.LOOKUP, what: 'rates' };
+  chrome.runtime.sendMessage(message)
+    .then((reply) => { entry.status = reply && reply.ok ? 'done' : 'failed'; entry.answer = reply && reply.ok ? reply.answer : null; }, () => { entry.status = 'failed'; })
+    .finally(() => { if (state.palette && !state.done) renderPalette(); });
+  return entry;
+}
+// The palette's row for a money or weather question: its answer, as any quick answer, once it is in; else what is
+// happening (being read, failed, no such currency or place).
+function lookupItem(asked) {
+  const entry = lookupFor(asked);
+  if (entry.status !== 'done') return { kind: 'lookup', asked, status: entry.status };
+  if (asked.kind === 'currency') {
+    const result = convertCurrency(asked, entry.answer.rates, uiLang());
+    if (result.kind === 'currency-missing') return { kind: 'lookup', asked, status: 'missing', code: result.code };
+    const date = new Intl.DateTimeFormat(uiLang(), { dateStyle: 'medium' }).format(entry.answer.updated);
+    return { kind: 'quick', result: { ...result, caption: translate('paletteQuickCurrency', { date }), alts: [result.rate] } };
+  }
+  const weather = entry.answer;
+  if (!weather.found) return { kind: 'lookup', asked, status: 'nowhere' };
+  const imperial = weather.units === 'imperial';
+  const degrees = (value) => new Intl.NumberFormat(uiLang(), { maximumFractionDigits: 0 }).format(value) + (imperial ? ' °F' : ' °C');
+  const value = degrees(weather.temperature) + ' · ' + translate('weatherCondition', { condition: weatherCondition(weather.code) });
+  const place = [weather.place, weather.region, weather.country].filter((part, i, parts) => part && parts.indexOf(part) === i).join(', ');
+  const alts = [
+    Number.isFinite(weather.feelsLike) ? translate('weatherFeels', { temperature: degrees(weather.feelsLike) }) : '',
+    Number.isFinite(weather.wind) ? translate('weatherWind', { speed: Math.round(weather.wind) + (imperial ? ' mph' : ' km/h') }) : '',
+    Number.isFinite(weather.humidity) ? translate('weatherHumidity', { percent: Math.round(weather.humidity) }) : '',
+  ].filter(Boolean);
+  const caption = translate('paletteQuickWeather', { place });
+  return { kind: 'quick', result: { kind: 'weather', value, caption, alts, copy: [caption, value, ...alts].join(' · ') } }; // (no expression: Shift+Enter copies the same)
+}
+function paletteLookupRow(item, on, id) {
+  const row = makeElement('div', 'dropdown-row palette-row palette-off' + (on ? ' on' : ''), null, 'palette-row-lookup');
   row.id = id;
   row.setAttribute('role', 'option');
   row.setAttribute('aria-selected', String(on));
-  row.setAttribute('aria-disabled', 'true');
+  row.setAttribute('aria-disabled', String(item.status !== 'failed')); // (a failed one: Enter asks again)
+  const weather = item.asked.kind === 'weather';
+  const title = item.status === 'loading' ? (weather ? translate('paletteLookupLoadingWeather', { place: item.asked.place }) : translate('paletteLookupLoadingRates'))
+    : item.status === 'failed' ? (weather ? translate('paletteLookupFailedWeather') : translate('paletteLookupFailedRates'))
+      : item.status === 'missing' ? translate('paletteLookupNoRate', { code: item.code }) : translate('paletteLookupNoPlace', { place: item.asked.place });
   const textColumn = makeElement('span', 'dropdown-text', null, 'dropdown-text');
-  textColumn.append(makeElement('span', 'dropdown-title', translate('paletteCurrency'), 'palette-currency-text'), makeElement('span', 'dropdown-subtitle', translate('paletteCurrencyWhy'), 'palette-currency-why'));
+  textColumn.append(makeElement('span', 'dropdown-title', title, 'palette-lookup-text'), makeElement('span', 'dropdown-subtitle', translate('paletteLookupSource', { service: LOOKUP_SERVICE[item.asked.kind] }), 'palette-lookup-source'));
   row.append(PALETTE_ICON('calculator', 'palette-quick-icon'), textColumn);
   return row;
 }
@@ -6263,7 +6310,7 @@ function renderPalette() {
     if (!item.kind) return makeElement('div', 'dropdown-note', item.note, 'dropdown-notice');
     const i = ++index, on = i === palette.highlighted, id = 'pal-' + i;
     const row = item.kind === 'action' ? paletteActionRow(item, query, on, id) : item.kind === 'quick' ? paletteQuickRow(item.result, on, id)
-      : item.kind === 'currency' ? paletteCurrencyRow(on, id) : dropdownRowElement(item, text.trim(), on, id);
+      : item.kind === 'lookup' ? paletteLookupRow(item, on, id) : dropdownRowElement(item, text.trim(), on, id);
     row.addEventListener('click', (event) => { event.stopPropagation(); if (pointerAllowed()) paletteRun(item, { shift: event.shiftKey }); });
     return row;
   });
@@ -6345,18 +6392,18 @@ function exitPalette() {
   flushSearch();
   elements.search.focus({ preventScroll: true });
 }
-// What a row does: a quick answer is copied, the currency row does nothing, an action runs, a search result
-// opens as it would from the dropdown.
+// What a row does: a quick answer (money, the weather too) is copied, an action runs, a search result opens as it would
+// from the dropdown; a money or weather question that failed is asked again.
 async function paletteRun(it, { shift = false } = {}) {
   if (!it || state.done) return;
-  if (it.kind === 'currency') return;
+  if (it.kind === 'lookup') { if (it.status === 'failed') { lookups.delete(lookupKey(it.asked)); renderPalette(); } return; }
   if (it.kind === 'quick') return copyQuick(it.result, shift);
   if (it.kind === 'action') return runAction(it.action, { keep: shift });
   return dropdownActivate(it, elements.paletteInput.value.trim());
 }
 // Enter: the result; Shift+Enter (or the row's button): the whole expression.
 async function copyQuick(result, whole = false) {
-  const text = whole ? result.expression : result.copy;
+  const text = whole ? result.expression || result.copy : result.copy;
   toast((await copyText(text)) ? translate('paletteCopied', { text }) : translate('copyFailed'));
 }
 async function runAction(action, { keep = false } = {}) {
@@ -8071,7 +8118,7 @@ export {
   searchFor, foundFor, foundMemo, searchText, renderSearch, dropdownTitleRow, dropdownRowElement, openNewTab, captureAll, startSearch, setTheme,
   PALETTE_SOURCES, PALETTE_TYPED_MAX, PALETTE_USEFUL, ZOOMS, sourceTabInformation, sourceTab, sourceEntry, tabName, isWeb, staleTabs, otherTabs, chromePage,
   PALETTE_ACTIONS, PALETTE_BY_ID, paletteActions, inEnglish, actionFields, paletteItems, PALETTE_ICON, paletteActionRow, paletteQuickRow,
-  paletteCurrencyRow, paletteFrame, renderPalette, paletteHighlight, paletteMove, openPalette, exitPalette, paletteRun, copyQuick, runAction,
+  lookups, lookupItem, paletteLookupRow, paletteFrame, renderPalette, paletteHighlight, paletteMove, openPalette, exitPalette, paletteRun, copyQuick, runAction,
   paletteKey, onPaletteInput, nextZoom, zoomTab, toggleFullscreen, PALETTE_KEY, dropFrom,
   groupTiles, cardKey, stepFrom, stepOutOfGroup, GROUP_COLORS, groupColor, groupName, renderGroupCard, renderGroupBar, showsTab, enterGroup, leaveGroup,
   cardName, cardTabs, tickChanged, regroup, reopenPage, groupFor, closedQuick, reopenInWindow, reopenBehind, snoozeClosed, archiveClosed, forgetClosed, afterClosedChange, ungroup,

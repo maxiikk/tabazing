@@ -19,6 +19,7 @@ export const MESSAGE = Object.freeze({
   FALLBACK: 'tabazing:fallback', // overlay -> background: Chrome never saw it as visible (clicks would be ignored): use the popup window
   MEDIA: 'tabazing:media',   // content script (media-relay.js) -> background: a frame's playing media changed: { state: JSON string }
   MEDIA_CHECK: 'tabazing:media-check', // switcher -> background, as it opens: ask the tabs with media what they play now
+  LOOKUP: 'tabazing:lookup', // switcher -> background: today's exchange rates ({ what: 'rates' }), or the weather ({ what: 'weather', place, lang })
 });
 
 // Messages between the overlay iframe and the content-script code that hosts it.
@@ -47,6 +48,7 @@ export const KEY = Object.freeze({
   BOOKMARK_NOTES: 'bmNotes',        // storage.local: { [bookmarkId]: { u, n, t } } notes on bookmarks (kept by the bookmark, not its address)
   STARS: 'stars',             // storage.local: { [normalizedUrl]: { u, ti, t } } pages the user starred
   FAVICONS: 'favicons',       // storage.local (Firefox only): { [host]: { d, s, t } } each site's icon as a data: URL (d), from s, kept at t
+  RATES: 'rates',             // storage.local: { rates: { [code]: per US dollar }, updated, t } the exchange rates last read (utils/lookups.js)
   VIEW: 'view',               // storage.local: { sort, collapsed: string[], settingsTab } how the switcher lays tabs out, and Settings' last category
   NUDGE: 'nudge',             // storage.local: { day, runs, shown, last, never } the "use Alt+Q" nudge (never sent anywhere)
   LAST_OPEN: 'lastOpen',      // storage.session: when the switcher last opened

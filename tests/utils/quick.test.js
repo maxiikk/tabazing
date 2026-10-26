@@ -1,7 +1,7 @@
 // utils/quick.js: the command palette's quick answers. Pure, so every case is a plain call. Times and dates use a
 // fixed "now" and local time zone, so they don't depend on the machine running the tests.
 import { describe, it, expect } from 'vitest';
-import { quick, parseNumber, formatNumber, resolveZone, zoneOffset, unitOf } from '../../utils/quick.js';
+import { quick, parseNumber, formatNumber, resolveZone, zoneOffset, unitOf, convertCurrency } from '../../utils/quick.js';
 
 const NOW = Date.UTC(2026, 9, 18, 12, 0); // Sunday 18 October 2026, 12:00 UTC (14:00 in Madrid)
 const evaluate = (input, options = {}) => quick(input, { lang: 'en', now: NOW, zone: 'Europe/Madrid', ...options });
@@ -320,14 +320,40 @@ describe('dates', () => {
 });
 
 describe('currency', () => {
-  it('looks like money: one row saying it needs the internet (no rate is ever made up)', () => {
-    for (const input of ['10 usd in eur', '10 USD to EUR', '$10 in eur', '10€ in $', '100 rub', '5 dollars in euros', '10 евро в рубли'.replace('рубли', 'рублей')]) {
-      expect(evaluate(input), input).toEqual({ kind: 'currency' });
-    }
+  it('reads the amount and the currencies, by code, symbol or name (the background fetches the rates)', () => {
+    expect(evaluate('10 usd in eur')).toEqual({ kind: 'currency', amount: 10, from: 'USD', to: 'EUR' });
+    expect(evaluate('10 USD to EUR')).toEqual({ kind: 'currency', amount: 10, from: 'USD', to: 'EUR' });
+    expect(evaluate('$10 in €')).toEqual({ kind: 'currency', amount: 10, from: 'USD', to: 'EUR' });
+    expect(evaluate('10€ in $')).toEqual({ kind: 'currency', amount: 10, from: 'EUR', to: 'USD' });
+    expect(evaluate('5 dollars in euros')).toEqual({ kind: 'currency', amount: 5, from: 'USD', to: 'EUR' });
+    expect(evaluate('10 евро в рублей')).toEqual({ kind: 'currency', amount: 10, from: 'EUR', to: 'RUB' });
+    expect(evaluate('1,234.5 eur to gbp')).toEqual({ kind: 'currency', amount: 1234.5, from: 'EUR', to: 'GBP' });
+    expect(evaluate('100 rub')).toEqual({ kind: 'currency', amount: 100, from: 'RUB', to: null });
   });
   it('but pounds are weight, and words are words', () => {
     expect(evaluate('10 pounds in kg').kind).toBe('unit');
     expect(evaluate('usd')).toBeNull();
     expect(evaluate('euro news')).toBeNull();
+    expect(evaluate('10 usd in usd')).toBeNull();
+    expect(evaluate('10 usd eur gbp')).toBeNull();
+  });
+  it('convertCurrency: with today’s rates (per dollar), in the language’s money format; to the euro when no currency was named', () => {
+    const rates = { USD: 1, EUR: 0.92, RUB: 90 };
+    expect(convertCurrency({ amount: 10, from: 'USD', to: 'EUR' }, rates, 'en')).toEqual({ kind: 'currency', value: '€9.20', copy: '9.20', expression: '$10.00 = €9.20', rate: '1 USD = 0.92 EUR' });
+    expect(convertCurrency({ amount: 100, from: 'RUB', to: null }, rates, 'de')).toMatchObject({ copy: '1.02', value: '1,02\u00a0€' });
+    expect(convertCurrency({ amount: 1, from: 'EUR', to: null }, rates, 'en').value).toBe('$1.09');
+    expect(convertCurrency({ amount: 1, from: 'BTC', to: 'USD' }, rates, 'en')).toEqual({ kind: 'currency-missing', code: 'BTC' });
+  });
+});
+
+describe('weather', () => {
+  it('"weather <place>", "<place> weather", "weather in <place>", and as other languages ask', () => {
+    for (const [input, place] of [['weather Athens', 'Athens'], ['Athens weather', 'Athens'], ['weather in New York', 'New York'], ['Wetter Berlin', 'Berlin'], ['καιρός Αθήνα', 'Αθήνα'], ['météo à Paris', 'Paris'], ['погода Москва', 'Москва'], ['מזג אוויר תל אביב', 'תל אביב']]) {
+      expect(evaluate(input), input).toEqual({ kind: 'weather', place });
+    }
+  });
+  it('not the word alone, nor a place without letters', () => {
+    expect(evaluate('weather')).toBeNull();
+    expect(evaluate('weather 123')).toBeNull();
   });
 });

@@ -424,19 +424,59 @@ describe('quick answers', () => {
     expect(byTestId('palette-quick-value').textContent).toBe(translate('paletteDays', { count: 10 }));
   });
 
-  it('currency: one disabled row saying why, and Enter does nothing', async () => {
+  it('currency: a row while today’s rates are read, then the converted amount, copied by Enter', async () => {
+    let answer;
+    chrome.runtime.sendMessage.mockImplementation(async (message) => (message && message.type === MESSAGE.LOOKUP ? new Promise((resolve) => { answer = resolve; }) : undefined));
     const switcher = await boot({ tabs: defaultTabs });
     key('k', { code: 'KeyK', ctrlKey: true });
     await type('10 usd in eur');
-    const row = byTestId('palette-row-currency');
-    expect(row.getAttribute('aria-disabled')).toBe('true');
-    expect(row.textContent).toContain(translate('paletteCurrency'));
-    expect(row.textContent).toContain(translate('paletteCurrencyWhy'));
-    expect(switcher.state.palette.highlighted).toBe(0);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({ type: MESSAGE.LOOKUP, what: 'rates' });
+    expect(byTestId('palette-row-lookup').textContent).toContain(translate('paletteLookupLoadingRates'));
+    expect(byTestId('palette-row-lookup').textContent).toContain('open.er-api.com');
+    answer({ ok: true, answer: { rates: { USD: 1, EUR: 0.92 }, updated: Date.UTC(2026, 9, 26) } });
+    await waitFor(() => byTestId('palette-row-quick'));
+    expect(byTestId('palette-quick-value').textContent).toBe('€9.20');
+    expect(byTestId('palette-quick-expr').textContent).toContain('1 USD = 0.92 EUR');
     key('Enter');
-    await tick(10);
-    expect(clipboard.writeText).not.toHaveBeenCalled();
+    await waitFor(() => clipboard.writeText.mock.calls.length > 0);
+    expect(clipboard.writeText).toHaveBeenCalledWith('9.20');
     expect(switcher.state.done).toBe(false);
+  });
+
+  it('currency: rates that can’t be read say so, and Enter asks again', async () => {
+    chrome.runtime.sendMessage.mockImplementation(async (message) => (message && message.type === MESSAGE.LOOKUP ? { ok: false, error: 'offline' } : undefined));
+    await boot({ tabs: defaultTabs });
+    key('k', { code: 'KeyK', ctrlKey: true });
+    await type('10 usd in eur');
+    await waitFor(() => byTestId('palette-row-lookup')?.textContent.includes(translate('paletteLookupFailedRates')));
+    key('Enter');
+    await tick(20);
+    expect(chrome.runtime.sendMessage.mock.calls.filter(([message]) => message && message.type === MESSAGE.LOOKUP)).toHaveLength(2);
+  });
+
+  it('weather: "weather Athens" shows the weather now there, from Open-Meteo', async () => {
+    chrome.runtime.sendMessage.mockImplementation(async (message) => (message && message.type === MESSAGE.LOOKUP
+      ? { ok: true, answer: { found: true, place: 'Athens', region: 'Attica', country: 'Greece', temperature: 24.4, feelsLike: 25.1, humidity: 40, wind: 12.3, code: 2, isDay: true, units: 'metric' } }
+      : undefined));
+    await boot({ tabs: defaultTabs });
+    key('k', { code: 'KeyK', ctrlKey: true });
+    await type('weather Athens');
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(expect.objectContaining({ type: MESSAGE.LOOKUP, what: 'weather', place: 'Athens', lang: 'en' }));
+    await waitFor(() => byTestId('palette-row-quick'));
+    expect(byTestId('palette-quick-value').textContent).toBe('24 °C · Partly cloudy');
+    const detail = byTestId('palette-quick-expr').textContent;
+    expect(detail).toContain('Now in Athens, Attica, Greece');
+    expect(detail).toContain('feels like 25 °C');
+    expect(detail).toContain('wind 12 km/h');
+    expect(detail).toContain('humidity 40%');
+  });
+
+  it('weather: a place that isn’t found says so', async () => {
+    chrome.runtime.sendMessage.mockImplementation(async (message) => (message && message.type === MESSAGE.LOOKUP ? { ok: true, answer: { found: false } } : undefined));
+    await boot({ tabs: defaultTabs });
+    key('k', { code: 'KeyK', ctrlKey: true });
+    await type('weather Qwxzzy');
+    await waitFor(() => byTestId('palette-row-lookup')?.textContent.includes(translate('paletteLookupNoPlace', { place: 'Qwxzzy' })));
   });
 });
 

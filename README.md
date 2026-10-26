@@ -2,9 +2,9 @@
 
 **Alt+Tab for your browser tabs, in Chrome and Firefox.** Tabazing shows every open tab as a card with a live preview of the page, so you can see where you are going before you get there. Hold Alt and tap Q to flick between tabs, or open it and type to find any tab, a tab you closed earlier, a bookmark or a page from your history. It also stars, notes, snoozes, archives, sleeps, mutes and tidies tabs, one at a time or many at once.
 
-Everything stays on your computer. Previews, notes, stars and settings are stored locally by the browser; the extension pages are locked down so they cannot make network requests at all, and nothing is sent anywhere.
+Your tabs stay on your computer. Previews, notes, stars and settings are stored locally by the browser, and nothing about your tabs is sent anywhere. The only things Tabazing fetches from the internet, and only when you ask the command palette for them, are today's exchange rates and the weather where you ask ([Privacy](#privacy-and-permissions)).
 
-Current version: **6.19.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
+Current version: **6.20.0** (from `manifest.json`). Available in English, Greek, German, Italian, French, Spanish, Russian, Arabic, Hebrew and Romanian; in Arabic and Hebrew the whole layout runs right to left.
 
 Made by **[MaxiiKK](https://github.com/maxiikk)**.
 
@@ -243,7 +243,9 @@ Closing, moving and archiving tabs keep their usual **Undo**.
 
 Numbers show in your language's format; calculations are rounded to 12 significant digits (so `0.1 + 0.2` is 0.3) and conversions to 6. Enter copies plain digits (`1234.5`, no thousands separator), a unit result with its unit, and a date as `YYYY-MM-DD`. A comma alone is the decimal mark (`1,5` = 1.5), except in English, where `1,234` is a thousand.
 
-**Currency** needs today's exchange rates from the internet, and Tabazing never connects to it: typing something like `10 usd in eur` shows one row that says so, instead of a made-up rate.
+**Currency:** `10 usd in eur`, `$10 to €`, `5 dollars in euros`, `100 rub` (to euros when no currency is named; dollars from euros), with today's exchange rates from [open.er-api.com](https://www.exchangerate-api.com) (free, updated daily, 160+ currencies; read again after six hours, and the last ones are used when they can't be read). Enter copies the amount, Shift+Enter the whole conversion. Bitcoin and Ether have no rate there.
+
+**Weather:** `weather Athens`, `Athens weather`, `weather in New York`, and as the other languages ask (`Wetter Berlin`, `καιρός Αθήνα`, `météo Paris`, `погода Москва`…): the temperature and the sky now, what it feels like, the wind and the humidity, from [Open-Meteo](https://open-meteo.com) (free, no account). In °F and mph for places in the United States (and Liberia and Myanmar), °C and km/h everywhere else. A place name can be written in any language Tabazing knows (`weather Θεσσαλονίκη`). Enter copies it.
 
 ### Media player
 
@@ -512,13 +514,13 @@ After you have used Tabazing for a while, it may ask once "How is Tabazing worki
 
 ## Privacy and permissions
 
-- **Nothing leaves your computer.** Tabazing's pages run under a content security policy with `connect-src 'none'`, so they cannot contact any server; even their font (Roboto) comes with the extension. The only web pages Tabazing ever opens are the ones you click, such as the review link.
+- **Nothing about your tabs leaves your computer.** Tabazing's pages run under a content security policy that lets them contact three addresses only, and only the command palette's money and weather answers do, when you type such a question: `open.er-api.com` for today's exchange rates (nothing is sent but the request), and Open-Meteo's `geocoding-api.open-meteo.com` and `api.open-meteo.com` for the weather (the place you typed, and then that place's coordinates). No cookies go with them. Even the pages' font (Roboto) comes with the extension. The only web pages Tabazing ever opens are the ones you click, such as the review link.
 - **What is stored, and for how long** (all in Chrome's local extension storage, on this device):
   - **Page previews** are kept by page address. A preview no open tab uses is deleted **7 days** after it was last captured or used. Storage is capped at 300 previews (plus up to 80 sharp copies for the big preview).
   - **Closed-tabs log:** address, title and icon of tabs you closed (and the name and colour of the tab group each was in), kept **7 days** (up to 200 entries), for search.
   - **Stars, notes and snoozed tabs** (address, title, time, and a snoozed tab's group name and colour) until you remove them. **Notes on bookmarks** are kept by bookmark, on this computer only, until you remove them or the bookmark.
   - **Settings and sort order**, the first-run, nudge and feedback-prompt counters, the ids of the last few command-palette actions you ran, and what the History and Bookmarks views bring back (the history's look and time range, the open folders and the selected row; not their searches).
-  - **Quick answers** in the command palette are worked out on your computer. Currency conversion isn't offered, because it would need exchange rates from the internet.
+  - **Quick answers** in the command palette are worked out on your computer, except money and the weather (above). The last exchange rates read are kept on this device; the weather is kept in memory for ten minutes.
 
   - **Tab usage order**, and the tab group Tabazing is showing, kept only in memory and cleared when Chrome closes.
   - **Recently closed entries you removed from the list** (their address and when), for a month.

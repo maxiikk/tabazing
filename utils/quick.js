@@ -1,18 +1,20 @@
 // Quick answers for the command palette: arithmetic, percentages, unit conversions, number bases, colours,
 // time zones and dates, worked out locally from what was typed. Pure: no DOM, no chrome.*, no network, and
 // no eval / Function (arithmetic goes through the small parser below). Never throws: anything it doesn't
-// understand, or that comes out as not a finite number, is null.
+// understand, or that comes out as not a finite number, is null. Money and the weather need today's data: for them
+// it says what was asked ('currency', 'weather'); the background fetches the rates or the weather (utils/lookups.js),
+// and convertCurrency below works out the answer.
 //
 //   quick('10 km in mi', { lang: 'en' }) -> { kind: 'unit', value: '6.21371 mi', copy: '6.21371 mi', expression: '10 km = 6.21371 mi' }
 //
 // A result: { kind, value, copy, expr, ... }
-//   kind   'calc' | 'unit' | 'base' | 'color' | 'time' | 'date' | 'days' | 'currency'
+//   kind   'calc' | 'unit' | 'base' | 'color' | 'time' | 'date' | 'days' | 'currency' | 'weather'
 //   value  what the row shows big, formatted for `lang` (Intl.NumberFormat / DateTimeFormat); for 'days', `count` instead
 //   copy   what Enter copies: numbers as plain digits with a dot ("1234.5", no grouping, no exponent: 1/10000000
 //          copies "0.0000001"; pastes anywhere), a unit result with its symbol, a date as YYYY-MM-DD, anything else as shown
 //   expr   the whole thing ("80 + 15% = 92"), for the row's "copy expression" button
 //   alts   (colour, base) the same value in other notations; swatch (colour) '#rrggbb'; place, zone (time)
-// 'currency' has nothing else: exchange rates need the internet, which Tabazing never uses.
+// 'currency' is { kind, amount, from, to } (ISO codes; `to` null when none was typed), 'weather' { kind, place }.
 //
 // Precision: calculations are rounded to 12 significant digits (0.1 + 0.2 shows 0.3), conversions to 6
 // ("10 km in mi" -> 6.21371). From 1e15 up, and below 1e-6, numbers show in scientific notation. A sum that
@@ -31,7 +33,7 @@ export function quick(text, { lang = 'en', now = Date.now(), zone = localTimeZon
     const normalizedText = String(text == null ? '' : text).trim().replace(/\s+/g, ' ');
     if (!normalizedText || normalizedText.length > MAX_LENGTH) return null;
     const options = { lang, now, zone };
-    for (const parser of [currency, color, base, timeZone, dateCalculation, unit, calculate]) {
+    for (const parser of [weather, currency, color, base, timeZone, dateCalculation, unit, calculate]) {
       const result = parser(normalizedText, options);
       if (result) return result;
     }
@@ -107,19 +109,52 @@ const CURRENCY = new Set(CURRENCY_CODES.split(' '));
 const CURRENCY_WORD = /^(dollars?|euros?|yen|yuan|rubles?|roubles?|pesos?|rupees?|francs?|d[oó]lar(es)?|libras? esterlinas?|рубл[ьяей]*|доллар(ов|а|ы)?|евро|юан[ьяей]*|иен[аы]?|фунт(ов|а|ы)? стерлингов|bitcoins?)$/i;
 const CURRENCY_SYMBOL = /^[$€£¥₽₹₩₺₴₸]$/;
 const isCurrency = (word) => CURRENCY.has(word.toLowerCase()) || CURRENCY_WORD.test(word) || CURRENCY_SYMBOL.test(word);
+// What a currency word or symbol stands for (ISO 4217; ¥ is the yen, "peso" the Mexican one).
+const CODE_OF_SYMBOL = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', '₽': 'RUB', '₹': 'INR', '₩': 'KRW', '₺': 'TRY', '₴': 'UAH', '₸': 'KZT' };
+const CODE_OF_WORD = [
+  [/^(dollars?|d[oó]lar(es)?|доллар(ов|а|ы)?)$/i, 'USD'], [/^(euros?|евро)$/i, 'EUR'], [/^(yen|иен[аы]?)$/i, 'JPY'], [/^(yuan|юан[ьяей]*)$/i, 'CNY'],
+  [/^(rubles?|roubles?|рубл[ьяей]*)$/i, 'RUB'], [/^pesos?$/i, 'MXN'], [/^rupees?$/i, 'INR'], [/^francs?$/i, 'CHF'],
+  [/^(libras? esterlinas?|фунт(ов|а|ы)? стерлингов)$/i, 'GBP'], [/^bitcoins?$/i, 'BTC'],
+];
+const currencyCode = (word) => (CURRENCY.has(word.toLowerCase()) ? word.toUpperCase() : CODE_OF_SYMBOL[word] || (CODE_OF_WORD.find(([pattern]) => pattern.test(word)) || [])[1] || null);
 const CONNECT = /^(in|to|into|as|=|->|→|en|a|в|во)$/i;
-function currency(text) {
+function currency(text, { lang }) {
   // Symbols may touch the number ("$10", "10€"): set them apart first.
   const words = text.replace(/([$€£¥₽₹₩₺₴₸])/g, ' $1 ').trim().split(' ').filter(Boolean);
-  let numberCount = 0, currencyCount = 0;
+  const codes = [], amounts = [];
   for (let i = 0; i < words.length; i++) {
     const word = words[i];
-    if (/^\d[\d.,]*$/.test(word)) numberCount++;
-    else if (isCurrency(word)) currencyCount++;
-    else if (i + 1 < words.length && isCurrency(word + ' ' + words[i + 1])) { currencyCount++; i++; }
+    if (/^\d[\d.,]*$/.test(word)) amounts.push(parseNumber(word, lang));
+    else if (isCurrency(word)) codes.push(currencyCode(word));
+    else if (i + 1 < words.length && isCurrency(word + ' ' + words[i + 1])) { codes.push(currencyCode(word + ' ' + words[i + 1])); i++; }
     else if (!CONNECT.test(word)) return null;
   }
-  return numberCount === 1 && currencyCount >= 1 ? { kind: 'currency' } : null;
+  if (amounts.length !== 1 || !Number.isFinite(amounts[0]) || !codes.length || codes.length > 2 || codes[0] === codes[1]) return null;
+  return { kind: 'currency', amount: amounts[0], from: codes[0], to: codes[1] || null };
+}
+/** The answer to a 'currency' question with today's `rates` ({ [code]: units per one of the base currency }), as a quick
+ * answer; `to` defaults to the euro (the dollar from euros). { kind: 'currency-missing', code } when a rate is missing. */
+export function convertCurrency({ amount, from, to }, rates, lang = 'en') {
+  const target = to || (from === 'EUR' ? 'USD' : 'EUR');
+  for (const code of [from, target]) if (!(rates[code] > 0)) return { kind: 'currency-missing', code };
+  const converted = amount * (rates[target] / rates[from]);
+  const money = (value, code) => { try { return new Intl.NumberFormat(lang, { style: 'currency', currency: code, maximumFractionDigits: Math.abs(value) < 1 ? 6 : 2 }).format(value); } catch { return formatNumber(value, lang, 6).shown + ' ' + code; } };
+  const shown = money(converted, target);
+  const plain = Math.abs(converted) < 1 ? formatNumber(converted, lang, 6).plain : converted.toFixed(2);
+  return { kind: 'currency', value: shown, copy: plain, expression: `${money(amount, from)} = ${shown}`, rate: `1 ${from} = ${formatNumber(rates[target] / rates[from], lang, 6).shown} ${target}` };
+}
+
+// ---------------------------------------------------------------- weather
+// "weather Athens", "Athens weather", "weather in New York"; and as the other languages ask (Wetter Berlin, погода в
+// Москве, καιρός Αθήνα, météo Paris, el tiempo en Madrid, מזג אוויר תל אביב...).
+const WEATHER_WORD = '(?:weather|forecast|wetter|météo|meteo|tempo|tiempo|clima|el tiempo|погода|καιρός|καιρος|vremea|vreme|طقس|الطقس|מזג אוויר|מזג האוויר)';
+const WEATHER_IN = '(?:in|at|for|en|à|a|in|im|в|во|σε|στην|στο|στη|în|ב|في)';
+const WEATHER_BEFORE = new RegExp(`^${WEATHER_WORD}(?:\\s+${WEATHER_IN})?\\s+(.+)$`, 'iu');
+const WEATHER_AFTER = new RegExp(`^(.+?)\\s+${WEATHER_WORD}$`, 'iu');
+function weather(text) {
+  const match = WEATHER_BEFORE.exec(text) || WEATHER_AFTER.exec(text);
+  const place = match && match[1].trim();
+  return place && place.length <= 80 && /\p{L}/u.test(place) ? { kind: 'weather', place } : null;
 }
 
 // ---------------------------------------------------------------- colours

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.20.0] - 2026-10-26
+
+### Added
+
+- Currency conversion in the command palette, with today’s exchange rates (`10 usd in eur`, `$10 to €`, `100 rub`): 160+ currencies from open.er-api.com, updated daily; Enter copies the amount.
+- The weather in the command palette: `weather Athens` (or `Athens weather`, `Wetter Berlin`, `καιρός Αθήνα`…) shows the temperature and the sky now, what it feels like, the wind and the humidity, from Open-Meteo; °F for places in the United States.
+
+### Changed
+
+- Privacy: the command palette’s money and weather answers are the only things Tabazing fetches from the internet, and only when you ask for them (the place you typed is sent to Open-Meteo); nothing about your tabs is sent anywhere. The extension’s pages may connect to those services only.
+
 ## [6.19.0] - 2026-10-26
 
 ### Added
@@ -816,7 +827,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.19.0]: https://github.com/maxiikk/tabazing/compare/50a3861...HEAD
+[6.20.0]: https://github.com/maxiikk/tabazing/compare/5874644...HEAD
+[6.19.0]: https://github.com/maxiikk/tabazing/compare/50a3861...5874644
 [6.18.2]: https://github.com/maxiikk/tabazing/compare/f099e17...50a3861
 [6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...f099e17
 [6.18.0]: https://github.com/maxiikk/tabazing/compare/5372ff1...ceb1587
