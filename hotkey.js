@@ -27,10 +27,15 @@
   let altDown = false;
   let altAt = 0;
   const altState = () => (Date.now() - altAt > 10000 ? 'unknown' : altDown ? 'down' : 'up');
+  // Alt going down starts every shortcut: the background takes the page's screenshot now, while nothing covers it,
+  // so the switcher doesn't wait for one when the letter comes (it also wakes a worker that was asleep).
+  const ALT_DOWN = 'tabazing:alt-down'; // keep in sync with MESSAGE.ALT_DOWN in utils/constants.js
   function onAlt(event) {
     if (!event.isTrusted || event.key !== 'Alt') return;
+    const pressed = event.type === 'keydown' && !event.repeat;
     altDown = event.type === 'keydown';
     altAt = Date.now();
+    if (pressed && alive()) chrome.runtime.sendMessage({ type: ALT_DOWN }).catch(() => {});
   }
   const onBlur = () => { altAt = 0; };
   // What this frame saw of Alt, and when: the background asks every frame of the page, as the focus may be in one

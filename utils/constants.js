@@ -2,10 +2,11 @@
 import { uiLang } from './i18n.js';
 import { IS_FIREFOX } from './browser.js';
 // (hotkey.js and media-relay.js are classic content scripts and can't import this, so they
-// repeat MESSAGE.HOTKEY / MESSAGE.MEDIA as string literals. Keep them in sync.)
+// repeat MESSAGE.HOTKEY / MESSAGE.ALT_DOWN / MESSAGE.MEDIA as string literals. Keep them in sync.)
 
 export const MESSAGE = Object.freeze({
   HOTKEY: 'tabazing:hotkey', // content script -> background: user pressed Alt+Q / W / E in a page: { dir, hold }, or Alt+R: { palette: true }
+  ALT_DOWN: 'tabazing:alt-down', // content script -> background: Alt went down in a page (a shortcut may follow: its screenshot is taken now)
   CYCLE: 'tabazing:cycle',   // background -> open switcher: move selection ({ dir, hold }), or show the command palette ({ palette: true })
   READY: 'tabazing:ready',   // switcher -> background: UI loaded, send queued moves
   CLOSED: 'tabazing:closed', // switcher -> background: UI closed (with reason)
@@ -69,8 +70,9 @@ export const SNOOZE_ALARM = 'tabazing:snooze'; // chrome.alarms name: the next s
 export const previewKey = (url) => 'pv:' + url; // storage.local, `url` already normalized
 export const sharpKey = (url) => 'pvhd:' + url; // storage.local: the sharp copy of the same capture (big preview)
 export const tabMetaKey = (tabId) => 'm:' + tabId; // storage.session: { u, ti, f } last known url/title/icon of an open tab
-// Previews are WebP (a third smaller than JPEG at the same quality, so more of them fit). Those stored before 6.18
-// are JPEG, and still read: PREVIEW_PREFIXES.
+// The cards' previews are WebP (a third smaller than JPEG at the same quality, so more of them fit). Those stored
+// before 6.18 are JPEG, and still read: PREVIEW_PREFIXES; so are the sharp copies (WebP is too slow to write at
+// their size: see storeShot in capture.js).
 export const PREVIEW_PREFIX = 'data:image/webp;base64,';
 export const PREVIEW_PREFIXES = Object.freeze([PREVIEW_PREFIX, 'data:image/jpeg;base64,']);
 
@@ -97,6 +99,9 @@ export const LIMITS = Object.freeze({
   MAX_FAVICONS: 1000,                     // site icons kept (Firefox): the most recently seen sites
   FAVICON_MAX_LENGTH: 24 * 1024,          // ...each a data: URL this long at most (a 32 px PNG is 1-3 KB)
   CAPTURE_GAP_MILLISECONDS: 520,          // Chrome allows ~2 captureVisibleTab calls per second
+  PREVIEW_FRESH_MILLISECONDS: 1500,       // a page's screenshot this recent isn't taken again when Tabazing opens over it
+  SHOT_WAIT_MILLISECONDS: 400,            // opening waits this long at most for the page's screenshot (a later one is thrown away)
+  GRAB_STALE_MILLISECONDS: 1000,          // a screenshot under way this long is given up on (opening takes a new one); one taken is saved this long after, unless a switcher opened over it first
   LAUNCH_TIME_TO_LIVE_MILLISECONDS: 15000,         // how long a launch token stays valid
   STANDBY_TIME_TO_LIVE_MILLISECONDS: 30 * 60 * 1000, // ...and a standby token (renewed each time its tab is prepared again)
   OPENING_LOCK_MILLISECONDS: 1500,        // presses during this window are queued, not re-opened

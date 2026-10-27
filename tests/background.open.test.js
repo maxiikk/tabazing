@@ -1,7 +1,7 @@
 // background.js: opening the switcher (shortcuts, toolbar icon, overlay vs popup window, watchdog).
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { MESSAGE, KEY, LIMITS, FRAME_MESSAGE, PREVIEW_PREFIX } from '../utils/constants.js';
-import { environment, flush, freshWorker, seed, launch, fromSwitcherPage, send } from './helpers/background.js';
+import { environment, flush, freshWorker, seed, launch, fromSwitcherPage, fromPage, send } from './helpers/background.js';
 
 freshWorker();
 const background = () => environment.background;
@@ -328,6 +328,142 @@ describe('openSwitcher', () => {
     vi.advanceTimersByTime(LIMITS.OPENING_LOCK_MILLISECONDS);
     await background().openSwitcher(1, tab);
     expect(chrome.windows.create).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('the screenshot taken as Alt goes down', () => {
+  const altDown = (tab) => send({ type: MESSAGE.ALT_DOWN }, fromPage(tab));
+  const deferredShot = () => {
+    let shoot;
+    chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise((resolve) => { shoot = resolve; }));
+    return (dataUrl = 'data:image/jpeg;base64,AAAA') => shoot(dataUrl);
+  };
+  // storeShot decodes the screenshot first: each decode is one screenshot kept.
+  const decoded = () => { const decode = vi.fn(async () => null); vi.stubGlobal('createImageBitmap', decode); return decode; };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('starts the page’s screenshot; opening a moment later waits for that one instead of taking another', async () => {
+    const decode = decoded();
+    const { tab } = seed();
+    const shoot = deferredShot();
+    altDown(tab);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+    await background().openSwitcher(1, tab);
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+    expect(launchInjections()[0][0].args[8]).toBe(true); // the page waits for it...
+    expect(shotTakenCalls()).toHaveLength(0);
+    shoot();
+    await flush();
+    expect(shotTakenCalls()).toHaveLength(1); // ...and is told once it is taken; then it is kept
+    expect(decode).toHaveBeenCalledTimes(1);
+  });
+
+  it('taken before the shortcut came, it isn’t waited for, and is kept only then (keeping it holds the worker up)', async () => {
+    const decode = decoded();
+    const { tab } = seed();
+    altDown(tab);
+    await flush(10);
+    expect(decode).not.toHaveBeenCalled();
+    await background().openSwitcher(1, tab);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+    expect(shotTakenCalls()).toHaveLength(1);
+    expect(decode).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(LIMITS.GRAB_STALE_MILLISECONDS);
+    await flush();
+    expect(decode).toHaveBeenCalledTimes(1); // once
+  });
+
+  it('is kept a moment later when no switcher opens', async () => {
+    const decode = decoded();
+    const { tab } = seed();
+    altDown(tab);
+    await flush(10);
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(LIMITS.GRAB_STALE_MILLISECONDS - 1);
+    expect(decode).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await flush();
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(background().grabs.size).toBe(0);
+  });
+
+  it('is thrown away when opening stopped waiting for it (the switcher may be in it)', async () => {
+    const decode = decoded();
+    const { tab } = seed();
+    const shoot = deferredShot();
+    altDown(tab);
+    await flush();
+    await background().openSwitcher(1, tab);
+    await vi.advanceTimersByTimeAsync(LIMITS.SHOT_WAIT_MILLISECONDS);
+    await flush();
+    expect(shotTakenCalls()).toHaveLength(1);
+    shoot();
+    await flush(10);
+    await vi.advanceTimersByTimeAsync(LIMITS.GRAB_STALE_MILLISECONDS);
+    await flush();
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it('one of another tab of the window isn’t used: opening takes the screenshot of its own', async () => {
+    const { tab, w: chromeWindow } = seed();
+    deferredShot();
+    altDown(tab);
+    await flush();
+    vi.advanceTimersByTime(LIMITS.CAPTURE_GAP_MILLISECONDS); // (Chrome allows the next one)
+    const other = chrome._addTab({ windowId: chromeWindow.id, url: 'https://example.org/', active: true });
+    await background().openSwitcher(1, other);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(2);
+  });
+
+  it('a screenshot stuck for a second is given up on: opening takes a new one', async () => {
+    const { tab } = seed();
+    chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise(() => {})); // never settles
+    altDown(tab);
+    await flush();
+    vi.advanceTimersByTime(LIMITS.GRAB_STALE_MILLISECONDS);
+    expect(background().currentGrab(tab.windowId, tab.id)).toBe(null);
+    await background().openSwitcher(1, tab);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(2);
+  });
+
+  it('not taken again while one is under way, nor when the preview is fresh', async () => {
+    const { tab } = seed('https://example.com/');
+    deferredShot();
+    altDown(tab);
+    await flush();
+    altDown(tab);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+
+    const other = seed('https://example.org/').tab;
+    const { savePreview } = await import('../utils/store.js'); // the worker's own copy (one module per worker)
+    await savePreview('https://example.org/', { img: PREVIEW_PREFIX + 'AAAA', t: Date.now() });
+    altDown(other);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).toHaveBeenCalledTimes(1);
+  });
+
+  it('not taken while Tabazing is opening or over the page, in a tab not shown, or for anyone but a page', async () => {
+    const { tab } = seed();
+    chrome.tabs.captureVisibleTab.mockReturnValueOnce(new Promise(() => {}));
+    await background().openSwitcher(1, tab); // opening (and then over the page)
+    chrome.tabs.captureVisibleTab.mockClear();
+    altDown(tab);
+    await flush();
+    vi.advanceTimersByTime(LIMITS.OPENING_LOCK_MILLISECONDS + LIMITS.GRAB_STALE_MILLISECONDS);
+    altDown(tab);
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();
+
+    const shown = seed().tab;
+    send({ type: MESSAGE.ALT_DOWN }, fromPage({ ...shown, active: false }));
+    send({ type: MESSAGE.ALT_DOWN }, fromSwitcherPage(shown));
+    await flush();
+    expect(chrome.tabs.captureVisibleTab).not.toHaveBeenCalled();
   });
 });
 

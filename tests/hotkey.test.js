@@ -173,6 +173,22 @@ describe('hotkey.js', () => {
     it('ignores untrusted Alt events', () => {
       key('keydown', { key: 'Alt', altKey: true }, false);
       expect(state()).toBe('unknown');
+      expect(sent()).toEqual([]);
+    });
+
+    it('tells the background when Alt goes down (a shortcut may follow), once per press', () => {
+      key('keydown', { key: 'Alt', code: 'AltLeft', altKey: true });
+      key('keydown', { key: 'Alt', code: 'AltLeft', altKey: true, repeat: true }); // held: auto-repeat
+      key('keyup', { key: 'Alt', code: 'AltLeft' });
+      expect(sent()).toEqual([{ type: MESSAGE.ALT_DOWN }]);
+      key('keydown', { key: 'Alt', code: 'AltRight', altKey: true });
+      expect(sent()).toEqual([{ type: MESSAGE.ALT_DOWN }, { type: MESSAGE.ALT_DOWN }]);
+    });
+
+    it('an orphaned copy (extension reloaded) does not', () => {
+      chrome.runtime.id = undefined;
+      key('keydown', { key: 'Alt', altKey: true });
+      expect(sent()).toEqual([]);
     });
 
     it('goes back to unknown after 10 s, or when the window loses focus', () => {

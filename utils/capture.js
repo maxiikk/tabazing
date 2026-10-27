@@ -94,12 +94,15 @@ async function grabTab(windowId, tab) {
   return dataUrl;
 }
 
-// Shrink a screenshot into its two stored copies and save them: a small one for the cards, a sharp one
-// for the big preview. The slow part (two JPEG encodes), so opening the switcher doesn't wait for it.
-// The screenshot is decoded once and both copies are drawn from that one bitmap.
+// Shrink a screenshot into its two stored copies and save them: a small one for the cards (WebP), a sharp one
+// for the big preview. The slow part, so opening the switcher doesn't wait for it; and it holds up the worker while
+// it runs (nothing else it does can happen meanwhile), so the sharp copy is a JPEG: WebP took ~10 times as long to
+// write at that size (a quarter of a second for a 4K screen). A screenshot that is no larger than the sharp copy
+// is kept as it is, without drawing or writing it again. It is decoded once and both copies are drawn from that bitmap.
 export async function storeShot(tab, dataUrl) {
   const bitmap = await decode(dataUrl);
-  const [thumbnail, sharp] = bitmap ? await Promise.all([encode(bitmap), encode(bitmap, LIMITS.SHARP_MAX, 0.82)]) : [null, null];
+  const fits = bitmap && Math.max(bitmap.width, bitmap.height) <= LIMITS.SHARP_MAX;
+  const [thumbnail, sharp] = bitmap ? await Promise.all([encode(bitmap), fits ? dataUrl : encode(bitmap, LIMITS.SHARP_MAX, 0.82, 'image/jpeg')]) : [null, null];
   if (bitmap) bitmap.close();
   if (!thumbnail) return noteCapture('error', 'could not shrink the screenshot', tab.url);
   try {
@@ -125,9 +128,9 @@ async function decode(dataUrl) {
   }
 }
 
-// One WebP copy of `bitmap` (left open: the caller closes it). Null on failure. (A browser that can't write WebP
-// gives a PNG instead: then JPEG, as before.)
-async function encode(bitmap, maxDimension = LIMITS.THUMB_MAX, quality = 0.72) {
+// One copy of `bitmap` (left open: the caller closes it), WebP unless `type` says otherwise. Null on failure. (A
+// browser that can't write WebP gives a PNG instead: then JPEG.)
+async function encode(bitmap, maxDimension = LIMITS.THUMB_MAX, quality = 0.72, type = 'image/webp') {
   try {
     const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -137,8 +140,8 @@ async function encode(bitmap, maxDimension = LIMITS.THUMB_MAX, quality = 0.72) {
     context.imageSmoothingQuality = 'high';
     context.drawImage(bitmap, 0, 0, width, height);
 
-    let blob = await canvas.convertToBlob({ type: 'image/webp', quality });
-    if (blob.type !== 'image/webp') blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
+    let blob = await canvas.convertToBlob({ type, quality });
+    if (blob.type !== type) blob = await canvas.convertToBlob({ type: 'image/jpeg', quality });
     const out = new Uint8Array(await blob.arrayBuffer());
     let binaryString = '';
     for (let i = 0; i < out.length; i += 0x8000) binaryString += String.fromCharCode.apply(null, out.subarray(i, i + 0x8000));

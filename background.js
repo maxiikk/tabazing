@@ -7,7 +7,8 @@
 // Trust: messages can come from the content script on any page (untrusted
 // page context, possibly a compromised renderer) or from our own switcher
 // page. Every message is checked for sender and shape; content scripts can
-// only ask "open the switcher" and say what their own frame plays, nothing else.
+// only ask "open the switcher", say that Alt went down (the screenshot of their own tab is taken, see grabOnAlt)
+// and say what their own frame plays, nothing else.
 //
 // Everything here must be safe to run more than once: the worker can be
 // suspended and restarted at any moment, and install/reload re-runs setup.
@@ -17,7 +18,7 @@ import {
   touchMru, removeFromMru, replaceInMru, seedMru, previewFresh, cleanupPreviews, markBoot,
   markDiscarded, moveDiscarded, ensureBoot,
   rememberTab, rememberTabs, forgetTabMeta, logClosedTab, flushClosedTabs, cleanupClosedLog,
-  setOverlayTab, clearOverlayTab, createLaunch, createStandby, getOnboard, updateOnboard,
+  setOverlayTab, clearOverlayTab, isOverlayTab, createLaunch, createStandby, getOnboard, updateOnboard,
   getNudge, updateNudge, getReview, getPreferences,
   takeDueSnoozed, putBackSnoozed, markWoken, forgetWoken, parseMedia, setMedia, forgetMedia, replaceMedia, getMedia,
 } from './utils/store.js';
@@ -438,15 +439,16 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
   if (!tab || !tab.active) [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab || tab.incognito) { opening = null; return; }
 
-  // 3. Refresh the current tab's screenshot, alongside opening (not before it: it took up to 400 ms). The
-  //    overlay stays invisible until the switcher has drawn AND the page is told the screenshot is taken
-  //    ('shot-taken'); a grab that takes longer than 400 ms is thrown away, and the page shows the overlay
-  //    then anyway, so the screenshot can never picture it. Shrinking and saving it run while the switcher
-  //    opens, which shows it once saved (storage.onChanged in switcher.js).
+  // 3. Refresh the current tab's screenshot, alongside opening (not before it: it took up to 400 ms). Usually it
+  //    is already under way, started as Alt went down (grabOnAlt). The overlay stays invisible until the switcher
+  //    has drawn AND the page is told the screenshot is taken ('shot-taken'); a grab that takes longer than
+  //    SHOT_WAIT_MILLISECONDS is thrown away, and the page shows the overlay then anyway, so the screenshot can
+  //    never picture it. Shrinking and saving it run while the switcher opens, which shows it once saved
+  //    (storage.onChanged in switcher.js).
   cancelCapture(tab.windowId);
   const [browserWindow, fresh, preferences] = await Promise.all([
     chrome.windows.get(tab.windowId).catch(() => ({})),
-    previewFresh(tab.url, 1500).catch(() => false),
+    previewFresh(tab.url, LIMITS.PREVIEW_FRESH_MILLISECONDS).catch(() => false),
     getPreferences().catch(() => ({})),
   ]);
   const launchContext = {
@@ -458,11 +460,11 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
   if (preparation) preparation.catch(() => {}); // awaited below; this only keeps an early failure from counting as unhandled
   let shotTaken = Promise.resolve();
   if (!fresh) {
-    let late = false;
+    const grab = currentGrab(tab.windowId, tab.id) || startGrab(tab.windowId, tab.id);
     shotTaken = Promise.race([
-      grabForOpen(tab.windowId).then((capturedShot) => (late ? null : capturedShot)).catch(() => null),
-      new Promise((resolve) => setTimeout(() => { late = true; resolve(null); }, 400)),
-    ]).then((shot) => { if (shot) storeShot(shot.tab, shot.dataUrl).catch(() => {}); });
+      grab.done,
+      new Promise((resolve) => setTimeout(() => { grab.late = true; resolve(); }, LIMITS.SHOT_WAIT_MILLISECONDS)),
+    ]).then(() => grab);
   }
 
   // 4. Show it inside the page; fall back to a popup window where extensions can't inject (chrome://, Chrome's
@@ -478,7 +480,7 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
         injectInto(tab.id, token, hold, !fresh),
         new Promise((resolve, reject) => setTimeout(() => reject(new Error('page frozen')), LIMITS.PAGE_FROZEN_MILLISECONDS)),
       ]);
-      shotTaken.then(() => tellShotTaken(tab.id, token));
+      shotTaken.then((grab) => { tellShotTaken(tab.id, token); if (grab) keepGrab(tab.windowId, grab); });
       if (hold) altLetGo(tab.id).then((letGo) => { if (letGo) tellAltLetGo(tab.id, token); });
       return;
     } catch {
@@ -490,6 +492,43 @@ async function openSwitcher(direction, fromTab, via = 'key', hold = false, palet
   // A quick tap is over by the time the window opens, which never hears that key-up: it is told.
   const released = hold && (await altLetGo(tab.id));
   await openPopupWindow(browserWindow, await createLaunch({ ...launchContext, mode: 'window', ...(released ? { released: true } : {}) }));
+}
+
+// The page's screenshot, taken as Alt goes down: every shortcut starts with it, and the page hears it before the
+// letter, so by the time Alt+Q / W / E / R reaches here the screenshot is (nearly) taken, and opening hardly waits
+// for it. Not while Tabazing is opening or over the page (it would picture it), nor when the last one is fresh.
+const grabs = new Map(); // windowId -> { tabId, at, late, shot, done } of the screenshot taken or being taken in that window
+// The one of `tabId`: still under way for less than GRAB_STALE_MILLISECONDS (a longer one is given up on), or taken
+// and not yet kept.
+const currentGrab = (windowId, tabId) => {
+  const grab = grabs.get(windowId);
+  return grab && grab.tabId === tabId && (grab.shot || within(Date.now() - grab.at, LIMITS.GRAB_STALE_MILLISECONDS)) ? grab : null;
+};
+function startGrab(windowId, tabId) {
+  const grab = { tabId, at: Date.now(), late: false, shot: null };
+  grab.done = grabForOpen(windowId).catch(() => null).then((shot) => { grab.shot = shot; });
+  grabs.set(windowId, grab);
+  // Shrinking and saving it holds this worker up, and a shortcut waits behind it: so not while one may be coming.
+  // A switcher that opens over the page keeps it once it no longer waits for it; otherwise it is kept a moment later.
+  grab.done.then(() => setTimeout(() => keepGrab(windowId, grab), LIMITS.GRAB_STALE_MILLISECONDS));
+  return grab;
+}
+// Saved once, unless it was `late`: the switcher may have shown before it was taken (opening stopped waiting for
+// it), and it could picture it.
+function keepGrab(windowId, grab) {
+  if (grabs.get(windowId) === grab) grabs.delete(windowId);
+  const { shot } = grab;
+  grab.shot = null;
+  if (shot && !grab.late) storeShot(shot.tab, shot.dataUrl).catch(() => {});
+}
+async function grabOnAlt(tab) {
+  const busy = () => opening || currentGrab(tab.windowId, tab.id);
+  if (busy() || !tab.active || tab.incognito) return;
+  const [fresh, covered] = await Promise.all([
+    previewFresh(tab.url, LIMITS.PREVIEW_FRESH_MILLISECONDS).catch(() => true),
+    isOverlayTab(tab.id).catch(() => true),
+  ]);
+  if (!fresh && !covered && !busy()) startGrab(tab.windowId, tab.id);
 }
 
 // Some pages block the overlay's scripts (e.g. a "Content-Security-Policy:
@@ -874,10 +913,13 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id || !message || typeof message !== 'object' || typeof message.type !== 'string') return;
   switch (message.type) {
     case MESSAGE.HOTKEY:
-      // The only thing a page's content script may ask for.
+      // What a page's content script may ask for (with ALT_DOWN and MEDIA, which only concern its own tab).
       if (!fromContentScript(sender)) return;
       if (message.palette === true) trigger(0, sender.tab, 'key', false, true); // Alt+R: nothing else is taken from it
       else trigger(message.direction === -1 ? -1 : message.direction === 0 ? 0 : 1, sender.tab, 'key', message.hold === true);
+      return;
+    case MESSAGE.ALT_DOWN:
+      if (fromContentScript(sender)) grabOnAlt(sender.tab).catch(() => {});
       return;
     case MESSAGE.LOOKUP: {
       // The command palette asks for today's exchange rates or the weather (the only things Tabazing fetches).
@@ -989,7 +1031,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 export {
   SWITCHER_URL, EXTENSION_REAL_ORIGIN, INJECTABLE, badgeTimer, updateBadge, quietAt, steps, watchCycling,
   settleTimer, onCyclingRun, injectNudge, checkShortcut, setup, opening, watchdog, overlayOpen, lastTrigger,
-  trigger, openSwitcher, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed, wakeOne, lastNormalWindow,
+  trigger, openSwitcher, grabs, currentGrab, startGrab, keepGrab, grabOnAlt, injectInto, dropOverlay, ownPage, standbyTimers, prepareSwitcher, prepareActiveTabs, wakeSnoozed, wakeOne, lastNormalWindow,
   WATCH_FIRST_MILLISECONDS, altLetGo, tellAltLetGo, callBridged, askBridged, bridgePorts, armWatchdog, disarmWatchdog, openPopupWindow, overlayHost, removeOverlay, restoreWindow,
   flyoutOver, offerFlyout, injectFlyout, injectPageScripts, mediaResync, resyncMedia, checkMedia, pageMediaState, CHECK_MILLISECONDS, captureOne, reopenOver, fromContentScript, fromSwitcher,
 };

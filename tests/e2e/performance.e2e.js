@@ -2,8 +2,10 @@
 // an idle machine; a loaded one (every CPU core busy with threads spinning in this process, and the page and the
 // switcher's frame slowed down 4x, as on a weak or overloaded computer); and loaded with the background service
 // worker asleep (Chrome stops it after half a minute idle, and the next press has to start it again).
-// Each open is timed from the key press to the first frame after the switcher said it is ready (it is on screen
-// from then), along with the switcher's own timings (switcher.js "timings"). The numbers are printed for
+// Each open is timed from the key press to the moment it is on screen: the page shows the overlay (which waits for
+// the switcher to have drawn AND for the page's screenshot), or the first frame after the switcher in its own window
+// said it is ready; along with the switcher's own timings (switcher.js "timings"). Keys are pressed as a person
+// does: Alt, a moment, then the letter (the page's screenshot is started as Alt goes down). The numbers are printed for
 // comparison between versions; the budgets are loose, to catch a change that makes opening much slower, not to
 // time the machine.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -59,6 +61,15 @@ const measures = (frame) => frame.evaluate(() => {
   if (visible) out.visibleAt = performance.timeOrigin + visible.startTime;
   return out;
 });
+// When the page shows the overlay (epoch milliseconds), watched from before the press.
+const watchReveal = (page) => page.evaluate(() => {
+  window.revealedAt = 0;
+  const shown = () => { const frame = document.querySelector('[data-testid="overlay-frame"]'); return !!frame && frame.style.visibility === 'visible'; };
+  const observer = new MutationObserver(() => { if (shown()) { window.revealedAt = Date.now(); observer.disconnect(); } });
+  observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['style'] });
+});
+const revealedAt = (page) => page.evaluate(() => window.revealedAt).catch(() => 0);
+const ALT_PAUSE_MILLISECONDS = 120; // between Alt going down and the letter, as typed by hand
 const median = (values) => [...values].sort((first, second) => first - second)[Math.floor(values.length / 2)];
 // Every core spinning (until stopped): the machine is as busy as it gets.
 function busyCpu() {
@@ -99,17 +110,21 @@ async function measureOpens({ load = false, coldWorker = false, search = false }
     const stop = load ? busyCpu() : null;
     const speedUp = load ? await slowDown(page) : null;
     if (load) await sleep(500);
+    await watchReveal(page);
+    await page.keyboard.down('Alt');
+    await sleep(ALT_PAUSE_MILLISECONDS);
     const pressed = Date.now();
-    await page.keyboard.down('Alt'); await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
-    let frame = null, popup = null, times = {};
-    for (let wait = 0; wait < 300 && !times.visibleAt; wait++) {
+    await page.keyboard.press('KeyE'); await page.keyboard.up('Alt');
+    let frame = null, popup = null, times = {}, onScreen = 0;
+    for (let wait = 0; wait < 300 && !onScreen; wait++) {
       await sleep(50);
       ({ frame, popup } = await switcherFrame(page));
       if (frame) times = await measures(frame).catch(() => ({}));
+      onScreen = popup ? times.visibleAt : await revealedAt(page);
     }
     if (stop) { await stop(); await speedUp(); }
     if (search && frame) { for (const character of 'page4') { await page.keyboard.type(character); await sleep(120); } times = { ...times, ...(await measures(frame)) }; }
-    runs.push({ ...times, shown: times.visibleAt ? Math.round(times.visibleAt - pressed) : Infinity, popup: !!popup });
+    runs.push({ ...times, shown: onScreen ? Math.round(onScreen - pressed) : Infinity, popup: !!popup });
     if (popup) await popup.close().catch(() => {});
     else { await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); }
     await sleep(1200);

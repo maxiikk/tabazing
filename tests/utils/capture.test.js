@@ -30,7 +30,7 @@ beforeEach(async () => {
     async convertToBlob({ type, quality }) {
       this.recorder.quality = quality;
       this.recorder.type = type;
-      expect(type).toBe(webp ? 'image/webp' : this.recorder.type);
+      expect(['image/webp', 'image/jpeg']).toContain(type);
       const bytes = new TextEncoder().encode(`jpg${this.recorder.w}x${this.recorder.h}`);
       return { type: webp ? type : type === 'image/webp' ? 'image/png' : type, arrayBuffer: async () => bytes.buffer };
     }
@@ -58,7 +58,8 @@ describe('captureWindow', () => {
     const small = localData().get(previewKey('https://a.com/x'));
     const sharp = localData().get(sharpKey('https://a.com/x'));
     expect(small.img).toBe(PREVIEW_PREFIX + btoa('jpg560x350'));
-    expect(sharp.img).toBe(PREVIEW_PREFIX + btoa('jpg1600x1000')); // already under SHARP_MAX: not upscaled
+    expect(sharp.img).toBe('data:image/jpeg;base64,AAAA'); // no larger than SHARP_MAX: kept as it was taken
+    expect(canvases).toHaveLength(1); // (not drawn or written again)
     expect(small.t).toBe(Date.now());
     expect(note()).toMatchObject({ stage: 'ok', host: 'a.com' });
   });
@@ -68,8 +69,8 @@ describe('captureWindow', () => {
     const { w: testWindow } = page();
     await capture.captureWindow(testWindow.id);
     expect(canvases).toEqual([
-      expect.objectContaining({ w: 140, h: LIMITS.THUMB_MAX, quality: 0.72 }),
-      expect.objectContaining({ w: 480, h: LIMITS.SHARP_MAX, quality: 0.82 }),
+      expect.objectContaining({ w: 140, h: LIMITS.THUMB_MAX, quality: 0.72, type: 'image/webp' }),
+      expect.objectContaining({ w: 480, h: LIMITS.SHARP_MAX, quality: 0.82, type: 'image/jpeg' }),
     ]);
     expect(canvases[0].context.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 140, 560);
   });
@@ -271,6 +272,7 @@ describe('storeShot', () => {
   });
 
   it('decodes the screenshot once for both copies, and frees the bitmap', async () => {
+    bitmap = { width: 3840, height: 2160 };
     const close = vi.fn();
     createImageBitmap.mockImplementation(async () => ({ ...bitmap, close }));
     await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
@@ -290,6 +292,7 @@ describe('storeShot', () => {
   });
 
   it('still saves the card copy if only the sharp copy fails to shrink', async () => {
+    bitmap = { width: 3840, height: 2160 };
     const encode = OffscreenCanvas.prototype.convertToBlob;
     OffscreenCanvas.prototype.convertToBlob = async function (options) {
       if (this.recorder.w > LIMITS.THUMB_MAX) throw new Error('out of memory');
@@ -301,10 +304,11 @@ describe('storeShot', () => {
     expect(note().stage).toBe('ok');
   });
 
-  it('stores WebP; a browser that can’t write WebP stores JPEG instead', async () => {
+  it('stores the card copy as WebP, the sharp one as JPEG (quicker to write); a browser that can’t write WebP stores JPEG', async () => {
+    bitmap = { width: 3840, height: 2160 };
     await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
     expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/webp;base64,/);
-    expect(localData().get(sharpKey('https://a.com/x')).img).toMatch(/^data:image\/webp;base64,/);
+    expect(localData().get(sharpKey('https://a.com/x')).img).toBe('data:image/jpeg;base64,' + btoa('jpg1920x1080'));
     webp = false;
     await capture.storeShot(tab, 'data:image/jpeg;base64,AAAA');
     expect(localData().get(previewKey('https://a.com/x')).img).toMatch(/^data:image\/jpeg;base64,/);

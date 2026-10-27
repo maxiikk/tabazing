@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [6.20.0] - 2026-10-26
+## [6.20.1] - 2026-10-27
+
+### Changed
+
+- Tabazing shows up faster: the screenshot of the page you are on is taken as soon as you press Alt, so when the letter (Q, W, E or R) follows, the switcher no longer waits for it.
+- Tabazing handles shortcuts and switches more promptly right after taking a screenshot: the sharp copy for the big preview is now saved as JPEG, which takes a fraction of the time WebP did (it was holding everything else up for up to a quarter of a second), and on screens up to 1920 pixels wide the screenshot is kept as it was taken.
 
 ### Added
 
@@ -827,7 +832,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - First version in this repository.
 
-[6.20.0]: https://github.com/maxiikk/tabazing/compare/5874644...HEAD
+[6.20.1]: https://github.com/maxiikk/tabazing/compare/58444ce...HEAD
+[6.20.0]: https://github.com/maxiikk/tabazing/compare/5874644...58444ce
 [6.19.0]: https://github.com/maxiikk/tabazing/compare/50a3861...5874644
 [6.18.2]: https://github.com/maxiikk/tabazing/compare/f099e17...50a3861
 [6.18.1]: https://github.com/maxiikk/tabazing/compare/ceb1587...f099e17
